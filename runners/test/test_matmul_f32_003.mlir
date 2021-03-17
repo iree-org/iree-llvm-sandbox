@@ -11,7 +11,7 @@
 //  CHECK-SAME:       %[[B:[0-9a-zA-Z]+]]: memref<
 //  CHECK-SAME:       %[[C:[0-9a-zA-Z]+]]: memref<
 //       CHECK:   constant 0.0
-//   CHECK-NOT:   alloc
+//   CHECK-NOT:   memref.alloc
 //       CHECK:   linalg.fill(%[[C]], %{{.*}}) : memref<32x64xf32>, f32
 //   CHECK-DAG:   %[[PACKED_A:.*]] = memref.alloc() : memref<8x2x16xf32>
 //   CHECK-DAG:   %[[PACKED_B:.*]] = memref.alloc() : memref<16x8x16x4xf32>

@@ -11,7 +11,7 @@
 //  CHECK-SAME:       %[[B:[0-9a-zA-Z]+]]: memref<
 //  CHECK-SAME:       %[[C:[0-9a-zA-Z]+]]: memref<
 //       CHECK:   constant 0.0
-//   CHECK-NOT:   alloc
+//   CHECK-NOT:   memref.alloc
 //       CHECK:   linalg.fill(%[[C]], %{{.*}}) : memref<32x64xf32>, f32
 //   CHECK-DAG:   %[[PACKED_A:.*]] = memref.alloc() : memref<8x4x16xf32>
 //   CHECK-DAG:   %[[PACKED_B:.*]] = memref.alloc() : memref<8x16x8xf32>
@@ -25,8 +25,8 @@
 //       CHECK:         linalg.copy
 //       CHECK:       scf.for %[[K2:.*]] =
 //       CHECK:         %[[PACKED_IDX_A:.*]] = affine.apply
-//       CHECK:         subview %[[A]][%[[I]], %[[K2]]] [4, 16] [1, 1] : memref<32x128xf32> to memref<4x16xf32
-//       CHECK:         subview %[[PACKED_A]][%[[PACKED_IDX_A]], 0, 0] [1, 4, 16] [1, 1, 1] : memref<8x4x16xf32> to memref<4x16xf32
+//       CHECK:         memref.subview %[[A]][%[[I]], %[[K2]]] [4, 16] [1, 1] : memref<32x128xf32> to memref<4x16xf32
+//       CHECK:         memref.subview %[[PACKED_A]][%[[PACKED_IDX_A]], 0, 0] [1, 4, 16] [1, 1, 1] : memref<8x4x16xf32> to memref<4x16xf32
 //       CHECK:         linalg.copy
 //       CHECK:       %[[SVC:.*]] = memref.subview %[[C]]{{.*}} : memref<32x64xf32> to memref<4x8xf32
 //       CHECK:       %[[VC:.*]] = vector.transfer_read %[[SVC]]{{.*}}{masked = [false, false]} : memref<4x8xf32{{.*}}>, vector<4x8xf32>
