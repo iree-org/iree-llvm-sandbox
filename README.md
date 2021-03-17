@@ -9,7 +9,7 @@ LLVM and MLIR, usually with the aim of upstreaming in some form. The main
 project is at https://github.com/google/iree.
 
 As an experimental project, build greenness, documentation, and polish are
-likely to be minimal, as it insteads prioritizes easy experimentation.
+likely to be minimal, as it instead prioritizes easy experimentation.
 
 # License
 Licensed under the Apache license with LLVM Exceptions. See [LICENSE](LICENSE)
