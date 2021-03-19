@@ -33,12 +33,14 @@ namespace mlir {
 namespace linalg {
 void registerLinalgComprehensiveBufferizePass();
 void registerLinalgTensorCodegenStrategyPass();
+void registerLinalgTiledLoopToSCFPass();
 }  // namespace linalg
 }  // namespace mlir
 
 void registerCustomPasses() {
   registerLinalgComprehensiveBufferizePass();
   registerLinalgTensorCodegenStrategyPass();
+  registerLinalgTiledLoopToSCFPass();
 }
 
 int main(int argc, char **argv) {
