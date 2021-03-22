@@ -15,6 +15,7 @@
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -129,8 +130,9 @@ struct LinalgComprehensiveBufferizePass
   void runOnOperation() override;
 
   void runEnablingTransforms(FuncOp funcOp);
-  void bufferizeFuncOpInternals(FuncOp funcOp, BlockAndValueMapping &bvm,
-                                GlobalCreator &globals);
+  void bufferizeFuncOpInternals(
+      FuncOp funcOp, BlockAndValueMapping &bvm, GlobalCreator &globals,
+      const DenseMap<FuncOp, SmallVector<int64_t>> &tiedResultsMap);
   void inPlaceAnalysisFuncOpInternals(FuncOp funcOp,
                                       const DominanceInfo &domInfo);
 
@@ -370,6 +372,44 @@ static Value lookup(BlockAndValueMapping &bvm, Value key) {
 //===----------------------------------------------------------------------===//
 // Bufferization-specific support.
 //===----------------------------------------------------------------------===//
+
+/// Store all functions of the `moduleOp` in a `worklist` and sort the list
+/// topolocigally such that every function only calls subsequent functions in
+/// the worklist.
+static LogicalResult computeOrderedWorklist(ModuleOp moduleOp,
+                                            SmallVectorImpl<FuncOp> &worklist) {
+  // Compute for every function the set of functions it is called by and the
+  // number of functions it calls.
+  DenseMap<FuncOp, llvm::SmallSet<FuncOp, 4>> calledBy;
+  DenseMap<FuncOp, unsigned> callCounter;
+  moduleOp.walk([&](FuncOp funcOp) {
+    callCounter[funcOp] = 0;
+    funcOp.walk([&](CallOp callOp) {
+      SymbolRefAttr sym =
+          callOp.getCallableForCallee().dyn_cast<SymbolRefAttr>();
+      if (!sym) return;
+      auto callable = dyn_cast_or_null<FuncOp>(
+          SymbolTable::lookupNearestSymbolFrom(callOp, sym));
+      if (calledBy[callable].count(funcOp) == 0) {
+        calledBy[callable].insert(funcOp);
+        callCounter[funcOp]++;
+      }
+    });
+  });
+  // Iteratively remove function operation that do not call any of the functions
+  // remaining in the callCounter map and add them to the worklist.
+  while (!callCounter.empty()) {
+    auto it = llvm::find_if(callCounter,
+                            [](auto entry) { return entry.getSecond() == 0; });
+    if (it == callCounter.end())
+      return moduleOp.emitOpError(
+          "expected callgraph to be free of circular dependencies.");
+    worklist.push_back(it->getFirst());
+    for (auto callee : calledBy[it->getFirst()]) callCounter[callee]--;
+    callCounter.erase(it);
+  }
+  return success();
+}
 
 /// For now, assume any use is a read.
 /// Write-only is a non-problem: will represent with shapes in the future.
@@ -1258,6 +1298,85 @@ static LogicalResult convertScfYieldOp(OpBuilder &b, scf::YieldOp yieldOp,
   return success();
 }
 
+static LogicalResult convertCallOp(
+    OpBuilder &b, CallOpInterface callOp, BlockAndValueMapping &bvm,
+    SmallVector<Operation *> &convertedCallOps,
+    const DenseMap<FuncOp, SmallVector<int64_t>> &tiedResultsMap) {
+  LLVM_DEBUG(DBGS() << "convert: " << *callOp << "\n");
+
+  FuncOp funcOp = getCalledFunction(callOp);
+  if (!funcOp || funcOp.body().empty()) return success();
+
+  // Take a guard before anything else.
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPoint(callOp);
+
+  // 1. Rewrite tensor operands as memrefs. For now, only allow either using:
+  //   a. a memref from the `bvm`, or
+  //   b. the memref fed to a tensor_load, if it does not itself come from a
+  //      tensor_to_memref.
+  SmallVector<Value> newOperands(callOp->getOperands());
+  for (Value &v : newOperands) {
+    if (!v.getType().isa<RankedTensorType>()) continue;
+    if ((v = bvm.lookupOrNull(v))) continue;
+    // TODO: how dangerous is this at this point in spacetime ?
+    if (auto tensorLoadOp = v.getDefiningOp<memref::TensorLoadOp>()) {
+      if (!isa<memref::BufferCastOp>(tensorLoadOp.memref().getDefiningOp())) {
+        v = tensorLoadOp.memref();
+        continue;
+      }
+    }
+    llvm::errs() << "operand: " << v << "\n";
+    llvm_unreachable("Operand does not come from a tensor_load");
+  }
+
+  // 2. Clone the CallOp with its attributes.
+  assert(isa<CallOp>(callOp.getOperation()) && "expected a CallOp");
+  Operation *newCallOp = b.create<CallOp>(
+      callOp.getLoc(), funcOp.sym_name(),
+      funcOp.type().cast<FunctionType>().getResults(), newOperands);
+  newCallOp->setAttrs(callOp.getAttrs());
+
+  // 3. Prepare replacements for the old CallOp results.
+  auto tiedResults = tiedResultsMap.lookup(funcOp);
+  unsigned newCallOpResultIndex = 0;
+  SmallVector<Value> replacements;
+  replacements.reserve(callOp->getNumResults());
+  for (OpResult oldRes : callOp->getResults()) {
+    // If not a ranked tensor, no changes, just replace the new result.
+    if (!oldRes.getType().isa<RankedTensorType>()) {
+      replacements.push_back(newCallOp->getResult(newCallOpResultIndex++));
+      continue;
+    }
+
+    // Disallow memref returns for now as they are generally ambiguous. This
+    // means we must have a non-negative `operandIndex`.
+    // TODO: when such cases occur, add an Alloc hoisting pass and create new
+    // inPlace function arguments.
+    int64_t operandIndex = tiedResults[oldRes.getResultNumber()];
+    if (operandIndex < 0) {
+      callOp->getParentOfType<FuncOp>().dump();
+      llvm_unreachable("Unsupported result memref");
+    }
+
+    // If the old callOp result is a ranked tensor that does not fold on some
+    // input, then there must be an allocated return value.
+    // That value should be deallocated by the caller.
+    // TODO: That value should be lifted out of the callee at the first
+    // enclosing parallel scope. This lifting should be done to (the meet of)
+    // all callers before we can hoist the alloc out of the funcOp.
+    OpBuilder::InsertionGuard g(b);
+    b.setInsertionPointAfter(callOp);
+    replacements.push_back(b.create<memref::TensorLoadOp>(
+        callOp.getLoc(), newOperands[operandIndex]));
+
+    map(bvm, oldRes, newOperands[operandIndex]);
+  }
+  convertedCallOps.push_back(callOp);
+
+  return success();
+}
+
 static LogicalResult convertReturnOp(OpBuilder &b, ReturnOp returnOp,
                                      BlockAndValueMapping &bvm) {
   // Take a guard before anything else.
@@ -1628,105 +1747,6 @@ static void bufferizeFuncOpBoundary(
   LLVM_DEBUG(DBGS() << "End bufferizeFuncOpBoundary:\n" << funcOp);
 }
 
-/// Bufferize a single function call. Fold results that have a nonnegative entry
-/// in `tiedResults` onto the proper operand.
-static void bufferizeOneFunctionCall(CallOpInterface callOp,
-                                     BlockAndValueMapping &bvm,
-                                     const DominanceInfo &domInfo,
-                                     const SmallVector<int64_t> &tiedResults) {
-  FuncOp funcOp = getCalledFunction(callOp);
-  assert(funcOp && !funcOp.body().empty());
-
-  LLVM_DEBUG(DBGS() << "Begin bufferizeOneFunctionCall: " << callOp << "\n");
-
-  // 1. Rewrite tensor operands as memrefs. For now, only allow either using:
-  //   a. a memref from the `bvm`, or
-  //   b. the memref fed to a tensor_load, if it does not itself come from a
-  //      tensor_to_memref.
-  SmallVector<Value> newOperands(callOp->getOperands());
-  for (Value &v : newOperands) {
-    if (!v.getType().isa<RankedTensorType>()) continue;
-    if ((v = bvm.lookupOrNull(v))) continue;
-    // TODO: how dangerous is this at this point in spacetime ?
-    if (auto tensorLoadOp = v.getDefiningOp<memref::TensorLoadOp>()) {
-      if (!isa<memref::BufferCastOp>(tensorLoadOp.memref().getDefiningOp())) {
-        v = tensorLoadOp.memref();
-        continue;
-      }
-    }
-    llvm::errs() << "operand: " << v << "\n";
-    llvm_unreachable("Operand does not come from a tensor_load");
-  }
-
-  // 2. Clone the CallOp with its attributes.
-  assert(isa<CallOp>(callOp.getOperation()) && "expected a CallOp");
-  OpBuilder b(callOp);
-  Operation *newCallOp = b.create<CallOp>(
-      callOp.getLoc(), funcOp.sym_name(),
-      funcOp.type().cast<FunctionType>().getResults(), newOperands);
-  newCallOp->setAttrs(callOp.getAttrs());
-
-  // 3. Prepare replacements for the old CallOp results.
-  unsigned newCallOpResultIndex = 0;
-  SmallVector<Value> replacements;
-  replacements.reserve(callOp->getNumResults());
-  for (OpResult oldRes : callOp->getResults()) {
-    // If not a ranked tensor, no changes, just replace the new result.
-    if (!oldRes.getType().isa<RankedTensorType>()) {
-      replacements.push_back(newCallOp->getResult(newCallOpResultIndex++));
-      continue;
-    }
-
-    // Disallow memref returns for now as they are generally ambiguous. This
-    // means we must have a non-negative `operandIndex`.
-    // TODO: when such cases occur, add an Alloc hoisting pass and create new
-    // inPlace function arguments.
-    int64_t operandIndex = tiedResults[oldRes.getResultNumber()];
-    if (operandIndex < 0) {
-      callOp->getParentOfType<FuncOp>().dump();
-      llvm_unreachable("Unsupported result memref");
-    }
-
-    // If the old callOp result is a ranked tensor that does not fold on some
-    // input, then there must be an allocated return value.
-    // That value should be deallocated by the caller.
-    // TODO: That value should be lifted out of the callee at the first
-    // enclosing parallel scope. This lifting should be done to (the meet of)
-    // all callers before we can hoist the alloc out of the funcOp.
-    OpBuilder::InsertionGuard g(b);
-    b.setInsertionPointAfter(callOp);
-    replacements.push_back(b.create<memref::TensorLoadOp>(
-        callOp.getLoc(), newOperands[operandIndex]));
-  }
-  callOp->replaceAllUsesWith(replacements);
-  callOp->erase();
-
-  LLVM_DEBUG(DBGS() << "Bufferized neighborhood:\n"
-                    << *newCallOp->getParentOp() << "\n");
-  LLVM_DEBUG(DBGS() << "End bufferizeOneFunctionCall.\n");
-}
-
-/// Perform bufferization at each FuncOp boundary and all CallOps within
-/// `moduleOp`.
-static void bufferizeFunctionsAndCalls(ModuleOp moduleOp,
-                                       BlockAndValueMapping &bvm) {
-  // For each function, analyze boundary tensor_load(tensor_to_memref(bbarg))
-  // patterns that result from bufferizing the internals of a FuncOp to rewrite
-  // function arguments / return values.
-  // `tiedResultsMap` is filled with a vector of tied result to operand indices.
-  DominanceInfo domInfo = DominanceInfo(moduleOp);
-  DenseMap<FuncOp, SmallVector<int64_t>> tiedResultsMap;
-  moduleOp.walk(
-      [&](FuncOp funcOp) { bufferizeFuncOpBoundary(funcOp, tiedResultsMap); });
-  // Bufferize calls, a `tiedResultsMap` entry must be present for the callee.
-  moduleOp.walk([&](CallOpInterface callOp) {
-    FuncOp funcOp = getCalledFunction(callOp);
-    if (!funcOp || funcOp.body().empty()) return;
-    bufferizeOneFunctionCall(callOp, bvm, domInfo,
-                             tiedResultsMap.lookup(funcOp));
-  });
-}
-
 //===----------------------------------------------------------------------===//
 // Bufferization passes.
 //===----------------------------------------------------------------------===//
@@ -1741,7 +1761,8 @@ void LinalgComprehensiveBufferizePass::runEnablingTransforms(FuncOp funcOp) {
 }
 
 void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
-    FuncOp funcOp, BlockAndValueMapping &bvm, GlobalCreator &globals) {
+    FuncOp funcOp, BlockAndValueMapping &bvm, GlobalCreator &globals,
+    const DenseMap<FuncOp, SmallVector<int64_t>> &tiedResultsMap) {
   if (!funcOp || funcOp->getNumRegions() == 0 || funcOp.body().empty()) return;
 
   LLVM_DEBUG(DBGS() << "Begin BufferizeFuncOpInternals:\n" << funcOp << "\n");
@@ -1752,6 +1773,7 @@ void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
         [&](Operation *op) { op->removeAttr(kInPlaceResultsAttrName); });
   });
   /// Start by converting `funcOp` arguments.
+  SmallVector<Operation *> convertedCallOps;
   (void)succeeded(convertFuncOp(b, funcOp, bvm));
   funcOp.walk<WalkOrder::PreOrder>([&](Operation *operation) {
     llvm::TypeSwitch<Operation *, void>(operation)
@@ -1785,9 +1807,16 @@ void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
         .Case([&](scf::YieldOp op) {
           (void)succeeded(convertScfYieldOp(b, op, bvm));
         })
+        .Case([&](CallOpInterface op) {
+          (void)succeeded(
+              convertCallOp(b, op, bvm, convertedCallOps, tiedResultsMap));
+        })
         .Case(
             [&](ReturnOp op) { (void)succeeded(convertReturnOp(b, op, bvm)); });
   });
+  // Delete all the converted call operations.
+  for (Operation* op : convertedCallOps) op->erase();
+
   LLVM_DEBUG(DBGS() << "End BufferizeFuncOpInternals:\n" << funcOp << "\n");
 }
 
@@ -1855,20 +1884,24 @@ void LinalgComprehensiveBufferizePass::runOnOperation() {
   // 2. Bufferize destructive update patterns within function boundaries.
   GlobalCreator globals(moduleOp);
   BlockAndValueMapping bvm;
-  moduleOp.walk([&](FuncOp funcOp) {
+  SmallVector<FuncOp> worklist;
+  if (failed(computeOrderedWorklist(moduleOp, worklist)))
+    return signalPassFailure();
+
+  DenseMap<FuncOp, SmallVector<int64_t>> tiedResultsMap;
+  for (auto funcOp : worklist) {
     // Perform bufferization within the funcOp boundary. This produces IR
     // in a form on which `bufferizeFuncOpBoundary` can decide whether return
     // values can fold onto operands.
     inPlaceAnalysisFuncOpInternals(funcOp, domInfo);
-    bufferizeFuncOpInternals(funcOp, bvm, globals);
-  });
+    bufferizeFuncOpInternals(funcOp, bvm, globals, tiedResultsMap);
+    // Fold results on arguments if possible.
+    bufferizeFuncOpBoundary(funcOp, tiedResultsMap);
+  };
 
-  // 3. Perform bufferization at each FuncOp boundary and all CallOps.
-  bufferizeFunctionsAndCalls(moduleOp, bvm);
-
-  // 4. Run cleanup pipeline.
+  // 3. Run cleanup pipeline.
   moduleOp.walk([&](FuncOp funcOp) { runEnablingTransforms(funcOp); });
 
-  // 5. Sanity checks.
+  // 4. Sanity checks.
   postTransformSanityChecks(moduleOp, bvm);
 }
