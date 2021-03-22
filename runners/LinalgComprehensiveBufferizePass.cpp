@@ -10,12 +10,13 @@
 
 #include <type_traits>
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -44,6 +45,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/OperationSupport.h"
+#include "mlir/IR/TypeRange.h"
 #include "mlir/IR/UseDefLists.h"
 #include "mlir/IR/Value.h"
 #include "mlir/IR/Visitors.h"
@@ -352,7 +354,7 @@ static void map(BlockAndValueMapping &bvm, Value key, Value value) {
 /// Wrapper for better debugging.
 static Value lookup(BlockAndValueMapping &bvm, Value key) {
   // TODO: if key comes from bbArg, forward.
-  assert(key.getType().isa<RankedTensorType>());
+  assert(key.getType().isa<TensorType>());
   if (!bvm.lookupOrNull(key)) {
     if (auto bbArg = key.dyn_cast<BlockArgument>()) {
       if (isa<FuncOp>(key.getParentBlock()->getParentOp()))
@@ -461,6 +463,18 @@ static MemRefType getContiguousMemRefType(Type type,
                          layout, addressSpace);
 }
 
+/// Return the contiguous MemRefType (i.e. with canonical/empty layout map) to
+/// which `type` can be bufferized to, assuming `type` is a RankedTensorType.
+static Type getContiguousOrUnrankedMemRefType(Type type,
+                                              ArrayRef<AffineMap> layout = {},
+                                              unsigned addressSpace = 0) {
+  TensorType tensorType = type.cast<TensorType>();
+  if (tensorType.isa<RankedTensorType>())
+    return getContiguousMemRefType(type, layout, addressSpace);
+  assert(layout.empty() && "expected empty layout with UnrankedMemRefType");
+  return UnrankedMemRefType::get(tensorType.getElementType(), addressSpace);
+}
+
 /// Return a MemRefType to which the `tensorType` can be bufferized in a
 /// composable fashion. The layout must be the most dynamic possible and
 /// canonicalize away once bufferization is finished.
@@ -546,6 +560,8 @@ static Value createNewAllocDeallocPairForShapedValue(
   assert(memRefType || shapedValue.getType().dyn_cast<RankedTensorType>());
   // TODO: non-zero address space.
   // TODO: layout information if relevant.
+  // Cannot allocate an unranked memref so just always go for the contiguous
+  // form.
   if (!memRefType) memRefType = getContiguousMemRefType(shapedValue.getType());
 
   if (auto bbArg = shapedValue.dyn_cast<BlockArgument>()) {
@@ -1305,7 +1321,7 @@ static LogicalResult convertCallOp(
   LLVM_DEBUG(DBGS() << "convert: " << *callOp << "\n");
 
   FuncOp funcOp = getCalledFunction(callOp);
-  if (!funcOp || funcOp.body().empty()) return success();
+  if (!funcOp) return success();
 
   // Take a guard before anything else.
   OpBuilder::InsertionGuard g(b);
@@ -1317,7 +1333,7 @@ static LogicalResult convertCallOp(
   //      tensor_to_memref.
   SmallVector<Value> newOperands(callOp->getOperands());
   for (Value &v : newOperands) {
-    if (!v.getType().isa<RankedTensorType>()) continue;
+    if (!v.getType().isa<TensorType>()) continue;
     if ((v = bvm.lookupOrNull(v))) continue;
     // TODO: how dangerous is this at this point in spacetime ?
     if (auto tensorLoadOp = v.getDefiningOp<memref::TensorLoadOp>()) {
@@ -1330,7 +1346,23 @@ static LogicalResult convertCallOp(
     llvm_unreachable("Operand does not come from a tensor_load");
   }
 
-  // 2. Clone the CallOp with its attributes.
+  // 2. CallOp bufferization.
+  // 2.a. if CallOp a FuncOp without a body, only the arguments have been
+  // bufferized. Such a function cannot return a tensor and its results do not
+  // change as a result of bufferization.
+  if (funcOp.body().empty()) {
+    if (llvm::any_of(funcOp.getType().getResults(),
+                     [](Type t) { return t.isa<TensorType>(); })) {
+      funcOp->dump();
+      llvm_unreachable("Unexpected: Function declaration returns a tensor");
+    }
+    callOp->setOperands(newOperands);
+    LLVM_DEBUG(DBGS() << "Map: inplace CallOp " << *callOp << "\n");
+    return success();
+  }
+
+  // 2.b. Clone the CallOp with its attributes, its results may change as a
+  // result of bufferization.
   assert(isa<CallOp>(callOp.getOperation()) && "expected a CallOp");
   Operation *newCallOp = b.create<CallOp>(
       callOp.getLoc(), funcOp.sym_name(),
@@ -1426,6 +1458,7 @@ static LogicalResult convertPadTensorOp(OpBuilder &b, PadTensorOp padTensorOp,
   auto tensorType = padTensorOp.result().getType().cast<RankedTensorType>();
   auto sourceMemRef = lookup(bvm, padTensorOp.source());
   auto sourceMemRefType = sourceMemRef.getType().cast<MemRefType>();
+  // PadTensorOp is on RankedTensorType, convert with getContiguousMemRefType.
   auto memRefType =
       getContiguousMemRefType(tensorType, sourceMemRefType.getAffineMaps(),
                               sourceMemRefType.getMemorySpaceAsInt());
@@ -1523,18 +1556,18 @@ static LogicalResult convertTensorCastOp(OpBuilder &b, tensor::CastOp castOp,
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(castOp);
 
-  auto sourceMemRefType =
-      lookup(bvm, castOp.source()).getType().dyn_cast<MemRefType>();
-  Type memRefType;
-  TensorType tensorType = castOp.getResult().getType().cast<TensorType>();
-  if (tensorType.isa<UnrankedTensorType>()) {
-    memRefType = UnrankedMemRefType::get(
-        tensorType.getElementType(), sourceMemRefType.getMemorySpaceAsInt());
-  } else {
-    memRefType =
-        getContiguousMemRefType(tensorType, sourceMemRefType.getAffineMaps(),
-                                sourceMemRefType.getMemorySpaceAsInt());
-  }
+  Type sourceType = lookup(bvm, castOp.source()).getType();
+  auto rankedMemRefType = sourceType.dyn_cast<MemRefType>();
+  auto unrankedMemRefType = sourceType.dyn_cast<UnrankedMemRefType>();
+  assert(rankedMemRefType || unrankedMemRefType);
+  unsigned memorySpace = rankedMemRefType
+                             ? rankedMemRefType.getMemorySpaceAsInt()
+                             : unrankedMemRefType.getMemorySpaceAsInt();
+  ArrayRef<AffineMap> affineMaps = rankedMemRefType
+                                       ? rankedMemRefType.getAffineMaps()
+                                       : ArrayRef<AffineMap>{};
+  Type memRefType = getContiguousOrUnrankedMemRefType(
+      castOp.getResult().getType(), affineMaps, memorySpace);
   Value res = b.create<memref::CastOp>(castOp.getLoc(), memRefType,
                                        lookup(bvm, castOp.source()));
   map(bvm, castOp.getResult(), res);
@@ -1635,10 +1668,35 @@ static bool hasOnlyTensorToMemRefUses(Value v) {
 /// inPlace-bufferizable information added to `tiedResultsMap`.
 static void bufferizeFuncOpBoundary(
     FuncOp funcOp, DenseMap<FuncOp, SmallVector<int64_t>> &tiedResultsMap) {
-  // Bail on pure declarations.
-  if (funcOp.getBody().empty()) return;
+  // TODO: Generalize the use of contiguous MemRef at the function boundary.
+  auto bufferizeFunctionArgsAndReturns = [](FuncOp funcOp,
+                                            TypeRange returnTypes) {
+    auto argTypes = llvm::to_vector<4>(
+        llvm::map_range(funcOp.getType().getInputs(), [](Type t) -> Type {
+          // TODO: non-zero address space.
+          // TODO: layout information if relevant.
+          if (auto tensorType = t.dyn_cast<TensorType>())
+            return getContiguousOrUnrankedMemRefType(tensorType);
+          return t;
+        }));
+    funcOp.setType(
+        FunctionType::get(funcOp->getContext(), argTypes, returnTypes));
+  };
 
-  LLVM_DEBUG(DBGS() << "Begin bufferizeFuncOpBoundary:\n" << funcOp);
+  LLVM_DEBUG(DBGS() << "Begin bufferizeFuncOpBoundary:\n" << funcOp << "\n");
+
+  // 0. Only convert arguments for function declarations. Such functions cannot
+  // return a tensor and its results do not change as a result of bufferization.
+  if (funcOp.getBody().empty()) {
+    if (llvm::any_of(funcOp.getType().getResults(),
+                     [](Type t) { return t.isa<TensorType>(); })) {
+      funcOp->dump();
+      llvm_unreachable("Unexpected: Function declaration returns a tensor");
+    }
+    bufferizeFunctionArgsAndReturns(funcOp, funcOp.getType().getResults());
+    LLVM_DEBUG(DBGS() << "End bufferizeFuncOpBoundary no fun body: " << funcOp);
+    return;
+  }
 
   // 1. Analyze inplace return patterns and set an entry in `tiedResultsMap`.
   // Assume the last block terminator is the funcOp return.
@@ -1693,17 +1751,7 @@ static void bufferizeFuncOpBoundary(
   returnOp->erase();
 
   // 4. Rewrite the FuncOp type to buffer form.
-  // TODO: Generalize the use of contiguous MemRef at the function boundary.
-  auto argTypes = llvm::to_vector<4>(
-      llvm::map_range(funcOp.getArguments(), [](BlockArgument bbArg) -> Type {
-        // TODO: non-zero address space.
-        // TODO: layout information if relevant.
-        if (auto tensorType = bbArg.getType().dyn_cast<RankedTensorType>())
-          return getContiguousMemRefType(tensorType);
-        return bbArg.getType();
-      }));
-  funcOp.setType(FunctionType::get(funcOp->getContext(), argTypes,
-                                   ValueRange{returnValues}.getTypes()));
+  bufferizeFunctionArgsAndReturns(funcOp, ValueRange{returnValues}.getTypes());
 
   // 5. Rewrite the bbArgs.
   Block &frontBlock = funcOp.body().front();
@@ -1712,7 +1760,7 @@ static void bufferizeFuncOpBoundary(
   // This guarantees the argument order still matches after the rewrite.
   for (unsigned idx = 0; idx < numArgs; ++idx) {
     auto bbArg = frontBlock.getArgument(0);
-    auto tensorType = bbArg.getType().dyn_cast<RankedTensorType>();
+    auto tensorType = bbArg.getType().dyn_cast<TensorType>();
     if (!tensorType) {
       frontBlock.addArgument(bbArg.getType());
       bbArg.replaceAllUsesWith(frontBlock.getArguments().back());
@@ -1720,7 +1768,7 @@ static void bufferizeFuncOpBoundary(
       // TODO: non-zero address space.
       // TODO: layout information if relevant.
       Value memref =
-          frontBlock.addArgument(getContiguousMemRefType(tensorType));
+          frontBlock.addArgument(getContiguousOrUnrankedMemRefType(tensorType));
       OpBuilder b(funcOp->getContext());
       // No InsertionGuard needed here.
       b.setInsertionPointToStart(&frontBlock);
@@ -1815,7 +1863,7 @@ void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
             [&](ReturnOp op) { (void)succeeded(convertReturnOp(b, op, bvm)); });
   });
   // Delete all the converted call operations.
-  for (Operation* op : convertedCallOps) op->erase();
+  for (Operation *op : convertedCallOps) op->erase();
 
   LLVM_DEBUG(DBGS() << "End BufferizeFuncOpInternals:\n" << funcOp << "\n");
 }
