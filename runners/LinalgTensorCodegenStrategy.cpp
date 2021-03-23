@@ -226,7 +226,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
     if (pad)
       tilingOptions = tilingOptions.setPaddingValueComputationFunction(
           getNeutralOfLinalgOp);
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(getFunction().getContext());
     patterns.insert<TileAndDistributePattern>(
         TileAndDistributeOptions{tilingOptions},
         LinalgTransformationFilter(
@@ -289,7 +289,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
       (void)hoistPaddingOnTensors(op, hoistPadding);
   }
   if (vectorizePadding) {
-    OwningRewritePatternList extraVectorizationPatterns;
+    OwningRewritePatternList extraVectorizationPatterns(getFunction().getContext());
     extraVectorizationPatterns.insert<PadTensorOpVectorizationPattern>(
         &getContext());
     (void)applyPatternsAndFoldGreedily(getFunction(),

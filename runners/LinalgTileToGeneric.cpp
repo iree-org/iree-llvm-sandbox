@@ -188,7 +188,7 @@ static TileAndDistributedLinalgOp buildTiledGenericPayload(
   for (Operation *op : llvm::reverse(backwardSlice))
     if (op != tiledRootOp) rewriter.eraseOp(op);
 
-  (void)simplifyRegions(tiledGenericPayload->getRegions());
+  (void)simplifyRegions(rewriter, tiledGenericPayload->getRegions());
 
   return TileAndDistributedLinalgOp{tiledGenericOp, tiledGenericPayload,
                                     tiledRootOpClone};

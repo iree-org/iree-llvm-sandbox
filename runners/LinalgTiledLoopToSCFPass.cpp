@@ -83,7 +83,7 @@ struct LinalgTiledLoopToSCFPass
                            StandardOpsDialect, LinalgDialect>();
     target.addIllegalOp<linalg::TiledLoopOp>();
 
-    OwningRewritePatternList patterns;
+    OwningRewritePatternList patterns(&context);
     patterns.insert<TiledLoopConverter>(&context);
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns))))
