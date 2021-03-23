@@ -238,7 +238,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
     (void)applyPatternsAndFoldGreedily(getFunction(), std::move(patterns));
     // Ensure we drop the marker in the end.
     getFunction().walk([](LinalgOp op) {
-      op.removeAttr(LinalgTransforms::kLinalgTransformMarker);
+      op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
     });
   }
 

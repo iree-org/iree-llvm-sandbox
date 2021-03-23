@@ -1367,7 +1367,7 @@ static LogicalResult convertCallOp(
   Operation *newCallOp = b.create<CallOp>(
       callOp.getLoc(), funcOp.sym_name(),
       funcOp.type().cast<FunctionType>().getResults(), newOperands);
-  newCallOp->setAttrs(callOp.getAttrs());
+  newCallOp->setAttrs(callOp->getAttrs());
 
   // 3. Prepare replacements for the old CallOp results.
   auto tiedResults = tiedResultsMap.lookup(funcOp);
