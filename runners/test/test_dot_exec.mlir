@@ -1,8 +1,7 @@
 // Check that inplace bufferization works with 2-level tiling + innermost padding + hoisting.
-// TODO: set hoist-padding=3 after LLVM integration.
 // RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=8" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=4" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=1" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=2" |\
 // TODO: fix vectorization bug and enable.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
 // RUN: mlir-opt -canonicalize -cse |\
@@ -15,11 +14,10 @@
 // RUN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext |\
 // RUN: tee | FileCheck %s
 
-// TODO: set hoist-padding=3 after LLVM integration.
 // Check that inplace bufferization works with 3-level tiling + innermost padding + hoisting.
 // RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=8" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=4" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=1" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=3" |\
 // TODO: fix vectorization bug and enable.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
 // RUN: mlir-opt -canonicalize -cse |\
