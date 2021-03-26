@@ -1,9 +1,7 @@
-// Check that inplace bufferization works with 3-level tiling + innermost padding + hoisting.
-// RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=8" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=4" |\
-// TODO: hoist-padding does not currently work across the innermost level of tiling, some defs don't dominate use: fix and enable.
+// RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=20" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=10" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=1" |\
-// TODO: fix vectorization bug and enable.
+// TODO: Vectorizing linalg.dot requires 0-D vectors, disable for now.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: tee | FileCheck %s
@@ -15,13 +13,13 @@
 //  CHECK-SAME:       %[[A:[0-9a-zA-Z]+]]: memref<
 //  CHECK-SAME:       %[[B:[0-9a-zA-Z]+]]: memref<
 //  CHECK-SAME:       %[[C:[0-9a-zA-Z]+]]: memref<
-func @init_and_dot(%a: tensor<?xf32>, %b: tensor<?xf32>, %c: tensor<f32>) -> tensor<f32>
+func @init_and_dot(%a: tensor<64xf32>, %b: tensor<64xf32>, %c: tensor<f32>) -> tensor<f32>
 // TODO: activate manually for now.
 // attributes { passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}
 //
-// Manually set up `__inplace_attr__` to allow writing tests in the absence of
+// Manually set up `__writeable_func_buffer_args_attr__` to allow writing tests in the absence of
 // an external function call.
-attributes { __inplace_args_attr__ = ["none", "none", "true"] }
+attributes { __writeable_func_buffer_args_attr__ = ["none", "none", "true"] }
 {
 //       CHECK:   constant 0.0
   %v0 = constant 0.0 : f32
@@ -46,7 +44,7 @@ attributes { __inplace_args_attr__ = ["none", "none", "true"] }
 //       CHECK:         linalg.dot ins(%[[sA]], %[[sB]] : memref<2xf32, #[[$MAP1]]>, memref<2xf32, #[[$MAP1]]>) outs(%[[C]] : memref<f32>)
 //       CHECK:       memref.dealloc %[[PACK_A]] : memref<?x2xf32>
 //       CHECK:       memref.dealloc %[[PACK_B]] : memref<?x2xf32>
-  %e = linalg.dot ins(%a, %b : tensor<?xf32>,tensor<?xf32>)
+  %e = linalg.dot ins(%a, %b : tensor<64xf32>, tensor<64xf32>)
     outs(%d: tensor<f32>) -> tensor<f32>
 
 //   CHECK-NOT:   memref.alloc

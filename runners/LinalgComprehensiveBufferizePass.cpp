@@ -46,6 +46,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/TypeRange.h"
+#include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/UseDefLists.h"
 #include "mlir/IR/Value.h"
 #include "mlir/IR/Visitors.h"
@@ -145,16 +146,6 @@ struct LinalgComprehensiveBufferizePass
 }  // namespace
 
 //===----------------------------------------------------------------------===//
-// Forward declarations.
-//===----------------------------------------------------------------------===//
-
-/// Return a MemRefType to which the `tensorType` can be bufferized in a
-/// composable fashion. The layout must be the most dynamic possible and
-/// canonicalize away once bufferization is finished.
-static MemRefType getDynamicMemRefType(RankedTensorType tensorType,
-                                       unsigned addressSpace = 0);
-
-//===----------------------------------------------------------------------===//
 // Bufferization-specific attribute manipulation.
 //===----------------------------------------------------------------------===//
 
@@ -163,7 +154,8 @@ constexpr StringLiteral kInPlaceResultsAttrName = "__inplace_results_attr__";
 
 /// Attribute marker to specify func/call arguments that can be written inPlace
 /// from the perspective of the caller.
-constexpr StringLiteral kInPlaceArgsAttrName = "__inplace_args_attr__";
+constexpr StringLiteral kWriteableFuncBufferArgsAttrName =
+    "__writeable_func_buffer_args_attr__";
 
 // default clause
 enum class InPlaceSpec {
@@ -207,8 +199,9 @@ static OpResult getTiedOpResult(BlockArgument &bbArg) {
   if (auto forOp = dyn_cast<scf::ForOp>(op))
     return forOp->getResult(bbArg.getArgNumber() - /*#iv=*/1);
   if (auto funcOp = dyn_cast<FuncOp>(op)) return OpResult();
+  op->getParentOfType<FuncOp>()->dump();
   op->dump();
-  llvm_unreachable("Unsupported op");
+  llvm_unreachable("Unsupported getTiedOpResult(BlockArgument) op");
 }
 
 /// Factor out the logic that matches tied OpResult to OpOperand.
@@ -235,8 +228,9 @@ static OpResult getTiedOpResult(OpOperand &opOperand) {
   if (op->hasTrait<mlir::OpTrait::IsTerminator>()) return OpResult();
   if (isa<CallOpInterface, vector::PrintOp, vector::ContractionOp>(op))
     return OpResult();
+  op->getParentOfType<FuncOp>()->dump();
   op->dump();
-  llvm_unreachable("Unsupported op");
+  llvm_unreachable("Unsupported getTiedOpResult(OpOperand) op");
 }
 
 namespace detail {
@@ -248,7 +242,8 @@ static void setInPlaceFuncOrCallArgument(
 
   unsigned numArgs =
       funcOp ? funcOp.getNumArguments() : callOp->getNumOperands();
-  auto attr = op->getAttr(kInPlaceArgsAttrName).dyn_cast_or_null<ArrayAttr>();
+  auto attr = op->getAttr(kWriteableFuncBufferArgsAttrName)
+                  .dyn_cast_or_null<ArrayAttr>();
   SmallVector<StringRef> inPlaceVector =
       attr ? SmallVector<StringRef>(
                  llvm::to_vector<4>(attr.getAsValueRange<StringAttr>()))
@@ -256,7 +251,7 @@ static void setInPlaceFuncOrCallArgument(
   LLVM_DEBUG(DBGS() << "Set inPlace=" << stringify(inPlace) << ": " << *op
                     << " @idx=" << idx << "\n");
   inPlaceVector[idx] = stringify(inPlace);
-  op->setAttr(kInPlaceArgsAttrName,
+  op->setAttr(kWriteableFuncBufferArgsAttrName,
               OpBuilder(op).getStrArrayAttr(inPlaceVector));
 }
 }  // namespace detail
@@ -311,11 +306,12 @@ static InPlaceSpec getInPlace(OpResult opResult) {
 }
 
 namespace detail {
-static InPlaceSpec getInPlaceFuncOrCallArgName(Operation *op, unsigned idx) {
+static InPlaceSpec getInPlaceFuncOrCallBufferArg(Operation *op, unsigned idx) {
   auto funcOp = dyn_cast<FuncOp>(op);
   auto callOp = dyn_cast<CallOpInterface>(op);
   assert((funcOp || callOp) && "must be func or call");
-  auto attr = op->getAttr(kInPlaceArgsAttrName).dyn_cast_or_null<ArrayAttr>();
+  auto attr = op->getAttr(kWriteableFuncBufferArgsAttrName)
+                  .dyn_cast_or_null<ArrayAttr>();
   if (!attr) return InPlaceSpec::None;
   // Must return a proper value.
   return *symbolize(*(attr.getAsValueRange<StringAttr>().begin() + idx));
@@ -325,12 +321,12 @@ static InPlaceSpec getInPlaceFuncOrCallArgName(Operation *op, unsigned idx) {
 /// Get inPlace information depending on the owner of `bbArg`:
 ///   1. if not a FuncOp, get the information from `kInPlaceResultsAttrName`
 ///      for the tied op result.
-///   2. otherwise, get the information from `kInPlaceArgsAttrName`
+///   2. otherwise, get the information from `kWriteableFuncBufferArgsAttrName`
 static InPlaceSpec getInPlace(BlockArgument bbArg) {
   if (!isa<FuncOp>(bbArg.getOwner()->getParentOp()))
     return getInPlace(getTiedOpResult(bbArg));
-  return ::detail::getInPlaceFuncOrCallArgName(bbArg.getOwner()->getParentOp(),
-                                               bbArg.getArgNumber());
+  return ::detail::getInPlaceFuncOrCallBufferArg(
+      bbArg.getOwner()->getParentOp(), bbArg.getArgNumber());
 }
 
 //===----------------------------------------------------------------------===//
@@ -422,7 +418,12 @@ bool hasInterferingTensorRead(OpOperand &opOperand,
   if (!opOperand.get().getType().isa<RankedTensorType>()) return false;
   for (auto &use : opOperand.get().getUses()) {
     Operation *user = use.getOwner();
+    // If properly dominate, there  is a clear sequence point and we can dismiss
+    // read.
     if (domInfo.properlyDominates(user, opOperand.getOwner())) continue;
+    // Otherwise, we need to analyze self-dependencies, for now just let it go.
+    // TODO: proper self-dependence analysis.
+    if (domInfo.dominates(user, opOperand.getOwner())) continue;
     if (user == opOperand.getOwner() &&
         use.getOperandNumber() == opOperand.getOperandNumber())
       continue;
@@ -439,13 +440,21 @@ bool hasInterferingTensorRead(OpOperand &opOperand,
 /// 1. `opOperand` is produced by a constant op. For now this is assumed to be
 ///    bufferized to a GlobalMemrefOp that cannot be written. Generalize in the
 ///    future.
-/// 2.`opOperand` has an interfering tensor rerad.
+/// 2.`opOperand` is a BlockArgument of a FuncOp that is not known to be
+///    bufferizable inplace.
+/// 3.`opOperand` has an interfering tensor read.
 /// Return true otherwise.
 bool isBufferizableInPlace(OpOperand &opOperand, const DominanceInfo &domInfo) {
   // Constant tensors are deemed not bufferizable for now.
   if (auto constantOp =
           dyn_cast_or_null<ConstantOp>(opOperand.get().getDefiningOp()))
     return !constantOp.getResult().getType().isa<RankedTensorType>();
+  // Function argument that may not be written to needs to be copied by user(s).
+  // TODO: better propagate the fact that we want a single clone inside the
+  // function. Atm every user that wants to write inplace will create its own
+  // alloc, irrespective of whether or not interfering reads occur.
+  if (auto bbArg = opOperand.get().dyn_cast<BlockArgument>())
+    return getInPlace(bbArg) == InPlaceSpec::True;
   return !hasInterferingTensorRead(opOperand, domInfo);
 }
 
@@ -453,33 +462,37 @@ bool isBufferizableInPlace(OpOperand &opOperand, const DominanceInfo &domInfo) {
 // Bufferization-specific MemRefType support.
 //===----------------------------------------------------------------------===//
 
-/// Return the contiguous MemRefType (i.e. with canonical/empty layout map) to
-/// which `type` can be bufferized to, assuming `type` is a RankedTensorType.
-static MemRefType getContiguousMemRefType(Type type,
+/// Return a contiguous MemRefType (i.e. with canonical/empty layout map) with
+/// the same shape as `shapedType` and specified `layout` and `addressSpace`.
+static MemRefType getContiguousMemRefType(ShapedType shapedType,
                                           ArrayRef<AffineMap> layout = {},
                                           unsigned addressSpace = 0) {
-  RankedTensorType tensorType = type.cast<RankedTensorType>();
-  return MemRefType::get(tensorType.getShape(), tensorType.getElementType(),
+  if (RankedTensorType tensorType = shapedType.dyn_cast<RankedTensorType>())
+    return MemRefType::get(tensorType.getShape(), tensorType.getElementType(),
+                           layout, addressSpace);
+  MemRefType memrefType = shapedType.cast<MemRefType>();
+  return MemRefType::get(memrefType.getShape(), memrefType.getElementType(),
                          layout, addressSpace);
 }
 
-/// Return the contiguous MemRefType (i.e. with canonical/empty layout map) to
-/// which `type` can be bufferized to, assuming `type` is a RankedTensorType.
+/// Return a contiguous MemRefType (i.e. with canonical/empty layout map) with
+/// the same shape as `shapedType` and specified `layout` and `addressSpace` or
+/// an UnrankedMemRefType otherwise.
 static Type getContiguousOrUnrankedMemRefType(Type type,
                                               ArrayRef<AffineMap> layout = {},
                                               unsigned addressSpace = 0) {
-  TensorType tensorType = type.cast<TensorType>();
-  if (tensorType.isa<RankedTensorType>())
-    return getContiguousMemRefType(type, layout, addressSpace);
+  if (type.isa<RankedTensorType, MemRefType>())
+    return getContiguousMemRefType(type.cast<ShapedType>(), layout,
+                                   addressSpace);
   assert(layout.empty() && "expected empty layout with UnrankedMemRefType");
-  return UnrankedMemRefType::get(tensorType.getElementType(), addressSpace);
+  return UnrankedMemRefType::get(getElementTypeOrSelf(type), addressSpace);
 }
 
 /// Return a MemRefType to which the `tensorType` can be bufferized in a
 /// composable fashion. The layout must be the most dynamic possible and
 /// canonicalize away once bufferization is finished.
 static MemRefType getDynamicMemRefType(RankedTensorType tensorType,
-                                       unsigned addressSpace) {
+                                       unsigned addressSpace = 0) {
   // TODO: address space decisions to connect with the actual alloc.
   int64_t dynamicOffset = ShapedType::kDynamicStrideOrOffset;
   SmallVector<int64_t> dynamicStrides(tensorType.getRank(),
@@ -556,13 +569,15 @@ static Value createNewAllocDeallocPairForShapedValue(
   // Take a guard before anything else.
   OpBuilder::InsertionGuard g(b);
 
-  MemRefType memRefType = shapedValue.getType().dyn_cast<MemRefType>();
-  assert(memRefType || shapedValue.getType().dyn_cast<RankedTensorType>());
   // TODO: non-zero address space.
   // TODO: layout information if relevant.
   // Cannot allocate an unranked memref so just always go for the contiguous
   // form.
-  if (!memRefType) memRefType = getContiguousMemRefType(shapedValue.getType());
+  MemRefType allocMemRefType =
+      getContiguousMemRefType(shapedValue.getType().cast<ShapedType>());
+  assert(shapedValue.getType().isa<ShapedType>());
+  MemRefType memRefType = shapedValue.getType().dyn_cast<MemRefType>();
+  memRefType = memRefType ? memRefType : allocMemRefType;
 
   if (auto bbArg = shapedValue.dyn_cast<BlockArgument>()) {
     b.setInsertionPointToStart(bbArg.getOwner());
@@ -580,7 +595,10 @@ static Value createNewAllocDeallocPairForShapedValue(
         dynOperands.push_back(
             b.create<memref::DimOp>(loc, shapedValue, dim.index()));
   }
-  Value allocated = b.create<memref::AllocOp>(loc, memRefType, dynOperands);
+  Value allocated =
+      b.create<memref::AllocOp>(loc, allocMemRefType, dynOperands);
+  if (memRefType != allocMemRefType)
+    allocated = b.create<memref::CastOp>(loc, memRefType, allocated);
   b.setInsertionPoint(allocated.getParentBlock()->getTerminator());
   b.create<memref::DeallocOp>(loc, allocated);
   return allocated;
@@ -680,12 +698,6 @@ static LogicalResult detectOverWritePattern(
   if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
 
   ArrayRef<Operation *> tmpSliceRef = sliceRef;
-  if (!candidate.hasOneUse()) {
-    LLVM_DEBUG(
-        DBGS()
-        << "FAILURE: partial overwrite pattern -> bbArg needs exactly 1 use\n");
-    return failure();
-  }
   TerminatorOp terminatorOp;
   // Match terminator and update tmpSliceRef.
   if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
@@ -754,13 +766,6 @@ static LogicalResult detectLinalgReturn(
     return failure();
   }
 
-  // bbArg must have a single use.
-  if (!candidate.hasOneUse()) {
-    LLVM_DEBUG(
-        DBGS() << "FAILURE: linalg return pattern -> bbArg with != 1 use\n");
-    return failure();
-  }
-
   LinalgOp linalgOp;
   // Match linalgOp with a single output tensor for now and update tmpSliceRef.
   if (succeeded(matchAndDropBack(tmpSliceRef, linalgOp))) {
@@ -796,7 +801,8 @@ static LogicalResult detectLinalgReturn(
   }
 
   if (!linalgOp && !forOp) {
-    LLVM_DEBUG(DBGS() << "FAILURE: linalg return pattern -> ASFDASFA\n");
+    LLVM_DEBUG(
+        DBGS() << "FAILURE: linalg return pattern null ForOp and LinalgOp\n");
     return failure();
   }
 
@@ -905,7 +911,10 @@ static LogicalResult detectDestructiveUpdatePattern(
 
 namespace detail {
 // TODO: generalize and refactor.
-// TODO: do we need more safeguards for setting ops inPlace ?
+// TODO: do we need more safeguards for setting ops inPlace ? In particular, do
+// we want to explicitly disallow subtensor/subtensor_insert and
+// vector.transfer_read/write that should have been already captured in
+// destructive update patterns ?
 // The following uses internal knowledge of the position of tied operand /
 // results. A proper TieOperandInterface would be much better.
 static void propagateInPlace(const SmallVector<OpOperand *> &initalWorklist,
@@ -916,13 +925,15 @@ static void propagateInPlace(const SmallVector<OpOperand *> &initalWorklist,
                       << *operand->getOwner() << "\n");
   SmallVector<OpOperand *> worklist(initalWorklist);
   for (unsigned idx = 0; idx < worklist.size(); ++idx) {
+    // TODO: bail on subtensor/subtensor_insert and vector.transfer_read/write
+    // that should have been already captured in destructive update patterns?
     OpOperand &operand = *worklist[idx];
     LLVM_DEBUG(DBGS() << "WL item: " << *operand.getOwner() << "\n");
-    // If the owner turns out to be a CallOp without `kInPlaceArgsAttrName`
-    // this will be a noop.
+    // If the owner turns out to be a CallOp without
+    // `kWriteableFuncBufferArgsAttrName` this will be a noop.
     if (operand.get().getType().isa<RankedTensorType>() &&
         isBufferizableInPlace(operand, domInfo)) {
-      LLVM_DEBUG(DBGS() << "no interfering read\n");
+      LLVM_DEBUG(DBGS() << "bufferizable inplace\n");
       setInPlaceOpResult(getTiedOpResult(operand));
     }
     LLVM_DEBUG(DBGS() << "propagatedInPlace: " << *operand.getOwner() << "\n");
@@ -1251,6 +1262,8 @@ static LogicalResult convertFuncOp(OpBuilder &b, FuncOp funcOp,
   for (auto bbArg : funcOp.getArguments()) {
     auto rankedTensorType = bbArg.getType().dyn_cast<RankedTensorType>();
     if (!rankedTensorType) continue;
+    // Cast the tensor to the most dynamic buffer possible. Further
+    // canonicalizations will clean up.
     MemRefType memRefType = getDynamicMemRefType(rankedTensorType);
     Value tensorToMemref =
         b.create<memref::BufferCastOp>(funcOp.getLoc(), memRefType, bbArg);
@@ -1446,7 +1459,7 @@ static LogicalResult convertInitTensorOp(OpBuilder &b,
 
 // This implementation is a shortcut that assumes the tile size divides the
 // problem size and is generally incorrect.
-// TODO: revisit this.
+// TODO: revisit this (e.g. if needs_padding then linalg.fill; linalg.copy).
 static LogicalResult convertPadTensorOp(OpBuilder &b, PadTensorOp padTensorOp,
                                         BlockAndValueMapping &bvm) {
   LLVM_DEBUG(DBGS() << "convert: " << *padTensorOp << "\n");
@@ -1886,7 +1899,7 @@ static void postTransformSanityChecks(ModuleOp moduleOp,
                                       BlockAndValueMapping &bvm) {
   moduleOp.walk([&](Operation *op) {
     op->removeAttr(kInPlaceResultsAttrName);
-    op->removeAttr(kInPlaceArgsAttrName);
+    op->removeAttr(kWriteableFuncBufferArgsAttrName);
 
     assert(!isa<memref::BufferCastOp>(op));
     if (auto tensorLoadOp = dyn_cast<memref::TensorLoadOp>(op)) {
