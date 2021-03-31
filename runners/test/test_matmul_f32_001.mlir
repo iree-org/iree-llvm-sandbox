@@ -16,16 +16,16 @@
 //       CHECK:   scf.for %[[I:.*]] =
 //       CHECK:     scf.for %[[J:.*]] =
 //       CHECK:       %[[SVC:.*]] = memref.subview %[[C]]{{.*}} : memref<32x64xf32> to memref<4x8xf32
-//       CHECK:       %[[VC:.*]] = vector.transfer_read %[[SVC]]{{.*}}{masked = [false, false]} : memref<4x8xf32{{.*}}>, vector<4x8xf32>
+//       CHECK:       %[[VC:.*]] = vector.transfer_read %[[SVC]]{{.*}}{in_bounds = [true, true]} : memref<4x8xf32{{.*}}>, vector<4x8xf32>
 //       CHECK:       scf.for %[[K:.*]] = {{.*}} iter_args(%{{.*}} = %[[VC]]) -> (vector<4x8xf32>)
 //       CHECK:         %[[SVA:.*]] = memref.subview %[[A]][%[[I]], %[[K]]] [4, 16] [1, 1] : memref<32x128xf32> to memref<4x16xf32
 //       CHECK:         %[[SVB:.*]] = memref.subview %[[B]][%[[K]], %[[J]]] [16, 8] [1, 1] : memref<128x64xf32> to memref<16x8xf32
-//       CHECK:         vector.transfer_read %[[SVA]]{{.*}} {masked = [false, false]} : memref<4x16xf32{{.*}}>, vector<4x16xf32>
-//       CHECK:         vector.transfer_read %[[SVB]]{{.*}}, %cst {masked = [false, false]} : memref<16x8xf32{{.*}}>, vector<16x8xf32>
+//       CHECK:         vector.transfer_read %[[SVA]]{{.*}} {in_bounds = [true, true]} : memref<4x16xf32{{.*}}>, vector<4x16xf32>
+//       CHECK:         vector.transfer_read %[[SVB]]{{.*}}, %cst {in_bounds = [true, true]} : memref<16x8xf32{{.*}}>, vector<16x8xf32>
 //       CHECK:         vector.contract
 //       CHECK:         scf.yield %{{.*}} : vector<4x8xf32>
 //       CHECK:       }
-//       CHECK:       vector.transfer_write %{{.*}}, %[[SVC]]{{.*}}{masked = [false, false]} : vector<4x8xf32>, memref<4x8xf32
+//       CHECK:       vector.transfer_write %{{.*}}, %[[SVC]]{{.*}}{in_bounds = [true, true]} : vector<4x8xf32>, memref<4x8xf32
 //   CHECK-NOT:       copy
 //       CHECK:     }
 //       CHECK:   }

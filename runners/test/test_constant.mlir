@@ -27,7 +27,7 @@ func @main() {
   %rhs = constant dense<[[3.]]> : tensor<1x1xf32>
   %accum = constant dense<[[1.]]> : tensor<1x1xf32>
 
-  //     CHECK:   vector.transfer_read %[[A]]{{.*}} {masked = [false, false]} : memref<1x1xf32>, vector<1x1xf32>
+  //     CHECK:   vector.transfer_read %[[A]]{{.*}} {in_bounds = [true, true]} : memref<1x1xf32>, vector<1x1xf32>
   %result_vector_0 = vector.transfer_read %lhs[%c0, %c0], %v0 : tensor<1x1xf32>, vector<1x1xf32>
 
   // EXEC: ( ( 2 ) )
@@ -38,7 +38,7 @@ func @main() {
   %result = linalg.matmul ins(%lhs, %rhs : tensor<1x1xf32>, tensor<1x1xf32>)
     outs(%accum: tensor<1x1xf32>) -> tensor<1x1xf32>
 
-  //     CHECK:   vector.transfer_read %[[MUTABLE_C]]{{.*}} {masked = [false, false]} : memref<1x1xf32>, vector<1x1xf32>
+  //     CHECK:   vector.transfer_read %[[MUTABLE_C]]{{.*}} {in_bounds = [true, true]} : memref<1x1xf32>, vector<1x1xf32>
   %result_vector_1 = vector.transfer_read %result[%c0, %c0], %v0 : tensor<1x1xf32>, vector<1x1xf32>
 
   // EXEC: ( ( 7 ) )
