@@ -23,10 +23,11 @@ set(LIBS
 )
 
 add_llvm_executable(linalg-opt
-  mlir-opt.cpp
-  LinalgTileToGeneric.cpp
+  mlir-proto-opt.cpp
   LinalgComprehensiveBufferizePass.cpp
   LinalgTensorCodegenStrategy.cpp
+  LinalgTiledLoopToSCFPass.cpp
+  LinalgTileToGeneric.cpp
 )
 target_link_libraries(linalg-opt PRIVATE ${LIBS})
 mlir_check_all_link_libraries(linalg-opt)
