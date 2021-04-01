@@ -44,12 +44,13 @@ Optional<TileAndDistributedLinalgOp> tileAndDistributeLinalgOp(
 
 struct TileAndDistributePattern : public RewritePattern {
   /// MatchAnyOpTag-based constructor with a mandatory `filter`.
-  TileAndDistributePattern(TileAndDistributeOptions options,
+  TileAndDistributePattern(MLIRContext *context,
+                           TileAndDistributeOptions options,
                            LinalgTransformationFilter filter,
                            PatternBenefit benefit = 1);
   /// Name-based constructor with an optional `filter`.
   TileAndDistributePattern(
-      TileAndDistributeOptions options, StringRef opName, MLIRContext *context,
+      MLIRContext *context, TileAndDistributeOptions options, StringRef opName,
       LinalgTransformationFilter filter = LinalgTransformationFilter(),
       PatternBenefit benefit = 1);
   LogicalResult matchAndRewrite(Operation *op,

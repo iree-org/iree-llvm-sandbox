@@ -59,16 +59,16 @@ constexpr StringLiteral kTiledGenericPayloadYieldOpName =
     "tiled_generic_payload_yield";
 
 mlir::linalg::TileAndDistributePattern::TileAndDistributePattern(
-    TileAndDistributeOptions options, LinalgTransformationFilter filter,
-    PatternBenefit benefit)
-    : RewritePattern(benefit, MatchAnyOpTypeTag()),
+    MLIRContext *context, TileAndDistributeOptions options,
+    LinalgTransformationFilter filter, PatternBenefit benefit)
+    : RewritePattern(MatchAnyOpTypeTag(), benefit, context),
       filter(filter),
       options(options) {}
 
 mlir::linalg::TileAndDistributePattern::TileAndDistributePattern(
-    TileAndDistributeOptions options, StringRef opName, MLIRContext *context,
+    MLIRContext *context, TileAndDistributeOptions options, StringRef opName,
     LinalgTransformationFilter filter, PatternBenefit benefit)
-    : RewritePattern(opName, {}, benefit, context),
+    : RewritePattern(opName, benefit, context),
       filter(filter),
       options(options) {}
 

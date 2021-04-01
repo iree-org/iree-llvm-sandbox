@@ -228,6 +228,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
           getNeutralOfLinalgOp);
     OwningRewritePatternList patterns(getFunction().getContext());
     patterns.insert<TileAndDistributePattern>(
+        getFunction().getContext(),
         TileAndDistributeOptions{tilingOptions},
         LinalgTransformationFilter(
             ArrayRef<Identifier>{},

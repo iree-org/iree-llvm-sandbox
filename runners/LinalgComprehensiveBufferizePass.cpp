@@ -1246,7 +1246,7 @@ static LogicalResult convertTransferOp(OpBuilder &b,
   b.create<vector::TransferWriteOp>(
       loc, writeOp.vector(), newInputBuffer, writeOp.indices(),
       writeOp.permutation_map(),
-      writeOp.masked() ? *writeOp.masked() : ArrayAttr());
+      writeOp.in_bounds() ? *writeOp.in_bounds() : ArrayAttr());
 
   map(bvm, op->getResult(0), newInputBuffer);
 
