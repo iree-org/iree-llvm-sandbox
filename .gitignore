@@ -24,3 +24,7 @@
 compile_commands.json
 .cache/clangd
 .clangd/
+
+# build dirs
+build/
+./runners/build/
