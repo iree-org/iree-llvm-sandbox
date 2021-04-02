@@ -35,12 +35,14 @@ void registerLinalgComprehensiveBufferizePass();
 void registerLinalgTensorCodegenStrategyPass();
 void registerLinalgTiledLoopToSCFPass();
 }  // namespace linalg
+void registerConvertToGPUPass();
 }  // namespace mlir
 
 void registerCustomPasses() {
   registerLinalgComprehensiveBufferizePass();
   registerLinalgTensorCodegenStrategyPass();
   registerLinalgTiledLoopToSCFPass();
+  registerConvertToGPUPass();
 }
 
 int main(int argc, char **argv) {
