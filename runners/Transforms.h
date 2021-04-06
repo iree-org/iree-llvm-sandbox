@@ -9,59 +9,19 @@
 #ifndef IREE_EXPERIMENTAL_RUNNERS_TRANSFORMS_H_
 #define IREE_EXPERIMENTAL_RUNNERS_TRANSFORMS_H_
 
-#include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/SmallSet.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
-#include "mlir/Dialect/Linalg/Utils/Utils.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
-#include "mlir/IR/Identifier.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/Bufferize.h"
 
 namespace mlir {
-class BufferizeTypeConverter;
-class FrozenRewritePatternSet;
-
 namespace linalg {
 
-/// Specific pass and options to target a tiled and distributed nested linalg
-/// abstraction.
+/// Options for tile-n-distribute via `linalg.tiled_loop`.
 struct TileAndDistributeOptions {
   LinalgTilingOptions tilingOptions;
 };
 
-struct TileAndDistributedLinalgOp {
-  Operation *tiledGenericOp;
-  Operation *tiledInnerGenericOp;
-  LinalgOp tiledLinalgOp;
-  TileAndDistributedLinalgOp &operator=(const TileAndDistributedLinalgOp &) =
-      default;
-};
-
-Optional<TileAndDistributedLinalgOp> tileAndDistributeLinalgOp(
-    PatternRewriter &rewriter, LinalgOp op,
-    const TileAndDistributeOptions &options);
-
-struct TileAndDistributePattern : public RewritePattern {
-  /// MatchAnyOpTag-based constructor with a mandatory `filter`.
-  TileAndDistributePattern(MLIRContext *context,
-                           TileAndDistributeOptions options,
-                           LinalgTransformationFilter filter,
-                           PatternBenefit benefit = 1);
-  /// Name-based constructor with an optional `filter`.
-  TileAndDistributePattern(
-      MLIRContext *context, TileAndDistributeOptions options, StringRef opName,
-      LinalgTransformationFilter filter = LinalgTransformationFilter(),
-      PatternBenefit benefit = 1);
-  LogicalResult matchAndRewrite(Operation *op,
-                                PatternRewriter &rewriter) const override;
-
- private:
-  /// LinalgTransformMarker handles special attribute manipulations.
-  LinalgTransformationFilter filter;
-  /// Options.
-  TileAndDistributeOptions options;
-};
+void populateTileAndDistributePattern(OwningRewritePatternList &patterns,
+                                      const TileAndDistributeOptions &opts,
+                                      const LinalgTransformationFilter &filter);
 
 }  // namespace linalg
 }  // namespace mlir

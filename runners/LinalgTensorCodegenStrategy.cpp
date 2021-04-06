@@ -227,9 +227,9 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
       tilingOptions = tilingOptions.setPaddingValueComputationFunction(
           getNeutralOfLinalgOp);
     OwningRewritePatternList patterns(getFunction().getContext());
-    patterns.insert<TileAndDistributePattern>(
-        getFunction().getContext(),
-        TileAndDistributeOptions{tilingOptions},
+
+    populateTileAndDistributePattern(
+        patterns, TileAndDistributeOptions{tilingOptions},
         LinalgTransformationFilter(
             ArrayRef<Identifier>{},
             {Identifier::get("distributed", getFunction().getContext())})
