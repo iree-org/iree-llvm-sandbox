@@ -2,7 +2,7 @@
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
-// RUN: mlir-proto-opt -finalizing-bufferize -canonicalize -convert-to-gpu="gpu-func-name=init_and_matmul" |\
+// RUN: mlir-proto-opt -canonicalize -convert-to-gpu="gpu-func-name=init_and_matmul" |\
 
 // RUN: mlir-opt -canonicalize -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
 // RUN: mlir-opt -canonicalize -convert-scf-to-std |\

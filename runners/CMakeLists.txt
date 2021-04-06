@@ -5,6 +5,7 @@ set(LIBS
 )
 
 add_llvm_executable(mlir-proto-opt
+  ConvertToGPUDialect.cpp
   mlir-proto-opt.cpp
   LinalgComprehensiveBufferizePass.cpp
   LinalgTensorCodegenStrategy.cpp
