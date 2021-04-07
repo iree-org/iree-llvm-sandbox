@@ -222,6 +222,8 @@ static OpResult getTiedOpResult(OpOperand &opOperand) {
     return linalgOp->getResult(opOperand.getOperandNumber() -
                                linalgOp.getNumInputs());
   }
+  if (auto tiledLoopOp = dyn_cast<TiledLoopOp>(op))
+    return tiledLoopOp.getTiedOpResult(opOperand);
   if (isa<SubTensorOp, SubTensorInsertOp, tensor::CastOp,
           vector::TransferReadOp, vector::TransferWriteOp>(op))
     return op->getResult(0);
@@ -816,6 +818,40 @@ static LogicalResult detectLinalgReturn(
   return success();
 }
 
+template <typename ContainerOp, typename TerminatorOp>
+static LogicalResult detectTiledLoopReturn(
+    Operation *parentOp, BlockArgument candidate,
+    ArrayRef<Operation *> &sliceRef, SmallVector<OpResult> &inPlaceOpResults) {
+  if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
+
+  ArrayRef<Operation *> tmpSliceRef = sliceRef;
+
+  TerminatorOp terminatorOp;
+  // Match returnOp and update tmpSliceRef.
+  if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
+    LLVM_DEBUG(DBGS() << "FAILURE: tiled loop return pattern -> slice must end "
+                         "with a known terminator\n");
+    return failure();
+  }
+
+  TiledLoopOp tiledLoop;
+  // Match tiled loop  with a single output tensor for now and update
+  // tmpSliceRef.
+  if (failed(matchAndDropBack(tmpSliceRef, tiledLoop))) {
+    LLVM_DEBUG(DBGS() << "FAILURE: tiled loop return pattern -> slice must end "
+                         "with a tiled loop\n");
+    return failure();
+  }
+
+  // Commit what has been detected.
+  // TODO: support more than single result.
+  if (tiledLoop) inPlaceOpResults.push_back(tiledLoop->getResult(0));
+  tmpSliceRef = sliceRef;
+  LLVM_DEBUG(DBGS() << "SUCCESS: tiled loop return pattern\n");
+
+  return success();
+}
+
 /// In the case of an scf::ForOp, we look for:
 ///   `candidate -> subtensor -> vector.transfer_read(*) -> ...
 ///      vector.transfer_write(*) -> subtensor_insert -> yield`.
@@ -1009,6 +1045,8 @@ static void destructiveUpdateAnalysis(Block *block,
         failed(detectDestructiveUpdatePattern<FuncOp, ReturnOp>(
             parentOp, candidate, sliceRef, inPlaceOpResults)) &&
         failed(detectOverWritePattern<FuncOp, ReturnOp>(
+            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
+        failed(detectTiledLoopReturn<FuncOp, ReturnOp>(
             parentOp, candidate, sliceRef, inPlaceOpResults)) &&
         failed(detectLinalgReturn<FuncOp, ReturnOp>(
             parentOp, candidate, sliceRef, inPlaceOpResults))) {
@@ -1301,6 +1339,66 @@ static LogicalResult convertScfForOp(OpBuilder &b, scf::ForOp forOp,
     map(bvm, bbArg, operandBuffer);
     map(bvm, opResult, operandBuffer);
   }
+
+  return success();
+}
+
+/// TiledLoopOp maps `inputs` args to the corresponding buffers and
+/// allocates the buffers for the `outputs` args depending on the in-place
+/// analysis. The `outputs` args will contain both tensors and memrefs after
+/// this conversion. The terminator is updated to yield the operand. This
+/// simple forwarding pattern is canonicalized away later.
+static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
+                                        BlockAndValueMapping &bvm) {
+  LLVM_DEBUG(DBGS() << "convert: " << *tiledLoop << "\n");
+
+  // Allocate output buffers if needed, forward output tensor args to the
+  // terminator.
+  Operation *yieldOp = tiledLoop.getBody()->getTerminator();
+  for (auto it : llvm::zip(tiledLoop.outputs(), tiledLoop->getResults(),
+                           yieldOp->getOpOperands())) {
+    Value outputTensor = std::get<0>(it);
+    if (!outputTensor.getType().isa<RankedTensorType>()) continue;
+    Value operandBuffer = lookup(bvm, outputTensor);
+
+    OpResult &opResult = std::get<1>(it);
+    OpOperand &yieldOperand = std::get<2>(it);
+    if (getInPlace(opResult) != InPlaceSpec::True) {
+      auto loc = tiledLoop.getLoc();
+      Value alloc =
+          createNewAllocDeallocPairForShapedValue(b, loc, outputTensor);
+      // If the tensor comes from `linalg::InitTensorOp`, the value is
+      // unitialized and we do not need to copy.
+      if (!outputTensor.getDefiningOp<linalg::InitTensorOp>())
+        b.create<linalg::CopyOp>(loc, operandBuffer, alloc);
+      operandBuffer = alloc;
+    }
+    map(bvm, opResult, operandBuffer);
+
+    // Set operand of `linalg.yield` to the output tensor.
+    yieldOperand.set(outputTensor);
+  }
+
+  // Replace tensor `inputs` args with the buffer ones.
+  int id = tiledLoop.getNumControlOperands();
+  for (auto in : tiledLoop.inputs())
+    tiledLoop.setOperand(id++, lookup(bvm, in));
+
+  // Splice tensor `output` args with the buffer ones.
+  SmallVector<Value, 2> newOutputArgs;
+  for (auto out : tiledLoop.outputs()) {
+    newOutputArgs.push_back(out);
+    newOutputArgs.push_back(lookup(bvm, out));
+  }
+  tiledLoop->insertOperands(id, newOutputArgs);
+
+  // Update segment sizes.
+  int numLoops = tiledLoop.getNumLoops();
+  tiledLoop->setAttr(
+      TiledLoopOp::getOperandSegmentSizeAttr(),
+      b.getI32VectorAttr({numLoops, numLoops, numLoops,
+                          static_cast<int32_t>(tiledLoop.inputs().size()),
+                          static_cast<int32_t>(newOutputArgs.size())}));
 
   return success();
 }
@@ -1840,6 +1938,9 @@ void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
     llvm::TypeSwitch<Operation *, void>(operation)
         .Case([&](scf::ForOp op) {
           (void)succeeded(convertScfForOp(b, op, bvm));
+        })
+        .Case([&](TiledLoopOp op) {
+          (void)succeeded(convertTiledLoopOp(b, op, bvm));
         })
         .Case([&](ConstantOp op) {
           (void)succeeded(convertConstantOp(b, op, bvm, globals));
