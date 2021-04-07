@@ -59,54 +59,18 @@ runners/test/test_constant.mlir -linalg-comprehensive-bufferize-inplace
 
 # Experimental python support
 
-Configure the sandbox with python bindings on and build (note that
-`-DCMAKE_PREFIX_PATH=`) currently needs to be set for specifying the path to
-`pybind11`. The following assumes an `mlirdev` virtual env as described in the
-[recommended development practices](https://mlir.llvm.org/docs/Bindings/Python/#recommended-development-practices):
-
 ```
-cmake -GNinja -DMLIR_BINDINGS_PYTHON_ENABLED=ON \
--DCMAKE_PREFIX_PATH=<venv_base_path>/lib/python3.9/site-packages/pybind11/share/cmake/pybind11/ \
--DMLIR_DIR=<llvm_install_path>/lib/cmake/mlir -DCMAKE_BUILD_TYPE=Debug -B build && \
-\
+LLVM_INSTALL_DIR=... llvm_install_path above ...
+cmake -GNinja -DMLIR_DIR=$LLVM_INSTALL_DIR/lib/cmake/mlir \
+    -DCMAKE_BUILD_TYPE=Debug -B build && \
 cmake --build build --target all
+
+export PYTHONPATH=$LLVM_INSTALL_DIR/python:$PWD/build
 ```
 
-The `add_mlir_python_extension`
-[macro](https://github.com/llvm/llvm-project/blob/e31c77b1827fa4dd3511f21af11cfab18ecf6d38/mlir/cmake/modules/AddMLIRPythonExtension.cmake#L76)
-currently references `${LLVM_BINARY_DIR}` explicitly. As a consequence, the
-`_mlirLinalgTensorPassesxxx.so` is currently compiled in a surprising location.
-
-```
-find <llvm_install_path> -name "_mlirLinalgTensorPasses*.so"
-```
-
-returns something like:
-
-```
-<llvm_install_path>/python/_mlirLinalgTensorPasses.cpython-39-x86_64-linux-gnu.so
-```
-
-As a consequence, add `<llvm_install_path>/python` to the `${PYTHONPATH}`.
-
-The following should now succeed:
-
-```
-python runners/lib/CAPython/Linalg/__init__.py
-```
-
-but atm, the following error remains:
-
-```
-ImportError: <llvm_install_path>/python/_mlirLinalgTensorPasses.cpython-39-x86_64-linux-gnu.so: undefined symbol: registerLinalgTensorCodegenStrategyPass
-```
+Running `python test/python/linalg_matmul.py` should succeed (currently aborts on
+non-project-setup related error).
 
 TODOs:
 
 1.  hook up a lit test target.
-1.  hook up python transformation support as was done in this
-    [commit](https://reviews.llvm.org/D99431).
-1.  add a python example based on the example in this
-    [commit](https://reviews.llvm.org/D99430) which can call the
-    [LinalgTensorCodegenStrategy](https://github.com/google/iree-llvm-sandbox/blob/main/runners/LinalgTensorCodegenStrategy.cpp)
-    from python.
