@@ -1,0 +1,14 @@
+add_custom_target(MLIRLinalgTensorPythonExtension)
+
+add_mlir_python_extension(MLIRLinalgTensorPassesBindingsPythonExtension _mlirLinalgTensorPasses
+INSTALL_DIR
+  python
+SOURCES
+  LinalgTensorPasses.capi.cpp
+  LinalgTensorPasses.py.cpp
+LINK_LIBS PUBLIC
+  MLIRCAPIIR
+  MLIRPass
+  MLIRLinalgTensorSandbox
+)
+add_dependencies(MLIRLinalgTensorPythonExtension MLIRLinalgTensorPassesBindingsPythonExtension)
