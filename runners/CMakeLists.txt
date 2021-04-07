@@ -1,16 +1,17 @@
-set(LIBS
-  ${dialect_libs}
-  ${conversion_libs}
-  MLIROptLib
+add_subdirectory(lib)
+
+set(MLIR_CORE_LIBS
+${dialect_libs}
+${conversion_libs}
 )
 
 add_llvm_executable(mlir-proto-opt
-  ConvertToGPUDialect.cpp
-  mlir-proto-opt.cpp
-  LinalgComprehensiveBufferizePass.cpp
-  LinalgTensorCodegenStrategy.cpp
-  LinalgTiledLoopToSCFPass.cpp
-  LinalgTileToGeneric.cpp
+mlir-proto-opt.cpp
 )
-target_link_libraries(mlir-proto-opt PRIVATE ${LIBS})
+target_link_libraries(mlir-proto-opt
+PRIVATE
+  ${MLIR_CORE_LIBS}
+  MLIROptLib
+  MLIRLinalgTensorSandbox
+)
 mlir_check_all_link_libraries(mlir-proto-opt)
