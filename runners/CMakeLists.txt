@@ -15,3 +15,6 @@ PRIVATE
   MLIRLinalgTensorSandbox
 )
 mlir_check_all_link_libraries(mlir-proto-opt)
+
+
+configure_file("__init__.py.in"  "__init__.py")

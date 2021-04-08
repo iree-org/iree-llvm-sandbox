@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "./lib/Registration.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
@@ -28,27 +29,10 @@ using namespace llvm;
 using namespace mlir;
 using namespace mlir::linalg;
 
-// Defined in the runners directory, no public header.
-namespace mlir {
-namespace linalg {
-void registerLinalgComprehensiveBufferizePass();
-void registerLinalgTensorCodegenStrategyPass();
-void registerLinalgTiledLoopToSCFPass();
-}  // namespace linalg
-void registerConvertToGPUPass();
-}  // namespace mlir
-
-void registerCustomPasses() {
-  registerLinalgComprehensiveBufferizePass();
-  registerLinalgTensorCodegenStrategyPass();
-  registerLinalgTiledLoopToSCFPass();
-  registerConvertToGPUPass();
-}
-
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
-  registerCustomPasses();
+  ireeLlvmSandboxRegisterPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
