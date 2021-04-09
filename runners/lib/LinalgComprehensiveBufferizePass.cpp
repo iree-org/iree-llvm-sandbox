@@ -59,7 +59,6 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/BufferUtils.h"
 #include "mlir/Transforms/Passes.h"
-#include "third_party/llvm/llvm-project/mlir/include/mlir/Dialect/Linalg/IR/LinalgOps.h"
 
 #define DEBUG_TYPE "linalg-comprehensive-bufferize-inplace"
 
