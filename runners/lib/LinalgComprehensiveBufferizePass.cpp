@@ -421,6 +421,13 @@ bool hasInterferingTensorRead(OpOperand &opOperand,
   if (!opOperand.get().getType().isa<RankedTensorType>()) return false;
   for (auto &use : opOperand.get().getUses()) {
     Operation *user = use.getOwner();
+    // Tolerate forwarding-only of the value through an scf::ForOp: if the
+    // corresponding bbArg has no use, we can just ignore it.
+    if (auto forOp = dyn_cast<scf::ForOp>(user)) {
+      BlockArgument bbArg = forOp.getRegionIterArgForOpOperand(use);
+      if (bbArg.use_empty()) continue;
+    }
+
     // If properly dominate, there  is a clear sequence point and we can dismiss
     // read.
     if (domInfo.properlyDominates(user, opOperand.getOwner())) continue;
@@ -452,12 +459,21 @@ bool isBufferizableInPlace(OpOperand &opOperand, const DominanceInfo &domInfo) {
   if (auto constantOp =
           dyn_cast_or_null<ConstantOp>(opOperand.get().getDefiningOp()))
     return !constantOp.getResult().getType().isa<RankedTensorType>();
-  // Function argument that may not be written to needs to be copied by user(s).
-  // TODO: better propagate the fact that we want a single clone inside the
-  // function. Atm every user that wants to write inplace will create its own
-  // alloc, irrespective of whether or not interfering reads occur.
-  if (auto bbArg = opOperand.get().dyn_cast<BlockArgument>())
-    return getInPlace(bbArg) == InPlaceSpec::True;
+  if (auto bbArg = opOperand.get().dyn_cast<BlockArgument>()) {
+    // Function argument that may not be written-to needs to be copied by
+    // user(s).
+    // TODO: better propagate the fact that we want a single clone inside the
+    // function. Atm every user that wants to write inplace will create its own
+    // alloc, irrespective of whether or not interfering reads occur.
+    if (isa<FuncOp>(bbArg.getOwner()->getParentOp()))
+      return getInPlace(bbArg) == InPlaceSpec::True;
+    // ForOp must additionally check whether there is an interfering read to
+    // their original iter operand.
+    if (auto forOp = dyn_cast<scf::ForOp>(bbArg.getOwner()->getParentOp()))
+      if (hasInterferingTensorRead(forOp.getOpOperandForRegionIterArg(bbArg),
+                                   domInfo))
+        return false;
+  }
   return !hasInterferingTensorRead(opOperand, domInfo);
 }
 
@@ -1484,9 +1500,24 @@ static LogicalResult convertCallOp(
   //   b. the memref fed to a memref.tensor_load, if it does not itself come
   //   from a memref.buffer_cast.
   SmallVector<Value> newOperands(callOp->getOperands());
-  for (Value &v : newOperands) {
+  for (unsigned idx = 0, e = newOperands.size(); idx < e; ++idx) {
+    Value &v = newOperands[idx];
     if (!v.getType().isa<TensorType>()) continue;
-    if ((v = bvm.lookupOrNull(v))) continue;
+    if ((v = bvm.lookupOrNull(v))) {
+      auto funcOp = getCalledFunction(callOp);
+      auto memRefType = funcOp.getType().getInput(idx).dyn_cast<MemRefType>();
+      if (memRefType && v.getType() != memRefType) {
+        // Since we don't yet have a clear layout story, buffer_cast may
+        // conservatively turn tensors into more dynamic memref than necessary.
+        // If the memref type of the callee fails, introduce an extra
+        // memref.cast that will either canonicalize away or fail compilation
+        // until we can do something better.
+        Value newV = b.create<memref::CastOp>(callOp.getLoc(), memRefType, v);
+        bvm.map(v, newV);
+        v = newV;
+      }
+      continue;
+    }
     // TODO: how dangerous is this at this point in spacetime ?
     if (auto tensorLoadOp = v.getDefiningOp<memref::TensorLoadOp>()) {
       if (!isa<memref::BufferCastOp>(tensorLoadOp.memref().getDefiningOp())) {
@@ -1777,11 +1808,17 @@ static BlockArgument analyzeTiedFuncOpResults(OpOperand &returnOperand) {
                ? bbArg
                : BlockArgument();
 
-  // Otherwise we look for memref.tensor_load(memref.buffer_cast(bbArg)).
+  // Otherwise we look for either:
+  //   1. memref.tensor_load(memref.buffer_cast(bbArg)), or
+  //   2. memref.tensor_load(memref.cast(memref.buffer_cast(bbArg))).
   auto tensorLoadOp = returnValue.getDefiningOp<memref::TensorLoadOp>();
   if (!tensorLoadOp) return BlockArgument();
+  auto memrefCastOp = tensorLoadOp.memref().getDefiningOp<memref::CastOp>();
   auto bufferCastOp =
       tensorLoadOp.memref().getDefiningOp<memref::BufferCastOp>();
+  if (!memrefCastOp && !bufferCastOp) return BlockArgument();
+  if (memrefCastOp)
+    bufferCastOp = memrefCastOp.source().getDefiningOp<memref::BufferCastOp>();
   if (!bufferCastOp) return BlockArgument();
 
   // If returned value is a bbArg, it only folds if it is a function

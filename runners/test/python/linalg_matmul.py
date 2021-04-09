@@ -6,12 +6,15 @@
 import runners
 
 import sys
+import numpy as np
+
 from mlir.ir import *
 from mlir.dialects import builtin
 from mlir.dialects import linalg
 from mlir.dialects import std
 from mlir.passmanager import *
 from mlir.execution_engine import *
+from mlir.runtime.memref import *
 
 
 # Log everything to stderr and flush so that we have a unified stream to match
@@ -21,34 +24,26 @@ def log(*args):
   sys.stderr.flush()
 
 
-def boilerplate(M: int, N: int, K: int, ITERS: int):
+def boilerplate(M: int, N: int, K: int):
   return f"""
-func @main() -> f32 attributes {{llvm.emit_c_interface}} {{
-  %v0 = constant 0.0 : f32
-  %v1 = constant 1.0 : f32
-  %v2 = constant 2.0 : f32
-
-  %iA = linalg.init_tensor [{M}, {K}] : tensor<{M}x{K}xf32>
-  %iB = linalg.init_tensor [{K}, {N}] : tensor<{K}x{N}xf32>
-  %iC = linalg.init_tensor [{M}, {N}] : tensor<{M}x{N}xf32>
-  %A = linalg.fill(%iA, %v1) : tensor<{M}x{K}xf32>, f32 -> tensor<{M}x{K}xf32>
-  %B = linalg.fill(%iB, %v2) : tensor<{K}x{N}xf32>, f32 -> tensor<{K}x{N}xf32>
-  %C = linalg.fill(%iC, %v0) : tensor<{M}x{N}xf32>, f32 -> tensor<{M}x{N}xf32>
-
+func @main(%A : tensor<{M}x{K}xf32>, %B : tensor<{K}x{N}xf32>, %C : tensor<{M}x{N}xf32>, %iters : index)
+  -> tensor<{M}x{N}xf32>
+  attributes {{
+      llvm.emit_c_interface,
+// Manually set up `__writeable_func_buffer_args_attr__` to allow proper inplace
+// behavior. This is akin to a user annotation that the compiler understands.
+      __writeable_func_buffer_args_attr__ = ["false", "false", "true"] }}
+{{
   %c0 = constant 0: index
   %c1 = constant 1: index
-  %iters = constant {ITERS}: index
-  %res = scf.for %arg0 = %c0 to %iters step %c1 iter_args(%dummy = %C) -> (tensor<{M}x{N}xf32>) {{
-    %r = call @matmul_on_tensors(%A, %B, %C) :
+
+  %res = scf.for %arg0 = %c0 to %iters step %c1 iter_args(%iterC = %C) -> (tensor<{M}x{N}xf32>) {{
+    %r = call @matmul_on_tensors(%A, %B, %iterC) :
       (tensor<{M}x{K}xf32>, tensor<{K}x{N}xf32>, tensor<{M}x{N}xf32>) -> (tensor<{M}x{N}xf32>)
     scf.yield %r : tensor<{M}x{N}xf32>
   }}
 
-  %0 = vector.transfer_read %res[%c0, %c0], %v0 : tensor<{M}x{N}xf32>, vector<2xf32>
-  %e0 = vector.extract %0[0] : vector<2xf32>
-
-  // TODO: FFI-based solution to allow testing and printing with python code.
-  return %e0 : f32
+  return %res : tensor<{M}x{N}xf32>
 }}
 """
 
@@ -60,30 +55,36 @@ def tile_and_pad(mod: Module,
                  pad=False,
                  hoist_padding=None):
   pad_str, hoist_padding_str = '', ''
-  tile_sizes_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
+  tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
   if pad:
     pad_str = 'pad'
   if hoist_padding:
     hoist_padding_str = f'hoist-padding={hoist_padding}'
-  pipeline = (
-      f'func(linalg-tensor-codegen-strategy{{anchor-func={func_name} '
-      f'anchor-op={op_name} {tile_sizes_str} {pad_str} {hoist_padding_str}}})')
+  pipeline = (f'func(linalg-tensor-codegen-strategy{{anchor-func={func_name} '
+              f'     anchor-op={op_name} '
+              f'     {tile_str} '
+              f'     {pad_str} '
+              f'     {hoist_padding_str}}})')
   PassManager.parse(pipeline).run(mod)
 
 
 def vectorize(mod: Module, func_name: str, op_name: str):
   pipeline = (f'func(linalg-tensor-codegen-strategy{{anchor-func={func_name} '
-              f'anchor-op={op_name} vectorize vectorize-padding}})')
+              f'     anchor-op={op_name} '
+              f'     vectorize '
+              f'     vectorize-padding}})')
   PassManager.parse(pipeline).run(mod)
 
 
-def bufferize_to_llvm(mod: Module, func_name: str, op_name: str):
-  pipeline = (
-      f'linalg-comprehensive-bufferize-inplace,'
-      f'func(convert-linalg-to-loops,convert-vector-to-scf{{full-unroll=true}}),'
-      f'lower-affine,convert-scf-to-std,convert-vector-to-llvm,convert-std-to-llvm'
-  )
-  PassManager.parse(pipeline).run(mod)
+def bufferize_to_llvm(module: Module, func_name: str, op_name: str):
+  pipeline = (f'linalg-comprehensive-bufferize-inplace,'
+              f'func(convert-linalg-to-loops,'
+              f'     convert-vector-to-scf{{full-unroll=true}}),'
+              f'lower-affine,'
+              f'convert-scf-to-std,'
+              f'convert-vector-to-llvm,'
+              f'convert-std-to-llvm')
+  PassManager.parse(pipeline).run(module)
 
 
 def transform(module, boilerplate_code):
@@ -93,27 +94,33 @@ def transform(module, boilerplate_code):
 
   # TODO: Allow cloning functions from one module to another.
   # Atm we have to resort to string concatenation.
-  mod = Module.parse(
+  module = Module.parse(
       str(module.operation.regions[0].blocks[0].operations[0].operation) +
       boilerplate_code)
 
-  tile_and_pad(mod, 'matmul_on_tensors', 'linalg.matmul', [256, 256, 256])
-  tile_and_pad(mod, 'matmul_on_tensors', 'linalg.matmul', [32, 32, 64])
-  tile_and_pad(
-      mod,
-      'matmul_on_tensors',
-      'linalg.matmul', [2, 4, 16],
-      pad=True,
-      hoist_padding=6)
-  vectorize(mod, 'matmul_on_tensors', 'linalg.matmul')
-  bufferize_to_llvm(mod, 'matmul_on_tensors', 'linalg.matmul')
+  # TODO: there seem to be some issues with np.ndarrary.strides compatibility as
+  # they operate in "number of bytes" whereas memref strides operate in "number
+  # of elements".
+  # Reenable transformations when resolved.
 
-  return mod
+  # tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [256, 256, 256])
+  # tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [32, 32, 64])
+  # tile_and_pad(
+  #     module,
+  #     'matmul_on_tensors',
+  #     'linalg.matmul', [2, 4, 16],
+  #     pad=True,
+  #     hoist_padding=6)
+  # vectorize(module, 'matmul_on_tensors', 'linalg.matmul')
+  bufferize_to_llvm(module, 'matmul_on_tensors', 'linalg.matmul')
+
+  return module
 
 
 def test_matmul(M: int, N: int, K: int, ITERS=1):
   with Context() as ctx, Location.unknown():
     module = Module.create()
+    np_type = np.float32
     f32 = F32Type.get()
     with InsertionPoint(module.body):
 
@@ -126,23 +133,37 @@ def test_matmul(M: int, N: int, K: int, ITERS=1):
         return linalg.matmul(lhs, rhs, outs=[out])
 
     execution_engine = ExecutionEngine(
-        transform(module, boilerplate(M=M, N=N, K=K, ITERS=ITERS)))
+        transform(module, boilerplate(M=M, N=N, K=K)))
 
-    # TODO: FFI-based solution to allow testing and printing with python code.
-    # Prepare arguments: one result f32.
+    A = np.random.rand(M, K).astype(np_type)
+    B = np.random.rand(K, N).astype(np_type)
+    C = np.random.rand(M, N).astype(np_type)
+    C.fill(0.)
+
     # Arguments must be passed as pointers.
-    c_float_p = ctypes.c_float * 1
-    res = c_float_p(-1.)
-    execution_engine.invoke('main', res)
+    A_memref_ptr = ctypes.pointer(ctypes.pointer(to_memref(A)))
+    B_memref_ptr = ctypes.pointer(ctypes.pointer(to_memref(B)))
+    C_memref_ptr = ctypes.pointer(ctypes.pointer(to_memref(C)))
+    index_ptr_t = ctypes.c_longlong * 1
 
-    log('RESULT: ', res[0])
+    execution_engine.invoke('main',
+                            ctypes.pointer(ctypes.pointer(to_memref(A))),
+                            ctypes.pointer(ctypes.pointer(to_memref(B))),
+                            ctypes.pointer(ctypes.pointer(to_memref(C))),
+                            index_ptr_t(ITERS))
+
+    delta = C - np.dot(A, B)
+    success = np.allclose(C, np.dot(A, B))
+    max_abs_delta = max(delta.max(), delta.min(), key=abs)
+    print(f'max_abs_delta: {max_abs_delta} -> SUCCESS = {success}')
 
 
-# TODO: More iterations once we have a fill to zero
-# the results at each iteration
-# CHECK: RESULT: 32.0
+# TODO: More iterations once we have a fill to zero the results at each
+# iteration inside the matmul_on_tensors func.
+
+# CHECK: SUCCESS = True
 test_matmul(4, 8, 16, 1)
-# CHECK: RESULT: 512.0
-test_matmul(256, 256, 256, 1)
-# CHECK: RESULT: 2048.0
+# CHECK: SUCCESS = True
+test_matmul(128, 192, 256, 1)
+# CHECK: SUCCESS = True
 test_matmul(1024, 1024, 1024, 1)
