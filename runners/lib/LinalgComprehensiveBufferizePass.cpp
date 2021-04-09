@@ -3,8 +3,8 @@
 // Convert from Linalg ops on tensors to Linalg ops on buffers in a single pass.
 // Aggressively try to perform inPlace bufferization and fail if any allocation
 // tries to cross function boundaries or if the pattern
-// `tensor_load(tensor_memref(x))` is deemed unsafe (very conservative impl for
-// now).
+// `memref.tensor_load(tensor_memref(x))` is deemed unsafe (very conservative
+// impl for now).
 //
 //===----------------------------------------------------------------------===//
 
@@ -59,6 +59,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/BufferUtils.h"
 #include "mlir/Transforms/Passes.h"
+#include "third_party/llvm/llvm-project/mlir/include/mlir/Dialect/Linalg/IR/LinalgOps.h"
 
 #define DEBUG_TYPE "linalg-comprehensive-bufferize-inplace"
 
@@ -97,7 +98,8 @@ using namespace linalg;
 ///       sequential scope.
 /// 3. once bufferization within function boundaries is done, the next step
 ///    runs `bufferizeFunctionsAndCalls`, which involves:
-///    a. detecting `function_arg -> tensor_to_memref -> tensor_load -> return`
+///    a. detecting `function_arg -> memref.buffer_cast -> memref.tensor_load ->
+///    return`
 ///       patterns for each FuncOp, which determines the `tiedResultMap` between
 ///       function args and results.
 ///    b. rewrite function arguments and returns in buffer forms, skipping the
@@ -110,8 +112,8 @@ using namespace linalg;
 ///
 /// TensorLoadOps are only even inserted as a transient abstraction for
 /// terminators (return, scf.yield).
-/// The `function_arg -> tensor_to_memref -> tensor_load -> return` is used to
-/// analyze which function result ties to a function operand.
+/// The `function_arg -> memref.buffer_cast -> memref.tensor_load -> return` is
+/// used to analyze which function result ties to a function operand.
 namespace {
 struct LinalgComprehensiveBufferizePass
     : public PassWrapper<LinalgComprehensiveBufferizePass,
@@ -671,13 +673,25 @@ static LogicalResult matchingVectorTransfersAtSource(
   return success();
 }
 
+/// Detect whether `v` has a single user that is exactly `user`.
+static LogicalResult isInPlaceSingleUseOp(Value v, Operation *user) {
+  if (!v.hasOneUse() || *v.getUsers().begin() != user) return failure();
+  return success();
+}
+
 /// Detect whether `v` has a single user that is exactly `terminatorOp`.
 /// If `bbArg` comes from an scf::ForOp, additionally check the operand index
 /// is exactly `bbArg.getArgumentNumber`.
-template <typename TerminatorOp>
-static LogicalResult isInPlaceSingleUseTerminatorValue(
-    Value v, TerminatorOp terminatorOp, BlockArgument bbArg) {
-  if (!v.hasOneUse() || *v.getUsers().begin() != terminatorOp) return failure();
+static LogicalResult isInPlaceSingleUseTerminatorValue(Value v,
+                                                       Operation *terminatorOp,
+                                                       BlockArgument bbArg) {
+  if (failed(isInPlaceSingleUseOp(v, terminatorOp))) return failure();
+  // Check terminatorOp is indeed a terminator and that it terminates the same
+  // block as `bbArg`.
+  if (!terminatorOp->hasTrait<OpTrait::IsTerminator>()) return failure();
+  if (bbArg.getOwner() != terminatorOp->getBlock()) return failure();
+  // If the parent is a scf::ForOp, we must additionally check the
+  // operand/terminator numbers agree.
   if (isa<scf::ForOp>(bbArg.getOwner()->getParentOp()))
     return (getTiedOpResult(bbArg).getResultNumber() ==
             v.getUses().begin()->getOperandNumber())
@@ -694,16 +708,16 @@ static LogicalResult isInPlaceSingleUseTerminatorValue(
 ///
 /// (**) represents an optional op in the chain, at least one must be present
 template <typename ContainerOp, typename TerminatorOp>
-static LogicalResult detectOverWritePattern(
-    Operation *parentOp, BlockArgument candidate,
-    ArrayRef<Operation *> &sliceRef, SmallVector<OpResult> &inPlaceOpResults) {
+static LogicalResult detectOverWritePattern(Operation *parentOp,
+                                            BlockArgument candidate,
+                                            ArrayRef<Operation *> &sliceRef) {
   if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
 
   ArrayRef<Operation *> tmpSliceRef = sliceRef;
   TerminatorOp terminatorOp;
   // Match terminator and update tmpSliceRef.
   if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
-    LLVM_DEBUG(DBGS() << "FAILURE: partial overwrite pattern -> must end with "
+    LLVM_DEBUG(DBGS() << "FAIL: partial overwrite pattern -> must end with "
                          "known terminator\n");
     return failure();
   }
@@ -714,37 +728,42 @@ static LogicalResult detectOverWritePattern(
   // Maybe match vectorTransferWriteOp and update tmpSliceRef.
   (void)matchAndDropBack(tmpSliceRef, vectorTransferWriteOp);
 
-  // subtensor_insert must be used exactly by the terminator at index matching
-  // the candidate BlockArgument.
-  if (subTensorInsertOp) {
-    if (failed(isInPlaceSingleUseTerminatorValue(subTensorInsertOp.result(),
-                                                 terminatorOp, candidate))) {
-      LLVM_DEBUG(
-          DBGS() << "FAILURE: partial overwrite pattern -> subtensor_insert "
-                    "single use must match terminator\n");
-      return failure();
-    }
-  } else if (vectorTransferWriteOp) {
-    // transfer_write must be used exactly by the terminator at index matching
-    // the candidate BlockArgument.
-    if (failed(isInPlaceSingleUseTerminatorValue(vectorTransferWriteOp.result(),
-                                                 terminatorOp, candidate))) {
-      LLVM_DEBUG(
-          DBGS() << "FAILURE: partial overwrite pattern -> "
-                    "vector.transfer_write single use must match terminator\n");
-      return failure();
-    }
-  } else {
-    LLVM_DEBUG(DBGS() << "FAILURE: partial overwrite pattern -> need at least "
+  if (!subTensorInsertOp && !vectorTransferWriteOp) {
+    LLVM_DEBUG(DBGS() << "FAIL: partial overwrite pattern -> need at least "
                          "a subtensor_insert or a vector.transfer_write\n");
     return failure();
   }
 
+  if (subTensorInsertOp) {
+    // term(subTensorInsertOp(vectorTransferWriteOp))
+    if (vectorTransferWriteOp &&
+        failed(isInPlaceSingleUseOp(vectorTransferWriteOp.result(),
+                                    subTensorInsertOp))) {
+      LLVM_DEBUG(DBGS() << "FAIL: partial overwrite pattern -> expected "
+                           "term(subTensorInsertOp(vectorTransferWriteOp))\n");
+      return failure();
+    }
+    // term(subTensorInsertOp)
+    if (failed(isInPlaceSingleUseTerminatorValue(subTensorInsertOp.result(),
+                                                 terminatorOp, candidate))) {
+      LLVM_DEBUG(DBGS() << "FAIL: partial overwrite pattern -> expected "
+                           "term(subTensorInsertOp)\n");
+      return failure();
+    }
+  } else if (vectorTransferWriteOp) {
+    // term(vectorTransferWriteOp)
+    if (failed(isInPlaceSingleUseTerminatorValue(vectorTransferWriteOp.result(),
+                                                 terminatorOp, candidate))) {
+      LLVM_DEBUG(DBGS() << "FAIL: partial overwrite pattern -> expected "
+                           "term(vectorTransferWriteOp)\n");
+      return failure();
+    }
+  }
+
   // Commit what has been detected.
   if (vectorTransferWriteOp)
-    inPlaceOpResults.push_back(vectorTransferWriteOp->getResult(0));
-  if (subTensorInsertOp)
-    inPlaceOpResults.push_back(subTensorInsertOp->getResult(0));
+    setInPlaceOpResult(vectorTransferWriteOp->getResult(0));
+  if (subTensorInsertOp) setInPlaceOpResult(subTensorInsertOp->getResult(0));
   // No action for the terminator.
   tmpSliceRef = sliceRef;
 
@@ -752,10 +771,14 @@ static LogicalResult detectOverWritePattern(
   return success();
 }
 
+/// Detect the simple terminator pattern:
+/// ```
+///    candidate -> single-result with single-use linalg op -> term
+/// ```
 template <typename ContainerOp, typename TerminatorOp>
-static LogicalResult detectLinalgReturn(
-    Operation *parentOp, BlockArgument candidate,
-    ArrayRef<Operation *> &sliceRef, SmallVector<OpResult> &inPlaceOpResults) {
+static LogicalResult detectLinalgToTerminator(Operation *parentOp,
+                                              BlockArgument candidate,
+                                              ArrayRef<Operation *> &sliceRef) {
   if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
 
   ArrayRef<Operation *> tmpSliceRef = sliceRef;
@@ -763,65 +786,35 @@ static LogicalResult detectLinalgReturn(
   TerminatorOp terminatorOp;
   // Match returnOp and update tmpSliceRef.
   if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
-    LLVM_DEBUG(DBGS() << "FAILURE: linalg return pattern -> slice must end "
+    LLVM_DEBUG(DBGS() << "FAIL: linalg to term pattern -> slice must end "
                          "with a known terminator\n");
     return failure();
   }
 
   LinalgOp linalgOp;
-  // Match linalgOp with a single output tensor for now and update tmpSliceRef.
-  if (succeeded(matchAndDropBack(tmpSliceRef, linalgOp))) {
-    if (linalgOp.getNumOutputTensors() != 1 ||
-        // For now, just check that the operand and corresponding result have
-        // no additional uses. In the future we can build a cost-model to take
-        // care of diamond dependences.
-        !linalgOp.getOutputTensors().front().hasOneUse() ||
-        !linalgOp->getResult(0).hasOneUse()) {
-      LLVM_DEBUG(DBGS() << "FAILURE: linalg return pattern -> slice must end "
-                           "with linalg op\n");
-
-      // BREAK DUMP DEBUG HERE
-
-      return failure();
-    }
-  }
-
-  scf::ForOp forOp;
-  // Match forOp with a single output tensor for now and update tmpSliceRef.
+  // Match linalgOp with a single output tensor for now.
   // TODO: support more than single result.
-  if (succeeded(matchAndDropBack(tmpSliceRef, forOp))) {
-    if (forOp->getNumResults() != 1 ||
-        // For now, just check that the operand and corresponding result have
-        // no additional uses. In the future we can build a cost-model to take
-        // care of diamond dependences.
-        !forOp.getIterOperands().front().hasOneUse() ||
-        !forOp->getResult(0).hasOneUse()) {
-      LLVM_DEBUG(DBGS() << "FAILURE: linalg return pattern -> slice must end "
-                           "with forOp op\n");
-      return failure();
-    }
-  }
-
-  if (!linalgOp && !forOp) {
-    LLVM_DEBUG(
-        DBGS() << "FAILURE: linalg return pattern null ForOp and LinalgOp\n");
+  if (failed(matchAndDropBack(tmpSliceRef, linalgOp)) ||
+      linalgOp.getNumOutputTensors() != 1 ||
+      failed(isInPlaceSingleUseOp(linalgOp->getResult(0), terminatorOp))) {
+    LLVM_DEBUG(DBGS() << "FAIL: linalg to term pattern -> slice must end "
+                         "with single-result linalg op\n");
     return failure();
   }
 
   // Commit what has been detected.
   // TODO: support more than single result.
-  if (linalgOp) inPlaceOpResults.push_back(linalgOp->getResult(0));
-  if (forOp) inPlaceOpResults.push_back(forOp->getResult(0));
+  setInPlaceOpResult(linalgOp->getResult(0));
   tmpSliceRef = sliceRef;
-  LLVM_DEBUG(DBGS() << "SUCCESS: linalg return pattern\n");
+  LLVM_DEBUG(DBGS() << "SUCCESS: linalg to term pattern\n");
 
   return success();
 }
 
 template <typename ContainerOp, typename TerminatorOp>
-static LogicalResult detectTiledLoopReturn(
-    Operation *parentOp, BlockArgument candidate,
-    ArrayRef<Operation *> &sliceRef, SmallVector<OpResult> &inPlaceOpResults) {
+static LogicalResult detectForOpToTerminator(Operation *parentOp,
+                                             BlockArgument candidate,
+                                             ArrayRef<Operation *> &sliceRef) {
   if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
 
   ArrayRef<Operation *> tmpSliceRef = sliceRef;
@@ -829,7 +822,47 @@ static LogicalResult detectTiledLoopReturn(
   TerminatorOp terminatorOp;
   // Match returnOp and update tmpSliceRef.
   if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
-    LLVM_DEBUG(DBGS() << "FAILURE: tiled loop return pattern -> slice must end "
+    LLVM_DEBUG(DBGS() << "FAIL: forop to term pattern -> slice must end "
+                         "with a known terminator\n");
+    return failure();
+  }
+
+  scf::ForOp forOp;
+  // Match forOp with a single output tensor for now.
+  // TODO: support more than single result.
+  if (failed(matchAndDropBack(tmpSliceRef, forOp)) ||
+      forOp->getNumResults() != 1 ||
+      failed(isInPlaceSingleUseOp(forOp->getResult(0), terminatorOp))) {
+    LLVM_DEBUG(DBGS() << "FAIL: forop to term pattern -> slice must end "
+                         "with single-result forOp op\n");
+    return failure();
+  }
+
+  // Commit what has been detected.
+  // TODO: support more than single result.
+  setInPlaceOpResult(forOp->getResult(0));
+  tmpSliceRef = sliceRef;
+  LLVM_DEBUG(DBGS() << "SUCCESS: forop to term pattern\n");
+
+  return success();
+}
+
+/// Detect the simple terminator pattern:
+/// ```
+///    candidate -> single-result with single-use linalg op -> term
+/// ```
+template <typename ContainerOp, typename TerminatorOp>
+static LogicalResult detectTiledLoopToTerminator(
+    Operation *parentOp, BlockArgument candidate,
+    ArrayRef<Operation *> &sliceRef) {
+  if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
+
+  ArrayRef<Operation *> tmpSliceRef = sliceRef;
+
+  TerminatorOp terminatorOp;
+  // Match returnOp and update tmpSliceRef.
+  if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
+    LLVM_DEBUG(DBGS() << "FAIL: tiled loop return pattern -> slice must end "
                          "with a known terminator\n");
     return failure();
   }
@@ -837,19 +870,31 @@ static LogicalResult detectTiledLoopReturn(
   TiledLoopOp tiledLoop;
   // Match tiled loop  with a single output tensor for now and update
   // tmpSliceRef.
-  if (failed(matchAndDropBack(tmpSliceRef, tiledLoop))) {
-    LLVM_DEBUG(DBGS() << "FAILURE: tiled loop return pattern -> slice must end "
-                         "with a tiled loop\n");
+  if (failed(matchAndDropBack(tmpSliceRef, tiledLoop)) ||
+      tiledLoop->getNumResults() != 1 ||
+      failed(isInPlaceSingleUseOp(tiledLoop->getResult(0), terminatorOp))) {
+    LLVM_DEBUG(DBGS() << "FAIL: tiled loop return pattern -> slice must end "
+                         "with a single-result tiled loop\n");
     return failure();
   }
 
   // Commit what has been detected.
   // TODO: support more than single result.
-  if (tiledLoop) inPlaceOpResults.push_back(tiledLoop->getResult(0));
+  if (tiledLoop) setInPlaceOpResult(tiledLoop->getResult(0));
   tmpSliceRef = sliceRef;
   LLVM_DEBUG(DBGS() << "SUCCESS: tiled loop return pattern\n");
 
   return success();
+}
+
+template <typename T>
+static unsigned sizeOfRange(T range) {
+  unsigned inc = 0;
+  for (const auto &_ : range) {
+    (void)_;
+    ++inc;
+  }
+  return inc;
 }
 
 /// In the case of an scf::ForOp, we look for:
@@ -862,55 +907,45 @@ static LogicalResult detectTiledLoopReturn(
 template <typename ContainerOp, typename TerminatorOp>
 static LogicalResult detectDestructiveUpdatePattern(
     Operation *parentOp, BlockArgument candidate,
-    ArrayRef<Operation *> &sliceRef, SmallVector<OpResult> &inPlaceOpResults) {
+    ArrayRef<Operation *> &sliceRef) {
   if (!parentOp || !isa<ContainerOp>(parentOp)) return failure();
 
   ArrayRef<Operation *> tmpSliceRef = sliceRef;
 
   // bbArg must be used exactly by one subtensor / subtensor_insert pair.
-  if (candidate.use_empty() || candidate.hasOneUse() ||
-      std::next(candidate.getUsers().begin(), 2) !=
-          candidate.getUsers().end()) {
-    LLVM_DEBUG(
-        DBGS() << "FAILURE: destructive updates -> bbArg with != 2 uses\n");
+  if (sizeOfRange(candidate.getUses()) != 2) {
+    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> bbArg with != 2 uses\n");
     return failure();
   }
   if (tmpSliceRef.size() < 3) {
-    LLVM_DEBUG(
-        DBGS() << "FAILURE: destructive updates -> slice must have >= 3 ops\n");
+    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> slice must have >= 3 ops\n");
     return failure();
   }
 
   // Match yieldOp and update tmpSliceRef.
   TerminatorOp terminatorOp;
   if (failed(matchAndDropBack(tmpSliceRef, terminatorOp))) {
-    LLVM_DEBUG(
-        DBGS() << "FAILURE: destructive updates -> slice unknown terminator\n");
+    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> slice unknown terminator\n");
     return failure();
   }
 
   // Match subtensor pair and update tmpSliceRef.
-  // subtensor / subtensor_insert must match.
   SubTensorOp subTensorOp;
   SubTensorInsertOp subTensorInsertOp;
-  auto matchSubTensors = [](SubTensorOp st, SubTensorInsertOp sti) {
-    auto res = sameOffsetsSizesAndStrides(st, sti);
-    if (failed(res))
-      LLVM_DEBUG(
-          DBGS()
-          << "FAILURE: destructive updates -> subtensor ops don't match: " << st
-          << " and " << sti);
-    return res;
-  };
   if (failed(matchAndDropEnclosingPair<SubTensorOp, SubTensorInsertOp>(
-          tmpSliceRef, subTensorOp, subTensorInsertOp, matchSubTensors)))
+          tmpSliceRef, subTensorOp, subTensorInsertOp,
+          [](SubTensorOp st, SubTensorInsertOp sti) {
+            // subtensor / subtensor_insert must match.
+            return sameOffsetsSizesAndStrides(st, sti);
+          }))) {
+    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> subtensor ops don't match\n");
     return failure();
+  }
 
-  // subtensor_insert must be used exactly by the terminator at index matching
-  // the candidate BlockArgument.
+  // term(subTensorInsertOp).
   if (failed(isInPlaceSingleUseTerminatorValue(subTensorInsertOp.result(),
                                                terminatorOp, candidate))) {
-    LLVM_DEBUG(DBGS() << "FAILURE: destructive updates -> SubTensorInsertOp "
+    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> SubTensorInsertOp "
                          "does not have a single terminator use "
                          "at the right index\n");
     return failure();
@@ -920,28 +955,32 @@ static LogicalResult detectDestructiveUpdatePattern(
   // If we find one, the other must be present and match too.
   vector::TransferReadOp vectorTransferReadOp;
   vector::TransferWriteOp vectorTransferWriteOp;
-  auto matchTransfers = [&](vector::TransferReadOp read,
-                            vector::TransferWriteOp write) {
-    return matchingVectorTransfersAtSource(read, write, subTensorOp.result());
-  };
   if (failed(matchAndDropEnclosingPair<vector::TransferReadOp,
                                        vector::TransferWriteOp>(
           tmpSliceRef, vectorTransferReadOp, vectorTransferWriteOp,
-          matchTransfers)) &&
-      (vectorTransferReadOp || vectorTransferWriteOp))
-    return failure();
+          [&](vector::TransferReadOp read, vector::TransferWriteOp write) {
+            return matchingVectorTransfersAtSource(read, write,
+                                                   subTensorOp.result());
+          }))) {
+    // If we found a TransferReadOp or a TransferWriteOp but they don't match,
+    // fail.
+    if (vectorTransferReadOp || vectorTransferWriteOp) {
+      LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> non-matching transfers\n");
+      return failure();
+    }
+  }
 
   // Commit what has been detected.
-  inPlaceOpResults.push_back(subTensorOp->getResult(0));
+  setInPlaceOpResult(subTensorOp->getResult(0));
   if (vectorTransferReadOp)
-    inPlaceOpResults.push_back(vectorTransferReadOp->getResult(0));
+    setInPlaceOpResult(vectorTransferReadOp->getResult(0));
   if (vectorTransferWriteOp)
-    inPlaceOpResults.push_back(vectorTransferWriteOp->getResult(0));
-  inPlaceOpResults.push_back(subTensorInsertOp->getResult(0));
+    setInPlaceOpResult(vectorTransferWriteOp->getResult(0));
+  setInPlaceOpResult(subTensorInsertOp->getResult(0));
   // No action for the terminator.
   tmpSliceRef = sliceRef;
 
-  LLVM_DEBUG(DBGS() << "SUCCESS: destructive updates pattern\n");
+  LLVM_DEBUG(DBGS() << "SUCCESS: destr. updates pattern\n");
   return success();
 }
 
@@ -1033,29 +1072,32 @@ static void destructiveUpdateAnalysis(Block *block,
     LLVM_DEBUG(DBGS() << "Slice:\n");
     for (auto *op : slice) LLVM_DEBUG(DBGS() << *op << "\n");
 
-    SmallVector<OpResult> inPlaceOpResults;
-    inPlaceOpResults.reserve(slice.size());
     ArrayRef<Operation *> sliceRef = slice.getArrayRef();
-    if (failed(detectDestructiveUpdatePattern<scf::ForOp, scf::YieldOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
+    bool failedDetectingDestructiveUpdate =
+        // scf.for / scf.yield inplace patterns.
+        failed(detectDestructiveUpdatePattern<scf::ForOp, scf::YieldOp>(
+            parentOp, candidate, sliceRef)) &&
         failed(detectOverWritePattern<scf::ForOp, scf::YieldOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
-        failed(detectLinalgReturn<scf::ForOp, scf::YieldOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
+            parentOp, candidate, sliceRef)) &&
+        failed(detectLinalgToTerminator<scf::ForOp, scf::YieldOp>(
+            parentOp, candidate, sliceRef)) &&
+        failed(detectForOpToTerminator<scf::ForOp, scf::YieldOp>(
+            parentOp, candidate, sliceRef)) &&
+        // func / return inplace patterns.
         failed(detectDestructiveUpdatePattern<FuncOp, ReturnOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
-        failed(detectOverWritePattern<FuncOp, ReturnOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
-        failed(detectTiledLoopReturn<FuncOp, ReturnOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults)) &&
-        failed(detectLinalgReturn<FuncOp, ReturnOp>(
-            parentOp, candidate, sliceRef, inPlaceOpResults))) {
+            parentOp, candidate, sliceRef)) &&
+        failed(detectOverWritePattern<FuncOp, ReturnOp>(parentOp, candidate,
+                                                        sliceRef)) &&
+        failed(detectTiledLoopToTerminator<FuncOp, ReturnOp>(
+            parentOp, candidate, sliceRef)) &&
+        failed(detectLinalgToTerminator<FuncOp, ReturnOp>(parentOp, candidate,
+                                                          sliceRef)) &&
+        failed(detectForOpToTerminator<FuncOp, ReturnOp>(parentOp, candidate,
+                                                         sliceRef));
+    if (failedDetectingDestructiveUpdate) {
       LLVM_DEBUG(DBGS() << "Failed to detect a destructive update pattern\n");
       continue;
     }
-
-    // Mark ops inPlace eagerly.
-    for (auto &res : inPlaceOpResults) setInPlaceOpResult(res);
 
     propagateInPlace(candidate, domInfo);
   }
@@ -1273,8 +1315,8 @@ static LogicalResult convertTransferOp(OpBuilder &b,
     map(bvm, writeOp.result(), newInputBuffer);
     transferDimOpsToMemref(writeOp.result(), newInputBuffer);
   } else {
-    // InPlace write will result in tensor_load(x) which must canonicalize
-    // away with one of it uses.
+    // InPlace write will result in memref.tensor_load(x) which must
+    // canonicalize away with one of it uses.
     newInputBuffer = lookup(bvm, writeOp.source());
   }
 
@@ -1440,8 +1482,8 @@ static LogicalResult convertCallOp(
 
   // 1. Rewrite tensor operands as memrefs. For now, only allow either using:
   //   a. a memref from the `bvm`, or
-  //   b. the memref fed to a tensor_load, if it does not itself come from a
-  //      tensor_to_memref.
+  //   b. the memref fed to a memref.tensor_load, if it does not itself come
+  //   from a memref.buffer_cast.
   SmallVector<Value> newOperands(callOp->getOperands());
   for (Value &v : newOperands) {
     if (!v.getType().isa<TensorType>()) continue;
@@ -1454,7 +1496,7 @@ static LogicalResult convertCallOp(
       }
     }
     llvm::errs() << "operand: " << v << "\n";
-    llvm_unreachable("Operand does not come from a tensor_load");
+    llvm_unreachable("Operand does not come from a memref.tensor_load");
   }
 
   // 2. CallOp bufferization.
@@ -1597,8 +1639,8 @@ static LogicalResult convertSubTensorInsertOp(
   if (inPlace != InPlaceSpec::True) {
     llvm_unreachable("SubTensorInsertOp must be inPlace");
   } else {
-    // InPlace write will result in tensor_load(x) which must canonicalize
-    // away with one of it uses.
+    // InPlace write will result in memref.tensor_load(x) which must
+    // canonicalize away with one of it uses.
     dstMemref = lookup(bvm, subTensorInsertOp.dest());
   }
   auto dstMemrefType = dstMemref.getType().cast<MemRefType>();
@@ -1714,9 +1756,9 @@ static LogicalResult convertConstantOp(OpBuilder &b, ConstantOp constantOp,
 ///      (tensor<...>, ..., tensor<...>)
 ///      #inPlace_attr_specification
 ///    {
-///       %p = tensor_to_memref(%some_arg): ...
+///       %p = memref.buffer_cast(%some_arg): ...
 ///       ... // uses of %p (read or writes)
-///       %t = tensor_load %p: ...
+///       %t = memref.tensor_load %p: ...
 ///       return ..., %t, ...: ..., tensor<...>, ...
 ///    }
 /// ```
@@ -1736,16 +1778,16 @@ static BlockArgument analyzeTiedFuncOpResults(OpOperand &returnOperand) {
                ? bbArg
                : BlockArgument();
 
-  // Otherwise we look for tensor_load(tensor_to_memref(bbArg)).
+  // Otherwise we look for memref.tensor_load(memref.buffer_cast(bbArg)).
   auto tensorLoadOp = returnValue.getDefiningOp<memref::TensorLoadOp>();
   if (!tensorLoadOp) return BlockArgument();
-  auto tensorToMemRefOp =
+  auto bufferCastOp =
       tensorLoadOp.memref().getDefiningOp<memref::BufferCastOp>();
-  if (!tensorToMemRefOp) return BlockArgument();
+  if (!bufferCastOp) return BlockArgument();
 
   // If returned value is a bbArg, it only folds if it is a function
   // argument.
-  if (auto bbArg = tensorToMemRefOp.tensor().dyn_cast<BlockArgument>())
+  if (auto bbArg = bufferCastOp.tensor().dyn_cast<BlockArgument>())
     return (bbArg == funcOp.getArgument(bbArg.getArgNumber()))
                ? bbArg
                : BlockArgument();
@@ -1766,9 +1808,9 @@ static bool hasOnlyTensorToMemRefUses(Value v) {
 ///      (tensor<...>, ..., tensor<...>)
 ///      #inPlace_attr_specification
 ///    {
-///       %p = tensor_to_memref(%some_arg): ...
+///       %p = memref.buffer_cast(%some_arg): ...
 ///       ... // uses of %p (read or writes)
-///       %t = tensor_load %p: ...
+///       %t = memref.tensor_load %p: ...
 ///       return ..., %t, ...: ..., tensor<...>, ...
 ///    }
 /// ```
@@ -1887,15 +1929,15 @@ static void bufferizeFuncOpBoundary(
       // them by a simple MemRefCastOp.
       if (hasOnlyTensorToMemRefUses(bbArg)) {
         for (auto &use : llvm::make_early_inc_range(bbArg.getUses())) {
-          Value tensorToMemRef = use.getOwner()->getResult(0);
-          tensorToMemRef.replaceAllUsesWith(b.create<memref::CastOp>(
-              funcOp.getLoc(), tensorToMemRef.getType(), memref));
+          Value bufferCast = use.getOwner()->getResult(0);
+          bufferCast.replaceAllUsesWith(b.create<memref::CastOp>(
+              funcOp.getLoc(), bufferCast.getType(), memref));
           use.getOwner()->erase();
         }
       } else {
         // Otherwise, there are uses that are not TensorToMemRefOp, we need to
         // insert a TensorLoadOp. Subsequent canonicalizations that perform:
-        // `tensor_to_memref(tensor_load(x)) -> x` will later occur.
+        // `memref.buffer_cast(memref.tensor_load(x)) -> x` will later occur.
         Value tensor = b.create<memref::TensorLoadOp>(funcOp->getLoc(), memref);
         bbArg.replaceAllUsesWith(tensor);
       }
@@ -2007,10 +2049,18 @@ static void postTransformSanityChecks(ModuleOp moduleOp,
       if (tensorLoadOp.memref().getDefiningOp<memref::BufferCastOp>()) {
         op->getParentOfType<ModuleOp>()->dump();
         op->emitWarning(
-            "Most likely incorrect pattern: tensor_load(tensor_to_memref)");
+            "Most likely incorrect pattern: "
+            "memref.tensor_load(memref.buffer_cast)");
         abort();
       }
       return;
+    }
+
+    if (llvm::any_of(op->getOperands(),
+                     [](Value v) { return v.getType().isa<TensorType>(); })) {
+      op->getParentOfType<ModuleOp>()->dump();
+      op->emitWarning("Remaining op with tensor operands");
+      abort();
     }
 
     if (auto callOp = dyn_cast<CallOpInterface>(op)) {
