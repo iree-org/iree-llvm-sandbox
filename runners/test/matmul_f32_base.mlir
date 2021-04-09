@@ -36,7 +36,7 @@ func @print_perf(%iters: index, %total_time: f64) {
   return
 }
 
-func @main() {
+func @exec(%iters : index) {
   %v0 = constant 0.0 : !elem_type_c
   %v1 = constant 1.0 : !elem_type_a
   %v2 = constant 2.0 : !elem_type_b
@@ -50,7 +50,6 @@ func @main() {
 
   %c0 = constant 0: index
   %c1 = constant 1: index
-  %iters = constant ${ITERS}: index
 
   /// Run and dump performance for matmul.
   %t_start_matmul = call @rtclock() : () -> f64
@@ -65,13 +64,13 @@ func @main() {
   %val = vector.transfer_read %res[%c0, %c0], %v0: !row_major_C, vector<1x1x!elem_type_c>
   vector.print %val: vector<1x1x!elem_type_c>
 
-  // %unrankedRes = tensor.cast %res : !row_major_C to tensor<*x!elem_type_c>
-  // call @print_memref_f32(%unrankedRes) : (tensor<*x!elem_type_c>) -> ()
+  return
+}
 
+func @main() {
+  %iters = constant ${ITERS} : index
+  call @exec(%iters) : (index) -> ()
   return
 }
 
 func private @rtclock() -> f64
-
-// Abuse reliance on conversions by allowing `tensor<*xf32>`.
-// func private @print_memref_f32(tensor<*xf32>) attributes { llvm.emit_c_interface }

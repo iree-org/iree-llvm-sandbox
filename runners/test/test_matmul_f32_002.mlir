@@ -47,5 +47,3 @@
 //   CHECK-NOT:   copy
 //   CHECK-DAG:   memref.dealloc %[[PACKED_A]]
 //   CHECK-DAG:   memref.dealloc %[[PACKED_B]]
-
-// CHECK-LABEL: func @main(

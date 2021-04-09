@@ -15,7 +15,7 @@
 //  CHECK-NEXT:   linalg.matmul ins(%[[A]], %[[B]] : memref<32x128xf32>, memref<128x64xf32>) outs(%[[C]] : memref<32x64xf32>)
 //  CHECK-NEXT:   return
 
-// CHECK-LABEL: func @main(
+// CHECK-LABEL: func @exec(
 //   CHECK-DAG:   %[[f0:.*]] = constant 0.0
 //   CHECK-DAG:   %[[f1:.*]] = constant 1.0
 //   CHECK-DAG:   %[[f2:.*]] = constant 2.0
@@ -28,7 +28,7 @@
 
 // On the caller side, we do not (yet) determine that the scf.for operand used in
 // iterative calls to init_and_matmul can all be made in place.
-// So an extra memref.alloc + copy is performed form which the final result is read.
+// So an extra memref.alloc + copy is performed from which the final result is read.
 //       CHECK:   %[[RES:.*]] = memref.alloc() : memref<32x64xf32>
 //       CHECK:   call @rtclock() : () -> f64
 //       CHECK:   scf.for %{{.*}} {

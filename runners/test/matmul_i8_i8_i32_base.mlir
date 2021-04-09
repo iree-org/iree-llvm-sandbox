@@ -36,7 +36,7 @@ func @print_perf(%iters: index, %total_time: f64) {
   return
 }
 
-func @main() {
+func @main(%iters : index) {
   %v0 = constant 0 : !elem_type_c
   %v1 = constant 1 : !elem_type_a
 
@@ -49,7 +49,6 @@ func @main() {
 
   %c0 = constant 0: index
   %c1 = constant 1: index
-  %iters = constant ${ITERS}: index
 
   /// Run and dump performance for matmul.
   %t_start_matmul = call @rtclock() : () -> f64

@@ -31,4 +31,4 @@
 //       CHECK:   }
 //   CHECK-NOT:   copy
 
-// CHECK-LABEL: func @main(
+// CHECK-LABEL: func @exec(
