@@ -1021,7 +1021,7 @@ static void propagateInPlace(const SmallVector<OpOperand *> &initalWorklist,
     LLVM_DEBUG(DBGS() << "WL item: " << *operand.getOwner() << "\n");
     // If the owner turns out to be a CallOp without
     // `kWriteableFuncBufferArgsAttrName` this will be a noop.
-    if (operand.get().getType().isa<RankedTensorType>() &&
+    if (operand.get().getType().isa<TensorType>() &&
         isBufferizableInPlace(operand, domInfo)) {
       LLVM_DEBUG(DBGS() << "bufferizable inplace\n");
       setInPlaceOpResult(getTiedOpResult(operand));
@@ -1124,7 +1124,7 @@ void LinalgComprehensiveBufferizePass::inPlaceAnalysisFuncOpInternals(
 
   // Start propagating from ConstantOps.
   funcOp.walk<WalkOrder::PreOrder>([&](ConstantOp constantOp) {
-    if (!constantOp.getResult().getType().isa<RankedTensorType>()) return;
+    if (!constantOp.getResult().getType().isa<TensorType>()) return;
     for (auto &use : constantOp->getUses()) propagateInPlace(use, domInfo);
   });
 
@@ -1355,11 +1355,14 @@ static LogicalResult convertFuncOp(OpBuilder &b, FuncOp funcOp,
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPointToStart(&funcOp.body().front());
   for (auto bbArg : funcOp.getArguments()) {
+    auto tensorType = bbArg.getType().dyn_cast<TensorType>();
     auto rankedTensorType = bbArg.getType().dyn_cast<RankedTensorType>();
-    if (!rankedTensorType) continue;
+    if (!tensorType) continue;
     // Cast the tensor to the most dynamic buffer possible. Further
     // canonicalizations will clean up.
-    MemRefType memRefType = getDynamicMemRefType(rankedTensorType);
+    Type memRefType = rankedTensorType
+                          ? getDynamicMemRefType(rankedTensorType)
+                          : getContiguousOrUnrankedMemRefType(tensorType);
     Value tensorToMemref =
         b.create<memref::BufferCastOp>(funcOp.getLoc(), memRefType, bbArg);
     map(bvm, bbArg, tensorToMemref);
@@ -1380,6 +1383,8 @@ static LogicalResult convertScfForOp(OpBuilder &b, scf::ForOp forOp,
   b.setInsertionPointAfter(forOp);
   for (auto it : llvm::zip(forOp.getRegionIterArgs(), forOp->getResults())) {
     BlockArgument bbArg = std::get<0>(it);
+    // TODO: Atm we bail on TensorType because we don't know how to alloc an
+    // UnrankedMemRefType + its underlying ranked MemRefType.
     if (!bbArg.getType().isa<RankedTensorType>()) continue;
     OpResult opResult = std::get<1>(it);
     Value operand = forOp.getIterOperands()[opResult.getResultNumber()];
@@ -1415,6 +1420,8 @@ static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
   for (auto it : llvm::zip(tiledLoop.outputs(), tiledLoop->getResults(),
                            yieldOp->getOpOperands())) {
     Value outputTensor = std::get<0>(it);
+    // TODO: Atm we bail on TensorType because we don't know how to alloc an
+    // UnrankedMemRefType + its underlying ranked MemRefType.
     if (!outputTensor.getType().isa<RankedTensorType>()) continue;
     Value operandBuffer = lookup(bvm, outputTensor);
 
@@ -1469,9 +1476,8 @@ static LogicalResult convertScfYieldOp(OpBuilder &b, scf::YieldOp yieldOp,
   scf::ForOp forOp = dyn_cast<scf::ForOp>(yieldOp->getParentOp());
   assert(forOp && "only support scf::ForOp parent for scf::YieldOp");
   for (OpOperand &operand : yieldOp->getOpOperands()) {
-    auto rankedTensorType =
-        operand.get().getType().dyn_cast<RankedTensorType>();
-    if (!rankedTensorType) continue;
+    auto tensorType = operand.get().getType().dyn_cast<TensorType>();
+    if (!tensorType) continue;
     auto bbArg = forOp.getRegionIterArgs()[operand.getOperandNumber()];
     if (getInPlace(bbArg) == InPlaceSpec::True)
       operand.set(bbArg);
@@ -1501,27 +1507,32 @@ static LogicalResult convertCallOp(
   //   from a memref.buffer_cast.
   SmallVector<Value> newOperands(callOp->getOperands());
   for (unsigned idx = 0, e = newOperands.size(); idx < e; ++idx) {
-    Value &v = newOperands[idx];
+    Value v = newOperands[idx];
     if (!v.getType().isa<TensorType>()) continue;
-    if ((v = bvm.lookupOrNull(v))) {
+    if (auto mappedV = bvm.lookupOrNull(v)) {
       auto funcOp = getCalledFunction(callOp);
       auto memRefType = funcOp.getType().getInput(idx).dyn_cast<MemRefType>();
-      if (memRefType && v.getType() != memRefType) {
+      if (memRefType && mappedV.getType() != memRefType) {
         // Since we don't yet have a clear layout story, buffer_cast may
         // conservatively turn tensors into more dynamic memref than necessary.
         // If the memref type of the callee fails, introduce an extra
         // memref.cast that will either canonicalize away or fail compilation
         // until we can do something better.
-        Value newV = b.create<memref::CastOp>(callOp.getLoc(), memRefType, v);
+        Value newV =
+            b.create<memref::CastOp>(callOp.getLoc(), memRefType, mappedV);
         bvm.map(v, newV);
-        v = newV;
+        bvm.map(mappedV, newV);
+        mappedV = newV;
       }
+      newOperands[idx] = mappedV;
       continue;
     }
     // TODO: how dangerous is this at this point in spacetime ?
     if (auto tensorLoadOp = v.getDefiningOp<memref::TensorLoadOp>()) {
       if (!isa<memref::BufferCastOp>(tensorLoadOp.memref().getDefiningOp())) {
-        v = tensorLoadOp.memref();
+        Value newV = tensorLoadOp.memref();
+        bvm.map(tensorLoadOp.memref(), newV);
+        newOperands[idx] = newV;
         continue;
       }
     }
@@ -1558,8 +1569,8 @@ static LogicalResult convertCallOp(
   SmallVector<Value> replacements;
   replacements.reserve(callOp->getNumResults());
   for (OpResult oldRes : callOp->getResults()) {
-    // If not a ranked tensor, no changes, just replace the new result.
-    if (!oldRes.getType().isa<RankedTensorType>()) {
+    // If not a tensor, no changes, just replace the new result.
+    if (!oldRes.getType().isa<TensorType>()) {
       replacements.push_back(newCallOp->getResult(newCallOpResultIndex++));
       continue;
     }
@@ -1574,8 +1585,8 @@ static LogicalResult convertCallOp(
       llvm_unreachable("Unsupported result memref");
     }
 
-    // If the old callOp result is a ranked tensor that does not fold on some
-    // input, then there must be an allocated return value.
+    // If the old callOp result is a tensor that does not fold on some input,
+    // then there must be an allocated return value.
     // That value should be deallocated by the caller.
     // TODO: That value should be lifted out of the callee at the first
     // enclosing parallel scope. This lifting should be done to (the meet of)
@@ -1599,11 +1610,10 @@ static LogicalResult convertReturnOp(OpBuilder &b, ReturnOp returnOp,
   b.setInsertionPoint(returnOp);
 
   FuncOp funcOp = cast<FuncOp>(returnOp->getParentOp());
-  assert(funcOp && "only support scf::ForOp parent for scf::YieldOp");
+  assert(funcOp && "only support FuncOp parent for ReturnOp");
   for (OpOperand &operand : returnOp->getOpOperands()) {
-    auto rankedTensorType =
-        operand.get().getType().dyn_cast<RankedTensorType>();
-    if (!rankedTensorType) continue;
+    auto tensorType = operand.get().getType().dyn_cast<TensorType>();
+    if (!tensorType) continue;
     operand.set(b.create<memref::TensorLoadOp>(returnOp.getLoc(),
                                                lookup(bvm, operand.get())));
   }
@@ -1638,13 +1648,12 @@ static LogicalResult convertPadTensorOp(OpBuilder &b, PadTensorOp padTensorOp,
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(padTensorOp);
 
-  auto tensorType = padTensorOp.result().getType().cast<RankedTensorType>();
+  auto tensorType = padTensorOp.result().getType().cast<TensorType>();
   auto sourceMemRef = lookup(bvm, padTensorOp.source());
   auto sourceMemRefType = sourceMemRef.getType().cast<MemRefType>();
-  // PadTensorOp is on RankedTensorType, convert with getContiguousMemRefType.
-  auto memRefType =
-      getContiguousMemRefType(tensorType, sourceMemRefType.getAffineMaps(),
-                              sourceMemRefType.getMemorySpaceAsInt());
+  auto memRefType = getContiguousOrUnrankedMemRefType(
+      tensorType, sourceMemRefType.getAffineMaps(),
+      sourceMemRefType.getMemorySpaceAsInt());
   Value res =
       b.create<memref::CastOp>(padTensorOp.getLoc(), memRefType, sourceMemRef);
   map(bvm, padTensorOp.result(), res);
@@ -1749,8 +1758,13 @@ static LogicalResult convertTensorCastOp(OpBuilder &b, tensor::CastOp castOp,
   ArrayRef<AffineMap> affineMaps = rankedMemRefType
                                        ? rankedMemRefType.getAffineMaps()
                                        : ArrayRef<AffineMap>{};
-  Type memRefType = getContiguousOrUnrankedMemRefType(
-      castOp.getResult().getType(), affineMaps, memorySpace);
+  TensorType tensorType = castOp.getResult().getType().cast<TensorType>();
+  Type memRefType =
+      tensorType.isa<RankedTensorType>()
+          ? getContiguousOrUnrankedMemRefType(castOp.getResult().getType(),
+                                              affineMaps, memorySpace)
+          : getContiguousOrUnrankedMemRefType(castOp.getResult().getType(), {},
+                                              memorySpace);
   Value res = b.create<memref::CastOp>(castOp.getLoc(), memRefType,
                                        lookup(bvm, castOp.source()));
   map(bvm, castOp.getResult(), res);
@@ -1799,8 +1813,8 @@ static BlockArgument analyzeTiedFuncOpResults(OpOperand &returnOperand) {
       cast<FuncOp>(returnOperand.get().getParentBlock()->getParentOp());
   Value returnValue = returnOperand.get();
 
-  // Only consider ranked tensors for folding.
-  if (!returnValue.getType().isa<RankedTensorType>()) return BlockArgument();
+  // Only consider tensors for folding.
+  if (!returnValue.getType().isa<TensorType>()) return BlockArgument();
 
   // If returned value is a bbArg, it folds iff it is a function argument.
   if (auto bbArg = returnValue.dyn_cast<BlockArgument>())

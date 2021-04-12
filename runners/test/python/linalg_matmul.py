@@ -14,7 +14,7 @@ from mlir.dialects import linalg
 from mlir.dialects import std
 from mlir.passmanager import *
 from mlir.execution_engine import *
-from mlir.runtime.memref import *
+from mlir.runtime import *
 
 
 # Log everything to stderr and flush so that we have a unified stream to match
@@ -103,15 +103,15 @@ def transform(module, boilerplate_code):
   # of elements".
   # Reenable transformations when resolved.
 
-  # tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [256, 256, 256])
-  # tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [32, 32, 64])
-  # tile_and_pad(
-  #     module,
-  #     'matmul_on_tensors',
-  #     'linalg.matmul', [2, 4, 16],
-  #     pad=True,
-  #     hoist_padding=6)
-  # vectorize(module, 'matmul_on_tensors', 'linalg.matmul')
+  tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [256, 256, 256])
+  tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [32, 32, 64])
+  tile_and_pad(
+      module,
+      'matmul_on_tensors',
+      'linalg.matmul', [2, 4, 16],
+      pad=True,
+      hoist_padding=6)
+  vectorize(module, 'matmul_on_tensors', 'linalg.matmul')
   bufferize_to_llvm(module, 'matmul_on_tensors', 'linalg.matmul')
 
   return module
@@ -141,15 +141,15 @@ def test_matmul(M: int, N: int, K: int, ITERS=1):
     C.fill(0.)
 
     # Arguments must be passed as pointers.
-    A_memref_ptr = ctypes.pointer(ctypes.pointer(to_memref(A)))
-    B_memref_ptr = ctypes.pointer(ctypes.pointer(to_memref(B)))
-    C_memref_ptr = ctypes.pointer(ctypes.pointer(to_memref(C)))
+    A_memref_ptr = ctypes.pointer(
+        ctypes.pointer(get_ranked_memref_descriptor(A)))
+    B_memref_ptr = ctypes.pointer(
+        ctypes.pointer(get_ranked_memref_descriptor(B)))
+    C_memref_ptr = ctypes.pointer(
+        ctypes.pointer(get_ranked_memref_descriptor(C)))
     index_ptr_t = ctypes.c_longlong * 1
 
-    execution_engine.invoke('main',
-                            ctypes.pointer(ctypes.pointer(to_memref(A))),
-                            ctypes.pointer(ctypes.pointer(to_memref(B))),
-                            ctypes.pointer(ctypes.pointer(to_memref(C))),
+    execution_engine.invoke('main', A_memref_ptr, B_memref_ptr, C_memref_ptr,
                             index_ptr_t(ITERS))
 
     delta = C - np.dot(A, B)
