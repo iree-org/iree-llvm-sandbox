@@ -88,7 +88,7 @@ static TiledLoopOp buildTiledLoop(PatternRewriter &rewriter,
     }
   }
 
-  SmallVector<StringRef> iterTypes = {"parallel"};
+  SmallVector<StringRef> iterTypes(tiledLinalgOp.loops.size(), "parallel");
   auto tiledLoop =
       rewriter.create<TiledLoopOp>(loc, lbs, ubs, steps, inputs, outputs,
                                    rewriter.getStrArrayAttr(iterTypes));
