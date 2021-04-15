@@ -14,14 +14,9 @@
 namespace mlir {
 namespace linalg {
 
-/// Options for tile-n-distribute via `linalg.tiled_loop`.
-struct TileAndDistributeOptions {
-  LinalgTilingOptions tilingOptions;
-};
-
-void populateTileAndDistributePattern(OwningRewritePatternList &patterns,
-                                      const TileAndDistributeOptions &opts,
-                                      const LinalgTransformationFilter &filter);
+void populateTileAndFusePattern(OwningRewritePatternList &patterns,
+                                const LinalgTilingOptions &opts,
+                                const LinalgTransformationFilter &filter);
 
 }  // namespace linalg
 }  // namespace mlir

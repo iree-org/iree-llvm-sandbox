@@ -13,7 +13,7 @@
 
 #include "Transforms.h"
 
-#define DEBUG_TYPE "distribute"
+#define DEBUG_TYPE "tile-fuse"
 
 #define DBGS() (llvm::dbgs() << '[' << DEBUG_TYPE << "] ")
 
@@ -23,12 +23,11 @@ using namespace mlir::linalg;
 namespace mlir {
 namespace linalg {
 
-struct TileAndDistributePattern : public RewritePattern {
+struct TileAndFusePattern : public RewritePattern {
   /// MatchAnyOpTag-based constructor with a mandatory `filter`.
-  TileAndDistributePattern(TileAndDistributeOptions options,
-                           LinalgTransformationFilter filter,
-                           mlir::MLIRContext *context,
-                           PatternBenefit benefit = 1)
+  TileAndFusePattern(LinalgTilingOptions options,
+                     LinalgTransformationFilter filter,
+                     mlir::MLIRContext *context, PatternBenefit benefit = 1)
       : RewritePattern(MatchAnyOpTypeTag(), benefit, context),
         filter(filter),
         options(options) {}
@@ -38,7 +37,7 @@ struct TileAndDistributePattern : public RewritePattern {
  private:
   /// LinalgTransformMarker handles special attribute manipulations.
   LinalgTransformationFilter filter;
-  TileAndDistributeOptions options;
+  LinalgTilingOptions options;
 };
 
 }  // namespace linalg
@@ -114,10 +113,10 @@ static TiledLoopOp buildTiledLoop(PatternRewriter &rewriter,
   return tiledLoop;
 }
 
-static Optional<TiledLoopOp> tileAndDistributeLinalgOp(
+static Optional<TiledLoopOp> tileAndFuseLinalgOp(
     PatternRewriter &rewriter, LinalgOp linalgOp,
-    const TileAndDistributeOptions &options) {
-  auto tiledLinalgOp = tileLinalgOp(rewriter, linalgOp, options.tilingOptions);
+    const LinalgTilingOptions &tilingOptions) {
+  auto tiledLinalgOp = tileLinalgOp(rewriter, linalgOp, tilingOptions);
   if (!tiledLinalgOp) return llvm::None;
   linalg::fuseProducerOfTensor(rewriter,
                                linalgOp.getOutputOpOperands()
@@ -129,18 +128,18 @@ static Optional<TiledLoopOp> tileAndDistributeLinalgOp(
                                tiledLinalgOp->op.getOutputOpOperands().front());
 
   // Consider padding on the fly only if the op has tensor semantics.
-  if (!options.tilingOptions.paddingValueComputationFunction ||
+  if (!tilingOptions.paddingValueComputationFunction ||
       !linalgOp.hasTensorSemantics())
     return buildTiledLoop(rewriter, std::move(*tiledLinalgOp));
 
   // Try to pad on the fly by rewriting tiledLinalgOp->op as a padded op.
   // TODO: This requires padding and bounding box to symbolic multiples.
-  // (void)rewriteAsPaddedOp(rewriter, *tiledLinalgOp, options.tilingOptions);
+  // (void)rewriteAsPaddedOp(rewriter, *tiledLinalgOp, tilingOptions);
 
   return buildTiledLoop(rewriter, std::move(*tiledLinalgOp));
 }
 
-LogicalResult mlir::linalg::TileAndDistributePattern::matchAndRewrite(
+LogicalResult mlir::linalg::TileAndFusePattern::matchAndRewrite(
     Operation *op, PatternRewriter &rewriter) const {
   LinalgOp linalgOp = dyn_cast<LinalgOp>(op);
   if (!linalgOp || !linalgOp.hasTensorSemantics()) return failure();
@@ -149,7 +148,7 @@ LogicalResult mlir::linalg::TileAndDistributePattern::matchAndRewrite(
   if (linalgOp->getParentOfType<TiledLoopOp>()) return failure();
 
   Optional<TiledLoopOp> tiledLoopOp =
-      tileAndDistributeLinalgOp(rewriter, op, options);
+      tileAndFuseLinalgOp(rewriter, op, options);
   if (!tiledLoopOp) return failure();
   if (tiledLoopOp->getNumResults() > 0)
     rewriter.replaceOp(op, tiledLoopOp->getResults());
@@ -158,9 +157,9 @@ LogicalResult mlir::linalg::TileAndDistributePattern::matchAndRewrite(
   return success();
 }
 
-void mlir::linalg::populateTileAndDistributePattern(
-    OwningRewritePatternList &patterns, const TileAndDistributeOptions &opts,
+void mlir::linalg::populateTileAndFusePattern(
+    OwningRewritePatternList &patterns, const LinalgTilingOptions &opts,
     const LinalgTransformationFilter &filter) {
-  patterns.insert<mlir::linalg::TileAndDistributePattern>(
-      opts, filter, patterns.getContext());
+  patterns.insert<mlir::linalg::TileAndFusePattern>(opts, filter,
+                                                    patterns.getContext());
 }
