@@ -1,6 +1,7 @@
 add_llvm_library(MLIRLinalgTensorSandbox
   ConvertToGPUDialect.cpp
   LinalgComprehensiveBufferizePass.cpp
+  LinalgDistributePass.cpp
   LinalgTensorCodegenStrategy.cpp
   LinalgTileAndFuse.cpp
   LinalgTiledLoopToSCFPass.cpp

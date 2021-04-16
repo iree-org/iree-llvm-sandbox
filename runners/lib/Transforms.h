@@ -10,6 +10,7 @@
 #define IREE_EXPERIMENTAL_RUNNERS_TRANSFORMS_H_
 
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 namespace linalg {
@@ -17,6 +18,8 @@ namespace linalg {
 void populateTileAndFusePattern(OwningRewritePatternList &patterns,
                                 const LinalgTilingOptions &opts,
                                 const LinalgTransformationFilter &filter);
+
+std::unique_ptr<OperationPass<FuncOp>> createDistributeTiledLoopPass();
 
 }  // namespace linalg
 }  // namespace mlir

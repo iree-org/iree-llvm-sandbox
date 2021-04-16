@@ -12,6 +12,7 @@
 namespace mlir {
 namespace linalg {
 void registerLinalgComprehensiveBufferizePass();
+void registerLinalgDistributePass();
 void registerLinalgTensorCodegenStrategyPass();
 void registerLinalgTiledLoopToSCFPass();
 }  // namespace linalg
