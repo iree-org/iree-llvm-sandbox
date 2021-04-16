@@ -76,7 +76,7 @@ def vectorize(mod: Module, func_name: str, op_name: str):
   PassManager.parse(pipeline).run(mod)
 
 
-def bufferize_to_llvm(module: Module, func_name: str, op_name: str):
+def bufferize_to_llvm(module: Module):
   pipeline = (f'linalg-comprehensive-bufferize-inplace,'
               f'func(convert-linalg-to-loops,'
               f'     convert-vector-to-scf{{full-unroll=true}}),'
@@ -84,6 +84,11 @@ def bufferize_to_llvm(module: Module, func_name: str, op_name: str):
               f'convert-scf-to-std,'
               f'convert-vector-to-llvm,'
               f'convert-std-to-llvm')
+  PassManager.parse(pipeline).run(module)
+
+
+def bufferize(module: Module):
+  pipeline = (f'linalg-comprehensive-bufferize-inplace')
   PassManager.parse(pipeline).run(module)
 
 
@@ -98,11 +103,6 @@ def transform(module, boilerplate_code):
       str(module.operation.regions[0].blocks[0].operations[0].operation) +
       boilerplate_code)
 
-  # TODO: there seem to be some issues with np.ndarrary.strides compatibility as
-  # they operate in "number of bytes" whereas memref strides operate in "number
-  # of elements".
-  # Reenable transformations when resolved.
-
   tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [256, 256, 256])
   tile_and_pad(module, 'matmul_on_tensors', 'linalg.matmul', [32, 32, 64])
   tile_and_pad(
@@ -112,7 +112,7 @@ def transform(module, boilerplate_code):
       pad=True,
       hoist_padding=6)
   vectorize(module, 'matmul_on_tensors', 'linalg.matmul')
-  bufferize_to_llvm(module, 'matmul_on_tensors', 'linalg.matmul')
+  bufferize_to_llvm(module)
 
   return module
 
@@ -128,9 +128,13 @@ def test_matmul(M: int, N: int, K: int, ITERS=1):
           RankedTensorType.get((M, K), f32), RankedTensorType.get((K, N), f32),
           RankedTensorType.get((M, N), f32))
       def matmul_on_tensors(lhs, rhs, out):
-        # TODO: enable this.
-        # tensor_zero = linalg.fill(out, zero)
-        return linalg.matmul(lhs, rhs, outs=[out])
+        # TODO: in the future, should be writeable more concisely as:
+        #   zero = std.constant(0.0, f32)
+        #   tmp = linalg.fill(out, zero)
+        #   linalg.matmul(lhs, rhs, tmp)
+        zero = std.ConstantOp(value=FloatAttr.get(f32, 0.), result=f32).result
+        tensor_zero = linalg.FillOp(output=out, value=zero).results[0]
+        return linalg.matmul(lhs, rhs, outs=[tensor_zero])
 
     execution_engine = ExecutionEngine(
         transform(module, boilerplate(M=M, N=N, K=K)))
@@ -157,13 +161,9 @@ def test_matmul(M: int, N: int, K: int, ITERS=1):
     max_abs_delta = max(delta.max(), delta.min(), key=abs)
     print(f'max_abs_delta: {max_abs_delta} -> SUCCESS = {success}')
 
-
-# TODO: More iterations once we have a fill to zero the results at each
-# iteration inside the matmul_on_tensors func.
-
 # CHECK: SUCCESS = True
-test_matmul(4, 8, 16, 1)
+test_matmul(4, 8, 16, 10)
 # CHECK: SUCCESS = True
-test_matmul(128, 192, 256, 1)
+test_matmul(128, 192, 256, 10)
 # CHECK: SUCCESS = True
-test_matmul(1024, 1024, 1024, 1)
+test_matmul(1024, 1024, 1024, 10)
