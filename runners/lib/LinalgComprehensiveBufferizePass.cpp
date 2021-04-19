@@ -1383,8 +1383,8 @@ static LogicalResult convertScfForOp(OpBuilder &b, scf::ForOp forOp,
   b.setInsertionPointAfter(forOp);
   for (auto it : llvm::zip(forOp.getRegionIterArgs(), forOp->getResults())) {
     BlockArgument bbArg = std::get<0>(it);
-    // TODO: Atm we bail on TensorType because we don't know how to alloc an
-    // UnrankedMemRefType + its underlying ranked MemRefType.
+    // TODO: Atm we bail on unranked TensorType because we don't know how to
+    // alloc an UnrankedMemRefType + its underlying ranked MemRefType.
     if (!bbArg.getType().isa<RankedTensorType>()) continue;
     OpResult opResult = std::get<1>(it);
     Value operand = forOp.getIterOperands()[opResult.getResultNumber()];
@@ -1702,10 +1702,14 @@ static LogicalResult convertSubTensorInsertOp(
   // buffer. If the producer is not one of these ops, we need to copy.
   Value source = subTensorInsertOp.source();
   InPlaceSpec inPlaceProducer = InPlaceSpec::None;
-  if (isa<LinalgOp, vector::TransferWriteOp>(source.getDefiningOp()))
-    inPlaceProducer = getInPlace(source.cast<OpResult>());
-  if (inPlaceProducer != InPlaceSpec::True)
+  if (auto opResult = source.dyn_cast<OpResult>())
+    inPlaceProducer = getInPlace(opResult);
+  else
+    inPlaceProducer = getInPlace(source.cast<BlockArgument>());
+  if (inPlaceProducer != InPlaceSpec::True) {
+    LLVM_DEBUG(DBGS() << "source not inplace: " << source << " -> copy\n");
     b.create<CopyOp>(subTensorInsertOp.getLoc(), srcMemref, subView);
+  }
 
   map(bvm, subTensorInsertOp.result(), subView);
 
@@ -2128,6 +2132,93 @@ static void postTransformSanityChecks(ModuleOp moduleOp,
   });
 }
 
+/// Special patterns for which dealiasing is more difficult to detect when
+/// operating on tensors but easier on buffers.
+/// Detect and remove exactly the following patterns (where `|` denotes the
+/// "next operation" and -> denoted a simple "copy" operation):
+///  - alloc with no use
+///  - alloc with a single use that is a dealloc
+///  - alloc with 2 uses: (%x -> %alloc) | dealloc(%alloc)
+///  - alloc with 3 uses:  (%x -> %alloc) | (%alloc -> %x) | dealloc(%alloc)
+static void performLateCleanups(FuncOp funcOp) {
+  SmallVector<Operation *> toErase;
+  funcOp.walk([&](memref::AllocOp alloc) {
+    LLVM_DEBUG(DBGS() << "alloc with " << sizeOfRange(alloc->getUses())
+                      << " uses: " << alloc.memref() << "\n");
+
+    // Look for useless alloc.
+    if (alloc.use_empty()) {
+      LLVM_DEBUG(DBGS() << "useless alloc: " << alloc.memref() << "\n");
+      alloc->erase();
+      return;
+    }
+
+    memref::DeallocOp dealloc;
+    for (auto &use : alloc->getUses()) {
+      if (auto candidate = dyn_cast<memref::DeallocOp>(use.getOwner())) {
+        assert(!dealloc && "double free of AllocOp");
+        dealloc = candidate;
+      }
+    }
+
+    if (!dealloc) return;
+    LLVM_DEBUG(DBGS() << "dealloc: " << *dealloc.getOperation() << "\n");
+
+    // Look for trivial alloc | dealloc.
+    if (alloc->hasOneUse()) {
+      LLVM_DEBUG(DBGS() << "trivial alloc | dealloc\n");
+      dealloc->erase();
+      alloc->erase();
+      return;
+    }
+
+    // Look for copy to nowhere:
+    //   (%x -> %alloc) | dealloc(%alloc)
+    LLVM_DEBUG(DBGS() << "prev(dealloc): " << *dealloc->getPrevNode() << "\n");
+    auto lastCopy = dyn_cast_or_null<linalg::CopyOp>(dealloc->getPrevNode());
+    // Bail on permutations.
+    if (!lastCopy || lastCopy.inputPermutation() ||
+        lastCopy.outputPermutation())
+      return;
+
+    LLVM_DEBUG(DBGS() << "lastCopy: " << *lastCopy.getOperation() << "\n");
+    if (sizeOfRange(alloc->getUses()) == 2) {
+      if (lastCopy.output() == alloc.memref()) {
+        LLVM_DEBUG(DBGS() << "copy to nowhere\n");
+        dealloc->erase();
+        lastCopy->erase();
+        alloc->erase();
+      }
+      return;
+    }
+
+    // Look for copy to copy to nowhere:
+    //   (%x -> %alloc) | (%alloc -> %x) | dealloc(%alloc))
+    LLVM_DEBUG(DBGS() << "prev(lastCopy): " << *lastCopy->getPrevNode()
+                      << "\n");
+    auto prevCopy = dyn_cast_or_null<linalg::CopyOp>(lastCopy->getPrevNode());
+    // Bail on permutations.
+    if (!prevCopy || prevCopy.inputPermutation() ||
+        prevCopy.outputPermutation())
+      return;
+
+    LLVM_DEBUG(DBGS() << "prevCopy: " << *prevCopy.getOperation() << "\n");
+    if (sizeOfRange(alloc->getUses()) == 3) {
+      // lastCopy is the last one in program order.
+      if (prevCopy.output() == alloc.memref() &&
+          lastCopy.input() == alloc.memref() &&
+          prevCopy.input() == lastCopy.output()) {
+        LLVM_DEBUG(DBGS() << "copy to copy to nowhere\n");
+        dealloc->erase();
+        prevCopy->erase();
+        lastCopy->erase();
+        alloc->erase();
+      }
+      return;
+    }
+  });
+}
+
 void LinalgComprehensiveBufferizePass::runOnOperation() {
   ModuleOp moduleOp = getOperation();
 
@@ -2166,4 +2257,7 @@ void LinalgComprehensiveBufferizePass::runOnOperation() {
 
   // 4. Sanity checks.
   postTransformSanityChecks(moduleOp, bvm);
+
+  // 5. Late cleanups.
+  moduleOp.walk([](FuncOp funcOp) { performLateCleanups(funcOp); });
 }

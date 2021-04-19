@@ -63,14 +63,6 @@ struct LinalgTensorCodegenStrategyPass
   ListOption<int64_t> tileSizes{*this, "tile-sizes",
                                 llvm::cl::MiscFlags::CommaSeparated,
                                 llvm::cl::desc("Specifies the tile sizes.")};
-  Option<bool> promote{
-      *this, "promote",
-      llvm::cl::desc("Promote the tile into a small aligned memory buffer."),
-      llvm::cl::init(false)};
-  Option<bool> promoteFullTile{
-      *this, "promote-full-tile-pad",
-      llvm::cl::desc("Pad the small aligned memory buffer to the tile sizes."),
-      llvm::cl::init(false)};
   Option<bool> vectorize{
       *this, "vectorize",
       llvm::cl::desc("Rewrite the linalg op as a vector operation."),
@@ -146,6 +138,11 @@ struct LinalgTensorCodegenStrategyPass
       *this, "vectorize-padding",
       llvm::cl::desc("Rewrite linalg.pad_tensor in vector form."),
       llvm::cl::init(false)};
+  Option<bool> fuse{*this, "fuse", llvm::cl::desc("Fuse."),
+                    llvm::cl::init(false)};
+  Option<bool> fusePadding{*this, "fuse-padding",
+                           llvm::cl::desc("Use padding during fusion."),
+                           llvm::cl::init(false)};
 };
 }  // end anonymous namespace
 
@@ -171,11 +168,6 @@ static void runGenericStrategy(
   strategy
       .tileIf<LinalgOp>(!pass.tileSizes.empty(), pass.anchorOpName,
                         tilingOptions)
-      .promoteIf<LinalgOp>(
-          pass.promote, pass.anchorOpName,
-          LinalgPromotionOptions()
-              .setAlignment(16)
-              .setUseFullTileBuffersByDefault(pass.promoteFullTile))
       .vectorizeIf(pass.vectorize, pass.anchorOpName)
       .setVectorTransformsOptions(
           vector::VectorTransformsOptions()
@@ -193,11 +185,6 @@ static void runStrategy(LinalgTensorCodegenStrategyPass &pass,
                         vector::VectorTransferSplit vectorTransferSplit) {
   CodegenStrategy strategy;
   strategy.tileIf<OpType>(!pass.tileSizes.empty(), tilingOptions)
-      .template promoteIf<OpType>(
-          pass.promote,
-          LinalgPromotionOptions()
-              .setAlignment(16)
-              .setUseFullTileBuffersByDefault(pass.promoteFullTile))
       .template vectorizeIf<OpType>(pass.vectorize)
       .setVectorTransformsOptions(
           vector::VectorTransformsOptions()
@@ -217,8 +204,38 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
 
 /// Apply transformations specified as patterns.
 void LinalgTensorCodegenStrategyPass::runOnFunction() {
-  if (!anchorFuncOpName.empty() && anchorFuncOpName != getFunction().getName())
-    return;
+  auto funcOp = getFunction();
+  if (!anchorFuncOpName.empty() && anchorFuncOpName != funcOp.getName()) return;
+
+  if (fuse) {
+    // Collect all Linalg ops, they must all have tensor semantics.
+    // For now this just fuses everything.
+    // TODO: finer control.
+    SmallVector<LinalgOp> linalgOps;
+    auto walkResult = funcOp.walk([&](LinalgOp op) {
+      if (!op.hasTensorSemantics()) return WalkResult::interrupt();
+      linalgOps.push_back(op);
+      return WalkResult::advance();
+    });
+    if (walkResult.wasInterrupted()) return signalPassFailure();
+
+    linalg::Aliases aliases;
+    LinalgDependenceGraph dependenceGraph(aliases, linalgOps);
+    OpBuilder builder(funcOp.getContext());
+    linalg::LinalgTilingLoopType loopType = LinalgTilingLoopType::Loops;
+    LinalgTilingOptions tilingOptions;
+    tilingOptions = tilingOptions.setTileSizes(tileSizes).setLoopType(loopType);
+    if (fusePadding) {
+      tilingOptions = tilingOptions.setPaddingValueComputationFunction(
+          getNeutralOfLinalgOp);
+      llvm_unreachable("NYI: fusion does not call padding pattern");
+    }
+    Optional<TiledAndFusedLinalgOps> tileAndFuseOps = tileAndFuseLinalgOps(
+        builder, linalgOps, dependenceGraph, tilingOptions);
+    if (tileAndFuseOps)
+      linalgOps.back().getOperation()->replaceAllUsesWith(
+          tileAndFuseOps->fusedLoops.front());
+  }
 
   if (distribute && !distributeTileSizes.empty()) {
     LinalgTilingOptions tilingOptions;
@@ -226,19 +243,19 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
     if (pad)
       tilingOptions = tilingOptions.setPaddingValueComputationFunction(
           getNeutralOfLinalgOp);
-    OwningRewritePatternList patterns(getFunction().getContext());
+    OwningRewritePatternList patterns(funcOp.getContext());
 
     populateTileAndFusePattern(
         patterns, tilingOptions,
         LinalgTransformationFilter(
             ArrayRef<Identifier>{},
-            {Identifier::get("distributed", getFunction().getContext())})
+            {Identifier::get("distributed", funcOp.getContext())})
             .addFilter([](Operation *op) {
               return success(isaContractionOpInterface(dyn_cast<LinalgOp>(op)));
             }));
-    (void)applyPatternsAndFoldGreedily(getFunction(), std::move(patterns));
+    (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
     // Ensure we drop the marker in the end.
-    getFunction().walk([](LinalgOp op) {
+    funcOp.walk([](LinalgOp op) {
       op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
     });
   }
@@ -285,16 +302,15 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
   // Transforms that do not require anchoring on a given op.
   if (hoistPadding > 0) {
     SmallVector<PadTensorOp> ops;
-    getFunction().walk([&](PadTensorOp op) { ops.push_back(op); });
+    funcOp.walk([&](PadTensorOp op) { ops.push_back(op); });
     for (auto op : llvm::reverse(ops))
       (void)hoistPaddingOnTensors(op, hoistPadding);
   }
   if (vectorizePadding) {
-    OwningRewritePatternList extraVectorizationPatterns(
-        getFunction().getContext());
+    OwningRewritePatternList extraVectorizationPatterns(funcOp.getContext());
     extraVectorizationPatterns.insert<PadTensorOpVectorizationPattern>(
         &getContext());
-    (void)applyPatternsAndFoldGreedily(getFunction(),
+    (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(extraVectorizationPatterns));
   }
 }
