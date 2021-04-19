@@ -14,6 +14,7 @@
 #include <cstdint>
 
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
@@ -31,10 +32,9 @@ class ConvertToGPUPass : public PassWrapper<ConvertToGPUPass, FunctionPass> {
  public:
   ConvertToGPUPass() = default;
   ConvertToGPUPass(const ConvertToGPUPass &pass) {}
-  Option<std::string> functionName{
-      *this, "gpu-func-name",
-      llvm::cl::desc("Convert the matching function to GPU"),
-      llvm::cl::init("none")};
+  ListOption<int64_t> numWorkgroups{
+      *this, "num-workgroups", llvm::cl::MiscFlags::CommaSeparated,
+      llvm::cl::desc("Specifies the number of workgroups dispatched.")};
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<gpu::GPUDialect>();
   }
@@ -45,47 +45,46 @@ class ConvertToGPUPass : public PassWrapper<ConvertToGPUPass, FunctionPass> {
 
 void ConvertToGPUPass::runOnFunction() {
   FuncOp funcOp = getFunction();
-  if (funcOp.getName() != functionName) return;
-  Location loc = funcOp.getLoc();
-  Operation *firstOp = &(*funcOp.begin()->begin());
-  OpBuilder b(firstOp);
+  linalg::TiledLoopOp tiledLoopOp;
+  // Assume the first level TiledLoop op maps to GPU dispatch. In the future
+  // there may be some annotations to make it explicit.
+  funcOp.walk([&](linalg::TiledLoopOp op) {
+    tiledLoopOp = op;
+    return mlir::WalkResult::advance();
+  });
+  if (!tiledLoopOp) return;
+  Location loc = tiledLoopOp.getLoc();
+  OpBuilder b(tiledLoopOp);
   Value constOne = b.create<ConstantIndexOp>(loc, 1);
-  auto launchOp = b.create<gpu::LaunchOp>(loc, constOne, constOne, constOne,
-                                          constOne, constOne, constOne);
-  Operation *terminator = funcOp.front().getTerminator();
-
-  launchOp.body().front().getOperations().splice(
-      launchOp.body().front().begin(), funcOp.front().getOperations(),
-      firstOp->getIterator(), terminator->getIterator());
-  // TODO: Handle more than one basic block.
-  assert(funcOp.getRegion().getBlocks().size() == 1 &&
-         "Convert to GPU only supports single block functions right now");
+  std::array<Value, 3> workgroups = {constOne, constOne, constOne};
+  for (auto nw : llvm::enumerate(numWorkgroups)) {
+    if (nw.index() >= 3) break;
+    workgroups[nw.index()] = b.create<ConstantIndexOp>(loc, nw.value());
+  }
+  //  Wrap the linalg.tiled_loops into a gpu Launch op.
+  auto launchOp =
+      b.create<gpu::LaunchOp>(loc, workgroups[0], workgroups[1], workgroups[2],
+                              constOne, constOne, constOne);
+  tiledLoopOp->moveBefore(&launchOp.body().front(),
+                          launchOp.body().front().begin());
 
   b.setInsertionPointToEnd(&launchOp.body().front());
   b.create<gpu::TerminatorOp>(loc, llvm::None);
 
-  funcOp.walk([&](memref::AllocOp alloc) {
-    alloc->moveBefore(launchOp);
-    b.setInsertionPoint(launchOp);
-    Value memref = alloc.getResult();
-    auto elementType = memref.getType().cast<MemRefType>().getElementType();
-    auto unrankedType = UnrankedMemRefType::get(elementType, 0);
-    Value unrankedMemref = b.create<memref::CastOp>(loc, memref, unrankedType);
-    b.create<gpu::HostRegisterOp>(loc, unrankedMemref);
-  });
-  funcOp.walk([&](memref::DeallocOp dealloc) { dealloc->moveAfter(launchOp); });
-
+  // Register all the buffers used by the linalg.tiled_loop op.
   b.setInsertionPoint(launchOp);
-  for (Value arg : funcOp.getArguments()) {
-    if (arg.getType().isa<MemRefType>()) {
-      Value memref = arg;
+  auto registerBuffer = [&b, loc](Value buffer) {
+    if (buffer.getType().isa<MemRefType>()) {
+      Value memref = buffer;
       auto elementType = memref.getType().cast<MemRefType>().getElementType();
       auto unrankedType = UnrankedMemRefType::get(elementType, 0);
       Value unrankedMemref =
           b.create<memref::CastOp>(loc, memref, unrankedType);
       b.create<gpu::HostRegisterOp>(loc, unrankedMemref);
     }
-  }
+  };
+  for (Value arg : tiledLoopOp.inputs()) registerBuffer(arg);
+  for (Value arg : tiledLoopOp.outputs()) registerBuffer(arg);
 }
 
 namespace mlir {

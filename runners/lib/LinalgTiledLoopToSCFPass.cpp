@@ -38,12 +38,6 @@ struct TiledLoopConverter : public OpConversionPattern<TiledLoopOp> {
     });
     if (!onBuffers) return failure();
 
-    bool onlyParallelIters =
-        llvm::all_of(tiledLoop.iterator_types(), [&](Attribute attr) {
-          return attr.cast<StringAttr>().getValue() ==
-                 getParallelIteratorTypeName();
-        });
-
     auto moveTiledLoopBody = [&](OpBuilder& builder, Location loc,
                                  ValueRange ivs) {
       BlockAndValueMapping bvm;
@@ -52,16 +46,9 @@ struct TiledLoopConverter : public OpConversionPattern<TiledLoopOp> {
         builder.clone(op, bvm);
     };
 
-    if (onlyParallelIters) {
-      rewriter.create<scf::ParallelOp>(loc, tiledLoop.lowerBound(),
-                                       tiledLoop.upperBound(), tiledLoop.step(),
-                                       moveTiledLoopBody);
-
-    } else {
-      scf::buildLoopNest(rewriter, loc, tiledLoop.lowerBound(),
-                         tiledLoop.upperBound(), tiledLoop.step(),
-                         moveTiledLoopBody);
-    }
+    scf::buildLoopNest(rewriter, loc, tiledLoop.lowerBound(),
+                       tiledLoop.upperBound(), tiledLoop.step(),
+                       moveTiledLoopBody);
     rewriter.eraseOp(tiledLoop);
     return success();
   }

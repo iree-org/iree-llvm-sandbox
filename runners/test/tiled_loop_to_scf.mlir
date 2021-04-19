@@ -40,14 +40,13 @@ func @tiled_loop_to_parallel(%arg0: memref<192x192xf32>,
 // CHECK:  %[[C16:.*]] = constant 16 : index
 // CHECK:  %[[C0:.*]] = constant 0 : index
 // CHECK:  %[[C192:.*]] = constant 192 : index
-// CHECK:  scf.parallel (%[[I:.*]], %[[J:.*]]) = (%[[C0]], %[[C0]])
-// CHECK-SAME: to (%[[C192]], %[[C192]]) step (%[[C24]], %[[C16]]) {
-// CHECK:    %[[A_sub:.*]] = memref.subview %[[A]]{{\[}}%[[I]]
-// CHECK:    %[[B_sub:.*]] = memref.subview %[[B]][0, %[[J]]]
-// CHECK:    %[[C_sub:.*]] = memref.subview %[[C]]{{\[}}%[[I]]
-// CHECK:    linalg.fill(%[[C_sub]], %[[C0_F32]]) : memref<?x?xf32, #{{.*}}>
-// CHECK:    linalg.matmul ins(%[[A_sub]], %[[B_sub]] : {{.*}}) outs(%[[C_sub]]
-// CHECK:    scf.yield
+// CHECK:  scf.for %[[I:.*]] = %[[C0]] to %[[C192]] step %[[C24]] {
+// CHECK:    scf.for %[[J:.*]] = %[[C0]] to %[[C192]] step %[[C16]] {
+// CHECK:      %[[A_sub:.*]] = memref.subview %[[A]]{{\[}}%[[I]]
+// CHECK:      %[[B_sub:.*]] = memref.subview %[[B]][0, %[[J]]]
+// CHECK:      %[[C_sub:.*]] = memref.subview %[[C]]{{\[}}%[[I]]
+// CHECK:      linalg.fill(%[[C_sub]], %[[C0_F32]]) : memref<?x?xf32, #{{.*}}>
+// CHECK:      linalg.matmul ins(%[[A_sub]], %[[B_sub]] : {{.*}}) outs(%[[C_sub]]
 
 
 // -----
