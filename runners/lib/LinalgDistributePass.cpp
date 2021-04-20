@@ -34,85 +34,63 @@ Range ConstructRange(Location loc, OpBuilder& b, Value lb, Value ub,
   return Range{lb, ub - lb, step};
 }
 
-class DistributePass : public PassWrapper<DistributePass, FunctionPass> {
- public:
-  DistributePass() : PassWrapper() {}
+struct DistributeTiledLoopPattern
+    : public OpRewritePattern<linalg::TiledLoopOp> {
+  DistributeTiledLoopPattern(MLIRContext* context,
+                             LinalgLoopDistributionOptions options,
+                             LinalgTransformationFilter filter)
+      : OpRewritePattern<linalg::TiledLoopOp>(context),
+        options(options),
+        filter(filter) {}
+  LogicalResult matchAndRewrite(linalg::TiledLoopOp op,
+                                PatternRewriter& rewriter) const override {
+    if (failed(filter.checkAndNotify(rewriter, op))) return failure();
+    Location loc = op.getLoc();
+    SmallVector<Range, 2> parallelLoopRanges;
+    parallelLoopRanges.reserve(op.getNumLoops());
 
-  DistributePass(LinalgLoopDistributionOptions options)
-      : PassWrapper(), options_(std::move(options)) {}
+    // Get ranges for parallel loop dimensions.
+    unsigned numLoops = op.getNumLoops();
+    unsigned numLoopsToDistribute = std::min(
+        numLoops, static_cast<unsigned>(options.distributionMethod.size()));
+    if (numLoopsToDistribute == 0) return failure();
 
-  void runOnFunction() override {
-    FuncOp func = getFunction();
-    Location loc = func.getLoc();
-
-    OpBuilder builder(func.getBody());
-    edsc::ScopedContext scope(builder, loc);
-    func.walk([&](TiledLoopOp op) {
-      SmallVector<Range, 2> parallelLoopRanges;
-      parallelLoopRanges.reserve(op.getNumLoops());
-
-      // Get ranges for parallel loop dimensions.
-      unsigned numLoops = op.getNumLoops();
-      unsigned numLoopsToDistribute = std::min(
-          numLoops, static_cast<unsigned>(options_.distributionMethod.size()));
-      if (numLoopsToDistribute == 0) return;
-
-      OpBuilder& b = edsc::ScopedContext::getBuilderRef();
-      b.setInsertionPoint(op);
-      for (int i = 0; i < numLoopsToDistribute; ++i) {
-        if (!isParallelIteratorType(op.iterator_types()[i])) {
-          op.emitOpError("only support for parallel loops is implemented");
-          return;
-        }
-        parallelLoopRanges.push_back(ConstructRange(
-            loc, b, op.lowerBound()[i], op.upperBound()[i], op.step()[i]));
+    edsc::ScopedContext scope(rewriter, loc);
+    for (int i = 0; i < numLoopsToDistribute; ++i) {
+      if (!isParallelIteratorType(op.iterator_types()[i])) {
+        op.emitOpError("only support for parallel loops is implemented");
+        return failure();
       }
+      parallelLoopRanges.push_back(ConstructRange(
+          loc, rewriter, op.lowerBound()[i], op.upperBound()[i], op.step()[i]));
+    }
 
-      // Get processor info.
-      SmallVector<ProcInfo, 2> procInfos =
-          options_.procInfo(b, loc, parallelLoopRanges);
+    // Get processor info.
+    SmallVector<ProcInfo, 2> procInfos =
+        options.procInfo(rewriter, loc, parallelLoopRanges);
 
-      // Update bounds and steps.
-      SmallVector<Value, 2> newLowerBounds = op.lowerBound();
-      SmallVector<Value, 2> newUpperBounds = op.upperBound();
-      SmallVector<Value, 2> newSteps = op.step();
-      for (auto& en : llvm::enumerate(procInfos)) {
-        size_t index = en.index();
-        updateBoundsForCyclicDistribution(
-            b, loc, procInfos[index].procId, procInfos[index].nprocs,
-            newLowerBounds[index], newUpperBounds[index], newSteps[index]);
-      }
+    // Update bounds and steps.
+    SmallVector<Value, 2> newLowerBounds = op.lowerBound();
+    SmallVector<Value, 2> newUpperBounds = op.upperBound();
+    SmallVector<Value, 2> newSteps = op.step();
+    for (auto& en : llvm::enumerate(procInfos)) {
+      size_t index = en.index();
+      updateBoundsForCyclicDistribution(
+          rewriter, loc, procInfos[index].procId, procInfos[index].nprocs,
+          newLowerBounds[index], newUpperBounds[index], newSteps[index]);
+    }
+    rewriter.updateRootInPlace(op, [&] {
       op.setLowerBounds(newLowerBounds);
       op.setUpperBounds(newUpperBounds);
       op.setSteps(newSteps);
     });
+    filter.replaceLinalgTransformationFilter(rewriter, op);
+    return success();
   }
 
-  LinalgLoopDistributionOptions options_;
-};
-
-static SmallVector<linalg::ProcInfo, 2> getGpuProcIds(
-    OpBuilder& b, Location loc, ArrayRef<Range> parallelLoopRanges) {
-  if (parallelLoopRanges.size() != 2)
-    llvm_unreachable("expected two parallel loops");
-  Type indexType = b.getIndexType();
-  return {{b.create<gpu::BlockIdOp>(loc, indexType, b.getStringAttr("y")),
-           b.create<gpu::GridDimOp>(loc, indexType, b.getStringAttr("y"))},
-          {b.create<gpu::BlockIdOp>(loc, indexType, b.getStringAttr("x")),
-           b.create<gpu::GridDimOp>(loc, indexType, b.getStringAttr("x"))}};
-}
-
-class TestDistributePass : public DistributePass {
- public:
-  TestDistributePass()
-      : DistributePass(LinalgLoopDistributionOptions{
-            getGpuProcIds,
-            {DistributionMethod::Cyclic, DistributionMethod::Cyclic}}) {}
-  TestDistributePass(const TestDistributePass&) = default;
-
-  void getDependentDialects(DialectRegistry& registry) const override {
-    registry.insert<gpu::GPUDialect>();
-  }
+ private:
+  LinalgLoopDistributionOptions options;
+  LinalgTransformationFilter filter;
 };
 
 }  // namespace
@@ -120,15 +98,11 @@ class TestDistributePass : public DistributePass {
 namespace mlir {
 namespace linalg {
 
-std::unique_ptr<OperationPass<FuncOp>> createDistributePass(
-    LinalgLoopDistributionOptions options) {
-  return std::make_unique<DistributePass>(options);
-}
-
-void registerLinalgDistributePass() {
-  PassRegistration<TestDistributePass> testDistributePass(
-      "test-linalg-distribute-tiled-loop",
-      "Distribute Linalg Tiled Loop Pass.");
+void populateDistributeTiledLoopPattern(
+    OwningRewritePatternList& patterns,
+    const LinalgLoopDistributionOptions& opts,
+    const LinalgTransformationFilter& filter) {
+  patterns.add<DistributeTiledLoopPattern>(patterns.getContext(), opts, filter);
 }
 
 }  // namespace linalg

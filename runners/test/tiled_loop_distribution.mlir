@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -test-linalg-distribute-tiled-loop --canonicalize | FileCheck %s
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="distribute-to-gpu-ids" %s | FileCheck %s
 
 func private @foo(%A: tensor<64x64xf32>,
                   %B: tensor<64x64xf32>) -> tensor<64x64xf32>
@@ -24,15 +24,15 @@ func @distribute_for_gpu(%A: tensor<64x64xf32>,
 // CHECK-LABEL: func @distribute_for_gpu
 // CHECK:  %[[C64:.*]] = constant 64 : index
 
-// CHECK:  %[[GPU_BLOCK_Y:.*]] = "gpu.block_id"() {dimension = "y"}
-// CHECK:  %[[GPU_GRID_DIM_Y:.*]] = "gpu.grid_dim"() {dimension = "y"}
-// CHECK:  %[[GPU_BLOCK_X:.*]] = "gpu.block_id"() {dimension = "x"}
-// CHECK:  %[[GPU_GRID_DIM_X:.*]] = "gpu.grid_dim"() {dimension = "x"}
+// CHECK-DAG:  %[[GPU_BLOCK_Y:.*]] = "gpu.block_id"() {dimension = "y"}
+// CHECK-DAG:  %[[GPU_GRID_DIM_Y:.*]] = "gpu.grid_dim"() {dimension = "y"}
+// CHECK-DAG:  %[[GPU_BLOCK_X:.*]] = "gpu.block_id"() {dimension = "x"}
+// CHECK-DAG:  %[[GPU_GRID_DIM_X:.*]] = "gpu.grid_dim"() {dimension = "x"}
 
-// CHECK:  %[[LB_I:.*]] = affine.apply #[[$MAP0]](){{\[}}%[[GPU_BLOCK_Y]]]
-// CHECK:  %[[STEP_I:.*]] = affine.apply #[[$MAP0]](){{\[}}%[[GPU_GRID_DIM_Y]]]
-// CHECK:  %[[LB_J:.*]] = affine.apply #[[$MAP1]](){{\[}}%[[GPU_BLOCK_X]]]
-// CHECK:  %[[STEP_J:.*]] = affine.apply #[[$MAP1]](){{\[}}%[[GPU_GRID_DIM_X]]]
+// CHECK-DAG:  %[[LB_I:.*]] = affine.apply #[[$MAP0]](){{\[}}%[[GPU_BLOCK_Y]]]
+// CHECK-DAG:  %[[STEP_I:.*]] = affine.apply #[[$MAP0]](){{\[}}%[[GPU_GRID_DIM_Y]]]
+// CHECK-DAG:  %[[LB_J:.*]] = affine.apply #[[$MAP1]](){{\[}}%[[GPU_BLOCK_X]]]
+// CHECK-DAG:  %[[STEP_J:.*]] = affine.apply #[[$MAP1]](){{\[}}%[[GPU_GRID_DIM_X]]]
 
 // CHECK:  linalg.tiled_loop (%[[I:.*]], %[[J:.*]]) = (%[[LB_I]], %[[LB_J]])
 // CHECK-SAME: to (%[[C64]], %[[C64]]) step (%[[STEP_I]], %[[STEP_J]])

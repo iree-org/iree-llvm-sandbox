@@ -151,6 +151,10 @@ struct LinalgTensorCodegenStrategyPass
       *this, "num-gpu-workgrpoups", llvm::cl::MiscFlags::CommaSeparated,
       llvm::cl::desc(
           "Specifies the number of workgroups to use for GPU dispatch")};
+  Option<bool> distributeTiledLoopToGPUsIds{
+      *this, "distribute-to-gpu-ids",
+      llvm::cl::desc("Distribute tiled loop on gpu blocks"),
+      llvm::cl::init(false)};
   Option<bool> tiledLoopToSCF{
       *this, "tiled-loop-to-scf",
       llvm::cl::desc("Lower tiled.loop ops to scf.for."),
@@ -205,6 +209,22 @@ static void runStrategy(LinalgTensorCodegenStrategyPass &pass,
       .setVectorTransferToSCFOptions(
           VectorTransferToSCFOptions().setUnroll(pass.unrollVectorTransfers));
   runStrategy(pass, strategy);
+}
+
+static SmallVector<linalg::ProcInfo, 2> getGpuBlocIds(
+    OpBuilder &b, Location loc, ArrayRef<Range> parallelLoopRanges) {
+  size_t numloops = parallelLoopRanges.size();
+  if (numloops > 3) llvm_unreachable("expected at most three parallel loops");
+  SmallVector<linalg::ProcInfo, 2> procInfo(numloops);
+  std::array<StringRef, 3> dimAttr{"x", "y", "z"};
+  Type indexType = b.getIndexType();
+  for (size_t i = 0; i < numloops; ++i) {
+    StringAttr attr = b.getStringAttr(dimAttr[i]);
+    procInfo[numloops - 1 - i] = {
+        b.create<gpu::BlockIdOp>(loc, indexType, attr),
+        b.create<gpu::GridDimOp>(loc, indexType, attr)};
+  }
+  return procInfo;
 }
 
 // For now, just assume it is the zero of type.
@@ -331,6 +351,27 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
                                     numberGPUWorkgroups);
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(tiledLoopsToGPUPatterns));
+  }
+  if (distributeTiledLoopToGPUsIds) {
+    OwningRewritePatternList distributeTiledLoopsPatterns(funcOp.getContext());
+
+    populateDistributeTiledLoopPattern(
+        distributeTiledLoopsPatterns,
+        LinalgLoopDistributionOptions{getGpuBlocIds,
+                                      {
+                                          DistributionMethod::Cyclic,
+                                          DistributionMethod::Cyclic,
+                                          DistributionMethod::Cyclic,
+                                      }},
+        LinalgTransformationFilter(
+            ArrayRef<Identifier>{},
+            {Identifier::get("distributed", funcOp.getContext())}));
+    (void)applyPatternsAndFoldGreedily(funcOp,
+                                       std::move(distributeTiledLoopsPatterns));
+    // Ensure we drop the marker in the end.
+    funcOp.walk([](TiledLoopOp op) {
+      op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
+    });
   }
   if (tiledLoopToSCF) {
     OwningRewritePatternList tiledLoopsToSCFPatterns(funcOp.getContext());

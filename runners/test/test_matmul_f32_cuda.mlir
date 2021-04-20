@@ -4,9 +4,7 @@
 // RUN: mlir-proto-opt -canonicalize -mlir-disable-threading \
 // RUN: -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=24,16" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="convert-to-gpu num-gpu-workgrpoups=2,2" |\
-// RUN: mlir-proto-opt -test-linalg-distribute-tiled-loop --canonicalize |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="tiled-loop-to-scf" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="convert-to-gpu num-gpu-workgrpoups=2,2 distribute-to-gpu-ids tiled-loop-to-scf" |\
 // RUN: mlir-opt -canonicalize -convert-vector-to-scf -convert-linalg-to-loops |\
 // RUN: mlir-opt -gpu-kernel-outlining |\
 // RUN: mlir-opt -lower-affine -convert-scf-to-std |\

@@ -24,6 +24,11 @@ void populateTiledLoopsToSCF(OwningRewritePatternList &patterns);
 void populateTiledLoopsToGPUPatterns(OwningRewritePatternList &patterns,
                                      ArrayRef<int64_t> numWorkgroups);
 
+void populateDistributeTiledLoopPattern(
+    OwningRewritePatternList &patterns,
+    const LinalgLoopDistributionOptions &opts,
+    const LinalgTransformationFilter &filter);
+
 }  // namespace linalg
 }  // namespace mlir
 

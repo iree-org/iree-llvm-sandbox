@@ -11,10 +11,8 @@
 // Defined directly in pass modules.
 namespace mlir {
 void registerConvertToAsyncPass();
-void registerConvertToGPUPass();
 namespace linalg {
 void registerLinalgComprehensiveBufferizePass();
-void registerLinalgDistributePass();
 void registerLinalgTensorCodegenStrategyPass();
 }  // namespace linalg
 }  // namespace mlir
