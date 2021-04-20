@@ -10,7 +10,6 @@
 
 // Defined directly in pass modules.
 namespace mlir {
-void registerConvertToAsyncPass();
 namespace linalg {
 void registerLinalgComprehensiveBufferizePass();
 void registerLinalgTensorCodegenStrategyPass();

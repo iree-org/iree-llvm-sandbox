@@ -29,6 +29,8 @@ void populateDistributeTiledLoopPattern(
     const LinalgLoopDistributionOptions &opts,
     const LinalgTransformationFilter &filter);
 
+void populateTiledLoopToAsyncPatterns(OwningRewritePatternList &patterns);
+
 }  // namespace linalg
 }  // namespace mlir
 

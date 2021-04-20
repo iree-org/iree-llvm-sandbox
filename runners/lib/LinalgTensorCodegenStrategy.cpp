@@ -18,6 +18,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
@@ -45,6 +46,7 @@ struct LinalgTensorCodegenStrategyPass
   void getDependentDialects(DialectRegistry &registry) const override {
     // clang-format off
     registry.insert<AffineDialect,
+                    async::AsyncDialect,
                     gpu::GPUDialect,
                     linalg::LinalgDialect,
                     memref::MemRefDialect,
@@ -151,6 +153,10 @@ struct LinalgTensorCodegenStrategyPass
       *this, "num-gpu-workgrpoups", llvm::cl::MiscFlags::CommaSeparated,
       llvm::cl::desc(
           "Specifies the number of workgroups to use for GPU dispatch")};
+  Option<bool> tiledLoopToAsync{
+      *this, "convert-to-async",
+      llvm::cl::desc("Convert top level tiled.loop op to async op"),
+      llvm::cl::init(false)};
   Option<bool> distributeTiledLoopToGPUsIds{
       *this, "distribute-to-gpu-ids",
       llvm::cl::desc("Distribute tiled loop on gpu blocks"),
@@ -351,6 +357,12 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
                                     numberGPUWorkgroups);
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(tiledLoopsToGPUPatterns));
+  }
+  if (tiledLoopToAsync) {
+    OwningRewritePatternList tiledLoopsToAsyncPatterns(funcOp.getContext());
+    populateTiledLoopToAsyncPatterns(tiledLoopsToAsyncPatterns);
+    (void)applyPatternsAndFoldGreedily(funcOp,
+                                       std::move(tiledLoopsToAsyncPatterns));
   }
   if (distributeTiledLoopToGPUsIds) {
     OwningRewritePatternList distributeTiledLoopsPatterns(funcOp.getContext());

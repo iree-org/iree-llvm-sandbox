@@ -21,83 +21,80 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Pass/Pass.h"
 #include "mlir/Support/LLVM.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;  // NOLINT
 
 namespace {
 
-class ConvertToAsyncPass
-    : public PassWrapper<ConvertToAsyncPass, FunctionPass> {
- public:
-  ConvertToAsyncPass() = default;
-  ConvertToAsyncPass(const ConvertToAsyncPass &pass) {}
-  void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<async::AsyncDialect>();
+struct TiledLoopToAsyncPattern : public OpRewritePattern<linalg::TiledLoopOp> {
+  using OpRewritePattern<linalg::TiledLoopOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(linalg::TiledLoopOp tiledLoopOp,
+                                PatternRewriter &rewriter) const override {
+    assert(tiledLoopOp.getNumResults() == 0 &&
+           "expected bufferized TiledLoopOp");
+    // Only consider the top level TiledLoop op and skip if it already contains
+    // an ExecuteOp.
+    if (tiledLoopOp->getParentOfType<linalg::TiledLoopOp>() ||
+        llvm::any_of(tiledLoopOp.getBody()->getOperations(),
+                     [](Operation &op) { return isa<async::ExecuteOp>(&op); }))
+      return failure();
+    auto *ctx = tiledLoopOp.getContext();
+    Location loc = tiledLoopOp.getLoc();
+
+    // Wrap the linalg.tiled_loops into an async::ExecuteOp.
+    // 1. Create the async::GroupType object on which we synchronize.
+    Value asyncGroup =
+        rewriter.create<async::CreateGroupOp>(loc, async::GroupType::get(ctx));
+
+    // 2. Create an empty executeOp with an empty yield.
+    auto noopExec = [&](OpBuilder &executeBuilder, Location executeLoc,
+                        ValueRange executeArgs) {};
+    auto execute =
+        rewriter.create<async::ExecuteOp>(loc, /*resultTypes=*/TypeRange(),
+                                          /*dependencies=*/ValueRange(),
+                                          /*operands=*/ValueRange(), noopExec);
+    rewriter.setInsertionPoint(execute.getBody(), execute.getBody()->end());
+    rewriter.create<async::YieldOp>(loc, ValueRange{});
+
+    rewriter.updateRootInPlace(tiledLoopOp, [&] {
+      // 3. Steal the linalg::TiledLoopOp ops, except the terminator, into the
+      // body of the async::ExecuteOp, just before the terminator.
+      execute.getBody()->getOperations().splice(
+          std::prev(execute.getBody()->end()),
+          tiledLoopOp.getBody()->getOperations(),
+          tiledLoopOp.getBody()->getOperations().begin(),
+          std::prev(tiledLoopOp.getBody()->getOperations().end()));
+
+      // 4. Move the async::ExecuteOp inside the body of the
+      // linalg::TiledLoopOp.
+      execute->moveBefore(tiledLoopOp.getBody()->getTerminator());
+
+      // 5. Each time linalg::TiledLoopOp spawns a new async::ExecuteOp, the
+      // task
+      // gets added as a dependency to the group.
+      rewriter.setInsertionPoint(tiledLoopOp.getBody()->getTerminator());
+      rewriter.create<async::AddToGroupOp>(loc, rewriter.getIndexType(),
+                                           execute.token(), asyncGroup);
+    });
+
+    // 6. After the linalg::TiledLoopOp, await all async tasks in `asyncGroup`.
+    rewriter.setInsertionPointAfter(tiledLoopOp);
+    rewriter.create<async::AwaitAllOp>(loc, asyncGroup);
+    return success();
   }
-  void runOnFunction() override;
 };
 
 }  // anonymous namespace
 
-void ConvertToAsyncPass::runOnFunction() {
-  FuncOp funcOp = getFunction();
-  linalg::TiledLoopOp tiledLoopOp;
-  // Assume the first level TiledLoop op maps to Async dispatch. In the future
-  // there may be some annotations to make it explicit.
-  funcOp.walk([&](linalg::TiledLoopOp op) {
-    tiledLoopOp = op;
-    return mlir::WalkResult::interrupt();
-  });
-  if (!tiledLoopOp) return;
-
-  assert(tiledLoopOp.getNumResults() == 0 && "expected bufferized TiledLoopOp");
-
-  auto *ctx = funcOp.getContext();
-  Location loc = tiledLoopOp.getLoc();
-  OpBuilder b(tiledLoopOp);
-
-  // Wrap the linalg.tiled_loops into an async::ExecuteOp.
-  // 1. Create the async::GroupType object on which we synchronize.
-  Value asyncGroup =
-      b.create<async::CreateGroupOp>(loc, async::GroupType::get(ctx));
-
-  // 2. Create an empty executeOp with an empty yield.
-  auto noopExec = [&](OpBuilder &executeBuilder, Location executeLoc,
-                      ValueRange executeArgs) {};
-  auto execute =
-      b.create<async::ExecuteOp>(loc, /*resultTypes=*/TypeRange(),
-                                 /*dependencies=*/ValueRange(),
-                                 /*operands=*/ValueRange(), noopExec);
-  OpBuilder::atBlockEnd(execute.getBody())
-      .create<async::YieldOp>(loc, ValueRange{});
-
-  // 3. Steal the linalg::TiledLoopOp ops, except the terminator, into the body
-  // of the async::ExecuteOp, just before the terminator.
-  execute.getBody()->getOperations().splice(
-      std::prev(execute.getBody()->end()),
-      tiledLoopOp.getBody()->getOperations(),
-      tiledLoopOp.getBody()->getOperations().begin(),
-      std::prev(tiledLoopOp.getBody()->getOperations().end()));
-
-  // 4. Move the async::ExecuteOp inside the body of the linalg::TiledLoopOp.
-  execute->moveBefore(tiledLoopOp.getBody()->getTerminator());
-
-  // 5. Each time linalg::TiledLoopOp spawns a new async::ExecuteOp, the task
-  // gets added as a dependency to the group.
-  OpBuilder::atBlockTerminator(tiledLoopOp.getBody())
-      .create<async::AddToGroupOp>(loc, b.getIndexType(), execute.token(),
-                                   asyncGroup);
-
-  // 6. After the linalg::TiledLoopOp, await all async tasks in `asyncGroup`.
-  OpBuilder(tiledLoopOp->getNextNode())
-      .create<async::AwaitAllOp>(loc, asyncGroup);
-}
-
 namespace mlir {
-void registerConvertToAsyncPass() {
-  PassRegistration<ConvertToAsyncPass> pass(
-      "convert-to-async", "Convert function into a asyn CPU kernel.");
+namespace linalg {
+
+void populateTiledLoopToAsyncPatterns(OwningRewritePatternList &patterns) {
+  patterns.add<TiledLoopToAsyncPattern>(patterns.getContext());
 }
+
+}  // namespace linalg
 }  // namespace mlir
