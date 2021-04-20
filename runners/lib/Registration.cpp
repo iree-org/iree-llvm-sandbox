@@ -13,8 +13,9 @@ using namespace mlir;
 using namespace mlir::linalg;
 
 void ireeLlvmSandboxRegisterPasses() {
+  registerConvertToAsyncPass();
+  registerConvertToGPUPass();
   registerLinalgComprehensiveBufferizePass();
   registerLinalgDistributePass();
   registerLinalgTensorCodegenStrategyPass();
-  registerConvertToGPUPass();
 }

@@ -225,7 +225,7 @@ static OpResult getTiedOpResult(OpOperand &opOperand) {
   }
   if (auto tiledLoopOp = dyn_cast<TiledLoopOp>(op))
     return tiledLoopOp.getTiedOpResult(opOperand);
-  if (isa<SubTensorOp, SubTensorInsertOp, tensor::CastOp,
+  if (isa<linalg::PadTensorOp, SubTensorOp, SubTensorInsertOp, tensor::CastOp,
           vector::TransferReadOp, vector::TransferWriteOp>(op))
     return op->getResult(0);
   if (op->hasTrait<mlir::OpTrait::IsTerminator>()) return OpResult();

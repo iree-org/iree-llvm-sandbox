@@ -1,4 +1,5 @@
 add_llvm_library(MLIRLinalgTensorSandbox
+  ConvertToAsyncDialect.cpp
   ConvertToGPUDialect.cpp
   LinalgComprehensiveBufferizePass.cpp
   LinalgDistributePass.cpp
@@ -10,6 +11,8 @@ add_llvm_library(MLIRLinalgTensorSandbox
 
 target_link_libraries(
   MLIRLinalgTensorSandbox
-  MLIRLinalgTransforms
+
+  MLIRAsync
   MLIRGPU
+  MLIRLinalgTransforms
 )
