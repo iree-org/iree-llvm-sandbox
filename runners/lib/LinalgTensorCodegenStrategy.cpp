@@ -143,6 +143,14 @@ struct LinalgTensorCodegenStrategyPass
   Option<bool> fusePadding{*this, "fuse-padding",
                            llvm::cl::desc("Use padding during fusion."),
                            llvm::cl::init(false)};
+  Option<bool> tiledLoopToGPU{
+      *this, "convert-to-gpu",
+      llvm::cl::desc("Wrap the top level tiled.loop op in a gpu.launch region"),
+      llvm::cl::init(false)};
+  ListOption<int64_t> numberGPUWorkgroups{
+      *this, "num-gpu-workgrpoups", llvm::cl::MiscFlags::CommaSeparated,
+      llvm::cl::desc(
+          "Specifies the number of workgroups to use for GPU dispatch")};
   Option<bool> tiledLoopToSCF{
       *this, "tiled-loop-to-scf",
       llvm::cl::desc("Lower tiled.loop ops to scf.for."),
@@ -316,6 +324,13 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
         &getContext());
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(extraVectorizationPatterns));
+  }
+  if (tiledLoopToGPU && !numberGPUWorkgroups.empty()) {
+    OwningRewritePatternList tiledLoopsToGPUPatterns(funcOp.getContext());
+    populateTiledLoopsToGPUPatterns(tiledLoopsToGPUPatterns,
+                                    numberGPUWorkgroups);
+    (void)applyPatternsAndFoldGreedily(funcOp,
+                                       std::move(tiledLoopsToGPUPatterns));
   }
   if (tiledLoopToSCF) {
     OwningRewritePatternList tiledLoopsToSCFPatterns(funcOp.getContext());
