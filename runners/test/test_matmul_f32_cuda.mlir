@@ -6,7 +6,7 @@
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: mlir-proto-opt -canonicalize -convert-to-gpu="num-workgroups=2,2" |\
 // RUN: mlir-proto-opt -test-linalg-distribute-tiled-loop --canonicalize |\
-// RUN: mlir-proto-opt --linalg-tiled-loop-to-scf |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="tiled-loop-to-scf" |\
 // RUN: mlir-opt -canonicalize -convert-vector-to-scf -convert-linalg-to-loops |\
 // RUN: mlir-opt -gpu-kernel-outlining |\
 // RUN: mlir-opt -lower-affine -convert-scf-to-std |\

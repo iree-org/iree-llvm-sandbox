@@ -16,6 +16,5 @@ void ireeLlvmSandboxRegisterPasses() {
   registerLinalgComprehensiveBufferizePass();
   registerLinalgDistributePass();
   registerLinalgTensorCodegenStrategyPass();
-  registerLinalgTiledLoopToSCFPass();
   registerConvertToGPUPass();
 }

@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt --linalg-tiled-loop-to-scf %s --split-input-file | FileCheck %s
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="tiled-loop-to-scf" %s --split-input-file | FileCheck %s
 
 #map0 = affine_map<(d0) -> (24, -d0 + 192)>
 #map1 = affine_map<(d0, d1)[s0] -> (d0 * 192 + s0 + d1)>
@@ -58,11 +58,13 @@ func @tiled_loop_to_for(%arg0: memref<192x192xf32>,
    %c16 = constant 16 : index
    %c0 = constant 0 : index
    %c192 = constant 192 : index
+   %cst = constant 0.000000e+00 : f32
 
   linalg.tiled_loop (%i, %j) = (%c0, %c0) to (%c192, %c192) step (%c24, %c16)
       ins (%arg0, %arg1: memref<192x192xf32>, memref<192x192xf32>)
       outs (%arg2: memref<f32>)
       iterators["reduction", "reduction"] {
+    linalg.fill(%arg0, %cst) : memref<192x192xf32>, f32
     linalg.yield
   }
   return
@@ -72,5 +74,5 @@ func @tiled_loop_to_for(%arg0: memref<192x192xf32>,
 // CHECK:  %[[C16:.*]] = constant 16 : index
 // CHECK:  %[[C0:.*]] = constant 0 : index
 // CHECK:  %[[C192:.*]] = constant 192 : index
-// CHECK:  cf.for %{{.*}} = %[[C0]] to %[[C192]] step %[[C24]]
-// CHECK:    cf.for %{{.*}} = %[[C0]] to %[[C192]] step %[[C16]]
+// CHECK:  scf.for %{{.*}} = %[[C0]] to %[[C192]] step %[[C24]]
+// CHECK:    scf.for %{{.*}} = %[[C0]] to %[[C192]] step %[[C16]]

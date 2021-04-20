@@ -19,17 +19,16 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 using namespace mlir;
 using namespace mlir::linalg;
 
-struct TiledLoopConverter : public OpConversionPattern<TiledLoopOp> {
-  using OpConversionPattern<TiledLoopOp>::OpConversionPattern;
+struct TiledLoopConverter : public OpRewritePattern<TiledLoopOp> {
+  using OpRewritePattern<TiledLoopOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(
-      TiledLoopOp tiledLoop, ArrayRef<Value> operands,
-      ConversionPatternRewriter& rewriter) const override {
+  LogicalResult matchAndRewrite(TiledLoopOp tiledLoop,
+                                PatternRewriter& rewriter) const override {
     Location loc = tiledLoop.getLoc();
 
     // Fail conversion if the `tiled_loop` has not been bufferized.
@@ -54,35 +53,11 @@ struct TiledLoopConverter : public OpConversionPattern<TiledLoopOp> {
   }
 };
 
-struct LinalgTiledLoopToSCFPass
-    : public PassWrapper<LinalgTiledLoopToSCFPass, OperationPass<ModuleOp>> {
-  void getDependentDialects(DialectRegistry& registry) const override {
-    registry.insert<linalg::LinalgDialect, scf::SCFDialect>();
-  }
-
- public:
-  void runOnOperation() override {
-    auto& context = getContext();
-    ConversionTarget target(context);
-    target.addLegalDialect<AffineDialect, memref::MemRefDialect,
-                           scf::SCFDialect, tensor::TensorDialect,
-                           StandardOpsDialect, LinalgDialect>();
-    target.addIllegalOp<linalg::TiledLoopOp>();
-
-    OwningRewritePatternList patterns(&context);
-    patterns.insert<TiledLoopConverter>(&context);
-    if (failed(applyPartialConversion(getOperation(), target,
-                                      std::move(patterns))))
-      signalPassFailure();
-  }
-};
-
 namespace mlir {
 namespace linalg {
 
-void registerLinalgTiledLoopToSCFPass() {
-  PassRegistration<LinalgTiledLoopToSCFPass> testLinalgTiledLoopToSCFPass(
-      "linalg-tiled-loop-to-scf", "Linalg Tiled Loop to SCF Pass.");
+void populateTiledLoopsToSCF(OwningRewritePatternList& patterns) {
+  patterns.add<TiledLoopConverter>(patterns.getContext());
 }
 
 }  // namespace linalg

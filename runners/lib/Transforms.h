@@ -19,7 +19,7 @@ void populateTileAndFusePattern(OwningRewritePatternList &patterns,
                                 const LinalgTilingOptions &opts,
                                 const LinalgTransformationFilter &filter);
 
-std::unique_ptr<OperationPass<FuncOp>> createDistributeTiledLoopPass();
+void populateTiledLoopsToSCF(OwningRewritePatternList &patterns);
 
 }  // namespace linalg
 }  // namespace mlir

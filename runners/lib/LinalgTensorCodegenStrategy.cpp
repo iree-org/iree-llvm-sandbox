@@ -143,6 +143,10 @@ struct LinalgTensorCodegenStrategyPass
   Option<bool> fusePadding{*this, "fuse-padding",
                            llvm::cl::desc("Use padding during fusion."),
                            llvm::cl::init(false)};
+  Option<bool> tiledLoopToSCF{
+      *this, "tiled-loop-to-scf",
+      llvm::cl::desc("Lower tiled.loop ops to scf.for."),
+      llvm::cl::init(false)};
 };
 }  // end anonymous namespace
 
@@ -312,6 +316,12 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
         &getContext());
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(extraVectorizationPatterns));
+  }
+  if (tiledLoopToSCF) {
+    OwningRewritePatternList tiledLoopsToSCFPatterns(funcOp.getContext());
+    populateTiledLoopsToSCF(tiledLoopsToSCFPatterns);
+    (void)applyPatternsAndFoldGreedily(funcOp,
+                                       std::move(tiledLoopsToSCFPatterns));
   }
 }
 
