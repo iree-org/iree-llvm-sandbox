@@ -145,8 +145,6 @@ LogicalResult mlir::linalg::TileAndFusePattern::matchAndRewrite(
   if (!linalgOp || !linalgOp.hasTensorSemantics()) return failure();
   if (failed(filter.checkAndNotify(rewriter, linalgOp))) return failure();
 
-  if (linalgOp->getParentOfType<TiledLoopOp>()) return failure();
-
   Optional<TiledLoopOp> tiledLoopOp =
       tileAndFuseLinalgOp(rewriter, op, options);
   if (!tiledLoopOp) return failure();
@@ -154,6 +152,9 @@ LogicalResult mlir::linalg::TileAndFusePattern::matchAndRewrite(
     rewriter.replaceOp(op, tiledLoopOp->getResults());
   else
     rewriter.eraseOp(op);
+  tiledLoopOp->walk([&](LinalgOp tiledOp) {
+    filter.replaceLinalgTransformationFilter(rewriter, tiledOp);
+  });
   return success();
 }
 
