@@ -127,7 +127,8 @@ ${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/test_constant.mlir \
 Set up you PYTHONPATH properly:
 
 ```
-export PYTHONPATH=$LLVM_INSTALL_DIR/python:${IREE_LLVM_SANDBOX_BUILD_DIR}:${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib:${NPCOMP_BUILD_DIR}
+export PYTHONPATH=${PYTHONPATH}:$LLVM_INSTALL_DIR/python:${IREE_LLVM_SANDBOX_BUILD_DIR}:${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib; \
+export PYTHONPATH=${PYTHONPATH}:${NPCOMP_BUILD_DIR}:${NPCOMP_BUILD_DIR}/lib:${NPCOMP_BUILD_DIR}/python
 ```
 
 Run a simple python sanity check:
