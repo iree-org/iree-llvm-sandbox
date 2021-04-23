@@ -1433,8 +1433,10 @@ static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
           createNewAllocDeallocPairForShapedValue(b, loc, outputTensor);
       // If the tensor comes from `linalg::InitTensorOp`, the value is
       // unitialized and we do not need to copy.
-      if (!outputTensor.getDefiningOp<linalg::InitTensorOp>())
+      if (!outputTensor.getDefiningOp<linalg::InitTensorOp>()) {
+        b.setInsertionPointAfter(alloc.getDefiningOp());
         b.create<linalg::CopyOp>(loc, operandBuffer, alloc);
+      }
       operandBuffer = alloc;
     }
     map(bvm, opResult, operandBuffer);
