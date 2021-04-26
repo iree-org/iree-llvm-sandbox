@@ -97,7 +97,11 @@ static TiledLoopOp buildTiledLoop(PatternRewriter &rewriter,
       OpBuilder::atBlockBegin(tiledLoop.getBody(), rewriter.getListener());
   BlockAndValueMapping map;
   map.map(ivs, tiledLoop.getInductionVars());
-  map.map(innerLoop.getRegionIterArgs(), outputs);
+  map.map(inputs, tiledLoop.getRegionInputArgs());
+  map.map(innerLoop.getRegionIterArgs(),tiledLoop.getRegionOutputArgs());
+  // This mapping would not be necessary if the tile-n-fused scf.for was correct
+  // in the first place.
+  map.map(outputs, tiledLoop.getRegionOutputArgs());
 
   for (auto &op : innerLoop.getBody()->without_terminator())
     loopBuilder.clone(op, map);

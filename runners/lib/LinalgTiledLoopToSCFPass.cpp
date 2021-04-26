@@ -41,6 +41,8 @@ struct TiledLoopConverter : public OpRewritePattern<TiledLoopOp> {
                                  ValueRange ivs) {
       BlockAndValueMapping bvm;
       bvm.map(tiledLoop.getInductionVars(), ivs);
+      bvm.map(tiledLoop.getRegionInputArgs(), tiledLoop.inputs());
+      bvm.map(tiledLoop.getRegionOutputArgs(), tiledLoop.outputs());
       for (auto& op : tiledLoop.getBody()->without_terminator())
         builder.clone(op, bvm);
     };

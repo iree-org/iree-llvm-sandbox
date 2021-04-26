@@ -10,8 +10,8 @@ func @distribute_for_gpu(%A: tensor<64x64xf32>,
   %c64 = constant 64 : index
   %c24 = constant 24 : index
   %0 = linalg.tiled_loop (%i, %j) = (%c0, %c0) to (%c64, %c64) step (%c24, %c16)
-      ins (%A:tensor<64x64xf32>) outs (%B:tensor<64x64xf32>) {
-    %0 = call @foo(%A, %B)
+      ins (%A_ = %A: tensor<64x64xf32>) outs (%B_ = %B:tensor<64x64xf32>) {
+    %0 = call @foo(%A_, %B_)
       : (tensor<64x64xf32>, tensor<64x64xf32>) -> tensor<64x64xf32>
     linalg.yield %0 : tensor<64x64xf32>
   }

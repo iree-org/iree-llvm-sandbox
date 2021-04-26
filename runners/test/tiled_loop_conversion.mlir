@@ -23,17 +23,17 @@
 // CHECK:   %[[RESULT:.*]] = linalg.tiled_loop (%[[I:.*]], %[[J:.*]]) =
 // CHECK-SAME: (%[[C0]], %[[C0]]) to (%[[C192]], %[[C192]])
 // CHECK-SAME: step (%[[C24]], %[[C16]])
-// CHECK-SAME: ins (%[[A]], %[[B]]: [[TENSOR_TY]], [[TENSOR_TY]])
-// CHECK-SAME: outs (%[[C]]:[[TENSOR_TY]]) {
+// CHECK-SAME: ins (%[[A_:.*]] = %[[A]]: [[TENSOR_TY]], %[[B_:.*]] = %[[B]]: [[TENSOR_TY]])
+// CHECK-SAME: outs (%[[C_:.*]] = %[[C]]: [[TENSOR_TY]]) {
 
-// CHECK:     %[[A_SUB:.*]] = subtensor %[[A]][%[[I]], 0]
-// CHECK:     %[[B_SUB:.*]] = subtensor %[[B]][0, %[[J]]]
-// CHECK:     %[[C_SUB:.*]] = subtensor %[[C]][%[[I]], %[[J]]]
+// CHECK:     %[[A_SUB:.*]] = subtensor %[[A_]][%[[I]], 0]
+// CHECK:     %[[B_SUB:.*]] = subtensor %[[B_]][0, %[[J]]]
+// CHECK:     %[[C_SUB:.*]] = subtensor %[[C_]][%[[I]], %[[J]]]
 // CHECK:     %[[C_INIT:.*]] = linalg.fill(%[[C_SUB]], %[[C0_F32]])
 // CHECK-SAME:  tensor<?x?xf32>, f32 -> tensor<?x?xf32>
 // CHECK:     %[[PROD:.*]] = linalg.matmul ins(%[[A_SUB]], %[[B_SUB]]
 // CHECK-SAME:  outs(%[[C_INIT]] : tensor<?x?xf32>) -> tensor<?x?xf32>
 
-// CHECK:     %[[PROD_SUB:.*]] = subtensor_insert %[[PROD]] into %[[C]]
+// CHECK:     %[[PROD_SUB:.*]] = subtensor_insert %[[PROD]] into %[[C_]]
 // CHECK:     linalg.yield %[[PROD_SUB]] : [[TENSOR_TY]]
 
