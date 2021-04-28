@@ -217,6 +217,7 @@ static void runStrategy(LinalgTensorCodegenStrategyPass &pass,
   runStrategy(pass, strategy);
 }
 
+template <typename IdOpTy, typename CountOpTy>
 static SmallVector<linalg::ProcInfo, 2> getGpuBlocIds(
     OpBuilder &b, Location loc, ArrayRef<Range> parallelLoopRanges) {
   size_t numloops = parallelLoopRanges.size();
@@ -226,9 +227,8 @@ static SmallVector<linalg::ProcInfo, 2> getGpuBlocIds(
   Type indexType = b.getIndexType();
   for (size_t i = 0; i < numloops; ++i) {
     StringAttr attr = b.getStringAttr(dimAttr[i]);
-    procInfo[numloops - 1 - i] = {
-        b.create<gpu::BlockIdOp>(loc, indexType, attr),
-        b.create<gpu::GridDimOp>(loc, indexType, attr)};
+    procInfo[numloops - 1 - i] = {b.create<IdOpTy>(loc, indexType, attr),
+                                  b.create<CountOpTy>(loc, indexType, attr)};
   }
   return procInfo;
 }
@@ -238,6 +238,32 @@ static SmallVector<linalg::ProcInfo, 2> getGpuBlocIds(
 static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
   auto t = getElementTypeOrSelf(op.get().getType());
   return b.create<ConstantOp>(op.getOwner()->getLoc(), t, b.getZeroAttr(t));
+}
+
+static std::pair<AffineExpr, AffineExpr> getMinMaxLoopIndVar(
+    Value lbVal, Value ubVal, Value stepVal, SmallVectorImpl<Value> &dims,
+    SmallVectorImpl<Value> &symbols) {
+  MLIRContext *ctx = lbVal.getContext();
+  AffineExpr lb = getAffineDimExpr(dims.size(), ctx);
+  dims.push_back(lbVal);
+  AffineExpr ub = getAffineDimExpr(dims.size(), ctx);
+  dims.push_back(ubVal);
+  AffineExpr step = getAffineSymbolExpr(symbols.size(), ctx);
+  symbols.push_back(stepVal);
+  return std::make_pair(lb, lb + step * ((ub - 1) - lb).floorDiv(step));
+}
+
+static Optional<std::pair<AffineExpr, AffineExpr>> getTiledLoopOpMinMax(
+    Value value, SmallVectorImpl<Value> &dims,
+    SmallVectorImpl<Value> &symbols) {
+  auto ivArg = value.dyn_cast<BlockArgument>();
+  if (!ivArg) return {};
+  auto tiledLoopOp = dyn_cast<TiledLoopOp>(ivArg.getOwner()->getParentOp());
+  if (!tiledLoopOp) return {};
+  unsigned idx = ivArg.getArgNumber();
+  return getMinMaxLoopIndVar(tiledLoopOp.lowerBound()[idx],
+                             tiledLoopOp.upperBound()[idx],
+                             tiledLoopOp.step()[idx], dims, symbols);
 }
 
 /// Apply transformations specified as patterns.
@@ -296,6 +322,12 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
     funcOp.walk([](LinalgOp op) {
       op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
     });
+    RewritePatternSet canonicalizationPatterns =
+        linalg::getLinalgTilingCanonicalizationPatterns(funcOp.getContext());
+    canonicalizationPatterns.add<AffineMinRangeCanonicalizationPattern>(
+        funcOp.getContext(), getTiledLoopOpMinMax);
+    (void)applyPatternsAndFoldGreedily(funcOp,
+                                       std::move(canonicalizationPatterns));
   }
 
   LinalgTilingOptions tilingOptions;
@@ -366,18 +398,30 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
   }
   if (distributeTiledLoopToGPUsIds) {
     OwningRewritePatternList distributeTiledLoopsPatterns(funcOp.getContext());
-
+    SmallVector<DistributionMethod, 0> distributionMethod(
+        3, DistributionMethod::Cyclic);
+    // Distribute the inner loop on threads and the outter loop on blocks.
     populateDistributeTiledLoopPattern(
         distributeTiledLoopsPatterns,
-        LinalgLoopDistributionOptions{getGpuBlocIds,
-                                      {
-                                          DistributionMethod::Cyclic,
-                                          DistributionMethod::Cyclic,
-                                          DistributionMethod::Cyclic,
-                                      }},
+        LinalgLoopDistributionOptions{
+            getGpuBlocIds<gpu::BlockIdOp, gpu::GridDimOp>, distributionMethod},
         LinalgTransformationFilter(
             ArrayRef<Identifier>{},
-            {Identifier::get("distributed", funcOp.getContext())}));
+            {Identifier::get("distributed", funcOp.getContext())})
+            .addFilter([](Operation *op) {
+              return success(!op->getParentOfType<linalg::TiledLoopOp>());
+            }));
+    populateDistributeTiledLoopPattern(
+        distributeTiledLoopsPatterns,
+        LinalgLoopDistributionOptions{
+            getGpuBlocIds<gpu::ThreadIdOp, gpu::BlockDimOp>,
+            distributionMethod},
+        LinalgTransformationFilter(
+            ArrayRef<Identifier>{},
+            {Identifier::get("distributed", funcOp.getContext())})
+            .addFilter([](Operation *op) {
+              return success(op->getParentOfType<linalg::TiledLoopOp>());
+            }));
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(distributeTiledLoopsPatterns));
     // Ensure we drop the marker in the end.
