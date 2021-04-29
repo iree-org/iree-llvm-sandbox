@@ -199,6 +199,16 @@ static OpResult getTiedOpResult(BlockArgument &bbArg) {
   Operation *op = bbArg.getOwner()->getParentOp();
   if (auto forOp = dyn_cast<scf::ForOp>(op))
     return forOp->getResult(bbArg.getArgNumber() - /*#iv=*/1);
+
+  if (auto tiledLoop = dyn_cast<TiledLoopOp>(op)) {
+    // Tiledloop operands = [lbs, ubs, steps, inputs, outputs],
+    // Tiledloop bbArgs = [ivs, inputs, outputs], i.e.
+    // input and output indices are shifted by numControlOperands - numLoops.
+    OpOperand &operand = tiledLoop->getOpOperand(
+        bbArg.getArgNumber() + tiledLoop.getNumControlOperands() -
+        tiledLoop.getNumLoops());
+    return tiledLoop.getTiedOpResult(operand);
+  }
   if (auto funcOp = dyn_cast<FuncOp>(op)) return OpResult();
   op->getParentOfType<FuncOp>()->dump();
   op->dump();
@@ -712,6 +722,17 @@ static LogicalResult isInPlaceSingleUseTerminatorValue(Value v,
             v.getUses().begin()->getOperandNumber())
                ? success()
                : failure();
+  // If the parent is a linalg::TiledLoopOp, we must additionally check the
+  // operand/terminator numbers agree.
+  if (auto tiledLoop = dyn_cast<TiledLoopOp>(bbArg.getOwner()->getParentOp())) {
+    if (bbArg.getArgNumber() <
+        tiledLoop.getNumLoops() + tiledLoop.inputs().size())
+      return failure();
+    return (getTiedOpResult(bbArg).getResultNumber() ==
+            v.getUses().begin()->getOperandNumber())
+               ? success()
+               : failure();
+  }
   if (isa<FuncOp>(bbArg.getOwner()->getParentOp())) return success();
   llvm_unreachable("isInPlaceSingleUseOperand: unsupported op");
 }
@@ -1089,6 +1110,15 @@ static void destructiveUpdateAnalysis(Block *block,
 
     ArrayRef<Operation *> sliceRef = slice.getArrayRef();
     bool failedDetectingDestructiveUpdate =
+        // linalg.tiled_loop / linalg.yield inplace patterns
+        failed(detectDestructiveUpdatePattern<TiledLoopOp, linalg::YieldOp>(
+            parentOp, candidate, sliceRef)) &&
+        failed(detectLinalgToTerminator<TiledLoopOp, linalg::YieldOp>(
+            parentOp, candidate, sliceRef)) &&
+        failed(detectOverWritePattern<TiledLoopOp, linalg::YieldOp>(
+            parentOp, candidate, sliceRef)) &&
+        failed(detectTiledLoopToTerminator<FuncOp, ReturnOp>(
+            parentOp, candidate, sliceRef)) &&
         // scf.for / scf.yield inplace patterns.
         failed(detectDestructiveUpdatePattern<scf::ForOp, scf::YieldOp>(
             parentOp, candidate, sliceRef)) &&
@@ -1103,8 +1133,6 @@ static void destructiveUpdateAnalysis(Block *block,
             parentOp, candidate, sliceRef)) &&
         failed(detectOverWritePattern<FuncOp, ReturnOp>(parentOp, candidate,
                                                         sliceRef)) &&
-        failed(detectTiledLoopToTerminator<FuncOp, ReturnOp>(
-            parentOp, candidate, sliceRef)) &&
         failed(detectLinalgToTerminator<FuncOp, ReturnOp>(parentOp, candidate,
                                                           sliceRef)) &&
         failed(detectForOpToTerminator<FuncOp, ReturnOp>(parentOp, candidate,
@@ -1139,6 +1167,11 @@ void LinalgComprehensiveBufferizePass::inPlaceAnalysisFuncOpInternals(
   // Start propagating from scf::ForOps.
   funcOp.walk<WalkOrder::PreOrder>([&](scf::ForOp forOp) {
     destructiveUpdateAnalysis(&forOp.region().front(), domInfo);
+  });
+
+  // Start propagating from linalg::TiledLoopOps.
+  funcOp.walk<WalkOrder::PreOrder>([&](TiledLoopOp tiledLoop) {
+    destructiveUpdateAnalysis(tiledLoop.getBody(), domInfo);
   });
 }
 
@@ -1417,16 +1450,44 @@ static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
   // Allocate output buffers if needed, forward output tensor args to the
   // terminator.
   Operation *yieldOp = tiledLoop.getBody()->getTerminator();
-  for (auto it : llvm::zip(tiledLoop.outputs(), tiledLoop->getResults(),
-                           yieldOp->getOpOperands())) {
-    Value outputTensor = std::get<0>(it);
+
+  // Replace tensor `inputs` args with the buffer ones.
+  int numLoops = tiledLoop.getNumLoops();
+  int numInputs = tiledLoop.inputs().size();
+  int numOutputs = tiledLoop.outputs().size();
+  int afterInputs = tiledLoop.getNumControlOperands() + numInputs;
+  int bbAfterInputs = tiledLoop.getNumLoops() + numInputs;
+
+  auto oldInputs = llvm::to_vector<4>(tiledLoop.inputs());
+  auto oldOutputs = llvm::to_vector<4>(tiledLoop.outputs());
+
+  // Add buffers for inputs and the corresponding block arguments.
+  Block *body = tiledLoop.getBody();
+  for (auto en : llvm::enumerate(oldInputs)) {
+    Value inputBuffer = lookup(bvm, en.value());
+    auto index = en.index();
+    tiledLoop->insertOperands(afterInputs + index, {inputBuffer});
+    auto bbArg =
+        body->insertArgument(bbAfterInputs + index, inputBuffer.getType());
+    map(bvm, body->getArgument(tiledLoop.getNumLoops() + index), bbArg);
+  }
+
+  // Add buffers for outputs and the corresponding block arguments.
+  int newBuffersCount = 0;
+  int outputsEndIndex =
+      tiledLoop.getNumControlOperands() + 2 * numInputs + numOutputs;
+  int bbAfterOutputs = tiledLoop.getNumLoops() + 2 * numInputs + numOutputs;
+
+  for (auto en : llvm::enumerate(llvm::zip(oldOutputs, tiledLoop->getResults(),
+                                           yieldOp->getOpOperands()))) {
+    Value outputTensor = std::get<0>(en.value());
     // TODO: Atm we bail on TensorType because we don't know how to alloc an
     // UnrankedMemRefType + its underlying ranked MemRefType.
     if (!outputTensor.getType().isa<RankedTensorType>()) continue;
     Value operandBuffer = lookup(bvm, outputTensor);
 
-    OpResult &opResult = std::get<1>(it);
-    OpOperand &yieldOperand = std::get<2>(it);
+    const OpResult &opResult = std::get<1>(en.value());
+    OpOperand &yieldOperand = std::get<2>(en.value());
     if (getInPlace(opResult) != InPlaceSpec::True) {
       auto loc = tiledLoop.getLoc();
       Value alloc =
@@ -1441,31 +1502,21 @@ static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
     }
     map(bvm, opResult, operandBuffer);
 
+    tiledLoop->insertOperands(outputsEndIndex + newBuffersCount, operandBuffer);
+    auto newBbArg = body->insertArgument(bbAfterOutputs + newBuffersCount,
+                                         operandBuffer.getType());
+    map(bvm, body->getArgument(bbAfterOutputs + newBuffersCount - 1), newBbArg);
+
     // Set operand of `linalg.yield` to the output tensor.
-    yieldOperand.set(outputTensor);
+    yieldOperand.set(body->getArgument(bbAfterOutputs + newBuffersCount - 1));
+    ++newBuffersCount;
   }
-
-  // Replace tensor `inputs` args with the buffer ones.
-  int id = tiledLoop.getNumControlOperands();
-  for (auto in : tiledLoop.inputs())
-    tiledLoop.setOperand(id++, lookup(bvm, in));
-
-  // Splice tensor `output` args with the buffer ones.
-  SmallVector<Value, 2> newOutputArgs;
-  for (auto out : tiledLoop.outputs()) {
-    newOutputArgs.push_back(out);
-    newOutputArgs.push_back(lookup(bvm, out));
-  }
-  tiledLoop->insertOperands(id, newOutputArgs);
 
   // Update segment sizes.
-  int numLoops = tiledLoop.getNumLoops();
   tiledLoop->setAttr(
       TiledLoopOp::getOperandSegmentSizeAttr(),
-      b.getI32VectorAttr({numLoops, numLoops, numLoops,
-                          static_cast<int32_t>(tiledLoop.inputs().size()),
-                          static_cast<int32_t>(newOutputArgs.size())}));
-
+      b.getI32VectorAttr({numLoops, numLoops, numLoops, 2 * numInputs,
+                          numOutputs + newBuffersCount}));
   return success();
 }
 
@@ -1847,7 +1898,6 @@ static BlockArgument analyzeTiedFuncOpResults(OpOperand &returnOperand) {
     return (bbArg == funcOp.getArgument(bbArg.getArgNumber()))
                ? bbArg
                : BlockArgument();
-
   return BlockArgument();
 }
 

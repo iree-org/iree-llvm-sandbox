@@ -22,12 +22,12 @@
 
 // CHECK:  linalg.tiled_loop (%[[I:.*]], %[[J:.*]]) = (%[[C0]], %[[C0]])
 // CHECK-SAME: to (%[[C192]], %[[C192]]) step (%[[C24]], %[[C16]])
-// CHECK-SAME: ins (%[[A]], %[[B]]: memref<192x192xf32>, memref<192x192xf32>)
-// CHECK-SAME: outs (%[[C]]:memref<192x192xf32>) {
+// CHECK-SAME: ins (%[[A_:.*]] = %[[A]]: memref<192x192xf32>, %[[B_:.*]] = %[[B]]: memref<192x192xf32>)
+// CHECK-SAME: outs (%[[C_:.*]] = %[[C]]: memref<192x192xf32>) {
 
-// CHECK:    %[[A_sub:.*]] = memref.subview %[[A]]{{\[}}%[[I]], 0]
-// CHECK:    %[[B_sub:.*]] = memref.subview %[[B]][0, %[[J]]]
-// CHECK:    %[[C_sub:.*]] = memref.subview %[[C]]{{\[}}%[[I]], %[[J]]]
+// CHECK:    %[[A_sub:.*]] = memref.subview %[[A_]]{{\[}}%[[I]], 0]
+// CHECK:    %[[B_sub:.*]] = memref.subview %[[B_]][0, %[[J]]]
+// CHECK:    %[[C_sub:.*]] = memref.subview %[[C_]]{{\[}}%[[I]], %[[J]]]
 
 // CHECK:    linalg.fill(%[[C_sub]], %[[C0_F32]])
 // CHECK:    linalg.matmul ins(%[[A_sub]], %[[B_sub]]
