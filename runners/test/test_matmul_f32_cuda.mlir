@@ -3,9 +3,7 @@
 
 // RUN: mlir-proto-opt -canonicalize -mlir-disable-threading \
 // RUN: -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=16,16" |\
-// TODO: Enable second level of tiling once bufferization of linalg.tiled_loop
-// can analysis liverange correctly to avoid extra allocation
-// RU-N: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=4,4" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=4,4" |\
 // Tile K loop with scf::ForOp as Tiledloop doesn't support reduction yet.
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=0,0,4 vectorize" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.fill vectorize" |\
