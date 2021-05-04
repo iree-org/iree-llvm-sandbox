@@ -58,6 +58,8 @@ void mlir::ModelRunner::compile(
     mlir::vector::populateVectorSlicesLoweringPatterns(patterns);
     mlir::vector::populateVectorContractLoweringPatterns(
         patterns, compilationOptions.vectorTransformsOptions);
+    mlir::vector::populateVectorTransposeLoweringPatterns(
+        patterns, compilationOptions.vectorTransformsOptions);
     (void)mlir::applyPatternsAndFoldGreedily(*module, std::move(patterns));
   }
   runLoweringPass(compilationOptions.loweringPasses
