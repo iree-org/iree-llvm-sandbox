@@ -10,8 +10,7 @@ flags = sys.getdlopenflags()
 sys.setdlopenflags(flags | ctypes.RTLD_GLOBAL)
 
 this_dir = os.path.dirname(__file__)
-so_file = os.path.join(this_dir, "lib", "libMLIRLinalgTensorSandbox.so")
+so_file = os.path.join(this_dir, "lib", "@LINALG_TENSOR_SANDBOX_LIB@")
 lib = ctypes.CDLL(so_file, mode=ctypes.RTLD_GLOBAL)
 lib.ireeLlvmSandboxRegisterPasses()
 
-import mlir.ir

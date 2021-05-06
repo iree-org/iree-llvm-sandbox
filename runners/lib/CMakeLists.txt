@@ -16,3 +16,5 @@ target_link_libraries(
   MLIRGPU
   MLIRLinalgTransforms
 )
+
+set(LINALG_TENSOR_SANDBOX_LIB "libMLIRLinalgTensorSandbox.so" PARENT_SCOPE)
