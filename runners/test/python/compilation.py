@@ -21,7 +21,7 @@ f16 = np.float16
 f32 = np.float32
 f64 = np.float64
 
-scalar_types = [f16, f32, f64]
+scalar_types = {"f16": f16, "f32": f32, "f64": f64}
 
 
 def mlir_type(scalar_type):

@@ -1,10 +1,7 @@
 """Utilities for search space exploration over linalg operations."""
 
-from mlir.dialects import linalg
 from itertools import chain
 from random import choice, randrange
-from compilation import f16, f32, f64, scalar_types, compile_and_callback
-from transforms import expert_compilerr_1
 
 
 class Variable:
@@ -74,16 +71,3 @@ def instantiate_variables(variables):
   for variable in variables:
     variable.assign(assignments, variable.random_value())
   return assignments
-
-
-def main():
-  op = linalg.matmul
-  variables = collect_variables(op, [f32], range(8, 1024 + 1, 8))
-  while True:
-    assignments = instantiate_variables(variables)
-    print(assignments)
-    compile_and_callback(op, expert_compilerr_1, lambda x: None, **assignments)
-
-
-if __name__ == "__main__":
-  main()
