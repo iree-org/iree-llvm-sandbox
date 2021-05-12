@@ -3,34 +3,11 @@
 # PYTHONPATH
 import runners
 
-import time
 from mlir.ir import *
 from mlir.passmanager import *
 import mlir.conversions
 import mlir.dialects.linalg.passes
 import mlir.transforms
-
-
-class Expert:
-
-  def __init__(self, transforms):
-    self.transforms = transforms
-
-  def _pre_transform(self, module, boilerplate_code):
-
-    # TODO: Allow cloning functions from one module to another.
-    # Atm we have to resort to string concatenation.
-    module = Module.parse(
-        str(module.operation.regions[0].blocks[0].operations[0].operation) +
-        boilerplate_code)
-
-    return module
-
-  def __call__(self, module, boilerplate_code):
-    module = self._pre_transform(module, boilerplate_code)
-    for transform in self.transforms:
-      transform(module, 'matmul_on_tensors')
-    return module
 
 
 class Transform:
@@ -114,40 +91,3 @@ class LowerToLLVM(Transform):
                 f'convert-std-to-llvm')
     self.pipeline = pipeline
 
-
-expert_compilerr_1 = Expert([
-    TileAndPad('matmul_on_tensors', 'linalg.matmul', [256, 256, 256]),
-    TileAndPad('matmul_on_tensors', 'linalg.matmul', [64, 64, 64]),
-    TileAndPad(
-        'matmul_on_tensors',
-        'linalg.matmul', [8, 16, 32],
-        pad=True,
-        hoist_padding=2),
-    Vectorize('matmul_on_tensors', 'linalg.matmul'),
-    Bufferize(),
-    LowerToLLVM(),
-])
-
-expert_compilerr_2 = Expert([
-    Fuse('matmul_on_tensors', 'linalg.matmul', [256, 256]),
-    Fuse('matmul_on_tensors', 'linalg.matmul', [8, 16]),
-    TileAndPad('matmul_on_tensors', 'linalg.matmul', [0, 0, 32]),
-    Vectorize('matmul_on_tensors', 'linalg.matmul'),
-    Vectorize('matmul_on_tensors', 'linalg.fill'),
-    Bufferize(),
-    LowerToLLVM(),
-])
-
-expert_compilerr_3 = Expert([
-    Fuse('matmul_on_tensors', 'linalg.matmul', [256, 256]),
-    TileAndPad(
-        'matmul_on_tensors',
-        'linalg.matmul', [8, 16, 32],
-        pad=True,
-        hoist_padding=3),
-    Vectorize('matmul_on_tensors', 'linalg.matmul'),
-    TileAndPad('matmul_on_tensors', 'linalg.fill', [8, 32]),
-    Vectorize('matmul_on_tensors', 'linalg.fill'),
-    Bufferize(),
-    LowerToLLVM(),
-])

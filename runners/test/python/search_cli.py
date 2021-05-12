@@ -2,13 +2,13 @@ import argparse
 from mlir.dialects import linalg
 from compilation import scalar_types, compile_and_callback
 from search import collect_variables, instantiate_variables
-import transforms
+import experts
 
 
 def parse_args():
   parser = argparse.ArgumentParser(description='Command-line directed search.')
   parser.add_argument(
-      '--op', type=str, help='Name of the linalg op to instantiate.')
+      'op', type=str, help='Name of the linalg op to instantiate.')
   parser.add_argument(
       '--types',
       type=str,
@@ -22,7 +22,7 @@ def parse_args():
   parser.add_argument(
       '--expert',
       type=str,
-      default='compilerr_1',
+      default='ExpertCompiler1',
       help='Name of the expert to use for compilation.')
   return parser.parse_args()
 
@@ -55,7 +55,7 @@ def validate_args(args):
     if type_name not in scalar_types:
       error(f'Unknown type: {type_name}')
 
-  if not hasattr(transforms, 'expert_' + args.expert):
+  if not hasattr(experts, args.expert):
     error(f'Unknown expert name: {args.expert}')
 
   return no_errors
@@ -70,11 +70,12 @@ def main():
   range_parts = map(int, args.range.split(','))
   value_range = range(*range_parts)
   types = [scalar_types[n] for n in args.types.split(',')]
+  expert = getattr(experts, args.expert)
   variables = collect_variables(op, types, value_range)
+  variables.extend(expert.variables)
   assignments = instantiate_variables(variables)
-  expert = getattr(transforms, 'expert_' + args.expert)
   print(assignments)
-  compile_and_callback(op, expert, lambda x: None, **assignments)
+  compile_and_callback(op, expert(**assignments), lambda x: None, **assignments)
 
 
 if __name__ == '__main__':
