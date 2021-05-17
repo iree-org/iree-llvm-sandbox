@@ -17,19 +17,25 @@ from mlir.runtime import *
 
 from transforms import *
 
-f16 = np.float16
-f32 = np.float32
-f64 = np.float64
+f16 = "f16"
+f32 = "f32"
+f64 = "f64"
 
-scalar_types = {"f16": f16, "f32": f32, "f64": f64}
+numpy_types = {f16: np.float16, f32: np.float32, f64: np.float64}
+
+scalar_types = list(numpy_types.keys())
+
+
+def numpy_type(scalar_type):
+  numpy_types[scalar_type]
 
 
 def mlir_type(scalar_type):
-  if scalar_type == np.float16:
+  if scalar_type == f16:
     return F16Type.get()
-  elif scalar_type == np.float32:
+  elif scalar_type == f32:
     return F32Type.get()
-  elif scalar_type == np.float64:
+  elif scalar_type == f64:
     return F64Type.get()
   else:
     raise Exception(f"unknown scalar type: {scalar_type}")

@@ -167,3 +167,69 @@ cmake --build ${NPCOMP_BUILD_DIR} --target all)
 TODOs:
 
 1.  hook up a lit test target.
+
+# Python-driven parameter search
+
+Python tests come with a tool to perform as simple randomized search. The search
+is going to randomly instantiate a given op to some cocnrete dimensions and type
+variables and try to compile it using mlir.
+
+The results are persisted in the `output/` folder by default in a structure that
+includes a name of the expert compiler, the name of the op and the
+success/failure/timeout status code. The results contain the full program output
+(including potential compilation errors) and an accompanying `.sh` file that can
+be used to re-run the same configuration again.
+
+To run the search with default settings:
+
+```
+search_cli=${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/search_cli.py
+python3 $search_cli
+```
+
+To run with a different linalg op, use `--op` flag:
+
+```
+python3 $search_cli --op matvec
+```
+
+To specify the name of the expert compiler, use `--expert` (see `experts.py` for
+all available expert definitions):
+
+```
+python3 $search_cli --expert ExpertCompiler1
+```
+
+To specify the possible types, use `--types` flag:
+
+```
+python3 $search_cli --types f32,f64
+```
+
+Alternatively, one can also force some variables to concrete values, while
+others will ramain random using `--assign`:
+
+```
+python3 $search_cli --assign M=16 N=32 K=64
+```
+
+To specify range of possible values for dimensions, use `--range` flag (where
+numbers correspond to arguments of the corresponding `range` function in
+Python):
+
+```
+python3 $search_cli --range 128,256,8
+```
+
+The search can be run using multiple processes at once, via `--par` flag:
+
+```
+python3 $search_cli --par 72
+```
+
+Each process collects the fixed number of random samples, customized via
+`--samples` flag:
+
+```
+python3 $search_cli --samples 100
+```
