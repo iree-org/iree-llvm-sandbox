@@ -1,7 +1,11 @@
 """Utilities for search space exploration over linalg operations."""
 
 from itertools import chain
-from random import choice, randrange, randint
+import random
+
+
+def rand_in_range(value_range):
+  return random.randrange(value_range.start, value_range.stop, value_range.step)
 
 
 class Variable:
@@ -22,16 +26,15 @@ class Variable:
 class TypeVariable(Variable):
   "Linalg operation-specific type variable that defines a scalar component."
 
-  def __init__(self, type_var, scalar_types):
-    Variable.__init__(self, type_var.name)
-    self.type_var = type_var
+  def __init__(self, name, scalar_types):
+    Variable.__init__(self, name)
     self.scalar_types = scalar_types
 
   def __repr__(self):
-    return f"TypeVariable({self.type_var})"
+    return f"TypeVariable({self.name})"
 
   def random_value(self):
-    return choice(self.scalar_types)
+    return random.choice(self.scalar_types)
 
 
 class IntVariable(Variable):
@@ -45,8 +48,7 @@ class IntVariable(Variable):
     return f"IntVariable({self.name}, {self.value_range})"
 
   def random_value(self):
-    return randrange(self.value_range.start, self.value_range.stop,
-                     self.value_range.step)
+    return rand_in_range(self.value_range)
 
 
 class BoolVariable(Variable):
@@ -56,21 +58,48 @@ class BoolVariable(Variable):
     return f"BoolVariable({self.name})"
 
   def random_value(self):
-    return randint(0, 1) == 0
+    return random.randint(0, 1) == 0
 
 
 class DimensionVariable(IntVariable):
   "Variable that corresponds to the operation dimensions."
 
-  def __init__(self, sym, value_range):
-    IntVariable.__init__(self, sym.symname, value_range)
-    self.sym = sym
+  def __init__(self, name, value_range):
+    IntVariable.__init__(self, name, value_range)
 
   def __repr__(self):
-    return f"DimensionVariable({self.sym}, {self.value_range})"
+    return f"DimensionVariable({self.name}, {self.value_range})"
 
 
-def collect_variables(op, scalar_types, dimension_value_range):
+class TilingSizesVariable(Variable):
+  "Variable that corresponds to tiling sizes."
+
+  def __init__(self, name, length_range, value_range):
+    Variable.__init__(self, name)
+    self.length_range = length_range
+    self.value_range = value_range
+
+  def __repr__(self):
+    return f"TilingSizesVariable({self.name}, {self.length_range}, {self.value_range})"
+
+  def random_value(self):
+    result = []
+    for x in range(rand_in_range(self.length_range)):
+      result.append(rand_in_range(self.value_range))
+    return result
+
+
+class HoistPaddingVariable(IntVariable):
+  "Variable that corresponds to hoist padding."
+
+  def __init__(self, name, value_range):
+    IntVariable.__init__(self, name, value_range)
+
+  def __repr__(self):
+    return f"HoistPaddingVariable({self.name}, {self.value_range})"
+
+
+def collect_variables(op):
   type_vars = set()
   syms = set()
   for tdef in chain(op.model.inputs, op.model.outputs):
@@ -78,17 +107,36 @@ def collect_variables(op, scalar_types, dimension_value_range):
     for sym in tdef.shape:
       syms.add(sym)
 
-  variables = []
+  variables = {}
   for type_var in type_vars:
-    variables.append(TypeVariable(type_var, scalar_types))
+    variables[type_var.name] = TypeVariable
   for sym in syms:
-    variables.append(DimensionVariable(sym, dimension_value_range))
-
+    variables[sym.symname] = DimensionVariable
   return variables
 
 
-def instantiate_variables(variables):
+def create_variable(name, variable_type, **settings):
+  if variable_type is TypeVariable:
+    return TypeVariable(name, settings["types"])
+  elif variable_type is IntVariable:
+    return IntVariable(name, settings["int_range"])
+  elif variable_type is BoolVariable:
+    return BoolVariable(name)
+  elif variable_type is DimensionVariable:
+    return DimensionVariable(name, settings["dim_range"])
+  elif variable_type is TilingSizesVariable:
+    return TilingSizesVariable(name, settings["tsize_length_range"],
+                               settings["tsize_value_range"])
+
+  elif variable_type is HoistPaddingVariable:
+    return HoistPaddingVariable(name, settings["hpad_range"])
+  else:
+    raise Exception(f"unknown variable type: {variable_type}")
+
+
+def instantiate_variables(variables, **settings):
   assignments = {}
-  for variable in variables:
+  for name, variablecls in variables.items():
+    variable = create_variable(name, variablecls, **settings)
     variable.assign(assignments, variable.random_value())
   return assignments

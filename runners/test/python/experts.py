@@ -2,8 +2,7 @@
 # import time
 
 from typing import List
-from search import Variable, IntVariable, BoolVariable
-from random import choice, randint
+from search import *
 from transforms import *
 
 
@@ -11,21 +10,6 @@ class Assignments:
 
   def __init__(self, **kwargs):
     self.__dict__.update(kwargs)
-
-
-class TilingSizesVariable(Variable):
-  min_length = 2
-  max_length = 3
-  valid_sizes = [8, 16, 32, 64, 128, 256]
-
-  def random_value(self):
-    result = []
-    remaining_sizes = self.valid_sizes
-    for x in range(randint(self.min_length, self.max_length)):
-      value = choice(remaining_sizes)
-      result.append(value)
-      remaining_sizes = [s for s in remaining_sizes if s >= value]
-    return result
 
 
 class Expert:
@@ -54,13 +38,13 @@ class Expert:
 
 
 class ExpertCompiler1(Expert):
-  variables = [
-      TilingSizesVariable('sizes1'),
-      TilingSizesVariable('sizes2'),
-      TilingSizesVariable('sizes3'),
-      BoolVariable('pad'),
-      IntVariable('hoist_padding', range(2, 4)),
-  ]
+  variables = {
+      'sizes1': TilingSizesVariable,
+      'sizes2': TilingSizesVariable,
+      'sizes3': TilingSizesVariable,
+      'pad': BoolVariable,
+      'hoist_padding': HoistPaddingVariable,
+  }
 
   def transforms(self) -> List[Transform]:
     v = self.assignments
@@ -80,11 +64,11 @@ class ExpertCompiler1(Expert):
 
 
 class ExpertCompiler2(Expert):
-  variables = [
-      TilingSizesVariable('sizes1'),
-      TilingSizesVariable('sizes2'),
-      TilingSizesVariable('sizes3'),
-  ]
+  variables = {
+      'sizes1': TilingSizesVariable,
+      'sizes2': TilingSizesVariable,
+      'sized3': TilingSizesVariable,
+  }
 
   def transforms(self) -> List[Transform]:
     v = self.assignments
@@ -100,13 +84,13 @@ class ExpertCompiler2(Expert):
 
 
 class ExpertCompiler3(Expert):
-  variables = [
-      TilingSizesVariable('sizes1'),
-      TilingSizesVariable('sizes2'),
-      TilingSizesVariable('sizes3'),
-      BoolVariable('pad'),
-      IntVariable('hoist_padding', range(2, 4)),
-  ]
+  variables = {
+      'sizes1': TilingSizesVariable,
+      'sizes2': TilingSizesVariable,
+      'sizes3': TilingSizesVariable,
+      'pad': BoolVariable,
+      'hoist_padding': HoistPaddingVariable,
+  }
 
   def transforms(self) -> List[Transform]:
     v = self.assignments

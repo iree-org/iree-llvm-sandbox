@@ -37,11 +37,11 @@ def validate_args(args):
 
   op = getattr(linalg, args.op)
   expert = getattr(experts, args.expert)
-  variables = collect_variables(op, ['f32'], range(1, 2))
-  variables.extend(expert.variables)
+  variables = collect_variables(op)
+  variables.update(expert.variables)
   assignments = parse_assignments(args)
-  for variable in variables:
-    if variable.name not in assignments:
+  for var_name in assignments.keys():
+    if var_name not in assignments:
       error(f'Variable {variable.name} was not assigned.')
 
   if no_errors:

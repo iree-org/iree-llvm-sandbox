@@ -25,10 +25,30 @@ def parse_args():
       default='f32',
       help='Comma-separated list of scalar types.')
   parser.add_argument(
-      '--range',
+      '--dim_range',
+      type=str,
+      default='8,1025,8',
+      help='Range of potential dimension values.')
+  parser.add_argument(
+      '--int_range',
       type=str,
       default='128,1025,128',
-      help='Comma-separated range for dimension variables.')
+      help='Range of potential int values.')
+  parser.add_argument(
+      '--tsize_length_range',
+      type=str,
+      default='0,4,1',
+      help='Range of potential lengths for tiling sizes.')
+  parser.add_argument(
+      '--tsize_value_range',
+      type=str,
+      default='8,513,8',
+      help='Range of potential values for tiling sizes.')
+  parser.add_argument(
+      '--hpad_range',
+      type=str,
+      default='0,3',
+      help='Range of potential values for hoist padding.')
   parser.add_argument(
       '--expert',
       type=str,
@@ -71,21 +91,31 @@ def validate_args(args):
     no_errors = False
     print(msg)
 
+  def validate_range(range_name):
+    range_str = getattr(args, range_name)
+    range_parts = range_str.split(',')
+    if len(range_parts) < 1 or len(range_parts) > 3:
+      error(
+          f'{range_name} range should be defined using 1, 2 or 3 integer values.'
+      )
+    for part in range_parts:
+      try:
+        i = int(part)
+      except:
+        error(f'Failed to parse element in {range_name} range: {part}')
+    range_parts = map(int, range_parts)
+    value_range = range(*range_parts)
+    if len(value_range) < 1:
+      error(f'Must have at least one value in {range_name} range.')
+
+  validate_range('int_range')
+  validate_range('dim_range')
+  validate_range('tsize_length_range')
+  validate_range('tsize_value_range')
+  validate_range('hpad_range')
+
   if not hasattr(linalg, args.op):
     error(f'Unknown op: {args.op}.')
-
-  range_parts = args.range.split(',')
-  if len(range_parts) < 1 or len(range_parts) > 3:
-    error(f'Value range should be defined using 1, 2 or 3 integer values.')
-  for part in range_parts:
-    try:
-      i = int(part)
-    except:
-      error(f'Failed to parse integer value: {part}')
-  range_parts = map(int, range_parts)
-  value_range = range(*range_parts)
-  if len(value_range) < 1:
-    error(f'Range must not be empty: {value_range}')
 
   for type_name in args.types.split(','):
     if type_name not in scalar_types:
@@ -128,19 +158,34 @@ def parse_assignments(args):
   return assignments
 
 
+def parse_range(range_str):
+  str_parts = range_str.split(',')
+  int_parts = map(int, str_parts)
+  return range(*int_parts)
+
+
+def parse_settings(args):
+  settings = dict()
+  settings['types'] = args.types.split(',')
+  settings['int_range'] = parse_range(args.int_range)
+  settings['dim_range'] = parse_range(args.dim_range)
+  settings['tsize_length_range'] = parse_range(args.tsize_length_range)
+  settings['tsize_value_range'] = parse_range(args.tsize_value_range)
+  settings['hpad_range'] = parse_range(args.hpad_range)
+  return settings
+
+
 def search(args):
   op = getattr(linalg, args.op)
-  range_parts = map(int, args.range.split(','))
-  value_range = range(*range_parts)
-  types = args.types.split(',')
   expert = getattr(experts, args.expert)
-  variables = collect_variables(op, types, value_range)
-  variables.extend(expert.variables)
+  variables = collect_variables(op)
+  variables.update(expert.variables)
   cli_assignments = parse_assignments(args)
+  settings = parse_settings(args)
 
   for _ in range(args.samples):
     assignments = dict()
-    assignments.update(instantiate_variables(variables))
+    assignments.update(instantiate_variables(variables, **settings))
     assignments.update(cli_assignments)
     invoke_subprocess(args.op, args.expert, assignments, args.output,
                       args.timeout)
