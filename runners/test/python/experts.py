@@ -110,6 +110,15 @@ class ExpertCompiler3(Expert):
     ]
 
 
+class ExpertSparseCompiler(Expert):
+
+  def transforms(self) -> List[Transform]:
+    v = self.assignments
+    return [
+        Sparsify(),
+    ]
+
+
 expert_compilerr_1 = ExpertCompiler1(
     sizes1=[256, 256, 256],
     sizes2=[64, 64, 64],
@@ -126,3 +135,5 @@ expert_compilerr_3 = ExpertCompiler3(
     sizes3=[8, 32],
     pad=True,
     hoist_padding=3)
+
+expert_sparse_compiler = ExpertSparseCompiler()

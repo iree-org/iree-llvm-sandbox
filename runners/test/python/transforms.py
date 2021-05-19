@@ -1,12 +1,14 @@
 # Bootstrap our local extensions first.
 # TODO: Requires that both ${LLVM_INSTALL}/python and ./build are on
 # PYTHONPATH
+
 import runners
 
 from mlir.ir import *
 from mlir.passmanager import *
 import mlir.conversions
 import mlir.dialects.linalg.passes
+import mlir.dialects.sparse_tensor
 import mlir.transforms
 
 
@@ -91,3 +93,9 @@ class LowerToLLVM(Transform):
                 f'convert-std-to-llvm')
     self.pipeline = pipeline
 
+
+class Sparsify(Transform):
+
+  def __init__(self):
+    pipeline = (f'sparsification')
+    self.pipeline = pipeline
