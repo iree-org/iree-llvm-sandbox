@@ -170,7 +170,7 @@ void mlir::ModelRunner::runLoweringPass(
     manager.getContext()->disableMultithreading();
     manager.enableIRPrinting([](Pass*, Operation*) { return true; },
                              [](Pass*, Operation*) { return true; }, true, true,
-                             llvm::errs());
+                             /*printAfterOnlyOnFailure=*/false, llvm::errs());
   }
   passBuilder(manager);
   if (failed(manager.run(*module))) {
