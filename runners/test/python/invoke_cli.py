@@ -51,7 +51,11 @@ def validate_args(args):
 
 
 def invoke(op, expert, assignments):
-  compile_and_callback(op, expert(**assignments), lambda x: None, **assignments)
+
+  def callback(module, execution_engine):
+    print(module)
+
+  compile_and_callback(op, expert(**assignments), callback, **assignments)
 
 
 def main():

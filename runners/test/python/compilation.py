@@ -121,17 +121,17 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
 
   # JIT compile.
   start = time.time()
-  execution_engine = ExecutionEngine(
-      transform(module, op_boilerplate(op, "matmul_on_tensors", **assignments)))
+  transformed_module = transform(
+      module, op_boilerplate(op, "matmul_on_tensors", **assignments))
+  execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
-  print(f"compilation in {elapsed_compilation_s:.{4}}s")
 
-  return execution_engine
+  return transformed_module, execution_engine
 
 
 def compile_and_callback(op, transform: Callable, callback: Callable,
                          **assignments):
   with Context() as ctx, Location.unknown():
-    execution_engine = build_op_under_context_manager(op, transform,
-                                                      **assignments)
-    callback(execution_engine)
+    module, execution_engine = build_op_under_context_manager(
+        op, transform, **assignments)
+    callback(module, execution_engine)

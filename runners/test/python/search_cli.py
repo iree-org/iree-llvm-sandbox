@@ -7,7 +7,7 @@ import hashlib
 import pathlib
 import shlex
 from mlir.dialects import linalg
-from compilation import scalar_types, compile_and_callback
+from compilation import scalar_types
 from search import collect_variables, instantiate_variables
 import experts
 
@@ -62,7 +62,7 @@ def parse_args():
   parser.add_argument(
       '--timeout',
       type=int,
-      default=1,
+      default=10,
       help='Timeout for running a subprocess in seconds.')
   parser.add_argument(
       '--par',
@@ -221,15 +221,43 @@ def invoke_subprocess(op, expert, assignments, output_dir, timeout):
     with open(output_file, 'w') as f:
       f.write(output)
     print(f'[{status.upper()}] {command_str}')
+    return output_file
 
   try:
     result = subp.run(
         command, timeout=1, stderr=subp.PIPE, stdout=subp.PIPE, check=True)
-    persist('ok', result.stdout.decode('utf-8'))
+    output_path = persist('ok', result.stdout.decode('utf-8'))
+    invoke_llvm_mca(output_path)
   except subp.CalledProcessError as e:
     persist('fail', e.stderr.decode('utf-8'))
   except subp.TimeoutExpired as e:
     persist('timeout', '')
+
+
+def invoke_llvm_mca(mlir_path):
+  ll_path = mlir_path + '.ll'
+  s_path = mlir_path + '.s'
+  mca_path = mlir_path + '.mca'
+
+  def annotate_first_proc_body_for_mca():
+    lines = open(s_path).readlines()
+    did_begin = False
+    did_end = False
+    transformed = []
+    for line in lines:
+      if 'retq' in line and not did_end:
+        transformed.append('# LLVM-MCA-END\n')
+        did_end = True
+      transformed.append(line)
+      if 'prologue_end' in line and not did_begin:
+        transformed.append('# LLVM-MCA-BEGIN\n')
+        did_begin = True
+    open(s_path, 'w').writelines(transformed)
+
+  subp.run(['mlir-translate', '-mlir-to-llvmir', mlir_path, '-o', ll_path])
+  subp.run(['llc', '-O3', '-mcpu=skylake-avx512', ll_path, '-o', s_path])
+  annotate_first_proc_body_for_mca()
+  subp.run(['llvm-mca', '-mcpu=skylake-avx512', s_path, '-o', mca_path])
 
 
 if __name__ == '__main__':

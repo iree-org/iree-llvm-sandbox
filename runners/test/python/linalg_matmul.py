@@ -30,7 +30,7 @@ def compile_and_test_linalg_matmul(M: int, N: int, K: int, ITERS: int,
   C_memref_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(C)))
   index_ptr_t = ctypes.c_longlong * 1
 
-  def callback(execution_engine):
+  def callback(module, execution_engine):
 
     def execute(m, n, k, iters):
       execution_engine.invoke('main', A_memref_ptr, B_memref_ptr, C_memref_ptr,

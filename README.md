@@ -180,6 +180,8 @@ success/failure/timeout status code. The results contain the full program output
 (including potential compilation errors) and an accompanying `.sh` file that can
 be used to re-run the same configuration again.
 
+## Collecting random measurements
+
 To run the search with default settings:
 
 ```
@@ -233,3 +235,15 @@ Each process collects the fixed number of random samples, customized via
 ```
 python3 $search_cli --samples 100
 ```
+
+## Showing ranked results
+
+One can see a ranked list, based on llvm-mca performance estimates:
+
+```
+rank_cli=${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/rank_mca_cli.py
+python3 $rank_cli
+```
+
+You can customize the `--op`, the number of the output results (`--limit`) and
+the metric used for ranking (`--by`) through additional command-line flags.
