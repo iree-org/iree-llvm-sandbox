@@ -45,15 +45,298 @@
 #include "mlir/Dialect/Linalg/EDSC/Intrinsics.h"
 #include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/EDSC/Builders.h"
-#include "mlir/Dialect/SCF/EDSC/Intrinsics.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Vector/EDSC/Intrinsics.h"
+#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinOps.h"
 
 namespace mlir {
+using edsc::OperationBuilder;
 using edsc::ScopedContext;
 using edsc::StructuredIndexed;
+using edsc::ValueBuilder;
+
+namespace edsc {
+
+/// A TemplatedIndexedValue brings an index notation over the template Load and
+/// Store parameters. Assigning to an IndexedValue emits an actual `Store`
+/// operation, while converting an IndexedValue to a Value emits an actual
+/// `Load` operation.
+template <typename Load, typename Store>
+class TemplatedIndexedValue {
+ public:
+  explicit TemplatedIndexedValue(Value v) : value(v) {}
+
+  TemplatedIndexedValue(const TemplatedIndexedValue &rhs) = default;
+
+  TemplatedIndexedValue operator()() { return *this; }
+  /// Returns a new `TemplatedIndexedValue`.
+  TemplatedIndexedValue operator()(Value index) {
+    TemplatedIndexedValue res(value);
+    res.indices.push_back(index);
+    return res;
+  }
+  template <typename... Args>
+  TemplatedIndexedValue operator()(Value index, Args... indices) {
+    return TemplatedIndexedValue(value, index).append(indices...);
+  }
+  TemplatedIndexedValue operator()(ValueRange indices) {
+    return TemplatedIndexedValue(value, indices);
+  }
+
+  /// Emits a `store`.
+  Store operator=(const TemplatedIndexedValue &rhs) {
+    return Store(rhs, value, indices);
+  }
+  Store operator=(Value rhs) { return Store(rhs, value, indices); }
+
+  /// Emits a `load` when converting to a Value.
+  operator Value() const { return Load(value, indices); }
+
+  /// Returns the base memref.
+  Value getBase() const { return value; }
+
+  /// Returns the underlying memref.
+  MemRefType getMemRefType() const {
+    return value.getType().template cast<MemRefType>();
+  }
+
+  /// Returns the underlying MemRef elemental type cast as `T`.
+  template <typename T>
+  T getElementalTypeAs() const {
+    return value.getType()
+        .template cast<MemRefType>()
+        .getElementType()
+        .template cast<T>();
+  }
+
+  /// Arithmetic operator overloadings.
+  Value operator+(Value e);
+  Value operator-(Value e);
+  Value operator*(Value e);
+  Value operator/(Value e);
+  Value operator%(Value e);
+  Value operator^(Value e);
+  Value operator+(TemplatedIndexedValue e) {
+    return *this + static_cast<Value>(e);
+  }
+  Value operator-(TemplatedIndexedValue e) {
+    return *this - static_cast<Value>(e);
+  }
+  Value operator*(TemplatedIndexedValue e) {
+    return *this * static_cast<Value>(e);
+  }
+  Value operator/(TemplatedIndexedValue e) {
+    return *this / static_cast<Value>(e);
+  }
+  Value operator%(TemplatedIndexedValue e) {
+    return *this % static_cast<Value>(e);
+  }
+  Value operator^(TemplatedIndexedValue e) {
+    return *this ^ static_cast<Value>(e);
+  }
+
+  /// Assignment-arithmetic operator overloadings.
+  Store operator+=(Value e);
+  Store operator-=(Value e);
+  Store operator*=(Value e);
+  Store operator/=(Value e);
+  Store operator%=(Value e);
+  Store operator^=(Value e);
+  Store operator+=(TemplatedIndexedValue e) {
+    return this->operator+=(static_cast<Value>(e));
+  }
+  Store operator-=(TemplatedIndexedValue e) {
+    return this->operator-=(static_cast<Value>(e));
+  }
+  Store operator*=(TemplatedIndexedValue e) {
+    return this->operator*=(static_cast<Value>(e));
+  }
+  Store operator/=(TemplatedIndexedValue e) {
+    return this->operator/=(static_cast<Value>(e));
+  }
+  Store operator%=(TemplatedIndexedValue e) {
+    return this->operator%=(static_cast<Value>(e));
+  }
+  Store operator^=(TemplatedIndexedValue e) {
+    return this->operator^=(static_cast<Value>(e));
+  }
+
+  /// Logical operator overloadings.
+  Value operator&&(Value e);
+  Value operator||(Value e);
+  Value operator&&(TemplatedIndexedValue e) {
+    return *this && static_cast<Value>(e);
+  }
+  Value operator||(TemplatedIndexedValue e) {
+    return *this || static_cast<Value>(e);
+  }
+
+  /// Comparison operator overloadings.
+  Value eq(Value e);
+  Value ne(Value e);
+  Value slt(Value e);
+  Value sle(Value e);
+  Value sgt(Value e);
+  Value sge(Value e);
+  Value ult(Value e);
+  Value ule(Value e);
+  Value ugt(Value e);
+  Value uge(Value e);
+  Value slt(TemplatedIndexedValue e) {
+    return slt(*this, static_cast<Value>(e));
+  }
+  Value sle(TemplatedIndexedValue e) {
+    return sle(*this, static_cast<Value>(e));
+  }
+  Value sgt(TemplatedIndexedValue e) {
+    return sgt(*this, static_cast<Value>(e));
+  }
+  Value sge(TemplatedIndexedValue e) {
+    return sge(*this, static_cast<Value>(e));
+  }
+  Value ult(TemplatedIndexedValue e) {
+    return ult(*this, static_cast<Value>(e));
+  }
+  Value ule(TemplatedIndexedValue e) {
+    return ule(*this, static_cast<Value>(e));
+  }
+  Value ugt(TemplatedIndexedValue e) {
+    return ugt(*this, static_cast<Value>(e));
+  }
+  Value uge(TemplatedIndexedValue e) {
+    return uge(*this, static_cast<Value>(e));
+  }
+
+ private:
+  TemplatedIndexedValue(Value value, ValueRange indices)
+      : value(value), indices(indices.begin(), indices.end()) {}
+
+  TemplatedIndexedValue &append() { return *this; }
+
+  template <typename T, typename... Args>
+  TemplatedIndexedValue &append(T index, Args... indices) {
+    this->indices.push_back(static_cast<Value>(index));
+    append(indices...);
+    return *this;
+  }
+  Value value;
+  SmallVector<Value, 8> indices;
+};
+
+inline mlir::scf::LoopNest loopNestBuilder(ValueRange lbs, ValueRange ubs,
+                                           ValueRange steps,
+                                           function_ref<void(ValueRange)> fun) {
+  // Delegates actual construction to scf::buildLoopNest by wrapping `fun` into
+  // the expected function interface.
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return mlir::scf::buildLoopNest(
+      ScopedContext::getBuilderRef(), ScopedContext::getLocation(), lbs, ubs,
+      steps, [&](OpBuilder &builder, Location loc, ValueRange ivs) {
+        ScopedContext context(builder, loc);
+        if (fun) fun(ivs);
+      });
+}
+
+inline mlir::scf::LoopNest loopNestBuilder(Value lb, Value ub, Value step,
+                                           function_ref<void(Value)> fun) {
+  // Delegates to the ValueRange-based version by wrapping the lambda.
+  auto wrapper = [&](ValueRange ivs) {
+    assert(ivs.size() == 1);
+    if (fun) fun(ivs[0]);
+  };
+  return loopNestBuilder(ValueRange(lb), ValueRange(ub), ValueRange(step),
+                         wrapper);
+}
+
+inline mlir::scf::LoopNest loopNestBuilder(
+    Value lb, Value ub, Value step, ValueRange iterArgInitValues,
+    function_ref<scf::ValueVector(Value, ValueRange)> fun) {
+  // Delegates actual construction to scf::buildLoopNest by wrapping `fun` into
+  // the expected function interface.
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return mlir::scf::buildLoopNest(
+      ScopedContext::getBuilderRef(), ScopedContext::getLocation(), lb, ub,
+      step, iterArgInitValues,
+      [&](OpBuilder &builder, Location loc, ValueRange ivs, ValueRange args) {
+        assert(ivs.size() == 1 && "expected one induction variable");
+        ScopedContext context(builder, loc);
+        if (fun) return fun(ivs[0], args);
+        return scf::ValueVector(iterArgInitValues.begin(),
+                                iterArgInitValues.end());
+      });
+}
+
+inline mlir::scf::LoopNest loopNestBuilder(
+    ValueRange lbs, ValueRange ubs, ValueRange steps,
+    ValueRange iterArgInitValues,
+    function_ref<scf::ValueVector(ValueRange, ValueRange)> fun) {
+  // Delegates actual construction to scf::buildLoopNest by wrapping `fun` into
+  // the expected function interface.
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  return mlir::scf::buildLoopNest(
+      ScopedContext::getBuilderRef(), ScopedContext::getLocation(), lbs, ubs,
+      steps, iterArgInitValues,
+      [&](OpBuilder &builder, Location loc, ValueRange ivs, ValueRange args) {
+        ScopedContext context(builder, loc);
+        if (fun) return fun(ivs, args);
+        return scf::ValueVector(iterArgInitValues.begin(),
+                                iterArgInitValues.end());
+      });
+}
+
+inline std::function<void(OpBuilder &, Location)> wrapIfBody(
+    function_ref<scf::ValueVector()> body, TypeRange expectedTypes) {
+  (void)expectedTypes;
+  return [=](OpBuilder &builder, Location loc) {
+    ScopedContext context(builder, loc);
+    scf::ValueVector returned = body();
+    assert(ValueRange(returned).getTypes() == expectedTypes &&
+           "'if' body builder returned values of unexpected type");
+    builder.create<scf::YieldOp>(loc, returned);
+  };
+}
+
+inline ValueRange conditionBuilder(TypeRange results, Value condition,
+                                   function_ref<scf::ValueVector()> thenBody,
+                                   function_ref<scf::ValueVector()> elseBody,
+                                   scf::IfOp *ifOp = nullptr) {
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  assert(thenBody && "thenBody is mandatory");
+
+  auto newOp = ScopedContext::getBuilderRef().create<scf::IfOp>(
+      ScopedContext::getLocation(), results, condition,
+      wrapIfBody(thenBody, results), wrapIfBody(elseBody, results));
+  if (ifOp) *ifOp = newOp;
+  return newOp.getResults();
+}
+
+inline std::function<void(OpBuilder &, Location)> wrapZeroResultIfBody(
+    function_ref<void()> body) {
+  return [=](OpBuilder &builder, Location loc) {
+    ScopedContext context(builder, loc);
+    body();
+    builder.create<scf::YieldOp>(loc);
+  };
+}
+
+inline ValueRange conditionBuilder(Value condition,
+                                   function_ref<void()> thenBody,
+                                   function_ref<void()> elseBody,
+                                   scf::IfOp *ifOp = nullptr) {
+  assert(ScopedContext::getContext() && "EDSC ScopedContext not set up");
+  assert(thenBody && "thenBody is mandatory");
+
+  auto newOp = ScopedContext::getBuilderRef().create<scf::IfOp>(
+      ScopedContext::getLocation(), condition, wrapZeroResultIfBody(thenBody),
+      elseBody ? llvm::function_ref<void(OpBuilder &, Location)>(
+                     wrapZeroResultIfBody(elseBody))
+               : llvm::function_ref<void(OpBuilder &, Location)>(nullptr));
+  if (ifOp) *ifOp = newOp;
+  return {};
+}
+
+}  // namespace edsc
 
 // List of MLIR EDSC instrinsics exposed to external clients of ModelBuilder.
 // All other intrinsics are abstracted away via ModelBuilder methods.
@@ -64,22 +347,31 @@ using edsc::intrinsics::linalg_matmul;
 using edsc::intrinsics::linalg_yield;
 using edsc::ops::linalg_generic_matmul;
 // From the Vector Dialect.
-using edsc::intrinsics::vector_broadcast;
-using edsc::intrinsics::vector_contract;
-using edsc::intrinsics::vector_extract;
-using edsc::intrinsics::vector_matmul;
-using edsc::intrinsics::vector_outerproduct;
-using edsc::intrinsics::vector_print;
-using edsc::intrinsics::vector_transpose;
-using edsc::ops::vector_contraction;
-using edsc::ops::vector_contraction_matmul;
+using vector_broadcast = ValueBuilder<vector::BroadcastOp>;
+using vector_contract = ValueBuilder<vector::ContractionOp>;
+using vector_extract = ValueBuilder<vector::ExtractOp>;
+using vector_extract_element = ValueBuilder<vector::ExtractElementOp>;
+using vector_extract_slices = ValueBuilder<vector::ExtractSlicesOp>;
+using vector_extract_strided_slice =
+    ValueBuilder<vector::ExtractStridedSliceOp>;
+using vector_fma = ValueBuilder<vector::FMAOp>;
+using vector_insert = ValueBuilder<vector::InsertOp>;
+using vector_insert_element = ValueBuilder<vector::InsertElementOp>;
+using vector_insert_slices = ValueBuilder<vector::InsertSlicesOp>;
+using vector_insert_strided_slice = ValueBuilder<vector::InsertStridedSliceOp>;
+using vector_matmul = ValueBuilder<vector::MatmulOp>;
+using vector_outerproduct = ValueBuilder<vector::OuterProductOp>;
+using vector_print = OperationBuilder<vector::PrintOp>;
+using vector_transfer_read = ValueBuilder<vector::TransferReadOp>;
+using vector_transfer_write = OperationBuilder<vector::TransferWriteOp>;
+using vector_transpose = ValueBuilder<vector::TransposeOp>;
+using vector_type_cast = ValueBuilder<vector::TypeCastOp>;
 // From the Std Dialect.
 using edsc::MemRefBoundsCapture;
 using edsc::VectorBoundsCapture;
 using edsc::intrinsics::memref_alloc;
 using edsc::intrinsics::memref_dealloc;
 using edsc::intrinsics::memref_dim;
-using edsc::intrinsics::MemRefIndexedValue;
 using edsc::intrinsics::std_addf;
 using edsc::intrinsics::std_call;
 using edsc::intrinsics::std_constant_float;
@@ -89,7 +381,6 @@ using edsc::intrinsics::std_ret;
 // From the Affine Dialect.
 using edsc::intrinsics::affine_max;
 using edsc::intrinsics::affine_min;
-using edsc::intrinsics::AffineIndexedValue;
 // From the Loop Dialect.
 using edsc::loopNestBuilder;
 // -----------------------------------------------------------------------------
@@ -259,7 +550,38 @@ SmallVector<Value, 4> affine_max(ValueRange a, ValueRange b);
 SmallVector<Value, 4> affine_min(ValueRange a, ValueRange b);
 
 }  // namespace extensions
+
+/// Provide an index notation around affine_load and affine_store.
+using AffineIndexedValue =
+    TemplatedIndexedValue<intrinsics::affine_load, intrinsics::affine_store>;
+using MemRefIndexedValue =
+    TemplatedIndexedValue<intrinsics::memref_load, intrinsics::memref_store>;
+
 }  // namespace edsc
+
+using edsc::AffineIndexedValue;
+using edsc::MemRefIndexedValue;
+
+inline Value vector_contraction(StructuredIndexed A, StructuredIndexed B,
+                                StructuredIndexed C,
+                                ArrayRef<IteratorType> iteratorTypes) {
+  using IndexingExprs = ArrayRef<ArrayRef<AffineExpr>>;
+  return vector_contract(
+      A.getValue(), B.getValue(), C.getValue(),
+      IndexingExprs{A.getExprs(), B.getExprs(), C.getExprs()},
+      ArrayRef<StringRef>{
+          llvm::to_vector<8>(llvm::map_range(iteratorTypes, toString))});
+}
+
+inline Value vector_contraction_matmul(Value A, Value B, Value C) {
+  AffineExpr m, n, k;
+  bindDims(ScopedContext::getContext(), m, n, k);
+  return vector_contraction(StructuredIndexed(A, {m, k}),
+                            StructuredIndexed(B, {k, n}),
+                            StructuredIndexed(C, {m, n}),
+                            {IteratorType::Parallel, IteratorType::Parallel,
+                             IteratorType::Reduction});
+}
 }  // namespace mlir
 
 #endif  // IREE_LLVM_SANDBOX_MODELBUILDER_MODELBUILDER_H_
