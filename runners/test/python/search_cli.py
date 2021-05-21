@@ -59,7 +59,8 @@ def parse_args():
       '--samples',
       type=int,
       default=100,
-      help='Number of samples to collect in each search process.')
+      help='Number of samples to collect in each search process (0 for unlimited).'
+  )
   parser.add_argument(
       '--timeout',
       type=int,
@@ -126,8 +127,8 @@ def validate_args(args):
     if not hasattr(experts, expert):
       error(f'Unknown expert name: {expert}')
 
-  if args.samples < 1:
-    error('Search must collect at least one sample.')
+  if args.samples < 0:
+    error('Number of samples must be non-negative.')
 
   if args.timeout < 1:
     error('Timeout must be equal to 1 or larger.')
@@ -184,7 +185,7 @@ def search(args):
   settings = parse_settings(args)
   expert_names = args.experts.split(',')
 
-  for _ in range(args.samples):
+  def collect_sample():
     expert_name = choice(expert_names)
     expert = getattr(experts, expert_name)
     variables = {}
@@ -195,6 +196,13 @@ def search(args):
     assignments.update(cli_assignments)
     invoke_subprocess(args.op, expert_name, assignments, args.output,
                       args.timeout)
+
+  if args.samples > 0:
+    for _ in range(args.samples):
+      collect_sample()
+  else:
+    while True:
+      collect_sample()
 
 
 def invoke_subprocess(op, expert, assignments, output_dir, timeout):
@@ -255,7 +263,11 @@ def invoke_subprocess(op, expert, assignments, output_dir, timeout):
 
   try:
     result = subp.run(
-        command, timeout=1, stderr=subp.PIPE, stdout=subp.PIPE, check=True)
+        command,
+        timeout=timeout,
+        stderr=subp.PIPE,
+        stdout=subp.PIPE,
+        check=True)
     output_path = persist('ok', result.stdout.decode('utf-8'))
     invoke_llvm_mca(output_path)
   except subp.CalledProcessError as e:
