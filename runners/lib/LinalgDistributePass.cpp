@@ -30,8 +30,9 @@ namespace {
 
 Range ConstructRange(Location loc, OpBuilder& b, Value lb, Value ub,
                      Value step) {
-  using edsc::op::operator-;
-  return Range{lb, ub - lb, step};
+  AffineExpr d0, d1;
+  bindDims(b.getContext(), d0, d1);
+  return Range{lb, makeComposedAffineApply(b, loc, d0 - d1, {ub, lb}), step};
 }
 
 struct DistributeTiledLoopPattern

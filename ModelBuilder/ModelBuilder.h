@@ -39,7 +39,6 @@
 #ifndef IREE_LLVM_SANDBOX_MODELBUILDER_MODELBUILDER_H_
 #define IREE_LLVM_SANDBOX_MODELBUILDER_MODELBUILDER_H_
 
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -56,6 +55,36 @@ using edsc::StructuredIndexed;
 using edsc::ValueBuilder;
 
 namespace edsc {
+
+namespace op {
+
+Value operator+(Value lhs, Value rhs);
+Value operator-(Value lhs, Value rhs);
+Value operator*(Value lhs, Value rhs);
+Value operator/(Value lhs, Value rhs);
+Value operator%(Value lhs, Value rhs);
+Value floorDiv(Value lhs, Value rhs);
+Value ceilDiv(Value lhs, Value rhs);
+
+/// Logical operator overloadings.
+Value negate(Value value);
+Value operator&&(Value lhs, Value rhs);
+Value operator||(Value lhs, Value rhs);
+Value operator^(Value lhs, Value rhs);
+
+/// Comparison operator overloadings.
+Value eq(Value lhs, Value rhs);
+Value ne(Value lhs, Value rhs);
+Value slt(Value lhs, Value rhs);
+Value sle(Value lhs, Value rhs);
+Value sgt(Value lhs, Value rhs);
+Value sge(Value lhs, Value rhs);
+Value ult(Value lhs, Value rhs);
+Value ule(Value lhs, Value rhs);
+Value ugt(Value lhs, Value rhs);
+Value uge(Value lhs, Value rhs);
+
+} // namespace op
 
 /// A TemplatedIndexedValue brings an index notation over the template Load and
 /// Store parameters. Assigning to an IndexedValue emits an actual `Store`
@@ -349,6 +378,44 @@ Value TemplatedIndexedValue<Load, Store>::uge(Value e) {
   return uge(static_cast<Value>(*this), e);
 }
 
+/// Creates a perfect nest of affine "for" loops, given the list of lower
+/// bounds, upper bounds and steps. The three lists are expected to contain the
+/// same number of elements. Uses the OpBuilder and Location stored in
+/// ScopedContext and assumes they are non-null. The optional "bodyBuilderFn"
+/// callback is called to construct the body of the innermost loop and is passed
+/// the list of loop induction variables, in order from outermost to innermost.
+/// The function is expected to use the builder and location stored in
+/// ScopedContext at the moment of the call. The function should not create
+/// the affine terminator op, which will be added regardless of the
+/// "bodyBuilderFn" being present.
+void affineLoopNestBuilder(
+    ValueRange lbs, ValueRange ubs, ArrayRef<int64_t> steps,
+    function_ref<void(ValueRange)> bodyBuilderFn = nullptr);
+
+/// Creates a single affine "for" loop, iterating from max(lbs) to min(ubs) with
+/// the given step. Uses the OpBuilder and Location stored in ScopedContext and
+/// assumes they are non-null. The optional "bodyBuilderFn" callback is called
+/// to construct the body of the loop and is passed the induction variable. The
+/// function is expected to use the builder and location stored in ScopedContext
+/// at the moment of the call. The function should not create the affine
+/// terminator op, which will be added regardless of the "bodyBuilderFn" being
+/// present.
+void affineLoopBuilder(ValueRange lbs, ValueRange ubs, int64_t step,
+                       function_ref<void(Value)> bodyBuilderFn = nullptr);
+
+/// Creates a single affine "for" loop, iterating from max(lbs) to min(ubs) with
+/// the given step. Uses the OpBuilder and Location stored in ScopedContext and
+/// assumes they are non-null. "iterArgs" is used to specify the initial values
+/// of the result affine "for" might yield. The optional "bodyBuilderFn"
+/// callback is called to construct the body of the loop and is passed the
+/// induction variable and the iteration arguments. The function is expected to
+/// use the builder and location stored in ScopedContext at the moment of the
+/// call. The function will create the affine terminator op in case "iterArgs"
+/// is empty and "bodyBuilderFn" is not present.
+void affineLoopBuilder(
+    ValueRange lbs, ValueRange ubs, int64_t step, ValueRange iterArgs,
+    function_ref<void(Value, ValueRange)> bodyBuilderFn = nullptr);
+
 inline mlir::scf::LoopNest loopNestBuilder(ValueRange lbs, ValueRange ubs,
                                            ValueRange steps,
                                            function_ref<void(ValueRange)> fun) {
@@ -521,8 +588,12 @@ using edsc::intrinsics::std_select;
 // From the Math Dialect.
 using math_tanh = ValueBuilder<math::TanhOp>;
 // From the Affine Dialect.
-using edsc::intrinsics::affine_max;
-using edsc::intrinsics::affine_min;
+using affine_apply = ValueBuilder<AffineApplyOp>;
+using affine_if = OperationBuilder<AffineIfOp>;
+using affine_load = ValueBuilder<AffineLoadOp>;
+using affine_min = ValueBuilder<AffineMinOp>;
+using affine_max = ValueBuilder<AffineMaxOp>;
+using affine_store = OperationBuilder<AffineStoreOp>;
 // From the Loop Dialect.
 using edsc::loopNestBuilder;
 // -----------------------------------------------------------------------------
@@ -675,7 +746,9 @@ namespace extensions {
 
 template <typename T>
 SmallVector<Value, 4> std_constant_indices(ArrayRef<T> a) {
-  auto makeIndex = [](int64_t v) { return mlir::std_constant_index(v).value; };
+  auto makeIndex = [](int64_t v) {
+    return mlir::std_constant_index(v).value;
+  };
   return llvm::to_vector<4>(llvm::map_range(a, makeIndex));
 }
 // Build the MLIR representation for op(a, b) for each pair of elements in
@@ -695,8 +768,9 @@ SmallVector<Value, 4> affine_min(ValueRange a, ValueRange b);
 
 /// Provide an index notation around affine_load and affine_store.
 using AffineIndexedValue =
-    TemplatedIndexedValue<intrinsics::affine_load, intrinsics::affine_store>;
-using MemRefIndexedValue = TemplatedIndexedValue<memref_load, memref_store>;
+    TemplatedIndexedValue<affine_load, affine_store>;
+using MemRefIndexedValue =
+    TemplatedIndexedValue<memref_load, memref_store>;
 
 }  // namespace edsc
 
@@ -962,8 +1036,8 @@ inline Operation *linalg_generic_dilated_conv_nhwc(Value vI, Value vW, Value vO,
   // clang-format on
 }
 
-static inline ::llvm::SmallVector<mlir::Value, 8> getMemRefSizes(
-    mlir::Value memRef) {
+static inline ::llvm::SmallVector<mlir::Value, 8>
+getMemRefSizes(mlir::Value memRef) {
   using namespace mlir;
   using namespace mlir::edsc;
   using namespace mlir::edsc::intrinsics;
@@ -988,7 +1062,7 @@ static inline ::llvm::SmallVector<mlir::Value, 8> getMemRefSizes(
 /// At the moment it can only capture a MemRef with an identity layout map.
 // TODO: Support MemRefs with layoutMaps.
 class MemRefBoundsCapture : public edsc::BoundsCapture {
- public:
+public:
   explicit MemRefBoundsCapture(Value v) {
     auto memrefSizeValues = getMemRefSizes(v);
     for (auto s : memrefSizeValues) {
@@ -1000,7 +1074,7 @@ class MemRefBoundsCapture : public edsc::BoundsCapture {
 
   unsigned fastestVarying() const { return rank() - 1; }
 
- private:
+private:
   Value base;
 };
 }  // namespace mlir
