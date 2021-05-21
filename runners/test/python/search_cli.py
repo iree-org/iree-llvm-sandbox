@@ -37,7 +37,7 @@ def parse_args():
   parser.add_argument(
       '--tsize_length_range',
       type=str,
-      default='0,4,1',
+      default='1,4,1',
       help='Range of potential lengths for tiling sizes.')
   parser.add_argument(
       '--tsize_value_range',
@@ -62,7 +62,7 @@ def parse_args():
   parser.add_argument(
       '--timeout',
       type=int,
-      default=10,
+      default=30,
       help='Timeout for running a subprocess in seconds.')
   parser.add_argument(
       '--par',
@@ -209,19 +209,43 @@ def invoke_subprocess(op, expert, assignments, output_dir, timeout):
     path = pathlib.Path(dir_path)
     path.mkdir(parents=True, exist_ok=True)
 
+  def split_sections(output):
+    section_name = ''
+    sections = {}
+    buf = []
+
+    for line in output.split('\n'):
+      if line.startswith('--- '):
+        if len(buf) > 0:
+          sections[section_name] = buf
+          buf = []
+        section_name = line[4:]
+      else:
+        buf.append(line)
+
+    if len(buf) > 0:
+      sections[section_name] = buf
+
+    return sections
+
   def persist(status, output):
     uniq_id = assignments_id()
+
     result_dir = os.path.join(output_dir, op, expert, status)
+    base_output = os.path.join(result_dir, uniq_id)
     ensure_exists(result_dir)
-    command_file = os.path.join(result_dir, uniq_id + '.sh')
-    command_str = ' '.join(map(shlex.quote, command))
-    with open(command_file, 'w') as f:
+
+    with open(base_output + '.sh', 'w') as f:
+      command_str = ' '.join(map(shlex.quote, command))
       f.write(command_str)
-    output_file = os.path.join(result_dir, uniq_id)
-    with open(output_file, 'w') as f:
-      f.write(output)
+
+    for section, lines in split_sections(output).items():
+      suffix = '.' + section if len(section) > 0 else ''
+      with open(base_output + suffix, 'w') as f:
+        f.write('\n'.join(lines))
+
     print(f'[{status.upper()}] {command_str}')
-    return output_file
+    return base_output
 
   try:
     result = subp.run(
@@ -234,12 +258,13 @@ def invoke_subprocess(op, expert, assignments, output_dir, timeout):
     persist('timeout', '')
 
 
-def invoke_llvm_mca(mlir_path):
-  ll_path = mlir_path + '.ll'
-  s_path = mlir_path + '.s'
-  mca_path = mlir_path + '.mca'
+def invoke_llvm_mca(base_path):
+  mlir_path = base_path + '.mlir'
+  ll_path = base_path + '.ll'
+  s_path = base_path + '.s'
+  mca_path = base_path + '.mca'
 
-  def annotate_first_proc_body_for_mca():
+  def annotate_llvm_mca_region():
     lines = open(s_path).readlines()
     did_begin = False
     did_end = False
@@ -256,7 +281,7 @@ def invoke_llvm_mca(mlir_path):
 
   subp.run(['mlir-translate', '-mlir-to-llvmir', mlir_path, '-o', ll_path])
   subp.run(['llc', '-O3', '-mcpu=skylake-avx512', ll_path, '-o', s_path])
-  annotate_first_proc_body_for_mca()
+  annotate_llvm_mca_region()
   subp.run(['llvm-mca', '-mcpu=skylake-avx512', s_path, '-o', mca_path])
 
 

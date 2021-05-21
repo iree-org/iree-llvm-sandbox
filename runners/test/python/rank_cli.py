@@ -7,10 +7,12 @@ def parse_args():
   parser.add_argument(
       '--op', type=str, default='matmul', help='Name of the op.')
   parser.add_argument(
-      '--by',
+      '--by', type=str, default='time', help='Name of the metric to rank by.')
+  parser.add_argument(
+      '--input',
       type=str,
-      default='total cycles',
-      help='Name of the metric to rank by.')
+      default='runtime',
+      help='Extension of the output file to read metric from.')
   parser.add_argument(
       '--limit', type=int, default='20', help='Number of results to show.')
   return parser.parse_args()
@@ -32,16 +34,19 @@ def main():
           return float(v)
     return None
 
-  for path in glob(f'output/{args.op}/*/ok/*.mca'):
+  for path in glob(f'output/{args.op}/*/ok/*.{args.input}'):
     value = find_metric_value(path)
     if value is not None:
-      candidates.append((value, path))
+      base_path = path[:-len(args.input) - 1]
+      candidates.append((value, base_path))
 
   print(f'Top {args.limit} results for {args.op} op, ranked by {args.by}:')
   for (i, (v, candidate)) in enumerate(sorted(candidates)[:args.limit]):
-    command = open(candidate[:-4] + '.sh').readlines()[0]
+    command = open(candidate + '.sh').readlines()[0]
     args = ' '.join(command.split(' ')[4:])
     print(f'#{i} @ {v}: {candidate}')
+    print(f'  $ {command}')
+    print('')
 
 
 if __name__ == '__main__':

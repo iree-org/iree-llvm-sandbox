@@ -247,3 +247,7 @@ python3 $rank_cli
 
 You can customize the `--op`, the number of the output results (`--limit`) and
 the metric used for ranking (`--by`) through additional command-line flags.
+
+The metrics are coming from either `runtime` or `mca` input files that can be
+specified using `--input` flag. By default results are ranked by the measured
+runtime.
