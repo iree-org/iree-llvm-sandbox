@@ -67,7 +67,7 @@ class ExpertCompiler2(Expert):
   variables = {
       'sizes1': TilingSizesVariable,
       'sizes2': TilingSizesVariable,
-      'sized3': TilingSizesVariable,
+      'sizes3': TilingSizesVariable,
   }
 
   def transforms(self) -> List[Transform]:
