@@ -8,7 +8,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "Registration.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
 using namespace mlir::linalg;
@@ -16,5 +15,4 @@ using namespace mlir::linalg;
 void ireeLlvmSandboxRegisterPasses() {
   registerLinalgComprehensiveBufferizePass();
   registerLinalgTensorCodegenStrategyPass();
-  llvm::outs() << "ireeLlvmSandboxRegisterPasses: SUCCESS\n";
 }

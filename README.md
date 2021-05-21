@@ -134,7 +134,6 @@ export PYTHONPATH=${PYTHONPATH}:${NPCOMP_BUILD_DIR}:${NPCOMP_BUILD_DIR}/lib:${NP
 Run a simple python sanity check:
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python ${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/linalg_matmul.py
 ```
 
@@ -187,14 +186,12 @@ To run the search with default settings:
 
 ```
 search_cli=${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/search_cli.py
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli
 ```
 
 To run with a different linalg op, use `--op` flag:
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --op matvec
 ```
 
@@ -202,14 +199,12 @@ To specify the name of the expert compilers, use `--expert` (see `experts.py`
 for all available expert definitions):
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --experts ExpertCompiler1
 ```
 
 To specify the possible types, use `--types` flag:
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --types f32,f64
 ```
 
@@ -217,7 +212,6 @@ Alternatively, one can also force some variables to concrete values, while
 others will ramain random using `--assign`:
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --assign M=16 N=32 K=64
 ```
 
@@ -226,14 +220,12 @@ numbers correspond to arguments of the corresponding `range` function in
 Python):
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --range 128,256,8
 ```
 
 The search can be run using multiple processes at once, via `--par` flag:
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --par 72
 ```
 
@@ -241,7 +233,6 @@ Each process collects the fixed number of random samples, customized via
 `--samples` flag:
 
 ```
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $search_cli --samples 100
 ```
 
@@ -251,7 +242,6 @@ One can see a ranked list, based on llvm-mca performance estimates:
 
 ```
 rank_cli=${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/rank_mca_cli.py
-LD_PRELOAD=${IREE_LLVM_SANDBOX_BUILD_DIR}/runners/lib/libMLIRLinalgTensorSandbox.so \
 python3 $rank_cli
 ```
 
