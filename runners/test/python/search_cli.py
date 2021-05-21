@@ -82,6 +82,16 @@ def parse_args():
       default=None,
       nargs='+',
       help='A sequence of K=V arguments to specify op or expert variables.')
+  parser.add_argument(
+      '--iters',
+      type=int,
+      default=100,
+      help='Number of iterations of the MLIR loop.')
+  parser.add_argument(
+      '--runs',
+      type=int,
+      default=10,
+      help='Number of times the MLIR program is run to measure runtime.')
   return parser.parse_args()
 
 
@@ -135,6 +145,12 @@ def validate_args(args):
 
   if args.par < 1:
     error('Paralelism must be equal to 1 or larger.')
+
+  if args.iters < 0:
+    error(f'Number of iterations must be non-negative.')
+
+  if args.runs < 0:
+    error(f'Number of runs must be non-negative.')
 
   return no_errors
 
@@ -195,7 +211,7 @@ def search(args):
     assignments.update(instantiate_variables(variables, **settings))
     assignments.update(cli_assignments)
     invoke_subprocess(args.op, expert_name, assignments, args.output,
-                      args.timeout)
+                      args.timeout, args.iters, args.runs)
 
   if args.samples > 0:
     for _ in range(args.samples):
@@ -205,10 +221,15 @@ def search(args):
       collect_sample()
 
 
-def invoke_subprocess(op, expert, assignments, output_dir, timeout):
+def invoke_subprocess(op, expert, assignments, output_dir, timeout, iters,
+                      runs):
   file_dirname = os.path.dirname(__file__)
   invoke_cli = os.path.join(file_dirname, 'invoke_cli.py')
-  command = ['python3', invoke_cli, '--op', op, '--expert', expert, '--assign']
+  command = [
+      'python3', invoke_cli, '--op', op, '--expert', expert, '--iters',
+      str(iters), '--runs',
+      str(runs), '--assign'
+  ]
   for k, v in assignments.items():
     command.append(f'{k}={json.dumps(v)}')
 
