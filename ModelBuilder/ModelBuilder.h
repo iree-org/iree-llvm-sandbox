@@ -41,9 +41,8 @@
 
 #include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
-#include "mlir/Dialect/Linalg/EDSC/Builders.h"
-#include "mlir/Dialect/Linalg/EDSC/Intrinsics.h"
-#include "mlir/Dialect/MemRef/EDSC/Intrinsics.h"
+#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
@@ -224,6 +223,132 @@ class TemplatedIndexedValue {
   SmallVector<Value, 8> indices;
 };
 
+/// Arithmetic operator overloadings.
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator+(Value e) {
+  using op::operator+;
+  return static_cast<Value>(*this) + e;
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator-(Value e) {
+  using op::operator-;
+  return static_cast<Value>(*this) - e;
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator*(Value e) {
+  using op::operator*;
+  return static_cast<Value>(*this) * e;
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator/(Value e) {
+  using op::operator/;
+  return static_cast<Value>(*this) / e;
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator%(Value e) {
+  using op::operator%;
+  return static_cast<Value>(*this) % e;
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator^(Value e) {
+  using op::operator^;
+  return static_cast<Value>(*this) ^ e;
+}
+
+/// Assignment-arithmetic operator overloadings.
+template <typename Load, typename Store>
+Store TemplatedIndexedValue<Load, Store>::operator+=(Value e) {
+  using op::operator+;
+  return Store(*this + e, getBase(), indices);
+}
+template <typename Load, typename Store>
+Store TemplatedIndexedValue<Load, Store>::operator-=(Value e) {
+  using op::operator-;
+  return Store(*this - e, getBase(), indices);
+}
+template <typename Load, typename Store>
+Store TemplatedIndexedValue<Load, Store>::operator*=(Value e) {
+  using op::operator*;
+  return Store(*this * e, getBase(), indices);
+}
+template <typename Load, typename Store>
+Store TemplatedIndexedValue<Load, Store>::operator/=(Value e) {
+  using op::operator/;
+  return Store(*this / e, getBase(), indices);
+}
+template <typename Load, typename Store>
+Store TemplatedIndexedValue<Load, Store>::operator%=(Value e) {
+  using op::operator%;
+  return Store(*this % e, getBase(), indices);
+}
+template <typename Load, typename Store>
+Store TemplatedIndexedValue<Load, Store>::operator^=(Value e) {
+  using op::operator^;
+  return Store(*this ^ e, getBase(), indices);
+}
+
+/// Logical operator overloadings.
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator&&(Value e) {
+  using op::operator&&;
+  return static_cast<Value>(*this) && e;
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::operator||(Value e) {
+  using op::operator||;
+  return static_cast<Value>(*this) || e;
+}
+
+/// Comparison operator overloadings.
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::eq(Value e) {
+  return eq(value, e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::ne(Value e) {
+  return ne(value, e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::slt(Value e) {
+  using op::slt;
+  return slt(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::sle(Value e) {
+  using op::sle;
+  return sle(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::sgt(Value e) {
+  using op::sgt;
+  return sgt(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::sge(Value e) {
+  using op::sge;
+  return sge(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::ult(Value e) {
+  using op::ult;
+  return ult(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::ule(Value e) {
+  using op::ule;
+  return ule(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::ugt(Value e) {
+  using op::ugt;
+  return ugt(static_cast<Value>(*this), e);
+}
+template <typename Load, typename Store>
+Value TemplatedIndexedValue<Load, Store>::uge(Value e) {
+  using op::uge;
+  return uge(static_cast<Value>(*this), e);
+}
+
 inline mlir::scf::LoopNest loopNestBuilder(ValueRange lbs, ValueRange ubs,
                                            ValueRange steps,
                                            function_ref<void(ValueRange)> fun) {
@@ -342,10 +467,16 @@ inline ValueRange conditionBuilder(Value condition,
 // All other intrinsics are abstracted away via ModelBuilder methods.
 // -----------------------------------------------------------------------------
 // From the Linalg Dialect.
-using edsc::intrinsics::linalg_fill;
-using edsc::intrinsics::linalg_matmul;
-using edsc::intrinsics::linalg_yield;
-using edsc::ops::linalg_generic_matmul;
+using linalg_copy = OperationBuilder<linalg::CopyOp>;
+using linalg_dot = OperationBuilder<linalg::DotOp>;
+using linalg_fill = OperationBuilder<linalg::FillOp>;
+using linalg_init_tensor = ValueBuilder<linalg::InitTensorOp>;
+using linalg_matmul = OperationBuilder<linalg::MatmulOp>;
+using linalg_matvec = OperationBuilder<linalg::MatvecOp>;
+using linalg_vecmat = OperationBuilder<linalg::VecmatOp>;
+using linalg_range = ValueBuilder<linalg::RangeOp>;
+using linalg_reshape = ValueBuilder<linalg::ReshapeOp>;
+using linalg_yield = OperationBuilder<linalg::YieldOp>;
 // From the Vector Dialect.
 using vector_broadcast = ValueBuilder<vector::BroadcastOp>;
 using vector_contract = ValueBuilder<vector::ContractionOp>;
@@ -366,18 +497,29 @@ using vector_transfer_read = ValueBuilder<vector::TransferReadOp>;
 using vector_transfer_write = OperationBuilder<vector::TransferWriteOp>;
 using vector_transpose = ValueBuilder<vector::TransposeOp>;
 using vector_type_cast = ValueBuilder<vector::TypeCastOp>;
+// From the Memref Dialect.
+using memref_alloc = ValueBuilder<memref::AllocOp>;
+using memref_alloca = ValueBuilder<memref::AllocaOp>;
+using memref_cast = ValueBuilder<memref::CastOp>;
+using memref_dealloc = OperationBuilder<memref::DeallocOp>;
+using memref_dim = ValueBuilder<memref::DimOp>;
+using memref_load = ValueBuilder<memref::LoadOp>;
+using memref_store = OperationBuilder<memref::StoreOp>;
+using memref_sub_view = ValueBuilder<memref::SubViewOp>;
+using memref_tensor_load = ValueBuilder<memref::TensorLoadOp>;
+using memref_tensor_store = OperationBuilder<memref::TensorStoreOp>;
+using memref_view = ValueBuilder<memref::ViewOp>;
 // From the Std Dialect.
-using edsc::MemRefBoundsCapture;
 using edsc::VectorBoundsCapture;
-using edsc::intrinsics::memref_alloc;
-using edsc::intrinsics::memref_dealloc;
-using edsc::intrinsics::memref_dim;
 using edsc::intrinsics::std_addf;
 using edsc::intrinsics::std_call;
 using edsc::intrinsics::std_constant_float;
 using edsc::intrinsics::std_constant_index;
 using edsc::intrinsics::std_mulf;
 using edsc::intrinsics::std_ret;
+using edsc::intrinsics::std_select;
+// From the Math Dialect.
+using math_tanh = ValueBuilder<math::TanhOp>;
 // From the Affine Dialect.
 using edsc::intrinsics::affine_max;
 using edsc::intrinsics::affine_min;
@@ -554,8 +696,7 @@ SmallVector<Value, 4> affine_min(ValueRange a, ValueRange b);
 /// Provide an index notation around affine_load and affine_store.
 using AffineIndexedValue =
     TemplatedIndexedValue<intrinsics::affine_load, intrinsics::affine_store>;
-using MemRefIndexedValue =
-    TemplatedIndexedValue<intrinsics::memref_load, intrinsics::memref_store>;
+using MemRefIndexedValue = TemplatedIndexedValue<memref_load, memref_store>;
 
 }  // namespace edsc
 
@@ -582,6 +723,286 @@ inline Value vector_contraction_matmul(Value A, Value B, Value C) {
                             {IteratorType::Parallel, IteratorType::Parallel,
                              IteratorType::Reduction});
 }
+
+inline Operation *makeGenericLinalgOp(
+    ArrayRef<IteratorType> iteratorTypes, ArrayRef<StructuredIndexed> inputs,
+    ArrayRef<StructuredIndexed> outputs, TypeRange resultTensorTypes,
+    function_ref<void(ValueRange)> regionBuilder,
+    ArrayRef<Value> otherValues = {},
+    ArrayRef<Attribute> otherAttributes = {}) {
+  // Build maps
+  SmallVector<SmallVector<AffineExpr, 4>, 4> exprsList;
+  exprsList.reserve(inputs.size() + outputs.size());
+
+  for (auto container : {inputs, outputs})
+    for (const StructuredIndexed &s : container)
+      exprsList.emplace_back(s.getExprs().begin(), s.getExprs().end());
+  auto maps = AffineMap::inferFromExprList(exprsList);
+
+  SmallVector<Value, 4> inputValues, outputValues;
+  inputValues.reserve(inputs.size());
+  outputValues.reserve(outputs.size());
+  std::copy(inputs.begin(), inputs.end(), std::back_inserter(inputValues));
+  std::copy(outputs.begin(), outputs.end(), std::back_inserter(outputValues));
+
+  auto iteratorStrTypes =
+      llvm::to_vector<8>(llvm::map_range(iteratorTypes, toString));
+  // clang-format off
+  auto *op =
+      edsc::ScopedContext::getBuilderRef()
+          .create<linalg::GenericOp>(
+              edsc::ScopedContext::getLocation(),
+              resultTensorTypes,
+              inputValues,
+              outputValues,
+              maps,
+              iteratorStrTypes,
+              ""/*doc*/,
+              ""/*library_call*/)
+          .getOperation();
+  // clang-format on
+
+  using namespace edsc;
+  SmallVector<Type, 4> blockTypes;
+  blockTypes.reserve(inputs.size() + outputs.size());
+  for (auto container : {inputs, outputs})
+    for (const StructuredIndexed &s : container)
+      blockTypes.push_back(getElementTypeOrSelf(s.getType()));
+
+  assert(op->getNumRegions() == 1);
+  assert(op->getRegion(0).empty());
+  OpBuilder opBuilder(op);
+  ScopedContext scope(opBuilder, op->getLoc());
+  buildInNewBlock(op->getRegion(0), blockTypes, regionBuilder);
+  assert(llvm::hasSingleElement(op->getRegion(0)));
+  return op;
+}
+
+inline void mulRegionBuilder(ValueRange args) {
+  using edsc::op::operator+;
+  using edsc::op::operator*;
+  assert(args.size() == 2 && "expected 2 block arguments");
+  Value a(args[0]), b(args[1]);
+  linalg_yield(a * b);
+}
+
+inline void macRegionBuilder(ValueRange args) {
+  using edsc::op::operator+;
+  using edsc::op::operator*;
+  assert(args.size() == 3 && "expected 3 block arguments");
+  Value a(args[0]), b(args[1]), c(args[2]);
+  linalg_yield(c + a * b);
+}
+
+using UnaryPointwiseOpBuilder = function_ref<Value(Value)>;
+using BinaryPointwiseOpBuilder = function_ref<Value(Value, Value)>;
+inline Operation *linalg_generic_pointwise(UnaryPointwiseOpBuilder unaryOp,
+                                           StructuredIndexed I,
+                                           StructuredIndexed O) {
+  SmallVector<IteratorType, 4> iterTypes(O.getExprs().size(),
+                                         IteratorType::Parallel);
+  auto fun = [&unaryOp](ValueRange args) {
+    assert(!args.empty() && "expected >= 1 block arguments");
+    Value a(args[0]);
+    linalg_yield(unaryOp(a));
+  };
+  if (O.getType().isa<RankedTensorType>())
+    return makeGenericLinalgOp(iterTypes, /*inputs=*/{I}, /*outputs=*/{O},
+                               /*resultTensorTypes=*/{O}, fun);
+  return makeGenericLinalgOp(iterTypes, /*inputs=*/{I}, /*outputs=*/{O},
+                             /*resultTensorTypes=*/{}, fun);
+}
+
+inline Operation *linalg_generic_pointwise_tanh(StructuredIndexed I,
+                                                StructuredIndexed O) {
+  UnaryPointwiseOpBuilder unOp([](Value a) -> Value { return math_tanh(a); });
+  return linalg_generic_pointwise(unOp, I, O);
+}
+
+/// Binary pointwise operation (with broadcast) entry point.
+inline Operation *linalg_generic_pointwise(BinaryPointwiseOpBuilder binaryOp,
+                                           StructuredIndexed I1,
+                                           StructuredIndexed I2,
+                                           StructuredIndexed O) {
+  SmallVector<IteratorType, 4> iterTypes(O.getExprs().size(),
+                                         IteratorType::Parallel);
+  auto fun = [&binaryOp](ValueRange args) {
+    assert(args.size() >= 2 && "expected >= 2 block arguments");
+    Value a(args[0]), b(args[1]);
+    linalg_yield(binaryOp(a, b));
+  };
+  if (O.getType().isa<RankedTensorType>())
+    return makeGenericLinalgOp(iterTypes, /*inputs=*/{I1, I2}, /*outputs=*/{O},
+                               /*resultTensorTypes=*/{O}, fun);
+  return makeGenericLinalgOp(iterTypes, /*inputs=*/{I1, I2},
+                             /*outputs=*/{O}, /*resultTensorTypes=*/{}, fun);
+}
+
+inline Operation *linalg_generic_pointwise_add(StructuredIndexed I1,
+                                               StructuredIndexed I2,
+                                               StructuredIndexed O) {
+  using edsc::op::operator+;
+  BinaryPointwiseOpBuilder binOp(
+      [](Value a, Value b) -> Value { return a + b; });
+  return linalg_generic_pointwise(binOp, I1, I2, O);
+}
+
+inline Operation *linalg_generic_pointwise_max(StructuredIndexed I1,
+                                               StructuredIndexed I2,
+                                               StructuredIndexed O) {
+  BinaryPointwiseOpBuilder binOp([](Value a, Value b) -> Value {
+    using edsc::op::sgt;
+    return std_select(sgt(a, b), a, b);
+  });
+  return linalg_generic_pointwise(binOp, I1, I2, O);
+}
+
+using MatmulRegionBuilder = function_ref<void(ValueRange args)>;
+inline Operation *linalg_generic_matmul(
+    Value vA, Value vB, Value vC,
+    MatmulRegionBuilder regionBuilder = macRegionBuilder) {
+  // clang-format off
+  AffineExpr m, n, k;
+  bindDims(ScopedContext::getContext(), m, n, k);
+  StructuredIndexed A(vA), B(vB), C(vC);
+  return makeGenericLinalgOp(
+    {IteratorType::Parallel, IteratorType::Parallel, IteratorType::Reduction},
+    /*inputs=*/{A({m, k}), B({k, n})},
+    /*outputs=*/{C({m, n})},
+    /*resultTensorTypes=*/{},
+    regionBuilder);
+  // clang-format on
+}
+
+inline Operation *linalg_generic_matmul(
+    Value vA, Value vB, Value vC, RankedTensorType tD,
+    MatmulRegionBuilder regionBuilder = macRegionBuilder) {
+  // clang-format off
+  AffineExpr m, n, k;
+  bindDims(ScopedContext::getContext(), m, n, k);
+  StructuredIndexed A(vA), B(vB), C(vC), D(tD);
+  return makeGenericLinalgOp(
+    {IteratorType::Parallel, IteratorType::Parallel, IteratorType::Reduction},
+    /*inputs=*/{A({m, k}), B({k, n})},
+    /*outputs=*/{C({m, n})},
+    /*resultTensorTypes=*/{D({m, n})},
+    regionBuilder);
+  // clang-format on
+}
+
+inline Operation *linalg_generic_conv_nhwc(Value vI, Value vW, Value vO,
+                                           ArrayRef<int> strides,
+                                           ArrayRef<int> dilations) {
+  MLIRContext *ctx = ScopedContext::getContext();
+  // TODO: some template magic to make everything rank-polymorphic.
+  assert((dilations.empty() || dilations.size() == 2) && "only 2-D conv atm");
+  assert((strides.empty() || strides.size() == 2) && "only 2-D conv atm");
+
+  // Some short names.
+  auto par = IteratorType::Parallel;
+  auto red = IteratorType::Reduction;
+  auto s = strides;
+  auto d = dilations;
+
+  AffineExpr b, f, h, w, kh, kw, c;
+  bindDims(ctx, b, f, h, w, kh, kw, c);
+  unsigned numDims = c.cast<AffineDimExpr>().getPosition() + 1;
+  StructuredIndexed I(vI), W(vW), O(vO);
+  // clang-format off
+  return makeGenericLinalgOp(
+    {par, par, par, par, red, red, red},
+    /*inputs=*/{
+      I({b,
+         // Roundtrip to flattened form to serve as canonicalization and ensure
+         // consistent ordering of subexpressions.
+         simplifyAffineExpr(s[0] * h + d[0] * kh, numDims, 0),
+         simplifyAffineExpr(s[1] * w + d[1] * kw, numDims, 0),
+         c}),
+      W({kh, kw, c, f}) },
+    /*outputs=*/{ O({b, h, w, f}) },
+    /*resultTensorTypes=*/{},
+    macRegionBuilder);
+  // clang-format on
+}
+
+inline Operation *linalg_generic_dilated_conv_nhwc(Value vI, Value vW, Value vO,
+                                                   int depth_multiplier,
+                                                   ArrayRef<int> strides,
+                                                   ArrayRef<int> dilations) {
+  MLIRContext *ctx = ScopedContext::getContext();
+  // TODO: some template magic to make everything rank-polymorphic.
+  assert((dilations.empty() || dilations.size() == 2) && "only 2-D conv atm");
+  assert((strides.empty() || strides.size() == 2) && "only 2-D conv atm");
+
+  // Some short names.
+  auto par = IteratorType::Parallel;
+  auto red = IteratorType::Reduction;
+  auto s = strides;
+  auto d = dilations;
+
+  // clang-format off
+  AffineExpr b, dm, c, h, w, kh, kw;
+  bindDims(ctx, b, dm, c, h, w, kh, kw);
+  unsigned numDims = kw.cast<AffineDimExpr>().getPosition() + 1;
+  StructuredIndexed I(vI), W(vW), O(vO);
+  return makeGenericLinalgOp(
+    {par, par, par, par, par, red, red},
+    /*inputs=*/{
+      I({b,
+         // Roundtrip to flattened form to serve as canonicalization and ensure
+         // consistent ordering of subexpressions.
+         simplifyAffineExpr(s[0] * h + d[0] * kh, numDims, 0),
+         simplifyAffineExpr(s[1] * w + d[1] * kw, numDims, 0),
+         c}),
+      W({kh, kw, c, dm})},
+    /*outputs=*/{
+      O({b, h, w, simplifyAffineExpr(c * depth_multiplier + dm, numDims, 0)})},
+    /*resultTensorTypes=*/{},
+    macRegionBuilder);
+  // clang-format on
+}
+
+static inline ::llvm::SmallVector<mlir::Value, 8> getMemRefSizes(
+    mlir::Value memRef) {
+  using namespace mlir;
+  using namespace mlir::edsc;
+  using namespace mlir::edsc::intrinsics;
+  mlir::MemRefType memRefType = memRef.getType().cast<mlir::MemRefType>();
+  assert(isStrided(memRefType) && "Expected strided MemRef type");
+
+  SmallVector<mlir::Value, 8> res;
+  res.reserve(memRefType.getShape().size());
+  const auto &shape = memRefType.getShape();
+  for (unsigned idx = 0, n = shape.size(); idx < n; ++idx) {
+    if (shape[idx] == -1)
+      res.push_back(memref_dim(memRef, idx));
+    else
+      res.push_back(std_constant_index(shape[idx]));
+  }
+  return res;
+}
+
+/// A MemRefBoundsCapture represents the information required to step through a
+/// MemRef. It has placeholders for non-contiguous tensors that fit within the
+/// Fortran subarray model.
+/// At the moment it can only capture a MemRef with an identity layout map.
+// TODO: Support MemRefs with layoutMaps.
+class MemRefBoundsCapture : public edsc::BoundsCapture {
+ public:
+  explicit MemRefBoundsCapture(Value v) {
+    auto memrefSizeValues = getMemRefSizes(v);
+    for (auto s : memrefSizeValues) {
+      lbs.push_back(std_constant_index(0));
+      ubs.push_back(s);
+      steps.push_back(1);
+    }
+  }
+
+  unsigned fastestVarying() const { return rank() - 1; }
+
+ private:
+  Value base;
+};
 }  // namespace mlir
 
 #endif  // IREE_LLVM_SANDBOX_MODELBUILDER_MODELBUILDER_H_

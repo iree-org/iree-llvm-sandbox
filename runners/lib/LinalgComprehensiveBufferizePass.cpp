@@ -426,8 +426,8 @@ static LogicalResult computeOrderedWorklist(ModuleOp moduleOp,
 /// Write-only is a non-problem: will represent with shapes in the future.
 /// If any use of the tensor does not properly dominate `opOperand.getOwner()`,
 /// then the tensor cannot be bufferized inPlace.
-bool hasInterferingTensorRead(OpOperand &opOperand,
-                              const DominanceInfo &domInfo) {
+static bool hasInterferingTensorRead(OpOperand &opOperand,
+                                     const DominanceInfo &domInfo) {
   if (!opOperand.get().getType().isa<RankedTensorType>()) return false;
   for (auto &use : opOperand.get().getUses()) {
     Operation *user = use.getOwner();
@@ -464,7 +464,8 @@ bool hasInterferingTensorRead(OpOperand &opOperand,
 ///    bufferizable inplace.
 /// 3.`opOperand` has an interfering tensor read.
 /// Return true otherwise.
-bool isBufferizableInPlace(OpOperand &opOperand, const DominanceInfo &domInfo) {
+static bool isBufferizableInPlace(OpOperand &opOperand,
+                                  const DominanceInfo &domInfo) {
   // Constant tensors are deemed not bufferizable for now.
   if (auto constantOp =
           dyn_cast_or_null<ConstantOp>(opOperand.get().getDefiningOp()))

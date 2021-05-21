@@ -29,7 +29,6 @@
 
 using namespace mlir;
 using namespace mlir::edsc;
-using namespace mlir::edsc::ops;
 using namespace mlir::edsc::intrinsics;
 
 thread_local MLIRContext mlir::ModelBuilder::ctx;
