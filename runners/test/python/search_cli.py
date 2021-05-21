@@ -6,6 +6,7 @@ import json
 import hashlib
 import pathlib
 import shlex
+from random import choice
 from mlir.dialects import linalg
 from compilation import scalar_types
 from search import collect_variables, instantiate_variables
@@ -50,10 +51,10 @@ def parse_args():
       default='0,3',
       help='Range of potential values for hoist padding.')
   parser.add_argument(
-      '--expert',
+      '--experts',
       type=str,
-      default='ExpertCompiler1',
-      help='Name of the expert to use for compilation.')
+      default='ExpertCompiler1,ExpertCompiler2,ExpertCompiler3',
+      help='Comma-separated list of possible experts to use for compilation.')
   parser.add_argument(
       '--samples',
       type=int,
@@ -121,8 +122,9 @@ def validate_args(args):
     if type_name not in scalar_types:
       error(f'Unknown type: {type_name}')
 
-  if not hasattr(experts, args.expert):
-    error(f'Unknown expert name: {args.expert}')
+  for expert in args.experts.split(','):
+    if not hasattr(experts, expert):
+      error(f'Unknown expert name: {expert}')
 
   if args.samples < 1:
     error('Search must collect at least one sample.')
@@ -177,17 +179,21 @@ def parse_settings(args):
 
 def search(args):
   op = getattr(linalg, args.op)
-  expert = getattr(experts, args.expert)
-  variables = collect_variables(op)
-  variables.update(expert.variables)
+  op_variables = collect_variables(op)
   cli_assignments = parse_assignments(args)
   settings = parse_settings(args)
+  expert_names = args.experts.split(',')
 
   for _ in range(args.samples):
+    expert_name = choice(expert_names)
+    expert = getattr(experts, expert_name)
+    variables = {}
+    variables.update(op_variables)
+    variables.update(expert.variables)
     assignments = dict()
     assignments.update(instantiate_variables(variables, **settings))
     assignments.update(cli_assignments)
-    invoke_subprocess(args.op, args.expert, assignments, args.output,
+    invoke_subprocess(args.op, expert_name, assignments, args.output,
                       args.timeout)
 
 

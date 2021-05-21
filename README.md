@@ -195,11 +195,11 @@ To run with a different linalg op, use `--op` flag:
 python3 $search_cli --op matvec
 ```
 
-To specify the name of the expert compiler, use `--expert` (see `experts.py` for
-all available expert definitions):
+To specify the name of the expert compilers, use `--expert` (see `experts.py`
+for all available expert definitions):
 
 ```
-python3 $search_cli --expert ExpertCompiler1
+python3 $search_cli --experts ExpertCompiler1
 ```
 
 To specify the possible types, use `--types` flag:
