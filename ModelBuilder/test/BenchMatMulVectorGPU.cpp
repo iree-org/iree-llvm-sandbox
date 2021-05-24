@@ -42,7 +42,6 @@
 
 using namespace mlir;                    // NOLINT
 using namespace mlir::edsc;              // NOLINT
-using namespace mlir::edsc::intrinsics;  // NOLINT
 
 static llvm::cl::opt<std::string> vulkanWrapper(
     "vulkan-wrapper", llvm::cl::desc("Vulkan wrapper library"),
@@ -131,9 +130,9 @@ static SmallVector<linalg::ProcInfo, 2> getSubgroupIds(
     llvm_unreachable("expected two parallel loops for matmul operation");
   Type indexType = b.getIndexType();
   Value sg = b.create<gpu::SubgroupIdOp>(loc, indexType);
-  Value vSubgroupX = b.create<ConstantIndexOp>(loc, numSubgroupX);
+  Value vSubgroupX = std_constant_index(loc, numSubgroupX);
   Value sgdiv = b.create<SignedDivIOp>(loc, indexType, sg, vSubgroupX);
-  Value vSubgroupY = b.create<ConstantIndexOp>(loc, numSubgroupY);
+  Value vSubgroupY = std_constant_index(loc, numSubgroupY);
   SmallVector<linalg::ProcInfo, 2> procInfo(2);
   using namespace edsc::op;
   procInfo[0] = {sgdiv % vSubgroupY, vSubgroupY};
@@ -262,9 +261,8 @@ static linalg::CodegenStrategy createPowerVRStrategy(int tileM, int tileN,
     SmallVector<linalg::ProcInfo, 2> procInfo(2);
     procInfo[0] = {
         b.create<gpu::ThreadIdOp>(loc, indexType, b.getStringAttr("x")),
-        b.create<ConstantIndexOp>(loc, warpSize)};
-    procInfo[1] = {b.create<ConstantIndexOp>(loc, 0),
-                   b.create<ConstantIndexOp>(loc, 1)};
+        std_constant_index(loc, warpSize)};
+    procInfo[1] = {std_constant_index(loc, 0), std_constant_index(loc, 1)};
     return procInfo;
   };
   linalg::CodegenStrategy strategy;
@@ -321,9 +319,8 @@ static linalg::CodegenStrategy createMaliStrategy(int tileM, int tileN,
     SmallVector<linalg::ProcInfo, 2> procInfo(2);
     procInfo[1] = {
         b.create<gpu::ThreadIdOp>(loc, indexType, b.getStringAttr("x")),
-        b.create<ConstantIndexOp>(loc, warpSize)};
-    procInfo[0] = {b.create<ConstantIndexOp>(loc, 0),
-                   b.create<ConstantIndexOp>(loc, 1)};
+        std_constant_index(loc, warpSize)};
+    procInfo[0] = {std_constant_index(loc, 0), std_constant_index(loc, 1)};
     return procInfo;
   };
   linalg::CodegenStrategy strategy;
@@ -435,7 +432,7 @@ static void matMul(int m, int n, int k, int tileM, int tileN, int tileK,
         spirv::getEntryPointABIAttrName(),
         spirv::getEntryPointABIAttr({workgroupSize, 1, 1}, &ctx));
     OpBuilder b(&kernelFunc.getBody());
-    ScopedContext scope(b, kernelFunc.getLoc());
+    edsc::ScopedContext scope(b, kernelFunc.getLoc());
 
     auto A = kernelFunc.getArgument(0);
     auto B = kernelFunc.getArgument(1);

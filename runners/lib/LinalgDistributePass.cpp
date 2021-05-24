@@ -14,7 +14,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
-#include "mlir/EDSC/Builders.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -56,7 +55,6 @@ struct DistributeTiledLoopPattern
         numLoops, static_cast<unsigned>(options.distributionMethod.size()));
     if (numLoopsToDistribute == 0) return failure();
 
-    edsc::ScopedContext scope(rewriter, loc);
     for (int i = 0; i < numLoopsToDistribute; ++i) {
       if (!isParallelIteratorType(op.iterator_types()[i])) {
         op.emitOpError("only support for parallel loops is implemented");

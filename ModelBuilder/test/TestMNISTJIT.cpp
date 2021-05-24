@@ -47,7 +47,7 @@ void buildMNIST(ModelBuilder &modelBuilder, StringLiteral funcName, unsigned B,
 
   // Fill the body (3 blocks of FCBiasTanh), alloc everything manually atm.
   OpBuilder b(&func.getBody());
-  ScopedContext scope(b, func.getLoc());
+  edsc::ScopedContext scope(b, func.getLoc());
   Value input = func.getArgument(0);
   Value batchSize = memref_dim(input, 0);
   Value h1Weights = memref_alloc(modelBuilder.getMemRefType({W0, W1}, f32));
@@ -129,7 +129,7 @@ void buildMNISTOnTensors(ModelBuilder &modelBuilder, StringLiteral funcName,
 
   // 2. Fill the body (3 blocks of FCBiasTanh), alloc everything manually atm.
   OpBuilder b(&func.getBody());
-  ScopedContext scope(b, func.getLoc());
+  edsc::ScopedContext scope(b, func.getLoc());
 
   auto outputBlock1Type = modelBuilder.getRankedTensorType({B, W1}, f32);
   auto outputBlock1 = modelBuilder.FCBiasTanhTensors(

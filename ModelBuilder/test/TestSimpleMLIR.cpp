@@ -43,7 +43,7 @@ void testValueVectorAdd() {
     auto f = modelBuilder.makeFunction(
         kFuncName, {}, {}, MLIRFuncOpConfig().setEmitCInterface(true));
     OpBuilder b(&f.getBody());
-    ScopedContext scope(b, f.getLoc());
+    edsc::ScopedContext scope(b, f.getLoc());
 
     // CHECK: %[[A:.*]] = memref.alloc() : memref<vector<8x128xf32>>
     // CHECK: %[[B:.*]] = memref.alloc() : memref<vector<8x128xf32>>
@@ -102,7 +102,7 @@ void testMemRefVectorAdd() {
     //       CHECK-SAME: %[[C:.*2]]: memref<1xvector<8x128xf32>>)
     auto f = modelBuilder.makeFunction(kFuncName, {}, {typeA, typeB, typeC});
     OpBuilder b(&f.getBody());
-    ScopedContext scope(b, f.getLoc());
+    edsc::ScopedContext scope(b, f.getLoc());
 
     // CHECK-DAG: %[[z:.*]] = constant 0 : index
     // CHECK-DAG: %[[a:.*]] = memref.load %[[A]][%[[z]]] :

@@ -40,21 +40,162 @@
 #define IREE_LLVM_SANDBOX_MODELBUILDER_MODELBUILDER_H_
 
 #include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/BuiltinOps.h"
 
 namespace mlir {
-using edsc::OperationBuilder;
-using edsc::ScopedContext;
-using edsc::StructuredIndexed;
-using edsc::ValueBuilder;
 
 namespace edsc {
+/// Helper class to transparently handle builder insertion points by RAII.
+/// As its name indicates, a ScopedContext is means to be used locally in a
+/// scoped fashion. This abstracts away all the boilerplate related to
+/// checking proper usage of captures, NestedBuilders as well as handling the
+/// setting and restoring of insertion points.
+class ScopedContext {
+ public:
+  ScopedContext(OpBuilder &b);
+  ScopedContext(OpBuilder &b, Location location);
+
+  /// Sets the insertion point of the builder to 'newInsertPt' for the duration
+  /// of the scope. The existing insertion point of the builder is restored on
+  /// destruction.
+  ScopedContext(OpBuilder &b, OpBuilder::InsertPoint newInsertPt,
+                Location location);
+  ~ScopedContext();
+
+  static MLIRContext *getContext();
+  static OpBuilder &getBuilderRef();
+  static Location getLocation();
+
+ private:
+  /// Only NestedBuilder (which is used to create an operation with a body)
+  /// may access private members in order to implement scoping.
+  friend class NestedBuilder;
+
+  ScopedContext() = delete;
+  ScopedContext(const ScopedContext &) = delete;
+  ScopedContext &operator=(const ScopedContext &) = delete;
+
+  static ScopedContext *&getCurrentScopedContext();
+
+  /// Top level OpBuilder.
+  OpBuilder &builder;
+  /// Guard to the previous insertion point.
+  OpBuilder::InsertionGuard guard;
+  /// Current location.
+  Location location;
+  /// Parent context we return into.
+  ScopedContext *enclosingScopedContext;
+};
+
+template <typename Op>
+struct ValueBuilder {
+  template <typename... Args>
+  ValueBuilder(Args... args) {
+    value = ScopedContext::getBuilderRef()
+                .create<Op>(ScopedContext::getLocation(), args...)
+                .getResult();
+  }
+  operator Value() { return value; }
+  Value value;
+};
+
+template <typename Op>
+struct OperationBuilder {
+  template <typename... Args>
+  OperationBuilder(Args... args) {
+    op = ScopedContext::getBuilderRef().create<Op>(ScopedContext::getLocation(),
+                                                   args...);
+  }
+  operator Op() { return op; }
+  operator Operation *() { return op.getOperation(); }
+  Op op;
+};
+
+/// Creates a block in the region that contains the insertion block of the
+/// OpBuilder currently at the top of ScopedContext stack (appends the block to
+/// the region). Be aware that this will NOT update the insertion point of the
+/// builder to insert into the newly constructed block.
+Block *createBlock(TypeRange argTypes = llvm::None);
+
+/// Creates a block in the specified region using OpBuilder at the top of
+/// ScopedContext stack (appends the block to the region). Be aware that this
+/// will NOT update the insertion point of the builder to insert into the newly
+/// constructed block.
+Block *createBlockInRegion(Region &region, TypeRange argTypes = llvm::None);
+
+/// Calls "builderFn" with ScopedContext reconfigured to insert into "block" and
+/// passes in the block arguments. If the block has a terminator, the operations
+/// are inserted before the terminator, otherwise appended to the block.
+void appendToBlock(Block *block, function_ref<void(ValueRange)> builderFn);
+
+/// Creates a block in the region that contains the insertion block of the
+/// OpBuilder currently at the top of ScopedContext stack, and calls "builderFn"
+/// to populate the body of the block while passing it the block arguments.
+Block *buildInNewBlock(TypeRange argTypes,
+                       function_ref<void(ValueRange)> builderFn);
+
+/// Creates a block in the specified region using OpBuilder at the top of
+/// ScopedContext stack, and calls "builderFn" to populate the body of the block
+/// while passing it the block arguments.
+Block *buildInNewBlock(Region &region, TypeRange argTypes,
+                       function_ref<void(ValueRange)> builderFn);
+
+/// A StructuredIndexed represents an indexable quantity that is either:
+/// 1. a captured value, which is suitable for buffer and tensor operands, or;
+/// 2. a captured type, which is suitable for tensor return values.
+///
+/// A StructuredIndexed itself is indexed and passed to `makeGenericLinalgOp`.
+/// It enable an idiomatic syntax for index expressions such as:
+///
+/// ```
+///      StructuredIndexed A(buffer_or_tensor_value), B(buffer_or_tensor_value),
+///        C(buffer_value_or_tensor_type);
+///      makeGenericLinalgOp({A({m, n}), B({k, n})}, {C({m, n})}, ... );
+/// ```
+struct StructuredIndexed {
+  StructuredIndexed(Value v) : value(v) {}
+  StructuredIndexed(Type t) : type(t) {}
+  StructuredIndexed operator()(ArrayRef<AffineExpr> indexings) {
+    return value ? StructuredIndexed(value, indexings)
+                 : StructuredIndexed(type, indexings);
+  }
+
+  StructuredIndexed(Value v, ArrayRef<AffineExpr> indexings)
+      : value(v), exprs(indexings.begin(), indexings.end()) {
+    assert((v.getType().isa<MemRefType, RankedTensorType, VectorType>()) &&
+           "MemRef, RankedTensor or Vector expected");
+  }
+  StructuredIndexed(Type t, ArrayRef<AffineExpr> indexings)
+      : type(t), exprs(indexings.begin(), indexings.end()) {
+    assert((t.isa<MemRefType, RankedTensorType, VectorType>()) &&
+           "MemRef, RankedTensor or Vector expected");
+  }
+
+  bool hasValue() const { return (bool)value; }
+  Value getValue() const {
+    assert(value && "StructuredIndexed Value not set.");
+    return value;
+  }
+  Type getType() const {
+    assert((value || type) && "StructuredIndexed Value and Type not set.");
+    return value ? value.getType() : type;
+  }
+  ArrayRef<AffineExpr> getExprs() const { return exprs; }
+  operator Value() const { return getValue(); }
+  operator Type() const { return getType(); }
+
+ private:
+  // Only one of Value or type may be set.
+  Type type;
+  Value value;
+  SmallVector<AffineExpr, 4> exprs;
+};
 
 namespace op {
 
@@ -534,68 +675,143 @@ inline ValueRange conditionBuilder(Value condition,
 // All other intrinsics are abstracted away via ModelBuilder methods.
 // -----------------------------------------------------------------------------
 // From the Linalg Dialect.
-using linalg_copy = OperationBuilder<linalg::CopyOp>;
-using linalg_dot = OperationBuilder<linalg::DotOp>;
-using linalg_fill = OperationBuilder<linalg::FillOp>;
-using linalg_init_tensor = ValueBuilder<linalg::InitTensorOp>;
-using linalg_matmul = OperationBuilder<linalg::MatmulOp>;
-using linalg_matvec = OperationBuilder<linalg::MatvecOp>;
-using linalg_vecmat = OperationBuilder<linalg::VecmatOp>;
-using linalg_range = ValueBuilder<linalg::RangeOp>;
-using linalg_reshape = ValueBuilder<linalg::ReshapeOp>;
-using linalg_yield = OperationBuilder<linalg::YieldOp>;
+using linalg_copy = edsc::OperationBuilder<linalg::CopyOp>;
+using linalg_dot = edsc::OperationBuilder<linalg::DotOp>;
+using linalg_fill = edsc::OperationBuilder<linalg::FillOp>;
+using linalg_init_tensor = edsc::ValueBuilder<linalg::InitTensorOp>;
+using linalg_matmul = edsc::OperationBuilder<linalg::MatmulOp>;
+using linalg_matvec = edsc::OperationBuilder<linalg::MatvecOp>;
+using linalg_vecmat = edsc::OperationBuilder<linalg::VecmatOp>;
+using linalg_range = edsc::ValueBuilder<linalg::RangeOp>;
+using linalg_reshape = edsc::ValueBuilder<linalg::ReshapeOp>;
+using linalg_yield = edsc::OperationBuilder<linalg::YieldOp>;
 // From the Vector Dialect.
-using vector_broadcast = ValueBuilder<vector::BroadcastOp>;
-using vector_contract = ValueBuilder<vector::ContractionOp>;
-using vector_extract = ValueBuilder<vector::ExtractOp>;
-using vector_extract_element = ValueBuilder<vector::ExtractElementOp>;
-using vector_extract_slices = ValueBuilder<vector::ExtractSlicesOp>;
+using vector_broadcast = edsc::ValueBuilder<vector::BroadcastOp>;
+using vector_contract = edsc::ValueBuilder<vector::ContractionOp>;
+using vector_extract = edsc::ValueBuilder<vector::ExtractOp>;
+using vector_extract_element = edsc::ValueBuilder<vector::ExtractElementOp>;
+using vector_extract_slices = edsc::ValueBuilder<vector::ExtractSlicesOp>;
 using vector_extract_strided_slice =
-    ValueBuilder<vector::ExtractStridedSliceOp>;
-using vector_fma = ValueBuilder<vector::FMAOp>;
-using vector_insert = ValueBuilder<vector::InsertOp>;
-using vector_insert_element = ValueBuilder<vector::InsertElementOp>;
-using vector_insert_slices = ValueBuilder<vector::InsertSlicesOp>;
-using vector_insert_strided_slice = ValueBuilder<vector::InsertStridedSliceOp>;
-using vector_matmul = ValueBuilder<vector::MatmulOp>;
-using vector_outerproduct = ValueBuilder<vector::OuterProductOp>;
-using vector_print = OperationBuilder<vector::PrintOp>;
-using vector_transfer_read = ValueBuilder<vector::TransferReadOp>;
-using vector_transfer_write = OperationBuilder<vector::TransferWriteOp>;
-using vector_transpose = ValueBuilder<vector::TransposeOp>;
-using vector_type_cast = ValueBuilder<vector::TypeCastOp>;
+    edsc::ValueBuilder<vector::ExtractStridedSliceOp>;
+using vector_fma = edsc::ValueBuilder<vector::FMAOp>;
+using vector_insert = edsc::ValueBuilder<vector::InsertOp>;
+using vector_insert_element = edsc::ValueBuilder<vector::InsertElementOp>;
+using vector_insert_slices = edsc::ValueBuilder<vector::InsertSlicesOp>;
+using vector_insert_strided_slice =
+    edsc::ValueBuilder<vector::InsertStridedSliceOp>;
+using vector_matmul = edsc::ValueBuilder<vector::MatmulOp>;
+using vector_outerproduct = edsc::ValueBuilder<vector::OuterProductOp>;
+using vector_print = edsc::OperationBuilder<vector::PrintOp>;
+using vector_transfer_read = edsc::ValueBuilder<vector::TransferReadOp>;
+using vector_transfer_write = edsc::OperationBuilder<vector::TransferWriteOp>;
+using vector_transpose = edsc::ValueBuilder<vector::TransposeOp>;
+using vector_type_cast = edsc::ValueBuilder<vector::TypeCastOp>;
 // From the Memref Dialect.
-using memref_alloc = ValueBuilder<memref::AllocOp>;
-using memref_alloca = ValueBuilder<memref::AllocaOp>;
-using memref_cast = ValueBuilder<memref::CastOp>;
-using memref_dealloc = OperationBuilder<memref::DeallocOp>;
-using memref_dim = ValueBuilder<memref::DimOp>;
-using memref_load = ValueBuilder<memref::LoadOp>;
-using memref_store = OperationBuilder<memref::StoreOp>;
-using memref_sub_view = ValueBuilder<memref::SubViewOp>;
-using memref_tensor_load = ValueBuilder<memref::TensorLoadOp>;
-using memref_tensor_store = OperationBuilder<memref::TensorStoreOp>;
-using memref_view = ValueBuilder<memref::ViewOp>;
+using memref_alloc = edsc::ValueBuilder<memref::AllocOp>;
+using memref_alloca = edsc::ValueBuilder<memref::AllocaOp>;
+using memref_cast = edsc::ValueBuilder<memref::CastOp>;
+using memref_dealloc = edsc::OperationBuilder<memref::DeallocOp>;
+using memref_dim = edsc::ValueBuilder<memref::DimOp>;
+using memref_load = edsc::ValueBuilder<memref::LoadOp>;
+using memref_store = edsc::OperationBuilder<memref::StoreOp>;
+using memref_sub_view = edsc::ValueBuilder<memref::SubViewOp>;
+using memref_tensor_load = edsc::ValueBuilder<memref::TensorLoadOp>;
+using memref_tensor_store = edsc::OperationBuilder<memref::TensorStoreOp>;
+using memref_view = edsc::ValueBuilder<memref::ViewOp>;
 // From the Std Dialect.
-using edsc::VectorBoundsCapture;
-using edsc::intrinsics::std_addf;
-using edsc::intrinsics::std_call;
-using edsc::intrinsics::std_constant_float;
-using edsc::intrinsics::std_constant_index;
-using edsc::intrinsics::std_mulf;
-using edsc::intrinsics::std_ret;
-using edsc::intrinsics::std_select;
+using std_addi = edsc::ValueBuilder<AddIOp>;
+using std_addf = edsc::ValueBuilder<AddFOp>;
+using std_call = edsc::OperationBuilder<CallOp>;
+using std_constant = edsc::ValueBuilder<ConstantOp>;
+using std_constant_float = edsc::ValueBuilder<ConstantFloatOp>;
+using std_constant_index = edsc::ValueBuilder<ConstantIndexOp>;
+using std_constant_int = edsc::ValueBuilder<ConstantIntOp>;
+using std_divis = edsc::ValueBuilder<SignedDivIOp>;
+using std_diviu = edsc::ValueBuilder<UnsignedDivIOp>;
+using std_fpext = edsc::ValueBuilder<FPExtOp>;
+using std_fptrunc = edsc::ValueBuilder<FPTruncOp>;
+using std_index_cast = edsc::ValueBuilder<IndexCastOp>;
+using std_muli = edsc::ValueBuilder<MulIOp>;
+using std_mulf = edsc::ValueBuilder<MulFOp>;
+using std_ret = edsc::OperationBuilder<ReturnOp>;
+using std_select = edsc::ValueBuilder<SelectOp>;
+using std_sign_extendi = edsc::ValueBuilder<SignExtendIOp>;
+using std_splat = edsc::ValueBuilder<SplatOp>;
+using std_subf = edsc::ValueBuilder<SubFOp>;
+using std_subi = edsc::ValueBuilder<SubIOp>;
+using std_zero_extendi = edsc::ValueBuilder<ZeroExtendIOp>;
+using tensor_extract = edsc::ValueBuilder<tensor::ExtractOp>;
+
+template <int N>
+struct SExtiValueBuilder : public edsc::ValueBuilder<SignExtendIOp> {
+  using edsc::ValueBuilder<SignExtendIOp>::ValueBuilder;
+  template <typename... Args>
+  SExtiValueBuilder(Args... args)
+      : edsc::ValueBuilder<SignExtendIOp>(
+            edsc::ScopedContext::getBuilderRef().getI32Type(), args...) {}
+};
+
+using std_sexti32 = SExtiValueBuilder<32>;
+
+template <CmpFPredicate Predicate>
+struct CmpFValueBuilder : public edsc::ValueBuilder<CmpFOp> {
+  using edsc::ValueBuilder<CmpFOp>::ValueBuilder;
+  template <typename... Args>
+  CmpFValueBuilder(Args... args)
+      : edsc::ValueBuilder<CmpFOp>(Predicate, args...) {}
+};
+
+using std_cmpf_ogt = CmpFValueBuilder<CmpFPredicate::OGT>;
+using std_cmpf_olt = CmpFValueBuilder<CmpFPredicate::OLT>;
+
+template <CmpIPredicate Predicate>
+struct CmpIValueBuilder : public edsc::ValueBuilder<CmpIOp> {
+  using ValueBuilder<CmpIOp>::ValueBuilder;
+  template <typename... Args>
+  CmpIValueBuilder(Args... args)
+      : edsc::ValueBuilder<CmpIOp>(Predicate, args...) {}
+};
+
+using std_cmpi_sgt = CmpIValueBuilder<CmpIPredicate::sgt>;
+
+/// Branches into `block` with `operands`.
+BranchOp std_br(Block *block, ValueRange operands);
+
+/// Branches into `trueBranch` with `trueOperands` if `cond` evaluates to `true`
+/// or to `falseBranch` and `falseOperand` if `cond` evaluates to `false`.
+CondBranchOp std_cond_br(Value cond, Block *trueBranch, ValueRange trueOperands,
+                         Block *falseBranch, ValueRange falseOperands);
 // From the Math Dialect.
-using math_tanh = ValueBuilder<math::TanhOp>;
+using math_tanh = edsc::ValueBuilder<math::TanhOp>;
 // From the Affine Dialect.
-using affine_apply = ValueBuilder<AffineApplyOp>;
-using affine_if = OperationBuilder<AffineIfOp>;
-using affine_load = ValueBuilder<AffineLoadOp>;
-using affine_min = ValueBuilder<AffineMinOp>;
-using affine_max = ValueBuilder<AffineMaxOp>;
-using affine_store = OperationBuilder<AffineStoreOp>;
-// From the Loop Dialect.
+using affine_apply = edsc::ValueBuilder<AffineApplyOp>;
+using affine_if = edsc::OperationBuilder<AffineIfOp>;
+using affine_load = edsc::ValueBuilder<AffineLoadOp>;
+using affine_min = edsc::ValueBuilder<AffineMinOp>;
+using affine_max = edsc::ValueBuilder<AffineMaxOp>;
+using affine_store = edsc::OperationBuilder<AffineStoreOp>;
+// From the SCF Dialect.
 using edsc::loopNestBuilder;
+// From the LLVM dialect.
+using llvm_add = edsc::ValueBuilder<LLVM::AddOp>;
+using llvm_bitcast = edsc::ValueBuilder<LLVM::BitcastOp>;
+using llvm_constant = edsc::ValueBuilder<LLVM::ConstantOp>;
+using llvm_extractvalue = edsc::ValueBuilder<LLVM::ExtractValueOp>;
+using llvm_gep = edsc::ValueBuilder<LLVM::GEPOp>;
+using llvm_insertvalue = edsc::ValueBuilder<LLVM::InsertValueOp>;
+using llvm_call = edsc::OperationBuilder<LLVM::CallOp>;
+using llvm_icmp = edsc::ValueBuilder<LLVM::ICmpOp>;
+using llvm_load = edsc::ValueBuilder<LLVM::LoadOp>;
+using llvm_store = edsc::OperationBuilder<LLVM::StoreOp>;
+using llvm_select = edsc::ValueBuilder<LLVM::SelectOp>;
+using llvm_mul = edsc::ValueBuilder<LLVM::MulOp>;
+using llvm_ptrtoint = edsc::ValueBuilder<LLVM::PtrToIntOp>;
+using llvm_sub = edsc::ValueBuilder<LLVM::SubOp>;
+using llvm_undef = edsc::ValueBuilder<LLVM::UndefOp>;
+using llvm_urem = edsc::ValueBuilder<LLVM::URemOp>;
+using llvm_alloca = edsc::ValueBuilder<LLVM::AllocaOp>;
+using llvm_return = edsc::OperationBuilder<LLVM::ReturnOp>;
+
 // -----------------------------------------------------------------------------
 
 // Helper class to simplify MLIR function construction by adding proper
@@ -769,16 +985,16 @@ SmallVector<Value, 4> affine_min(ValueRange a, ValueRange b);
 /// Provide an index notation around affine_load and affine_store.
 using AffineIndexedValue =
     TemplatedIndexedValue<affine_load, affine_store>;
-using MemRefIndexedValue =
-    TemplatedIndexedValue<memref_load, memref_store>;
+using MemRefIndexedValue = TemplatedIndexedValue<memref_load, memref_store>;
 
 }  // namespace edsc
 
 using edsc::AffineIndexedValue;
 using edsc::MemRefIndexedValue;
 
-inline Value vector_contraction(StructuredIndexed A, StructuredIndexed B,
-                                StructuredIndexed C,
+inline Value vector_contraction(edsc::StructuredIndexed A,
+                                edsc::StructuredIndexed B,
+                                edsc::StructuredIndexed C,
                                 ArrayRef<IteratorType> iteratorTypes) {
   using IndexingExprs = ArrayRef<ArrayRef<AffineExpr>>;
   return vector_contract(
@@ -790,17 +1006,18 @@ inline Value vector_contraction(StructuredIndexed A, StructuredIndexed B,
 
 inline Value vector_contraction_matmul(Value A, Value B, Value C) {
   AffineExpr m, n, k;
-  bindDims(ScopedContext::getContext(), m, n, k);
-  return vector_contraction(StructuredIndexed(A, {m, k}),
-                            StructuredIndexed(B, {k, n}),
-                            StructuredIndexed(C, {m, n}),
+  bindDims(edsc::ScopedContext::getContext(), m, n, k);
+  return vector_contraction(edsc::StructuredIndexed(A, {m, k}),
+                            edsc::StructuredIndexed(B, {k, n}),
+                            edsc::StructuredIndexed(C, {m, n}),
                             {IteratorType::Parallel, IteratorType::Parallel,
                              IteratorType::Reduction});
 }
 
 inline Operation *makeGenericLinalgOp(
-    ArrayRef<IteratorType> iteratorTypes, ArrayRef<StructuredIndexed> inputs,
-    ArrayRef<StructuredIndexed> outputs, TypeRange resultTensorTypes,
+    ArrayRef<IteratorType> iteratorTypes,
+    ArrayRef<edsc::StructuredIndexed> inputs,
+    ArrayRef<edsc::StructuredIndexed> outputs, TypeRange resultTensorTypes,
     function_ref<void(ValueRange)> regionBuilder,
     ArrayRef<Value> otherValues = {},
     ArrayRef<Attribute> otherAttributes = {}) {
@@ -809,7 +1026,7 @@ inline Operation *makeGenericLinalgOp(
   exprsList.reserve(inputs.size() + outputs.size());
 
   for (auto container : {inputs, outputs})
-    for (const StructuredIndexed &s : container)
+    for (const edsc::StructuredIndexed &s : container)
       exprsList.emplace_back(s.getExprs().begin(), s.getExprs().end());
   auto maps = AffineMap::inferFromExprList(exprsList);
 
@@ -840,13 +1057,13 @@ inline Operation *makeGenericLinalgOp(
   SmallVector<Type, 4> blockTypes;
   blockTypes.reserve(inputs.size() + outputs.size());
   for (auto container : {inputs, outputs})
-    for (const StructuredIndexed &s : container)
+    for (const edsc::StructuredIndexed &s : container)
       blockTypes.push_back(getElementTypeOrSelf(s.getType()));
 
   assert(op->getNumRegions() == 1);
   assert(op->getRegion(0).empty());
   OpBuilder opBuilder(op);
-  ScopedContext scope(opBuilder, op->getLoc());
+  edsc::ScopedContext scope(opBuilder, op->getLoc());
   buildInNewBlock(op->getRegion(0), blockTypes, regionBuilder);
   assert(llvm::hasSingleElement(op->getRegion(0)));
   return op;
@@ -871,8 +1088,8 @@ inline void macRegionBuilder(ValueRange args) {
 using UnaryPointwiseOpBuilder = function_ref<Value(Value)>;
 using BinaryPointwiseOpBuilder = function_ref<Value(Value, Value)>;
 inline Operation *linalg_generic_pointwise(UnaryPointwiseOpBuilder unaryOp,
-                                           StructuredIndexed I,
-                                           StructuredIndexed O) {
+                                           edsc::StructuredIndexed I,
+                                           edsc::StructuredIndexed O) {
   SmallVector<IteratorType, 4> iterTypes(O.getExprs().size(),
                                          IteratorType::Parallel);
   auto fun = [&unaryOp](ValueRange args) {
@@ -887,17 +1104,17 @@ inline Operation *linalg_generic_pointwise(UnaryPointwiseOpBuilder unaryOp,
                              /*resultTensorTypes=*/{}, fun);
 }
 
-inline Operation *linalg_generic_pointwise_tanh(StructuredIndexed I,
-                                                StructuredIndexed O) {
+inline Operation *linalg_generic_pointwise_tanh(edsc::StructuredIndexed I,
+                                                edsc::StructuredIndexed O) {
   UnaryPointwiseOpBuilder unOp([](Value a) -> Value { return math_tanh(a); });
   return linalg_generic_pointwise(unOp, I, O);
 }
 
 /// Binary pointwise operation (with broadcast) entry point.
 inline Operation *linalg_generic_pointwise(BinaryPointwiseOpBuilder binaryOp,
-                                           StructuredIndexed I1,
-                                           StructuredIndexed I2,
-                                           StructuredIndexed O) {
+                                           edsc::StructuredIndexed I1,
+                                           edsc::StructuredIndexed I2,
+                                           edsc::StructuredIndexed O) {
   SmallVector<IteratorType, 4> iterTypes(O.getExprs().size(),
                                          IteratorType::Parallel);
   auto fun = [&binaryOp](ValueRange args) {
@@ -912,18 +1129,18 @@ inline Operation *linalg_generic_pointwise(BinaryPointwiseOpBuilder binaryOp,
                              /*outputs=*/{O}, /*resultTensorTypes=*/{}, fun);
 }
 
-inline Operation *linalg_generic_pointwise_add(StructuredIndexed I1,
-                                               StructuredIndexed I2,
-                                               StructuredIndexed O) {
+inline Operation *linalg_generic_pointwise_add(edsc::StructuredIndexed I1,
+                                               edsc::StructuredIndexed I2,
+                                               edsc::StructuredIndexed O) {
   using edsc::op::operator+;
   BinaryPointwiseOpBuilder binOp(
       [](Value a, Value b) -> Value { return a + b; });
   return linalg_generic_pointwise(binOp, I1, I2, O);
 }
 
-inline Operation *linalg_generic_pointwise_max(StructuredIndexed I1,
-                                               StructuredIndexed I2,
-                                               StructuredIndexed O) {
+inline Operation *linalg_generic_pointwise_max(edsc::StructuredIndexed I1,
+                                               edsc::StructuredIndexed I2,
+                                               edsc::StructuredIndexed O) {
   BinaryPointwiseOpBuilder binOp([](Value a, Value b) -> Value {
     using edsc::op::sgt;
     return std_select(sgt(a, b), a, b);
@@ -937,8 +1154,8 @@ inline Operation *linalg_generic_matmul(
     MatmulRegionBuilder regionBuilder = macRegionBuilder) {
   // clang-format off
   AffineExpr m, n, k;
-  bindDims(ScopedContext::getContext(), m, n, k);
-  StructuredIndexed A(vA), B(vB), C(vC);
+  bindDims(edsc::ScopedContext::getContext(), m, n, k);
+  edsc::StructuredIndexed A(vA), B(vB), C(vC);
   return makeGenericLinalgOp(
     {IteratorType::Parallel, IteratorType::Parallel, IteratorType::Reduction},
     /*inputs=*/{A({m, k}), B({k, n})},
@@ -953,8 +1170,8 @@ inline Operation *linalg_generic_matmul(
     MatmulRegionBuilder regionBuilder = macRegionBuilder) {
   // clang-format off
   AffineExpr m, n, k;
-  bindDims(ScopedContext::getContext(), m, n, k);
-  StructuredIndexed A(vA), B(vB), C(vC), D(tD);
+  bindDims(edsc::ScopedContext::getContext(), m, n, k);
+  edsc::StructuredIndexed A(vA), B(vB), C(vC), D(tD);
   return makeGenericLinalgOp(
     {IteratorType::Parallel, IteratorType::Parallel, IteratorType::Reduction},
     /*inputs=*/{A({m, k}), B({k, n})},
@@ -967,7 +1184,7 @@ inline Operation *linalg_generic_matmul(
 inline Operation *linalg_generic_conv_nhwc(Value vI, Value vW, Value vO,
                                            ArrayRef<int> strides,
                                            ArrayRef<int> dilations) {
-  MLIRContext *ctx = ScopedContext::getContext();
+  MLIRContext *ctx = edsc::ScopedContext::getContext();
   // TODO: some template magic to make everything rank-polymorphic.
   assert((dilations.empty() || dilations.size() == 2) && "only 2-D conv atm");
   assert((strides.empty() || strides.size() == 2) && "only 2-D conv atm");
@@ -981,7 +1198,7 @@ inline Operation *linalg_generic_conv_nhwc(Value vI, Value vW, Value vO,
   AffineExpr b, f, h, w, kh, kw, c;
   bindDims(ctx, b, f, h, w, kh, kw, c);
   unsigned numDims = c.cast<AffineDimExpr>().getPosition() + 1;
-  StructuredIndexed I(vI), W(vW), O(vO);
+  edsc::StructuredIndexed I(vI), W(vW), O(vO);
   // clang-format off
   return makeGenericLinalgOp(
     {par, par, par, par, red, red, red},
@@ -1003,7 +1220,7 @@ inline Operation *linalg_generic_dilated_conv_nhwc(Value vI, Value vW, Value vO,
                                                    int depth_multiplier,
                                                    ArrayRef<int> strides,
                                                    ArrayRef<int> dilations) {
-  MLIRContext *ctx = ScopedContext::getContext();
+  MLIRContext *ctx = edsc::ScopedContext::getContext();
   // TODO: some template magic to make everything rank-polymorphic.
   assert((dilations.empty() || dilations.size() == 2) && "only 2-D conv atm");
   assert((strides.empty() || strides.size() == 2) && "only 2-D conv atm");
@@ -1018,7 +1235,7 @@ inline Operation *linalg_generic_dilated_conv_nhwc(Value vI, Value vW, Value vO,
   AffineExpr b, dm, c, h, w, kh, kw;
   bindDims(ctx, b, dm, c, h, w, kh, kw);
   unsigned numDims = kw.cast<AffineDimExpr>().getPosition() + 1;
-  StructuredIndexed I(vI), W(vW), O(vO);
+  edsc::StructuredIndexed I(vI), W(vW), O(vO);
   return makeGenericLinalgOp(
     {par, par, par, par, par, red, red},
     /*inputs=*/{
@@ -1035,48 +1252,6 @@ inline Operation *linalg_generic_dilated_conv_nhwc(Value vI, Value vW, Value vO,
     macRegionBuilder);
   // clang-format on
 }
-
-static inline ::llvm::SmallVector<mlir::Value, 8>
-getMemRefSizes(mlir::Value memRef) {
-  using namespace mlir;
-  using namespace mlir::edsc;
-  using namespace mlir::edsc::intrinsics;
-  mlir::MemRefType memRefType = memRef.getType().cast<mlir::MemRefType>();
-  assert(isStrided(memRefType) && "Expected strided MemRef type");
-
-  SmallVector<mlir::Value, 8> res;
-  res.reserve(memRefType.getShape().size());
-  const auto &shape = memRefType.getShape();
-  for (unsigned idx = 0, n = shape.size(); idx < n; ++idx) {
-    if (shape[idx] == -1)
-      res.push_back(memref_dim(memRef, idx));
-    else
-      res.push_back(std_constant_index(shape[idx]));
-  }
-  return res;
-}
-
-/// A MemRefBoundsCapture represents the information required to step through a
-/// MemRef. It has placeholders for non-contiguous tensors that fit within the
-/// Fortran subarray model.
-/// At the moment it can only capture a MemRef with an identity layout map.
-// TODO: Support MemRefs with layoutMaps.
-class MemRefBoundsCapture : public edsc::BoundsCapture {
-public:
-  explicit MemRefBoundsCapture(Value v) {
-    auto memrefSizeValues = getMemRefSizes(v);
-    for (auto s : memrefSizeValues) {
-      lbs.push_back(std_constant_index(0));
-      ubs.push_back(s);
-      steps.push_back(1);
-    }
-  }
-
-  unsigned fastestVarying() const { return rank() - 1; }
-
-private:
-  Value base;
-};
 }  // namespace mlir
 
 #endif  // IREE_LLVM_SANDBOX_MODELBUILDER_MODELBUILDER_H_

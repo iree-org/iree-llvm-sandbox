@@ -21,7 +21,6 @@
 
 using namespace mlir;                    // NOLINT
 using namespace mlir::edsc;              // NOLINT
-using namespace mlir::edsc::intrinsics;  // NOLINT
 
 static llvm::cl::opt<std::string> runtimeSupport(
     "runtime-support", llvm::cl::desc("Runtime support library filename"),
@@ -50,7 +49,7 @@ void DotProdOnVectors() {
   iterator_types.push_back(modelBuilder.getStringAttr("reduction"));
 
   OpBuilder b(&func.getBody());
-  ScopedContext scope(b, func.getLoc());
+  edsc::ScopedContext scope(b, func.getLoc());
   Value A = func.getArgument(0), B = func.getArgument(1);
   Value idx_0 = std_constant_index(0);
   Value A_val = memref_load(A, idx_0);

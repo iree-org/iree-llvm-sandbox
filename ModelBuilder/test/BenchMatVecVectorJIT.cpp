@@ -40,7 +40,7 @@ void buildMatMat(ModelBuilder &mb, StringLiteral fn) {
   auto f = mb.makeFunction(fn, {}, {typeA, typeB, typeC},
                            MLIRFuncOpConfig().setEmitCInterface(true));
   OpBuilder b(&f.getBody());
-  ScopedContext scope(b, f.getLoc());
+  edsc::ScopedContext scope(b, f.getLoc());
 
   // Build the following accesses:
   //   affine_map<(i, j) -> (i, j)>,

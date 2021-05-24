@@ -21,7 +21,6 @@
 
 using namespace mlir;                    // NOLINT
 using namespace mlir::edsc;              // NOLINT
-using namespace mlir::edsc::intrinsics;  // NOLINT
 
 static llvm::cl::opt<std::string> runtimeSupport(
     "runtime-support", llvm::cl::desc("Runtime support library filename"),
@@ -42,7 +41,7 @@ void TestVectorTransfers(ArrayRef<int64_t> szA, ArrayRef<int64_t> szB,
   auto func = mb.makeFunction(funcName, {}, {},
                               MLIRFuncOpConfig().setEmitCInterface(true));
   OpBuilder b(&func.getBody());
-  ScopedContext scope(b, func.getLoc());
+  edsc::ScopedContext scope(b, func.getLoc());
 
   SmallVector<Value, 4> indicesA;
   indicesA.reserve(szA.size());

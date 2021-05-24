@@ -51,7 +51,7 @@ void testVectorAdd1d() {
                                             {workgroupSize, 1, 1},
                                             {typeA, typeB, typeC});
     OpBuilder b(&kernelFunc.body());
-    ScopedContext scope(b, kernelFunc.getLoc());
+    edsc::ScopedContext scope(b, kernelFunc.getLoc());
 
     MemRefIndexedValue A(kernelFunc.getArgument(0)),
         B(kernelFunc.getArgument(1)), C(kernelFunc.getArgument(2));
@@ -74,7 +74,7 @@ void testVectorAdd1d() {
         modelBuilder.makeFunction(funcName, {}, {typeA, typeB, typeC},
                                   MLIRFuncOpConfig().setEmitCInterface(true));
     OpBuilder b(&f.getBody());
-    ScopedContext scope(b, f.getLoc());
+    edsc::ScopedContext scope(b, f.getLoc());
     auto wgx = std_constant_index(workgroupSize);
     auto one = std_constant_index(1);
     auto dispatchSizeX = std_constant_index(vecSize / workgroupSize);

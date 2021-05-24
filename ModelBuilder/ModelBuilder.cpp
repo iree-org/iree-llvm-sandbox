@@ -28,7 +28,120 @@
 
 using namespace mlir;
 using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
+
+mlir::edsc::ScopedContext::ScopedContext(OpBuilder &b)
+    : ScopedContext(b, b.getInsertionPoint()->getLoc()) {}
+
+mlir::edsc::ScopedContext::ScopedContext(OpBuilder &b, Location location)
+    : builder(b),
+      guard(builder),
+      location(location),
+      enclosingScopedContext(ScopedContext::getCurrentScopedContext()) {
+  getCurrentScopedContext() = this;
+}
+
+/// Sets the insertion point of the builder to 'newInsertPt' for the duration
+/// of the scope. The existing insertion point of the builder is restored on
+/// destruction.
+mlir::edsc::ScopedContext::ScopedContext(OpBuilder &b,
+                                         OpBuilder::InsertPoint newInsertPt,
+                                         Location location)
+    : builder(b),
+      guard(builder),
+      location(location),
+      enclosingScopedContext(ScopedContext::getCurrentScopedContext()) {
+  getCurrentScopedContext() = this;
+  builder.restoreInsertionPoint(newInsertPt);
+}
+
+mlir::edsc::ScopedContext::~ScopedContext() {
+  getCurrentScopedContext() = enclosingScopedContext;
+}
+
+ScopedContext *&mlir::edsc::ScopedContext::getCurrentScopedContext() {
+  thread_local ScopedContext *context = nullptr;
+  return context;
+}
+
+OpBuilder &mlir::edsc::ScopedContext::getBuilderRef() {
+  assert(ScopedContext::getCurrentScopedContext() &&
+         "Unexpected Null ScopedContext");
+  return ScopedContext::getCurrentScopedContext()->builder;
+}
+
+Location mlir::edsc::ScopedContext::getLocation() {
+  assert(ScopedContext::getCurrentScopedContext() &&
+         "Unexpected Null ScopedContext");
+  return ScopedContext::getCurrentScopedContext()->location;
+}
+
+MLIRContext *mlir::edsc::ScopedContext::getContext() {
+  return getBuilderRef().getContext();
+}
+
+Block *mlir::edsc::createBlock(TypeRange argTypes) {
+  assert(ScopedContext::getContext() != nullptr && "ScopedContext not set up");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+  Block *block = builder.getInsertionBlock();
+  assert(block != nullptr &&
+         "insertion point not set up in the builder within ScopedContext");
+
+  return createBlockInRegion(*block->getParent(), argTypes);
+}
+
+Block *mlir::edsc::createBlockInRegion(Region &region, TypeRange argTypes) {
+  assert(ScopedContext::getContext() != nullptr && "ScopedContext not set up");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+
+  OpBuilder::InsertionGuard guard(builder);
+  return builder.createBlock(&region, {}, argTypes);
+}
+
+void mlir::edsc::appendToBlock(Block *block,
+                               function_ref<void(ValueRange)> builderFn) {
+  assert(ScopedContext::getContext() != nullptr && "ScopedContext not set up");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+
+  OpBuilder::InsertionGuard guard(builder);
+  if (block->empty() || !block->back().mightHaveTrait<OpTrait::IsTerminator>())
+    builder.setInsertionPointToEnd(block);
+  else
+    builder.setInsertionPoint(&block->back());
+  builderFn(block->getArguments());
+}
+
+Block *mlir::edsc::buildInNewBlock(TypeRange argTypes,
+                                   function_ref<void(ValueRange)> builderFn) {
+  assert(ScopedContext::getContext() != nullptr && "ScopedContext not set up");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+  Block *block = builder.getInsertionBlock();
+  assert(block != nullptr &&
+         "insertion point not set up in the builder within ScopedContext");
+  return buildInNewBlock(*block->getParent(), argTypes, builderFn);
+}
+
+Block *mlir::edsc::buildInNewBlock(Region &region, TypeRange argTypes,
+                                   function_ref<void(ValueRange)> builderFn) {
+  assert(ScopedContext::getContext() != nullptr && "ScopedContext not set up");
+  OpBuilder &builder = ScopedContext::getBuilderRef();
+
+  Block *block = createBlockInRegion(region, argTypes);
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPointToStart(block);
+  builderFn(block->getArguments());
+  return block;
+}
+
+BranchOp mlir::std_br(Block *block, ValueRange operands) {
+  return OperationBuilder<BranchOp>(block, operands);
+}
+
+CondBranchOp mlir::std_cond_br(Value cond, Block *trueBranch,
+                               ValueRange trueOperands, Block *falseBranch,
+                               ValueRange falseOperands) {
+  return OperationBuilder<CondBranchOp>(cond, trueBranch, trueOperands,
+                                        falseBranch, falseOperands);
+}
 
 thread_local MLIRContext mlir::ModelBuilder::ctx;
 
@@ -155,7 +268,6 @@ RankedTensorType mlir::ModelBuilder::getRankedTensorType(
 Value mlir::ModelBuilder::fusedBiasTanh(Value x, Value bias) {
   using edsc::op::operator+;
   using edsc::op::operator*;
-  using edsc::intrinsics::std_call;
   assert(x.getType().isF32() && bias.getType().isF32() && "f32 expected");
   Value half = constant_f32(0.5f);
   return x + half * call_tanhf((x + bias) * half) + half;

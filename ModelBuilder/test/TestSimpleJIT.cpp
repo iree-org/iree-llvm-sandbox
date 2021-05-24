@@ -40,7 +40,7 @@ void testVectorAdd1d(StringLiteral funcName, unsigned kNumElements) {
         modelBuilder.makeFunction(funcName, {}, {typeA, typeB, typeC},
                                   MLIRFuncOpConfig().setEmitCInterface(true));
     OpBuilder b(&f.getBody());
-    ScopedContext scope(b, f.getLoc());
+    edsc::ScopedContext scope(b, f.getLoc());
 
     MemRefIndexedValue A(f.getArgument(0)), B(f.getArgument(1)),
         C(f.getArgument(2));
@@ -98,7 +98,7 @@ void testVectorAdd2d(StringLiteral funcName, unsigned kNumElements) {
         modelBuilder.makeFunction(funcName, {}, {typeA, typeB, typeC},
                                   MLIRFuncOpConfig().setEmitCInterface(true));
     OpBuilder b(&f.getBody());
-    ScopedContext scope(b, f.getLoc());
+    edsc::ScopedContext scope(b, f.getLoc());
 
     MemRefIndexedValue A(f.getArgument(0)), B(f.getArgument(1)),
         C(f.getArgument(2));
@@ -161,7 +161,7 @@ void testMatmulOnVectors(StringLiteral funcName) {
                                 MLIRFuncOpConfig().setEmitCInterface(true));
 
   OpBuilder b(&func.getBody());
-  ScopedContext scope(b, func.getLoc());
+  edsc::ScopedContext scope(b, func.getLoc());
   Value A(func.getArgument(0)), B(func.getArgument(1)), C(func.getArgument(2));
   auto contractionBuilder = [](ValueRange args) {
     assert(args.size() == 3 && "expected 3 block arguments");
