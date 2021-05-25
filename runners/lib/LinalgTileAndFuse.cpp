@@ -43,85 +43,12 @@ struct TileAndFusePattern : public RewritePattern {
 }  // namespace linalg
 }  // namespace mlir
 
-static TiledLoopOp buildTiledLoop(PatternRewriter &rewriter,
-                                  TiledLinalgOp &&tiledLinalgOp) {
-  auto outerLoop = cast<scf::ForOp>(tiledLinalgOp.loops.front());
-  auto innerLoop = cast<scf::ForOp>(tiledLinalgOp.loops.back());
-
-  Location loc = tiledLinalgOp.op->getLoc();
-
-  // Collect bounds and steps.
-  SmallVector<Value> lbs, ubs, steps, ivs;
-  for (Operation *loop : tiledLinalgOp.loops) {
-    scf::ForOp forOp = cast<scf::ForOp>(loop);
-    lbs.push_back(forOp.lowerBound());
-    ubs.push_back(forOp.upperBound());
-    steps.push_back(forOp.step());
-    ivs.push_back(forOp.getInductionVar());
-  }
-
-  // Collect outputs.
-  SmallVector<Value> outputs{outerLoop.getIterOperands()};
-  for (auto &out : outputs) {
-    auto defOp = out.getDefiningOp<linalg::FillOp>();
-    if (defOp) out = defOp.output();
-  }
-
-  // Collect inputs.
-  SmallVector<Value> inputs;
-  for (SubTensorOp sub : innerLoop.getOps<SubTensorOp>()) {
-    if (sub.getResult().getUses().empty()) continue;
-    auto src = sub.source();
-
-    if (llvm::is_contained(outputs, src)) continue;
-    if (auto opResult = src.dyn_cast<OpResult>()) {
-      if (!outerLoop->isProperAncestor(opResult.getDefiningOp())) {
-        inputs.push_back(src);
-        continue;
-      }
-    }
-    if (auto bbArg = src.dyn_cast<BlockArgument>()) {
-      if (!outerLoop->isAncestor(bbArg.getOwner()->getParentOp())) {
-        inputs.push_back(src);
-        continue;
-      }
-    }
-  }
-
-  SmallVector<StringRef> iterTypes(tiledLinalgOp.loops.size(), "parallel");
-  auto tiledLoop =
-      rewriter.create<TiledLoopOp>(loc, lbs, ubs, steps, inputs, outputs,
-                                   rewriter.getStrArrayAttr(iterTypes));
-  // Move the ops.
-  auto loopBuilder =
-      OpBuilder::atBlockBegin(tiledLoop.getBody(), rewriter.getListener());
-  BlockAndValueMapping map;
-  map.map(ivs, tiledLoop.getInductionVars());
-  map.map(inputs, tiledLoop.getRegionInputArgs());
-  map.map(innerLoop.getRegionIterArgs(),tiledLoop.getRegionOutputArgs());
-  // This mapping would not be necessary if the tile-n-fused scf.for was correct
-  // in the first place.
-  map.map(outputs, tiledLoop.getRegionOutputArgs());
-
-  for (auto &op : innerLoop.getBody()->without_terminator())
-    loopBuilder.clone(op, map);
-
-  // Convert the terminator
-  SmallVector<Value> results;
-  for (auto result : innerLoop.getBody()->getTerminator()->getOperands())
-    results.push_back(map.lookup(result));
-  loopBuilder.create<linalg::YieldOp>(loc, results);
-
-  rewriter.replaceOp(outerLoop, tiledLoop.getResults());
-
-  return tiledLoop;
-}
-
 static Optional<TiledLoopOp> tileAndFuseLinalgOp(
     PatternRewriter &rewriter, LinalgOp linalgOp,
     const LinalgTilingOptions &tilingOptions) {
   auto tiledLinalgOp = tileLinalgOp(rewriter, linalgOp, tilingOptions);
   if (!tiledLinalgOp) return llvm::None;
+
   linalg::fuseProducerOfTensor(rewriter,
                                linalgOp.getOutputOpOperands()
                                    .front()
@@ -131,16 +58,11 @@ static Optional<TiledLoopOp> tileAndFuseLinalgOp(
                                    .front(),
                                tiledLinalgOp->op.getOutputOpOperands().front());
 
-  // Consider padding on the fly only if the op has tensor semantics.
-  if (!tilingOptions.paddingValueComputationFunction ||
-      !linalgOp.hasTensorSemantics())
-    return buildTiledLoop(rewriter, std::move(*tiledLinalgOp));
-
   // Try to pad on the fly by rewriting tiledLinalgOp->op as a padded op.
   // TODO: This requires padding and bounding box to symbolic multiples.
   // (void)rewriteAsPaddedOp(rewriter, *tiledLinalgOp, tilingOptions);
 
-  return buildTiledLoop(rewriter, std::move(*tiledLinalgOp));
+  return tiledLinalgOp.getValue().op->getParentOfType<TiledLoopOp>();
 }
 
 LogicalResult mlir::linalg::TileAndFusePattern::matchAndRewrite(

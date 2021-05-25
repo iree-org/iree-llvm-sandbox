@@ -303,6 +303,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
 
   if (distribute && !distributeTileSizes.empty()) {
     LinalgTilingOptions tilingOptions;
+    tilingOptions.setLoopType(LinalgTilingLoopType::TiledLoops);
     tilingOptions = tilingOptions.setTileSizes(distributeTileSizes);
     if (pad)
       tilingOptions = tilingOptions.setPaddingValueComputationFunction(
