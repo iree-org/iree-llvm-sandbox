@@ -431,7 +431,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
   }
   if (tiledLoopToSCF) {
     OwningRewritePatternList tiledLoopsToSCFPatterns(funcOp.getContext());
-    populateTiledLoopsToSCF(tiledLoopsToSCFPatterns);
+    populateTiledLoopToSCFPattern(tiledLoopsToSCFPatterns);
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(tiledLoopsToSCFPatterns));
   }

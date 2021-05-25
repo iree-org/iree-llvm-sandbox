@@ -5,7 +5,6 @@ add_llvm_library(MLIRLinalgTensorSandbox
   LinalgDistributePass.cpp
   LinalgTensorCodegenStrategy.cpp
   LinalgTileAndFuse.cpp
-  LinalgTiledLoopToSCFPass.cpp
   Registration.cpp
 )
 
