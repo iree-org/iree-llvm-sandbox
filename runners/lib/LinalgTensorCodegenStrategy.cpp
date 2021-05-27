@@ -130,6 +130,10 @@ struct LinalgTensorCodegenStrategyPass
   ListOption<int64_t> distributeTileSizes{
       *this, "distribute-tile-sizes", llvm::cl::MiscFlags::CommaSeparated,
       llvm::cl::desc("Specifies the tile sizes.")};
+  ListOption<std::string> distributionTypes{
+      *this, "distribution-types", llvm::cl::MiscFlags::CommaSeparated,
+      llvm::cl::desc(
+          "Specifies the markers how to distribute each loop dimension.")};
   Option<bool> pad{*this, "pad", llvm::cl::desc("Use padding during tiling."),
                    llvm::cl::init(false)};
   Option<int> hoistPadding{
@@ -217,20 +221,27 @@ static void runStrategy(LinalgTensorCodegenStrategyPass &pass,
   runStrategy(pass, strategy);
 }
 
-template <typename IdOpTy, typename CountOpTy>
-static SmallVector<linalg::ProcInfo, 2> getGpuBlocIds(
-    OpBuilder &b, Location loc, ArrayRef<Range> parallelLoopRanges) {
-  size_t numloops = parallelLoopRanges.size();
-  if (numloops > 3) llvm_unreachable("expected at most three parallel loops");
-  SmallVector<linalg::ProcInfo, 2> procInfo(numloops);
-  std::array<StringRef, 3> dimAttr{"x", "y", "z"};
+template <typename IdOpTy, typename CountOpTy, char dim>
+static linalg::ProcInfo getGpuProcInfo(OpBuilder &b, Location loc) {
   Type indexType = b.getIndexType();
-  for (size_t i = 0; i < numloops; ++i) {
-    StringAttr attr = b.getStringAttr(dimAttr[i]);
-    procInfo[numloops - 1 - i] = {b.create<IdOpTy>(loc, indexType, attr),
-                                  b.create<CountOpTy>(loc, indexType, attr)};
-  }
+  std::string d(1, dim);
+  StringAttr attr = b.getStringAttr(d);
+  ProcInfo procInfo = {b.create<IdOpTy>(loc, indexType, attr),
+                       b.create<CountOpTy>(loc, indexType, attr)};
   return procInfo;
+}
+
+static LinalgLoopDistributionOptions getDistributionOptions() {
+  LinalgLoopDistributionOptions opts;
+  opts.procInfoMap.insert(std::make_pair(
+      "block_x", getGpuProcInfo<gpu::BlockIdOp, gpu::GridDimOp, 'x'>));
+  opts.procInfoMap.insert(std::make_pair(
+      "block_y", getGpuProcInfo<gpu::BlockIdOp, gpu::GridDimOp, 'y'>));
+  opts.procInfoMap.insert(std::make_pair(
+      "thread_x", getGpuProcInfo<gpu::ThreadIdOp, gpu::BlockDimOp, 'x'>));
+  opts.procInfoMap.insert(std::make_pair(
+      "thread_y", getGpuProcInfo<gpu::ThreadIdOp, gpu::BlockDimOp, 'y'>));
+  return opts;
 }
 
 // For now, just assume it is the zero of type.
@@ -302,9 +313,12 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
   }
 
   if (distribute && !distributeTileSizes.empty()) {
+    SmallVector<StringRef, 2> distributionTypesRefs(distributionTypes.begin(),
+                                                    distributionTypes.end());
     LinalgTilingOptions tilingOptions;
-    tilingOptions.setLoopType(LinalgTilingLoopType::TiledLoops);
-    tilingOptions = tilingOptions.setTileSizes(distributeTileSizes);
+    tilingOptions.setLoopType(LinalgTilingLoopType::TiledLoops)
+        .setTileSizes(distributeTileSizes)
+        .setDistributionTypes(distributionTypesRefs);
     if (pad)
       tilingOptions = tilingOptions.setPaddingValueComputationFunction(
           getNeutralOfLinalgOp);
@@ -399,24 +413,17 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
   }
   if (distributeTiledLoopToGPUsIds) {
     OwningRewritePatternList distributeTiledLoopsPatterns(funcOp.getContext());
-    SmallVector<DistributionMethod, 0> distributionMethod(
-        3, DistributionMethod::Cyclic);
     // Distribute the inner loop on threads and the outter loop on blocks.
-    populateDistributeTiledLoopPattern(
-        distributeTiledLoopsPatterns,
-        LinalgLoopDistributionOptions{
-            getGpuBlocIds<gpu::BlockIdOp, gpu::GridDimOp>, distributionMethod},
+    populateLinalgDistributeTiledLoopPattern(
+        distributeTiledLoopsPatterns, getDistributionOptions(),
         LinalgTransformationFilter(
             ArrayRef<Identifier>{},
             {Identifier::get("distributed", funcOp.getContext())})
             .addFilter([](Operation *op) {
               return success(!op->getParentOfType<linalg::TiledLoopOp>());
             }));
-    populateDistributeTiledLoopPattern(
-        distributeTiledLoopsPatterns,
-        LinalgLoopDistributionOptions{
-            getGpuBlocIds<gpu::ThreadIdOp, gpu::BlockDimOp>,
-            distributionMethod},
+    populateLinalgDistributeTiledLoopPattern(
+        distributeTiledLoopsPatterns, getDistributionOptions(),
         LinalgTransformationFilter(
             ArrayRef<Identifier>{},
             {Identifier::get("distributed", funcOp.getContext())})
