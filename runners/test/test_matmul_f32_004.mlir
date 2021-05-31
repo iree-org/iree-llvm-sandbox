@@ -47,7 +47,7 @@
 // Loop order is I, J, K -> packed_B is J x K x tK x tJ
 //       CHECK:         %[[SVB:.*]] = memref.subview %[[PACKED_B]][%[[PACKED_IDX_J]], %[[PACKED_IDX_K]], 0, 0] [1, 1, 16, 4] [1, 1, 1, 1] : memref<16x8x16x4xf32> to memref<16x4xf32
 //       CHECK:         vector.transfer_read %[[SVA]]{{.*}}, %{{.*}} {in_bounds = [true, true]} : memref<2x16xf32{{.*}}>, vector<2x16xf32>
-//       CHECK:         vector.transfer_read %[[SVB]]{{.*}}, %{{.*}} {permutation_map = {{.*}}} : memref<16x4xf32{{.*}}>, vector<4x16xf32>
+//       CHECK:         vector.transfer_read %[[SVB]]{{.*}}, %{{.*}} {in_bounds = [true, true], permutation_map = {{.*}}} : memref<16x4xf32{{.*}}>, vector<4x16xf32>
 //       CHECK:         %[[RES:.*]] = vector.contract
 //       CHECK:         scf.yield %[[RES]] : vector<2x4xf32>
 //   CHECK-NOT:         copy

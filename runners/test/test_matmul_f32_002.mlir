@@ -35,7 +35,7 @@
 //       CHECK:         %[[SVA:.*]] = memref.subview %[[PACKED_A]][%[[PACKED_IDX]], 0, 0] [1, 4, 16] [1, 1, 1] : memref<8x4x16xf32> to memref<4x16xf32
 //       CHECK:         %[[SVB:.*]] = memref.subview %[[PACKED_B]][%[[PACKED_IDX]], 0, 0] [1, 16, 8] [1, 1, 1] : memref<8x16x8xf32> to memref<16x8xf32
 //       CHECK:         vector.transfer_read %[[SVA]]{{.*}} {in_bounds = [true, true]} : memref<4x16xf32{{.*}}>, vector<4x16xf32>
-//       CHECK:         vector.transfer_read %[[SVB]]{{.*}}, %cst {permutation_map = {{.*}}} : memref<16x8xf32{{.*}}>, vector<8x16xf32>
+//       CHECK:         vector.transfer_read %[[SVB]]{{.*}}, %cst {in_bounds = [true, true], permutation_map = {{.*}}} : memref<16x8xf32{{.*}}>, vector<8x16xf32>
 //       CHECK:         vector.contract
 //       CHECK:         scf.yield %{{.*}} : vector<4x8xf32>
 //   CHECK-NOT:         copy
