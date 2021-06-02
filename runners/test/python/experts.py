@@ -111,11 +111,13 @@ class ExpertCompiler3(Expert):
 
 
 class ExpertSparseCompiler(Expert):
+  variables = {'options': str}
 
   def transforms(self) -> List[Transform]:
     v = self.assignments
+    self.options = v.options
     return [
-        Sparsify(),
+        Sparsify(v.options),
     ]
 
 
@@ -135,5 +137,3 @@ expert_compilerr_3 = ExpertCompiler3(
     sizes3=[8, 32],
     pad=True,
     hoist_padding=3)
-
-expert_sparse_compiler = ExpertSparseCompiler()

@@ -120,7 +120,7 @@ def compile_and_test(transform: Callable, a1: EncodingAttr, a2: EncodingAttr):
     # Bring back result of MLIR computation into numpy land.
     Cout = ranked_memref_to_numpy(Cout_memref_ptr[0])
     if np.allclose(Cout, expected):
-      print(f'SUCCESS in {elapsed_run_s} sec')
+      pass
     else:
       quit(f'FAILURE')
 
@@ -133,11 +133,10 @@ support = os.getenv('SUPPORTLIB')
 support_lib = ctypes.CDLL(support, mode=ctypes.RTLD_GLOBAL)
 
 # Generate and run C += AB for all annotation combinations for A and B
-# (dense/sparse in all dimensions, row- and column-wise access, bit-widths).
-#
-# NOTE that we could even generate more variants by splitting the pointer
-# and index bit width separately and over A and B, but this results in timeout.
-#
+# (dense/sparse in all dimensions, row- and column-wise access, bit-widths)
+# and various compiler options. Note that we do not exhaustively visit
+# all possibilities to keep testing time reasonable (but the parameters
+# can be changed by hand for more coverage).
 count = 0
 with Context() as ctx:
   level1 = [DimLevelType.dense, DimLevelType.dense]
@@ -150,9 +149,21 @@ with Context() as ctx:
     for levels2 in [level1, level2, level3, level4]:
       for ordering1 in [order1, order2]:
         for ordering2 in [order1, order2]:
-          for width in [0, 8, 16, 32, 64]:
-            a1 = EncodingAttr.get(levels1, ordering1, width, width)
-            a2 = EncodingAttr.get(levels2, ordering2, width, width)
-            compile_and_test(expert_sparse_compiler, a1, a2)
-            count = count + 1
+          for pwidth in [0, 32]:
+            for iwidth in [0, 32]:
+              for p in [0, 1]:
+                for v in [0, 1]:
+                  for vl in [1, 16, 64]:
+                    if v == 0 and vl > 1:
+                      continue
+                    if v > 0 and vl == 1:
+                      continue
+                    attr1 = EncodingAttr.get(levels1, ordering1, pwidth, iwidth)
+                    attr2 = EncodingAttr.get(levels2, ordering2, pwidth, iwidth)
+                    opt = (f'parallelization-strategy={p} '
+                           f'vectorization-strategy={v} vl={vl}')
+                    compiler = ExpertSparseCompiler(options=opt)
+                    compile_and_test(compiler, attr1, attr2)
+                    count = count + 1
+
 print('Done with', count, 'tests')

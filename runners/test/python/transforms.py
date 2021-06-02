@@ -94,14 +94,15 @@ class LowerToLLVM(Transform):
 
 class Sparsify(Transform):
 
-  def __init__(self):
-    pipeline = (f'sparsification,'
-                f'sparse-tensor-conversion,'
-                f'func(convert-linalg-to-loops,convert-vector-to-scf),'
-                f'convert-scf-to-std,'
-                f'func-bufferize,'
-                f'tensor-constant-bufferize,'
-                f'func(tensor-bufferize,std-bufferize,finalizing-bufferize),'
-                f'convert-vector-to-llvm,'
-                f'convert-std-to-llvm')
+  def __init__(self, options: str):
+    pipeline = (
+        f'sparsification{{{options}}},'
+        f'sparse-tensor-conversion,'
+        f'func(convert-linalg-to-loops,convert-vector-to-scf),'
+        f'convert-scf-to-std,'
+        f'func-bufferize,'
+        f'tensor-constant-bufferize,'
+        f'func(tensor-bufferize,std-bufferize,finalizing-bufferize),'
+        f'convert-vector-to-llvm{{reassociate-fp-reductions=1 enable-index-optimizations=1}},'
+        f'convert-std-to-llvm')
     self.pipeline = pipeline
