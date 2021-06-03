@@ -832,7 +832,7 @@ static LogicalResult detectLinalgToTerminator(Operation *parentOp,
   // Match linalgOp with a single output tensor for now.
   // TODO: support more than single result.
   if (failed(matchAndDropBack(tmpSliceRef, linalgOp)) ||
-      linalgOp.getNumOutputTensors() != 1 ||
+      linalgOp.getOutputTensorOperands().size() != 1 ||
       failed(isInPlaceSingleUseOp(linalgOp->getResult(0), terminatorOp))) {
     LLVM_DEBUG(DBGS() << "FAIL: linalg to term pattern -> slice must end "
                          "with single-result linalg op\n");
@@ -1246,9 +1246,9 @@ static LogicalResult allocateBuffersForResults(
   SmallVector<Range, 4> loopRanges;
 
   // Linalg invariant: output tensors and result match 1-1.
-  assert(op.getNumOutputTensors() == op->getNumResults());
-  for (auto &opOperand : op.getOutputOpOperands()) {
-    Value output = opOperand.get();
+  assert(op.getOutputTensorOperands().size() == op->getNumResults());
+  for (OpOperand *opOperand : op.getOutputOperands()) {
+    Value output = opOperand->get();
     if (output.getType().isa<MemRefType>()) {
       resultBuffers.push_back(output);
       continue;
@@ -1257,7 +1257,7 @@ static LogicalResult allocateBuffersForResults(
     // If output tensor is marked inPlace, just use the buffer.
     // The following uses internal knowledge of the position of tied operand /
     // results. A proper TieOperandInterface would be much better.
-    if (getInPlace(getTiedOpResult(opOperand)) == InPlaceSpec::True) {
+    if (getInPlace(getTiedOpResult(*opOperand)) == InPlaceSpec::True) {
       resultBuffers.push_back(lookup(bvm, output));
       continue;
     }
@@ -1268,7 +1268,7 @@ static LogicalResult allocateBuffersForResults(
     resultBuffers.push_back(alloc);
 
     // Additionally, if the output buffer is used, clone its value for now.
-    if (op.payloadUsesValueFromOpOperand(&opOperand))
+    if (op.payloadUsesValueFromOperand(opOperand))
       b.create<CopyOp>(loc, lookup(bvm, output), alloc);
   }
   map(bvm, op->getResults(), resultBuffers);
@@ -1315,8 +1315,8 @@ static LogicalResult convertAnyLinalgOp(OpBuilder &b, LinalgOp op,
   Location loc = op.getLoc();
   SmallVector<Value, 2> newInputBuffers;
   newInputBuffers.reserve(op.getNumInputs());
-  for (Value v : op.getInputs()) {
-    newInputBuffers.push_back(lookup(bvm, v));
+  for (OpOperand *opOperand : op.getInputOperands()) {
+    newInputBuffers.push_back(lookup(bvm, opOperand->get()));
   }
   SmallVector<Value, 2> newOutputBuffers;
   if (failed(allocateBuffersForResults(b, loc, op, newOutputBuffers, bvm)))

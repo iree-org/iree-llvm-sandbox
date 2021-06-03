@@ -50,13 +50,13 @@ static Optional<TiledLoopOp> tileAndFuseLinalgOp(
   if (!tiledLinalgOp) return llvm::None;
 
   linalg::fuseProducerOfTensor(rewriter,
-                               linalgOp.getOutputOpOperands()
+                               linalgOp.getOutputOperands()
                                    .front()
-                                   .get()
+                                   ->get()
                                    .getDefiningOp()
                                    ->getResults()
                                    .front(),
-                               tiledLinalgOp->op.getOutputOpOperands().front());
+                               *tiledLinalgOp->op.getOutputOperands().front());
 
   // Try to pad on the fly by rewriting tiledLinalgOp->op as a padded op.
   // TODO: This requires padding and bounding box to symbolic multiples.
