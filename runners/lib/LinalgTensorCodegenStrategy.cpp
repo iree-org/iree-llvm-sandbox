@@ -393,8 +393,7 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
   }
   if (vectorizePadding) {
     OwningRewritePatternList extraVectorizationPatterns(funcOp.getContext());
-    extraVectorizationPatterns.insert<PadTensorOpVectorizationPattern>(
-        &getContext());
+    populatePadTensorOpVectorizationPatterns(extraVectorizationPatterns);
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(extraVectorizationPatterns));
   }
