@@ -1,7 +1,7 @@
 // RUN: export M=32 && export N=64 && export K=128 && export ITERS=10 && \
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=3" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=3" -canonicalize -cse |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\

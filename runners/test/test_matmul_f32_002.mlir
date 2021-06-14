@@ -1,7 +1,7 @@
 // RUN: export M=32 && export N=64 && export K=128 && export ITERS=10 && \
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=4,8,16 pad hoist-padding=1" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=4,8,16 pad hoist-padding=1" -canonicalize -cse |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul vectorize vector-contract-lowering=false vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: tee | FileCheck %s
@@ -21,13 +21,13 @@
 //       CHECK:       scf.for %[[K1:.*]] =
 //       CHECK:         %[[PACKED_IDX_B:.*]] = affine.apply
 //       CHECK:         memref.subview %[[B]][%[[K1]], %[[J]]] [16, 8] [1, 1] : memref<128x64xf32> to memref<16x8xf32
-//       CHECK:         memref.subview %[[PACKED_B]][%[[PACKED_IDX_B]], 0, 0] [1, 16, 8] [1, 1, 1] : memref<8x16x8xf32> to memref<16x8xf32
-//       CHECK:         linalg.copy
+//       CHECK:         %[[VREAD1:.*]] = vector.transfer_read
+//       CHECK:         vector.transfer_write %[[VREAD1]]
 //       CHECK:       scf.for %[[K2:.*]] =
 //       CHECK:         %[[PACKED_IDX_A:.*]] = affine.apply
 //       CHECK:         memref.subview %[[A]][%[[I]], %[[K2]]] [4, 16] [1, 1] : memref<32x128xf32> to memref<4x16xf32
-//       CHECK:         memref.subview %[[PACKED_A]][%[[PACKED_IDX_A]], 0, 0] [1, 4, 16] [1, 1, 1] : memref<8x4x16xf32> to memref<4x16xf32
-//       CHECK:         linalg.copy
+//       CHECK:         %[[VREAD2:.*]] = vector.transfer_read
+//       CHECK:         vector.transfer_write %[[VREAD2]]
 //       CHECK:       %[[SVC:.*]] = memref.subview %[[C]]{{.*}} : memref<32x64xf32> to memref<4x8xf32
 //       CHECK:       %[[VC:.*]] = vector.transfer_read %[[SVC]]{{.*}}{in_bounds = [true, true]} : memref<4x8xf32{{.*}}>, vector<4x8xf32>
 //       CHECK:       scf.for %[[K:.*]] = {{.*}} iter_args(%{{.*}} = %[[VC]]) -> (vector<4x8xf32>)

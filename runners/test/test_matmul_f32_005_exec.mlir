@@ -2,7 +2,7 @@
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=16,32,32" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=4" -verify-each=1 | \
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=4" -canonicalize -cse -verify-each=1 | \
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
@@ -16,7 +16,7 @@
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=16,32,32" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=5" -verify-each=1 | \
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=5" -canonicalize -cse -verify-each=1 | \
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
@@ -30,7 +30,7 @@
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=16,32,32" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=6" -verify-each=1 | \
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=6" -canonicalize -cse -verify-each=1 | \
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\

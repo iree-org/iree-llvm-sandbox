@@ -1,7 +1,7 @@
 // RUN: export M=32 && export N=64 && export K=128 && export ITERS=10 && \
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=3" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=3" -canonicalize -cse |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul vectorize vector-contract-lowering=false vectorize-padding" |\
 // RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 // RUN: tee | FileCheck %s
@@ -21,8 +21,8 @@
 //       CHECK:       %[[PACKED_IDX_B_K1:.*]] = affine.apply
 //       CHECK:       memref.subview %[[B]][%[[K1]], %[[J1]]] [16, 4] [1, 1] : memref<128x64xf32> to memref<16x4xf32
 // Loop order is I, J, K -> packed_B is J x K x tK x tJ
-//       CHECK:       memref.subview %[[PACKED_B]][%[[PACKED_IDX_B_J1]], %[[PACKED_IDX_B_K1]], 0, 0] [1, 1, 16, 4] [1, 1, 1, 1] : memref<16x8x16x4xf32> to memref<16x4xf32
-//       CHECK:       linalg.copy
+//       CHECK:       %[[VREAD1:.*]] = vector.transfer_read
+//       CHECK:       vector.transfer_write %[[VREAD1]]
 //
 //   CHECK-DAG:   %[[PACKED_A:.*]] = memref.alloc() : memref<16x8x2x16xf32>
 //       CHECK:   scf.for %[[I2:.*]] =
@@ -31,8 +31,8 @@
 //       CHECK:       %[[PACKED_IDX_A_K:.*]] = affine.apply
 //       CHECK:       memref.subview %[[A]][%[[I2]], %[[K2]]] [2, 16] [1, 1] : memref<32x128xf32> to memref<2x16xf32
 // Loop order is I, J, K -> packed_A is I x K x tI x tK
-//       CHECK:       memref.subview %[[PACKED_A]][%[[PACKED_IDX_A_I]], %[[PACKED_IDX_A_K]], 0, 0] [1, 1, 2, 16] [1, 1, 1, 1] : memref<16x8x2x16xf32> to memref<2x16xf32
-//       CHECK:       linalg.copy
+//       CHECK:       %[[VREAD2:.*]] = vector.transfer_read
+//       CHECK:       vector.transfer_write %[[VREAD2]]
 //
 //       CHECK:   scf.for %[[I:.*]] =
 //       CHECK:     %[[PACKED_IDX_I:.*]] = affine.apply
