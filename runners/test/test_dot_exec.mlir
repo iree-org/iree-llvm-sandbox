@@ -40,7 +40,7 @@ attributes { __writeable_func_buffer_args_attr__ = ["none", "none", "true"] }
 {
   %v0 = constant 0.0 : f32
 
-  %d = linalg.fill(%c, %v0) : tensor<f32>, f32 -> tensor<f32>
+  %d = linalg.fill(%v0, %c) : f32, tensor<f32> -> tensor<f32>
 
   %e = linalg.dot ins(%a, %b : tensor<64xf32>,tensor<64xf32>)
     outs(%d: tensor<f32>) -> tensor<f32>
@@ -56,9 +56,9 @@ func @main() {
   %A = linalg.init_tensor [64] : tensor<64xf32>
   %B = linalg.init_tensor [64] : tensor<64xf32>
   %C = linalg.init_tensor [] : tensor<f32>
-  %AA = linalg.fill(%A, %v1) : tensor<64xf32>, f32 -> tensor<64xf32>
-  %BB = linalg.fill(%B, %v2) : tensor<64xf32>, f32 -> tensor<64xf32>
-  %CC = linalg.fill(%C, %v0) : tensor<f32>, f32 -> tensor<f32>
+  %AA = linalg.fill(%v1, %A) : f32, tensor<64xf32> -> tensor<64xf32>
+  %BB = linalg.fill(%v2, %B) : f32, tensor<64xf32> -> tensor<64xf32>
+  %CC = linalg.fill(%v0, %C) : f32, tensor<f32> -> tensor<f32>
 
   %c0 = constant 0: index
 

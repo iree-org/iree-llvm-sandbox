@@ -10,7 +10,7 @@ func @init_and_matmul(%a: !row_major_A, %b: !row_major_B, %c: !row_major_C) -> !
 // attributes { passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}
 {
   %v0 = constant 0.0 : !elem_type_c
-  %d = linalg.fill(%c, %v0) : !row_major_C, !elem_type_c -> !row_major_C
+  %d = linalg.fill(%v0, %c) : !elem_type_c, !row_major_C -> !row_major_C
   %e = linalg.matmul ins(%a, %b : !row_major_A, !row_major_B)
     outs(%d: !row_major_C) -> !row_major_C
   return %e : !row_major_C
@@ -44,9 +44,9 @@ func @exec(%iters : index) {
   %A = linalg.init_tensor [${M}, ${K}] : !row_major_A
   %B = linalg.init_tensor [${K}, ${N}] : !row_major_B
   %C = linalg.init_tensor [${M}, ${N}] : !row_major_C
-  %AA = linalg.fill(%A, %v1) : !row_major_A, !elem_type_a -> !row_major_A
-  %BB = linalg.fill(%B, %v2) : !row_major_B, !elem_type_b -> !row_major_B
-  %CC = linalg.fill(%C, %v0) : !row_major_C, !elem_type_c -> !row_major_C
+  %AA = linalg.fill(%v1, %A) : !elem_type_a, !row_major_A -> !row_major_A
+  %BB = linalg.fill(%v2, %B) : !elem_type_b, !row_major_B -> !row_major_B
+  %CC = linalg.fill(%v0, %C) : !elem_type_c, !row_major_C -> !row_major_C
 
   %c0 = constant 0: index
   %c1 = constant 1: index

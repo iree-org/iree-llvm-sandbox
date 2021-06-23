@@ -110,7 +110,7 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
     def matmul_on_tensors(*outer_args):
       # TODO: in the future, should be writeable more concisely as:
       #   zero = std.constant(0.0, elem_type)
-      #   tmp = linalg.fill(out, zero)
+      #   tmp = linalg.fill(zero, out)
       #   linalg.matmul(lhs, rhs, tmp)
       zero = std.ConstantOp(
           value=FloatAttr.get(return_elem_type, 0.),

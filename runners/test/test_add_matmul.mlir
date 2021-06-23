@@ -24,8 +24,8 @@ attributes { __writeable_func_buffer_args_attr__ = ["true", "true", "true"] }
     linalg.yield %3 : f32
   } -> tensor<32x128xf32>
 
-  // CHECK:   linalg.fill(%[[C]], %{{.*}}) : memref<32x64xf32>, f32
-  %1 = linalg.fill(%arg2, %cst) : tensor<32x64xf32>, f32 -> tensor<32x64xf32>
+  // CHECK:   linalg.fill(%{{.*}}, %[[C]]) : f32, memref<32x64xf32>
+  %1 = linalg.fill(%cst, %arg2) : f32, tensor<32x64xf32> -> tensor<32x64xf32>
 
   // CHECK:   linalg.matmul ins(%[[A]], %[[B]]{{.*}}) outs(%[[C]]{{.*}})
   %2 = linalg.matmul
@@ -59,8 +59,8 @@ attributes { __writeable_func_buffer_args_attr__ = ["false", "true", "true"] }
     linalg.yield %3 : f32
   } -> tensor<32x128xf32>
 
-  // CHECK:   linalg.fill(%[[C]], %{{.*}}) : memref<32x64xf32>, f32
-  %1 = linalg.fill(%arg2, %cst) : tensor<32x64xf32>, f32 -> tensor<32x64xf32>
+  // CHECK:   linalg.fill(%{{.*}}, %[[C]]) : f32, memref<32x64xf32>
+  %1 = linalg.fill(%cst, %arg2) : f32, tensor<32x64xf32> -> tensor<32x64xf32>
 
   // CHECK:   linalg.matmul ins(%[[ALLOC]], %[[B]]{{.*}}) outs(%[[C]]{{.*}})
   %2 = linalg.matmul

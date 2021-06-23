@@ -25,8 +25,8 @@ attributes { __writeable_func_buffer_args_attr__ = ["none", "none", "true"] }
   %v0 = constant 0.0 : f32
 
 //   CHECK-NOT:   memref.alloc
-//       CHECK:   linalg.fill(%[[C]], %{{.*}}) : memref<f32>, f32
-  %d = linalg.fill(%c, %v0) : tensor<f32>, f32 -> tensor<f32>
+//       CHECK:   linalg.fill(%{{.*}}, %[[C]]) : f32, memref<f32>
+  %d = linalg.fill(%v0, %c) : f32, tensor<f32> -> tensor<f32>
 
 //       CHECK:   scf.for %[[I:.*]]
 //       CHECK:     scf.for %[[II:.*]]

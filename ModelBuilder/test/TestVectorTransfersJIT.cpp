@@ -61,8 +61,8 @@ void TestVectorTransfers(ArrayRef<int64_t> szA, ArrayRef<int64_t> szB,
 
   Value A = memref_alloc(mb.getMemRefType(szA, mb.f32));
   Value B = memref_alloc(mb.getMemRefType(szB, mb.f32));
-  linalg_fill(A, flt_0);
-  linalg_fill(B, flt_1);
+  linalg_fill(flt_0, A);
+  linalg_fill(flt_1, B);
 
   Value vFullA = vector_transfer_read(
       mb.getVectorType(szA, mb.f32),

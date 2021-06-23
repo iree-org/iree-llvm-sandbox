@@ -24,7 +24,7 @@
 // CHECK:     %[[A_SUB:.*]] = subtensor %[[A_]][%[[I]], 0]
 // CHECK:     %[[B_SUB:.*]] = subtensor %[[B_]][0, %[[J]]]
 // CHECK:     %[[C_SUB:.*]] = subtensor %[[C_]][%[[I]], %[[J]]]
-// CHECK:     %[[C_INIT:.*]] = linalg.fill(%[[C_SUB]], %[[C0_F32]])
+// CHECK:     %[[C_INIT:.*]] = linalg.fill(%[[C0_F32]], %[[C_SUB]])
 // CHECK-SAME:  tensor<24x16xf32>, f32 -> tensor<24x16xf32>
 // CHECK:     %[[PROD:.*]] = linalg.matmul ins(%[[A_SUB]], %[[B_SUB]]
 // CHECK-SAME:  outs(%[[C_INIT]] : tensor<24x16xf32>) -> tensor<24x16xf32>

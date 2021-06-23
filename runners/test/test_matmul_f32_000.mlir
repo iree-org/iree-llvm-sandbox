@@ -11,7 +11,7 @@
 //       CHECK:   constant 0.0
 
 // Analysis kicks in, we can write in %[[C]] and no spurious memref.alloc/copies are inserted.
-//  CHECK-NEXT:   linalg.fill(%[[C]], %{{.*}}) : memref<32x64xf32>, f32
+//  CHECK-NEXT:   linalg.fill(%{{.*}}, %[[C]]) : f32, memref<32x64xf32>
 //  CHECK-NEXT:   linalg.matmul ins(%[[A]], %[[B]] : memref<32x128xf32>, memref<128x64xf32>) outs(%[[C]] : memref<32x64xf32>)
 //  CHECK-NEXT:   return
 
@@ -22,9 +22,9 @@
 //   CHECK-DAG:   memref.alloc() : memref<32x128xf32>
 //   CHECK-DAG:   memref.alloc() : memref<128x64xf32>
 //   CHECK-DAG:   memref.alloc() : memref<32x64xf32>
-//   CHECK-DAG:   linalg.fill(%[[A:.*]], %[[f1]]) : memref<32x128xf32>, f32
-//   CHECK-DAG:   linalg.fill(%[[B:.*]], %[[f2]]) : memref<128x64xf32>, f32
-//   CHECK-DAG:   linalg.fill(%[[C:.*]], %[[f0]]) : memref<32x64xf32>, f32
+//   CHECK-DAG:   linalg.fill(%[[f1]], %[[A:.*]]) : f32, memref<32x128xf32>
+//   CHECK-DAG:   linalg.fill(%[[f2]], %[[B:.*]]) : f32, memref<128x64xf32>
+//   CHECK-DAG:   linalg.fill(%[[f0]], %[[C:.*]]) : f32, memref<32x64xf32>
 
 // On the caller side, we do not (yet) determine that the scf.for operand used in
 // iterative calls to init_and_matmul can all be made in place.

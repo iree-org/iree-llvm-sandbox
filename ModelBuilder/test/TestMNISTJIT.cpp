@@ -64,14 +64,14 @@ void buildMNIST(ModelBuilder &modelBuilder, StringLiteral funcName, unsigned B,
 
   Value flt_0 = modelBuilder.constant_f32(0.0f);
   Value someVal = modelBuilder.constant_f32(0.1123f);
-  linalg_fill(h1Weights, someVal);
-  linalg_fill(h2Weights, someVal);
-  linalg_fill(h3Weights, someVal);
-  linalg_fill(bias1, someVal);
-  linalg_fill(bias2, someVal);
-  linalg_fill(bias3, someVal);
-  linalg_fill(outputBlock1, flt_0);
-  linalg_fill(outputBlock2, flt_0);
+  linalg_fill(someVal, h1Weights);
+  linalg_fill(someVal, h2Weights);
+  linalg_fill(someVal, h3Weights);
+  linalg_fill(someVal, bias1);
+  linalg_fill(someVal, bias2);
+  linalg_fill(someVal, bias3);
+  linalg_fill(flt_0, outputBlock1);
+  linalg_fill(flt_0, outputBlock2);
 
   modelBuilder.FCBiasTanh({input, h1Weights, outputBlock1}, bias1);
   modelBuilder.FCBiasTanh({outputBlock1, h2Weights, outputBlock2}, bias2);

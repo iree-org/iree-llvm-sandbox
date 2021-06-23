@@ -26,7 +26,7 @@
 // CHECK:    %[[B_sub:.*]] = memref.subview %[[B_]][0, %[[J]]]
 // CHECK:    %[[C_sub:.*]] = memref.subview %[[C_]]{{\[}}%[[I]], %[[J]]]
 
-// CHECK:    linalg.fill(%[[C_sub]], %[[C0_F32]])
+// CHECK:    linalg.fill(%[[C0_F32]], %[[C_sub]])
 // CHECK:    linalg.matmul ins(%[[A_sub]], %[[B_sub]]
 // CHECK-SAME:  memref<24x192xf32, #[[$MAP1]]>, memref<192x16xf32, #[[$MAP1]]>)
 // CHECK-SAME:             outs(%[[C_sub]] : memref<24x16xf32, #[[$MAP1]]>)
