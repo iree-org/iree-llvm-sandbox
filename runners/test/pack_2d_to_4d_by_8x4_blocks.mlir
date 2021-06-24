@@ -30,8 +30,10 @@ func @main() {
   // Generate some input 2d tensor %a. We fill it with values of row-major offsets
   // to make it easy to track how the subsequent packing op shuffled data.
   %dst_init = linalg.init_tensor [32, 32] : tensor<32x32xf32>
-  %a = linalg.indexed_generic #input_generator_trait outs(%dst_init : tensor<32x32xf32>) {
-    ^bb0(%i : index, %j : index, %x : f32):
+  %a = linalg.generic #input_generator_trait outs(%dst_init : tensor<32x32xf32>) {
+    ^bb0(%x : f32):
+      %i = linalg.index 0 : index
+      %j = linalg.index 1 : index
       %c32 = constant 32 : index
       %m = std.muli %i, %c32 : index
       %s = std.addi %m, %j : index
