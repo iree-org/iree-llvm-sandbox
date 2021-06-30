@@ -1285,8 +1285,6 @@ static void finalizeBufferAllocation(OpBuilder &b, LinalgOp op,
                                      BlockAndValueMapping &bvm) {
   SmallVector<Value, 8> newOperands = inputs;
   newOperands.append(outputs.begin(), outputs.end());
-  auto otherOperands = op.getAssumedNonShapedOperands();
-  newOperands.append(otherOperands.begin(), otherOperands.end());
   Location loc = op.getLoc();
   op.clone(b, loc, /*resultTypes=*/TypeRange{}, newOperands);
 
