@@ -235,8 +235,8 @@ static OpResult getTiedOpResult(OpOperand &opOperand) {
   }
   if (auto tiledLoopOp = dyn_cast<TiledLoopOp>(op))
     return tiledLoopOp.getTiedOpResult(opOperand);
-  if (isa<linalg::PadTensorOp, SubTensorOp, SubTensorInsertOp, tensor::CastOp,
-          vector::TransferReadOp, vector::TransferWriteOp>(op))
+  if (isa<linalg::PadTensorOp, tensor::ExtractSliceOp, tensor::InsertSliceOp,
+          tensor::CastOp, vector::TransferReadOp, vector::TransferWriteOp>(op))
     return op->getResult(0);
   if (op->hasTrait<mlir::OpTrait::IsTerminator>()) return OpResult();
   if (isa<CallOpInterface, vector::PrintOp, vector::ContractionOp>(op))
@@ -758,7 +758,7 @@ static LogicalResult detectOverWritePattern(Operation *parentOp,
                          "known terminator\n");
     return failure();
   }
-  SubTensorInsertOp subTensorInsertOp;
+  tensor::InsertSliceOp subTensorInsertOp;
   vector::TransferWriteOp vectorTransferWriteOp;
   // Maybe match subTensorInsertOp and update tmpSliceRef.
   (void)matchAndDropBack(tmpSliceRef, subTensorInsertOp);
@@ -967,11 +967,12 @@ static LogicalResult detectDestructiveUpdatePattern(
   }
 
   // Match subtensor pair and update tmpSliceRef.
-  SubTensorOp subTensorOp;
-  SubTensorInsertOp subTensorInsertOp;
-  if (failed(matchAndDropEnclosingPair<SubTensorOp, SubTensorInsertOp>(
+  tensor::ExtractSliceOp subTensorOp;
+  tensor::InsertSliceOp subTensorInsertOp;
+  if (failed(matchAndDropEnclosingPair<tensor::ExtractSliceOp,
+                                       tensor::InsertSliceOp>(
           tmpSliceRef, subTensorOp, subTensorInsertOp,
-          [](SubTensorOp st, SubTensorInsertOp sti) {
+          [](tensor::ExtractSliceOp st, tensor::InsertSliceOp sti) {
             // subtensor / subtensor_insert must match.
             return sameOffsetsSizesAndStrides(st, sti);
           }))) {
@@ -982,7 +983,7 @@ static LogicalResult detectDestructiveUpdatePattern(
   // term(subTensorInsertOp).
   if (failed(isInPlaceSingleUseTerminatorValue(subTensorInsertOp.result(),
                                                terminatorOp, candidate))) {
-    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> SubTensorInsertOp "
+    LLVM_DEBUG(DBGS() << "FAIL: destr. updates -> tensor::InsertSliceOp "
                          "does not have a single terminator use "
                          "at the right index\n");
     return failure();
@@ -1316,7 +1317,10 @@ static LogicalResult convertAnyLinalgOp(OpBuilder &b, LinalgOp op,
   SmallVector<Value, 2> newInputBuffers;
   newInputBuffers.reserve(op.getNumInputs());
   for (OpOperand *opOperand : op.getInputOperands()) {
-    newInputBuffers.push_back(lookup(bvm, opOperand->get()));
+    if (!opOperand->get().getType().isa<TensorType>())
+      newInputBuffers.push_back(opOperand->get());
+    else
+      newInputBuffers.push_back(lookup(bvm, opOperand->get()));
   }
   SmallVector<Value, 2> newOutputBuffers;
   if (failed(allocateBuffersForResults(b, loc, op, newOutputBuffers, bvm)))
@@ -1465,19 +1469,21 @@ static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
   // Add buffers for inputs and the corresponding block arguments.
   Block *body = tiledLoop.getBody();
   for (auto en : llvm::enumerate(oldInputs)) {
+    if (!en.value().getType().isa<TensorType>()) continue;
     Value inputBuffer = lookup(bvm, en.value());
     auto index = en.index();
     tiledLoop->insertOperands(afterInputs + index, {inputBuffer});
     auto bbArg =
         body->insertArgument(bbAfterInputs + index, inputBuffer.getType());
     map(bvm, body->getArgument(tiledLoop.getNumLoops() + index), bbArg);
+    numInputs++;
   }
 
   // Add buffers for outputs and the corresponding block arguments.
   int newBuffersCount = 0;
   int outputsEndIndex =
-      tiledLoop.getNumControlOperands() + 2 * numInputs + numOutputs;
-  int bbAfterOutputs = tiledLoop.getNumLoops() + 2 * numInputs + numOutputs;
+      tiledLoop.getNumControlOperands() + numInputs + numOutputs;
+  int bbAfterOutputs = tiledLoop.getNumLoops() + numInputs + numOutputs;
 
   for (auto en : llvm::enumerate(llvm::zip(oldOutputs, tiledLoop->getResults(),
                                            yieldOp->getOpOperands()))) {
@@ -1516,7 +1522,7 @@ static LogicalResult convertTiledLoopOp(OpBuilder &b, TiledLoopOp tiledLoop,
   // Update segment sizes.
   tiledLoop->setAttr(
       TiledLoopOp::getOperandSegmentSizeAttr(),
-      b.getI32VectorAttr({numLoops, numLoops, numLoops, 2 * numInputs,
+      b.getI32VectorAttr({numLoops, numLoops, numLoops, numInputs,
                           numOutputs + newBuffersCount}));
   return success();
 }
@@ -1714,10 +1720,10 @@ static LogicalResult convertPadTensorOp(OpBuilder &b, PadTensorOp padTensorOp,
   return success();
 }
 
-/// SubTensorInsertOp never allocates but may copy if it is not marked
+/// tensor::InsertSliceOp never allocates but may copy if it is not marked
 /// inPlace.
 static LogicalResult convertSubTensorInsertOp(
-    OpBuilder &b, SubTensorInsertOp subTensorInsertOp,
+    OpBuilder &b, tensor::InsertSliceOp subTensorInsertOp,
     BlockAndValueMapping &bvm) {
   LLVM_DEBUG(DBGS() << "convert: " << *subTensorInsertOp << "\n");
 
@@ -1730,7 +1736,7 @@ static LogicalResult convertSubTensorInsertOp(
   auto inPlace = getInPlace(subTensorInsertOp->getResult(0));
   // subtensor_insert must be inPlace, otherwise this is considered a bug.
   if (inPlace != InPlaceSpec::True) {
-    llvm_unreachable("SubTensorInsertOp must be inPlace");
+    llvm_unreachable("tensor::InsertSliceOp must be inPlace");
   } else {
     // InPlace write will result in memref.tensor_load(x) which must
     // canonicalize away with one of it uses.
@@ -1770,8 +1776,9 @@ static LogicalResult convertSubTensorInsertOp(
   return success();
 }
 
-/// SubTensorOpnever allocates or copies.
-static LogicalResult convertSubTensorOp(OpBuilder &b, SubTensorOp subTensor,
+/// tensor::ExtractSliceOp never allocates or copies.
+static LogicalResult convertSubTensorOp(OpBuilder &b,
+                                        tensor::ExtractSliceOp subTensor,
                                         BlockAndValueMapping &bvm) {
   LLVM_DEBUG(DBGS() << "convert: " << *subTensor << "\n");
 
@@ -2097,10 +2104,10 @@ void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
         .Case([&](InitTensorOp op) {
           (void)succeeded(convertInitTensorOp(b, op, bvm));
         })
-        .Case([&](SubTensorOp op) {
+        .Case([&](tensor::ExtractSliceOp op) {
           (void)succeeded(convertSubTensorOp(b, op, bvm));
         })
-        .Case([&](SubTensorInsertOp op) {
+        .Case([&](tensor::InsertSliceOp op) {
           (void)succeeded(convertSubTensorInsertOp(b, op, bvm));
         })
         .Case([&](tensor::CastOp op) {

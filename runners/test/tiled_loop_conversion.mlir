@@ -18,18 +18,18 @@
 // CHECK:   %[[RESULT:.*]] = linalg.tiled_loop (%[[I:.*]], %[[J:.*]]) =
 // CHECK-SAME: (%[[C0]], %[[C0]]) to (%[[C192]], %[[C192]])
 // CHECK-SAME: step (%[[C24]], %[[C16]])
-// CHECK-SAME: ins (%[[A_:.*]] = %[[A]]: [[TENSOR_TY]], %[[B_:.*]] = %[[B]]: [[TENSOR_TY]])
+// CHECK-SAME: ins (%[[A_:.*]] = %[[A]]: [[TENSOR_TY]], %[[B_:.*]] = %[[B]]: [[TENSOR_TY]], %[[CST:.*]] = %[[C0_F32]]: f32)
 // CHECK-SAME: outs (%[[C_:.*]] = %[[C]]: [[TENSOR_TY]]) {
 
-// CHECK:     %[[A_SUB:.*]] = subtensor %[[A_]][%[[I]], 0]
-// CHECK:     %[[B_SUB:.*]] = subtensor %[[B_]][0, %[[J]]]
-// CHECK:     %[[C_SUB:.*]] = subtensor %[[C_]][%[[I]], %[[J]]]
-// CHECK:     %[[C_INIT:.*]] = linalg.fill(%[[C0_F32]], %[[C_SUB]])
-// CHECK-SAME:  tensor<24x16xf32>, f32 -> tensor<24x16xf32>
+// CHECK:     %[[A_SUB:.*]] = tensor.extract_slice %[[A_]][%[[I]], 0]
+// CHECK:     %[[B_SUB:.*]] = tensor.extract_slice %[[B_]][0, %[[J]]]
+// CHECK:     %[[C_SUB:.*]] = tensor.extract_slice %[[C_]][%[[I]], %[[J]]]
+// CHECK:     %[[C_INIT:.*]] = linalg.fill(%[[CST]], %[[C_SUB]])
+// CHECK-SAME:  f32, tensor<24x16xf32> -> tensor<24x16xf32>
 // CHECK:     %[[PROD:.*]] = linalg.matmul ins(%[[A_SUB]], %[[B_SUB]]
 // CHECK-SAME:  outs(%[[C_INIT]] : tensor<24x16xf32>) -> tensor<24x16xf32>
 
 // TODO: one canonicalization is missing here which fails at cleaning up tensor_cast to tensor<?x?xf32>
-// CHECK:     %[[PROD_SUB:.*]] = subtensor_insert %{{.*}} into %[[C_]]
+// CHECK:     %[[PROD_SUB:.*]] = tensor.insert_slice %{{.*}} into %[[C_]]
 // CHECK:     linalg.yield %[[PROD_SUB]] : [[TENSOR_TY]]
 
