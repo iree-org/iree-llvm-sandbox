@@ -236,7 +236,8 @@ static OpResult getTiedOpResult(OpOperand &opOperand) {
   if (auto tiledLoopOp = dyn_cast<TiledLoopOp>(op))
     return tiledLoopOp.getTiedOpResult(opOperand);
   if (isa<linalg::PadTensorOp, tensor::ExtractSliceOp, tensor::InsertSliceOp,
-          tensor::CastOp, vector::TransferReadOp, vector::TransferWriteOp>(op))
+          tensor::CastOp, vector::TransferReadOp, vector::TransferWriteOp,
+          tensor::ExtractOp>(op))
     return op->getResult(0);
   if (op->hasTrait<mlir::OpTrait::IsTerminator>()) return OpResult();
   if (isa<CallOpInterface, vector::PrintOp, vector::ContractionOp>(op))
@@ -1802,6 +1803,22 @@ static LogicalResult convertSubTensorOp(OpBuilder &b,
   return success();
 }
 
+/// tensor::ExtractOp never allocates or copies.
+static LogicalResult convertExtractOp(OpBuilder &b, tensor::ExtractOp extract,
+                                      BlockAndValueMapping &bvm) {
+  LLVM_DEBUG(DBGS() << "convert: " << *extract << "\n");
+
+  // Take a guard before anything else.
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPoint(extract);
+
+  Location loc = extract.getLoc();
+  Value srcMemref = lookup(bvm, extract.tensor());
+  Value l = b.create<memref::LoadOp>(loc, srcMemref, extract.indices());
+  extract.replaceAllUsesWith(l);
+  return success();
+}
+
 /// TensorCastOp just lowers to MemRefCastOp.
 static LogicalResult convertTensorCastOp(OpBuilder &b, tensor::CastOp castOp,
                                          BlockAndValueMapping &bvm) {
@@ -2104,6 +2121,9 @@ void LinalgComprehensiveBufferizePass::bufferizeFuncOpInternals(
         })
         .Case([&](tensor::ExtractSliceOp op) {
           (void)succeeded(convertSubTensorOp(b, op, bvm));
+        })
+        .Case([&](tensor::ExtractOp op) {
+          (void)succeeded(convertExtractOp(b, op, bvm));
         })
         .Case([&](tensor::InsertSliceOp op) {
           (void)succeeded(convertSubTensorInsertOp(b, op, bvm));
