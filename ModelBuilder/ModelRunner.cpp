@@ -55,7 +55,6 @@ void mlir::ModelRunner::compile(
     // Lower vector operations progressively into more elementary
     // vector operations before running the regular compiler passes.
     mlir::OwningRewritePatternList patterns(module->getContext());
-    mlir::vector::populateVectorSlicesLoweringPatterns(patterns);
     mlir::vector::populateVectorContractLoweringPatterns(
         patterns, compilationOptions.vectorTransformsOptions);
     mlir::vector::populateVectorTransposeLoweringPatterns(

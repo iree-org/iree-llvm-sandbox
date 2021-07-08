@@ -691,13 +691,11 @@ using vector_broadcast = edsc::ValueBuilder<vector::BroadcastOp>;
 using vector_contract = edsc::ValueBuilder<vector::ContractionOp>;
 using vector_extract = edsc::ValueBuilder<vector::ExtractOp>;
 using vector_extract_element = edsc::ValueBuilder<vector::ExtractElementOp>;
-using vector_extract_slices = edsc::ValueBuilder<vector::ExtractSlicesOp>;
 using vector_extract_strided_slice =
     edsc::ValueBuilder<vector::ExtractStridedSliceOp>;
 using vector_fma = edsc::ValueBuilder<vector::FMAOp>;
 using vector_insert = edsc::ValueBuilder<vector::InsertOp>;
 using vector_insert_element = edsc::ValueBuilder<vector::InsertElementOp>;
-using vector_insert_slices = edsc::ValueBuilder<vector::InsertSlicesOp>;
 using vector_insert_strided_slice =
     edsc::ValueBuilder<vector::InsertStridedSliceOp>;
 using vector_matmul = edsc::ValueBuilder<vector::MatmulOp>;
