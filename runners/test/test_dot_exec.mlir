@@ -1,14 +1,16 @@
 // Check that inplace bufferization works with 2-level tiling + innermost padding + hoisting.
 // RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=20" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=4" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=2" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=1" |\
+
 // TODO: Vectorizing linalg.dot requires 0-D vectors, disable for now.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
-// RUN: mlir-opt -canonicalize -cse |\
-// RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 
-// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
-// RUN: mlir-opt -canonicalize -convert-scf-to-std -convert-vector-to-llvm -convert-std-to-llvm | \
+// RUN: mlir-opt -canonicalize -cse |\
+// RUN: mlir-opt -linalg-comprehensive-module-bufferize |\
+
+// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops -convert-scf-to-std |\
+// RUN: mlir-opt -convert-memref-to-llvm -convert-vector-to-llvm -convert-std-to-llvm -canonicalize -cse | \
 
 // RUN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
 // RUN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext |\
@@ -16,28 +18,23 @@
 
 // Check that inplace bufferization works with 3-level tiling + innermost padding + hoisting.
 // RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=20" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=4" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=3" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=10" |\
+
+// TOD: Hoist padding to outermost (i.e. 3) needs a reimplementation to work properly; for now keep it to 2.
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=2" |\
+
 // TODO: fix vectorization bug and enable.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
-// RUN: mlir-opt -canonicalize -cse |\
-// RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
 
-// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
-// RUN: mlir-opt -canonicalize -convert-scf-to-std -convert-vector-to-llvm -convert-std-to-llvm | \
+// RUN: mlir-opt -canonicalize -cse -linalg-comprehensive-module-bufferize |\
+// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops -convert-scf-to-std |\
+// RUN: mlir-opt -convert-memref-to-llvm -convert-vector-to-llvm -convert-std-to-llvm -canonicalize -cse | \
 
-// RUN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
+// RUN: mlir-cpu-runner -O0 -e main -entry-point-result=void \
 // RUN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext |\
 // RUN: tee | FileCheck %s
 
-func @init_and_dot(%a: tensor<64xf32>, %b: tensor<64xf32>, %c: tensor<f32>) -> tensor<f32>
-// TODO: activate manually for now.
-// attributes { passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}
-//
-// Manually set up `__writeable_func_buffer_args_attr__` to allow writing tests in the absence of
-// an external function call.
-attributes { __writeable_func_buffer_args_attr__ = ["none", "none", "true"] }
-{
+func @init_and_dot(%a: tensor<64xf32>, %b: tensor<64xf32>, %c: tensor<f32>) -> tensor<f32> {
   %v0 = constant 0.0 : f32
 
   %d = linalg.fill(%v0, %c) : f32, tensor<f32> -> tensor<f32>
@@ -47,6 +44,7 @@ attributes { __writeable_func_buffer_args_attr__ = ["none", "none", "true"] }
 
   return %e : tensor<f32>
 }
+
 
 func @main() {
   %v0 = constant 0.0 : f32
@@ -62,8 +60,8 @@ func @main() {
 
   %c0 = constant 0: index
 
-  %res = linalg.dot ins(%AA, %BB : tensor<64xf32>,tensor<64xf32>)
-                   outs(%CC: tensor<f32>) -> tensor<f32>
+  %res = call @init_and_dot(%AA, %BB, %CC) :
+    (tensor<64xf32>, tensor<64xf32>, tensor<f32>) -> tensor<f32>
 
   %res2 = tensor.cast %res: tensor<f32> to tensor<*xf32>
 
@@ -74,5 +72,4 @@ func @main() {
   return
 }
 
-// Abuse reliance on conversions by allowing `tensor<*xf32>`.
 func private @print_memref_f32(tensor<*xf32>) attributes { llvm.emit_c_interface }

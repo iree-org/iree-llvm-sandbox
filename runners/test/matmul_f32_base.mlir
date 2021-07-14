@@ -53,14 +53,16 @@ func @exec(%iters : index) {
 
   /// Run and dump performance for matmul.
   %t_start_matmul = call @rtclock() : () -> f64
-  %res = scf.for %arg0 = %c0 to %iters step %c1 iter_args(%dummy = %CC) -> (!row_major_C) {
-    %r = call @init_and_matmul(%AA, %BB, %CC) : (!row_major_A, !row_major_B, !row_major_C) -> (!row_major_C)
+  %res = scf.for %arg0 = %c0 to %iters step %c1 iter_args(%bbarg = %CC) -> (!row_major_C) {
+    %r = call @init_and_matmul(%AA, %BB, %bbarg) : (!row_major_A, !row_major_B, !row_major_C) -> (!row_major_C)
     scf.yield %r : !row_major_C
   }
   %t_end_matmul = call @rtclock() : () -> f64
   %tmatmul = subf %t_end_matmul, %t_start_matmul: f64
   call @print_perf(%iters, %tmatmul) : (index, f64) -> ()
 
+  // %res2 = tensor.cast %res: !row_major_C to tensor<*xf32>
+  // call @print_memref_f32(%res2) : (tensor<*xf32>) -> ()
   %val = vector.transfer_read %res[%c0, %c0], %v0: !row_major_C, vector<1x1x!elem_type_c>
   vector.print %val: vector<1x1x!elem_type_c>
 
@@ -74,3 +76,4 @@ func @main() {
 }
 
 func private @rtclock() -> f64
+func private @print_memref_f32(tensor<*xf32>) attributes { llvm.emit_c_interface }

@@ -3,7 +3,7 @@
 
 // RUN: mlir-proto-opt -canonicalize -mlir-disable-threading \
 // RUN: -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=24,16" |\
-// RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
+// RUN: mlir-opt -linalg-comprehensive-module-bufferize |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="convert-to-async tiled-loop-to-scf" |\
 
 // RUN: mlir-opt -async-to-async-runtime | \

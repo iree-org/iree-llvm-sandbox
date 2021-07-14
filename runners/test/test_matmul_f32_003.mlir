@@ -3,7 +3,7 @@
 
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=2,4,16 pad hoist-padding=2" -canonicalize -cse |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul vectorize vector-contract-lowering=false vectorize-padding" |\
-// RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
+// RUN: mlir-opt -linalg-comprehensive-module-bufferize |\
 // RUN: tee | FileCheck %s
 
 // CHECK-LABEL: func @init_and_matmul(
@@ -12,7 +12,9 @@
 //  CHECK-SAME:       %[[C:[0-9a-zA-Z]+]]: memref<
 //       CHECK:   constant 0.0
 //   CHECK-NOT:   memref.alloc
-//       CHECK:   linalg.fill(%{{.*}}, %[[C]]) : f32, memref<32x64xf32>
+// At function boundary we are still pessimistic, so spurious memref.cast to most dynamic strided memrefs are introduced.
+// These will go away in the future.
+//       CHECK:   linalg.fill(%{{.*}}, %[[C]]) : f32, memref<32x64xf32{{.*}}>
 //   CHECK-DAG:   %[[PACKED_A:.*]] = memref.alloc() : memref<8x2x16xf32>
 //   CHECK-DAG:   %[[PACKED_B:.*]] = memref.alloc() : memref<16x8x16x4xf32>
 //   CHECK-NOT:   copy
@@ -21,18 +23,22 @@
 //       CHECK:       %[[PACKED_IDX_B_J1:.*]] = affine.apply
 //       CHECK:       scf.for %[[K1:.*]] =
 //       CHECK:         %[[PACKED_IDX_B_K1:.*]] = affine.apply
-//       CHECK:         memref.subview %[[B]][%[[K1]], %[[J1]]] [16, 4] [1, 1] : memref<128x64xf32> to memref<16x4xf32
+//       CHECK:         memref.subview %[[B]][%[[K1]], %[[J1]]] [16, 4] [1, 1] : memref<128x64xf32{{.*}}> to memref<16x4xf32
 // Loop order is I, J, K -> packed_B is J x K x tK x tJ
-//       CHECK:         %[[VREAD1:.*]] = vector.transfer_read
-//       CHECK:         vector.transfer_write %[[VREAD1]]
+//       C-HECK:        %[[VREAD1:.*]] = vector.transfer_read
+//       C-HECK:        vector.transfer_write %[[VREAD1]]
+// Due to function boundary pessimization, pad_tensor does not currently vectorize.
+//       CHECK:         linalg.copy
 //       CHECK:     scf.for %[[K2:.*]] =
 //       CHECK:       %[[PACKED_IDX_A:.*]] = affine.apply
-//       CHECK:       memref.subview %[[A]][%[[I]], %[[K2]]] [2, 16] [1, 1] : memref<32x128xf32> to memref<2x16xf32
-//       CHECK:       %[[VREAD2:.*]] = vector.transfer_read
-//       CHECK:       vector.transfer_write %[[VREAD2]]
+//       CHECK:       memref.subview %[[A]][%[[I]], %[[K2]]] [2, 16] [1, 1] : memref<32x128xf32{{.*}}> to memref<2x16xf32
+//       C-HECK:      %[[VREAD2:.*]] = vector.transfer_read
+//       C-HECK:      vector.transfer_write %[[VREAD2]]
+// Due to function boundary pessimization, pad_tensor does not currently vectorize.
+//       CHECK:       linalg.copy
 //       CHECK:     scf.for %[[J:.*]] =
 //       CHECK:       %[[PACKED_IDX_J:.*]] = affine.apply
-//       CHECK:       %[[SVC:.*]] = memref.subview %[[C]]{{.*}} : memref<32x64xf32> to memref<2x4xf32
+//       CHECK:       %[[SVC:.*]] = memref.subview %[[C]]{{.*}} : memref<32x64xf32{{.*}}> to memref<2x4xf32
 //       CHECK:       %[[VC:.*]] = vector.transfer_read %[[SVC]]{{.*}}{in_bounds = [true, true]} : memref<2x4xf32{{.*}}>, vector<2x4xf32>
 //       CHECK:       scf.for %[[K:.*]] = {{.*}} iter_args(%{{.*}} = %[[VC]]) -> (vector<2x4xf32>)
 //       CHECK:         %[[PACKED_IDX_K:.*]] = affine.apply
