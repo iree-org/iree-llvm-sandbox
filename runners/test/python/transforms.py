@@ -88,6 +88,7 @@ class LowerToLLVM(Transform):
                 f'lower-affine,'
                 f'convert-scf-to-std,'
                 f'convert-vector-to-llvm,'
+                f'convert-memref-to-llvm,'
                 f'convert-std-to-llvm')
     self.pipeline = pipeline
 
@@ -104,5 +105,6 @@ class Sparsify(Transform):
         f'tensor-constant-bufferize,'
         f'func(tensor-bufferize,std-bufferize,finalizing-bufferize),'
         f'convert-vector-to-llvm{{reassociate-fp-reductions=1 enable-index-optimizations=1}},'
+        f'convert-memref-to-llvm,'
         f'convert-std-to-llvm')
     self.pipeline = pipeline

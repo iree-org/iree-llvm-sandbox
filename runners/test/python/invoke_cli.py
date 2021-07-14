@@ -85,9 +85,11 @@ def invoke(op, expert, assignments, iters, runs):
 
   def random_array_inputs():
     results = []
-    for td in chain(op.model.inputs, op.model.outputs):
-      np_type = numpy_type(assignments[td.type_var.name])
-      shape = [assignments[sym.symname] for sym in td.shape]
+    for odef in op.model.registered_operands.values():
+      assert (odef.kind == OperandKind.InputTensor or
+              odef.kind == OperandKind.OutputTensor)
+      np_type = numpy_type(assignments[odef.type_var.name])
+      shape = [assignments[sym.symname] for sym in odef.size_exprs]
       arr0 = np.random.rand(*shape)
       arr = arr0.astype(np_type)
       results.append(arr)

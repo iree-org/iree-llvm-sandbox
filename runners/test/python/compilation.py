@@ -17,6 +17,8 @@ from mlir.runtime import *
 
 from transforms import *
 
+from mlir.dialects.linalg.opdsl.lang import *
+
 f16 = "f16"
 f32 = "f32"
 f64 = "f64"
@@ -41,29 +43,41 @@ def mlir_type(scalar_type):
     raise Exception(f"unknown scalar type: {scalar_type}")
 
 
-def scalar_type(tdef, **assignments):
-  return mlir_type(assignments[tdef.type_var.name])
+def scalar_type(odef, **assignments):
+  return mlir_type(assignments[odef.type_var.name])
 
 
-def ranked_tensor_type(tdef, **assignments):
-  shape = tuple(assignments[sym.symname] for sym in tdef.shape)
-  return RankedTensorType.get(shape, scalar_type(tdef, **assignments))
+def operand_type(odef, **assignments):
+  if odef.kind == OperandKind.Scalar:
+    return scalar_type(odef, **assignments)
+  if (odef.kind == OperandKind.InputTensor or
+      odef.kind == OperandKind.OutputTensor):
+    shape = tuple(assignments[sym.symname] for sym in odef.size_exprs)
+    return RankedTensorType.get(shape, scalar_type(odef, **assignments))
+  raise Exception(f"unsupported operand type: {repr(odef)}")
 
 
-def op_boilerplate(op, func_name: str, **assignments):
-  assert (len(op.model.outputs) == 1)
-  return_type = str(ranked_tensor_type(op.model.outputs[0], **assignments))
+def op_boilerplate(operand_defs, func_name: str, **assignments):
+  inputs = [
+      odef for odef in operand_defs
+      if odef.kind == OperandKind.InputTensor or odef.kind == OperandKind.Scalar
+  ]
+  outputs = [
+      odef for odef in operand_defs if odef.kind == OperandKind.OutputTensor
+  ]
+
+  assert (len(outputs) == 1)
+  return_type = str(operand_type(outputs[0], **assignments))
 
   param_types = []
-  for tdef in chain(op.model.inputs, op.model.outputs):
-    param_types.append(str(ranked_tensor_type(tdef, **assignments)))
+  for tdef in chain(inputs, outputs):
+    param_types.append(str(operand_type(tdef, **assignments)))
 
   letter = lambda i: chr(ord("A") + i)
   param_names = [f"%{letter(i)}" for (i, _) in enumerate(param_types)]
   params = ", ".join(
       f"{name} : {ty}" for (name, ty) in zip(param_names, param_types))
-  writeable_params = [False] * len(op.model.inputs) + [True] * len(
-      op.model.outputs)
+  writeable_params = [False] * len(inputs) + [True] * len(outputs)
   writeable_params = ['"true"' if p else '"false"' for p in writeable_params]
   writeable_params = ", ".join(writeable_params)
 
@@ -98,11 +112,13 @@ func @main({params}, %iters : index)
 
 def build_op_under_context_manager(op, transform: Callable, **assignments):
   # Build module and function to benchmark.
+  operand_defs = sorted(
+      op.model.registered_operands.values(),
+      key=lambda odef: odef.registered_index)
   ranked_tensor_types = [
-      ranked_tensor_type(td, **assignments)
-      for td in chain(op.model.inputs, op.model.outputs)
+      operand_type(odef, **assignments) for odef in operand_defs
   ]
-  return_elem_type = scalar_type(op.model.outputs[0], **assignments)
+  return_elem_type = scalar_type(operand_defs[-1], **assignments)
   module = Module.create()
   with InsertionPoint(module.body):
 
@@ -122,7 +138,7 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
   # JIT compile.
   start = time.time()
   transformed_module = transform(
-      module, op_boilerplate(op, "matmul_on_tensors", **assignments))
+      module, op_boilerplate(operand_defs, "matmul_on_tensors", **assignments))
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
 

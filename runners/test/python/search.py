@@ -102,10 +102,12 @@ class HoistPaddingVariable(IntVariable):
 def collect_variables(op):
   type_vars = set()
   syms = set()
-  for tdef in chain(op.model.inputs, op.model.outputs):
-    type_vars.add(tdef.type_var)
-    for sym in tdef.shape:
-      syms.add(sym)
+  for odef in op.model.registered_operands.values():
+    type_vars.add(odef.type_var)
+    if (odef.kind == OperandKind.InputTensor or
+        odef.kind == OperandKind.OutputTensor):
+      for sym in odef.size_exprs:
+        syms.add(sym)
 
   variables = {}
   for type_var in type_vars:
