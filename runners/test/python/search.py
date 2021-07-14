@@ -1,8 +1,8 @@
 """Utilities for search space exploration over linalg operations."""
 
 from itertools import chain
+from mlir.dialects.linalg.opdsl.lang import OperandKind
 import random
-
 
 def rand_in_range(value_range):
   return random.randrange(value_range.start, value_range.stop, value_range.step)

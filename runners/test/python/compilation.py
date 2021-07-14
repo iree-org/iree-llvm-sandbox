@@ -11,13 +11,13 @@ import numpy as np
 from mlir.ir import *
 from mlir.dialects import builtin
 from mlir.dialects import linalg
+from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.dialects import std
 from mlir.execution_engine import *
 from mlir.runtime import *
 
 from transforms import *
 
-from mlir.dialects.linalg.opdsl.lang import *
 
 f16 = "f16"
 f32 = "f32"

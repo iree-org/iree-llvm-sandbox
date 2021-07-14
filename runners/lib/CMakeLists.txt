@@ -11,7 +11,7 @@ target_link_libraries(
   MLIRLinalgTensorSandbox
 
   MLIRAsync
-  MLIRGPU
+  MLIRGPUOps
   MLIRLinalgTransforms
 )
 
