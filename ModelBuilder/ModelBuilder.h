@@ -683,8 +683,8 @@ using linalg_matmul = edsc::OperationBuilder<linalg::MatmulOp>;
 using linalg_matvec = edsc::OperationBuilder<linalg::MatvecOp>;
 using linalg_vecmat = edsc::OperationBuilder<linalg::VecmatOp>;
 using linalg_range = edsc::ValueBuilder<linalg::RangeOp>;
-using linalg_expand_shape = edsc::ValueBuilder<linalg::ExpandShapeOp>;
-using linalg_collapse_shape = edsc::ValueBuilder<linalg::CollapseShapeOp>;
+using linalg_expand_shape = edsc::ValueBuilder<memref::ExpandShapeOp>;
+using linalg_collapse_shape = edsc::ValueBuilder<memref::CollapseShapeOp>;
 using linalg_yield = edsc::OperationBuilder<linalg::YieldOp>;
 // From the Vector Dialect.
 using vector_broadcast = edsc::ValueBuilder<vector::BroadcastOp>;
