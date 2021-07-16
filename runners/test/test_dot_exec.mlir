@@ -1,7 +1,7 @@
 // Check that inplace bufferization works with 2-level tiling + innermost padding + hoisting.
 // RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=20" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=4" |\
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=1" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=10" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=2" |\
 
 // TODO: Vectorizing linalg.dot requires 0-D vectors, disable for now.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
@@ -19,9 +19,7 @@
 // Check that inplace bufferization works with 3-level tiling + innermost padding + hoisting.
 // RUN: mlir-proto-opt %s -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=20" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=10" |\
-
-// TOD: Hoist padding to outermost (i.e. 3) needs a reimplementation to work properly; for now keep it to 2.
-// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=2" |\
+// RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot tile-sizes=2 pad hoist-padding=3" |\
 
 // TODO: fix vectorization bug and enable.
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_dot anchor-op=linalg.dot vectorize vector-contract-lowering=false vectorize-padding" |\
@@ -30,7 +28,7 @@
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops -convert-scf-to-std |\
 // RUN: mlir-opt -convert-memref-to-llvm -convert-vector-to-llvm -convert-std-to-llvm -canonicalize -cse | \
 
-// RUN: mlir-cpu-runner -O0 -e main -entry-point-result=void \
+// RUN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
 // RUN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext |\
 // RUN: tee | FileCheck %s
 
