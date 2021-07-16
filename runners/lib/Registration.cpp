@@ -13,6 +13,5 @@ using namespace mlir;
 using namespace mlir::linalg;
 
 void ireeLlvmSandboxRegisterPasses() {
-  registerLinalgComprehensiveBufferizePass();
   registerLinalgTensorCodegenStrategyPass();
 }

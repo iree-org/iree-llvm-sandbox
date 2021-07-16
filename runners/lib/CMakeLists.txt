@@ -1,7 +1,6 @@
 add_llvm_library(MLIRLinalgTensorSandbox
   ConvertToAsyncDialect.cpp
   ConvertToGPUDialect.cpp
-  LinalgComprehensiveBufferizePass.cpp
   LinalgTensorCodegenStrategy.cpp
   LinalgTileAndFuse.cpp
   Registration.cpp

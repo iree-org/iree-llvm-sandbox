@@ -11,7 +11,6 @@
 // Defined directly in pass modules.
 namespace mlir {
 namespace linalg {
-void registerLinalgComprehensiveBufferizePass();
 void registerLinalgTensorCodegenStrategyPass();
 }  // namespace linalg
 }  // namespace mlir
