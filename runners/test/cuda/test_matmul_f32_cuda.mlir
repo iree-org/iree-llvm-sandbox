@@ -7,7 +7,7 @@
 // Tile K loop with scf::ForOp as Tiledloop doesn't support reduction yet.
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=0,0,4 vectorize" |\
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.fill vectorize" |\
-// RUN: mlir-proto-opt -linalg-comprehensive-bufferize-inplace |\
+// RUN: mlir-opt --linalg-comprehensive-module-bufferize |\
 // RUN: mlir-proto-opt -canonicalize -linalg-tensor-codegen-strategy="convert-to-gpu num-gpu-workgrpoups=2,2 distribute-to-gpu-ids tiled-loop-to-scf" |\
 // RUN: mlir-opt -convert-vector-to-scf=full-unroll=true -convert-linalg-to-loops |\
 // RUN: mlir-opt -gpu-kernel-outlining |\
