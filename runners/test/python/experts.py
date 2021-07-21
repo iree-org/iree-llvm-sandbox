@@ -21,10 +21,11 @@ class Expert:
 
     # TODO: Allow cloning functions from one module to another.
     # Atm we have to resort to string concatenation.
-    module = Module.parse(
-        str(module.operation.regions[0].blocks[0].operations[0].operation) +
-        boilerplate_code)
-
+    benchmark_fun = ''
+    if module:
+      benchmark_fun = str(
+          module.operation.regions[0].blocks[0].operations[0].operation)
+    module = Module.parse(benchmark_fun + boilerplate_code)
     return module
 
   def __call__(self, module, boilerplate_code):
