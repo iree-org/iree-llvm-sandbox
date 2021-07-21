@@ -18,7 +18,6 @@ from mlir.runtime import *
 
 from transforms import *
 
-
 f16 = "f16"
 f32 = "f32"
 f64 = "f64"
@@ -75,11 +74,18 @@ def op_boilerplate(operand_defs, func_name: str, **assignments):
 
   letter = lambda i: chr(ord("A") + i)
   param_names = [f"%{letter(i)}" for (i, _) in enumerate(param_types)]
-  params = ", ".join(
-      f"{name} : {ty}" for (name, ty) in zip(param_names, param_types))
-  writeable_params = [False] * len(inputs) + [True] * len(outputs)
-  writeable_params = ['"true"' if p else '"false"' for p in writeable_params]
-  writeable_params = ", ".join(writeable_params)
+  read_attr = ("{linalg.inplaceable = false, linalg.buffer_layout = "
+               "affine_map<(i, j)[] -> (i, j)>}")
+  write_attr = ("{linalg.inplaceable = true, linalg.buffer_layout = "
+                "affine_map<(i, j)[] -> (i, j)>}")
+  param_attrs = [
+      write_attr if output else read_attr
+      for output in [False] * len(inputs) + [True] * len(outputs)
+  ]
+
+  params = ", ".join(f"{name} : {ty} {attr}"
+                     for (name, ty,
+                          attr) in zip(param_names, param_types, param_attrs))
 
   in_args = ", ".join(param_names[:-1])
   out_arg = param_names[-1]
@@ -89,12 +95,9 @@ def op_boilerplate(operand_defs, func_name: str, **assignments):
 func @main({params}, %iters : index)
   -> {return_type}
   attributes {{
-      llvm.emit_c_interface,
-// Activat manually for AVX-512.
-   passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]],
-// Manually set up `__writeable_func_buffer_args_attr__` to allow proper inplace
-// behavior. This is akin to a user annotation that the compiler understands.
-      __writeable_func_buffer_args_attr__ = [{writeable_params}] }}
+    llvm.emit_c_interface,
+    // Activate manually for AVX-512.
+    passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}}
 {{
   %c0 = constant 0: index
   %c1 = constant 1: index

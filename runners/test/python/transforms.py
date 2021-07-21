@@ -71,7 +71,7 @@ class Vectorize(Transform):
 class Bufferize(Transform):
 
   def __init__(self):
-    pipeline = (f'linalg-comprehensive-bufferize-inplace,'
+    pipeline = (f'linalg-comprehensive-module-bufferize,'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
@@ -80,8 +80,7 @@ class Bufferize(Transform):
 class LowerToLLVM(Transform):
 
   def __init__(self):
-    pipeline = (f'linalg-comprehensive-bufferize-inplace,'
-                f'func(convert-linalg-to-loops,'
+    pipeline = (f'func(convert-linalg-to-loops,'
                 f'     convert-vector-to-scf{{full-unroll=true}}),'
                 f'canonicalize,'
                 f'cse,'

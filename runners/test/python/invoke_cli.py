@@ -4,6 +4,7 @@ import json
 import numpy as np
 from itertools import chain
 from mlir.dialects import linalg
+from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.runtime import *
 from compilation import numpy_type, compile_and_callback
 from search import collect_variables
