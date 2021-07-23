@@ -14,8 +14,3 @@ namespace linalg {
 void registerLinalgTensorCodegenStrategyPass();
 }  // namespace linalg
 }  // namespace mlir
-
-// C callable symbol to register everything.
-extern "C" {
-void ireeLlvmSandboxRegisterPasses();
-}

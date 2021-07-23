@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "./lib/CAPI.h"
 #include "./lib/Registration.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"

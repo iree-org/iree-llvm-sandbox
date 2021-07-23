@@ -1,20 +1,18 @@
 add_subdirectory(lib)
+add_subdirectory(python)
 
-set(MLIR_CORE_LIBS
-${dialect_libs}
-${conversion_libs}
-)
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 
 add_llvm_executable(mlir-proto-opt
 mlir-proto-opt.cpp
 )
 target_link_libraries(mlir-proto-opt
 PRIVATE
-  ${MLIR_CORE_LIBS}
+  ${dialect_libs}
+  ${conversion_libs}
   MLIROptLib
-  MLIRLinalgTensorSandbox
+  IREELinalgTensorSandbox
+  IREELinalgTensorSandboxCAPI
 )
 mlir_check_all_link_libraries(mlir-proto-opt)
-
-
-configure_file("__init__.py.in"  "__init__.py")

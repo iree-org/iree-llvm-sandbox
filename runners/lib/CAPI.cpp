@@ -1,4 +1,4 @@
-//===- Registration.cpp - Register custom passes --------------------------===//
+//===- CAPI.cpp - CAPI implementation -------------------------------------===//
 //
 // Convert from Linalg ops on tensors to Linalg ops on buffers in a single pass.
 // Aggressively try to perform inPlace bufferization and fail if any allocation
@@ -7,6 +7,9 @@
 // now).
 //
 //===----------------------------------------------------------------------===//
+
+#include "CAPI.h"
+
 #include "Registration.h"
 
 using namespace mlir;

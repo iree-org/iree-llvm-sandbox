@@ -1,9 +1,8 @@
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
 
 # Bootstrap our local extensions first.
-# TODO: Requires that both ${LLVM_INSTALL}/python and ./build are on
-# PYTHONPATH
-import runners
+# TODO: Come up with a way to make this auto-load.
+import mlir.iree_sandbox
 
 import sys
 import numpy as np
@@ -35,12 +34,12 @@ def callback_ranked(ranked_memref):
   descriptor_t = make_nd_memref_descriptor(
       2, np.ctypeslib.as_ctypes_type(np.float32))
   val = ctypes.cast(ranked_memref, ctypes.POINTER(descriptor_t))
-  print(f'Inside Ranked Callback:offset={val[0].offset}, \
-      shape={np.ctypeslib.as_array(val[0].shape)}, \
-      strides={np.ctypeslib.as_array(val[0].strides)}, ')
+  print(f'Inside Ranked Callback:offset={val[0].offset}, '
+        f'shape={np.ctypeslib.as_array(val[0].shape)}, '
+        f'strides={np.ctypeslib.as_array(val[0].strides)}, ')
   arr = ranked_memref_to_numpy(ranked_memref)
-  print(f'Inside Ranked Callback:np.shape={arr.shape}, \
-        np.strides={arr.strides}, ')
+  print(f'Inside Ranked Callback:np.shape={arr.shape}, '
+        f'np.strides={arr.strides}, ')
 
 
 # Define a callback_unranked function that takes an unranked memref and dumps
@@ -50,12 +49,12 @@ def callback_unranked(unranked_memref):
   descriptor_t = make_nd_memref_descriptor(
       unranked_memref[0].rank, np.ctypeslib.as_ctypes_type(np.float32))
   val = ctypes.cast(unranked_memref[0].descriptor, ctypes.POINTER(descriptor_t))
-  print(f'Inside Unranked Callback:offset={val[0].offset}, \
-      shape={np.ctypeslib.as_array(val[0].shape)}, \
-      strides={np.ctypeslib.as_array(val[0].strides)}, ')
+  print(f'Inside Unranked Callback:offset={val[0].offset}, '
+        f'shape={np.ctypeslib.as_array(val[0].shape)}, '
+        f'strides={np.ctypeslib.as_array(val[0].strides)}, ')
   arr = unranked_memref_to_numpy(unranked_memref, np.float32)
-  print(f'Inside Unranked Callback:np.shape={arr.shape}, \
-        np.strides={arr.strides}, ')
+  print(f'Inside Unranked Callback:np.shape={arr.shape}, '
+        f'np.strides={arr.strides}, ')
 
 
 def boilerplate(M: int, N: int):
@@ -120,18 +119,18 @@ def test_memref_metadata(M: int, N: int):
     execution_engine.invoke('main', A_memref_ptr)
 
 
-# CHECK: Inside Ranked Callback:offset=0,       shape=[4 8],       strides=[8 1],
-# CHECK: Inside Ranked Callback:np.shape=(4, 8),         np.strides=(32, 4),
-# CHECK: Inside Unranked Callback:offset=0,       shape=[4 8],       strides=[8 1],
-# CHECK: Inside Unranked Callback:np.shape=(4, 8),         np.strides=(32, 4),
+# CHECK: Inside Ranked Callback:offset=0, shape=[4 8], strides=[8 1],
+# CHECK: Inside Ranked Callback:np.shape=(4, 8), np.strides=(32, 4),
+# CHECK: Inside Unranked Callback:offset=0, shape=[4 8], strides=[8 1],
+# CHECK: Inside Unranked Callback:np.shape=(4, 8), np.strides=(32, 4),
 test_memref_metadata(4, 8)
-# CHECK: Inside Ranked Callback:offset=0,       shape=[128 192],       strides=[192   1],
-# CHECK: Inside Ranked Callback:np.shape=(128, 192),         np.strides=(768, 4),
-# CHECK: Inside Unranked Callback:offset=0,       shape=[128 192],       strides=[192   1],
-# CHECK: Inside Unranked Callback:np.shape=(128, 192),         np.strides=(768, 4),
+# CHECK: Inside Ranked Callback:offset=0, shape=[128 192], strides=[192   1],
+# CHECK: Inside Ranked Callback:np.shape=(128, 192), np.strides=(768, 4),
+# CHECK: Inside Unranked Callback:offset=0, shape=[128 192], strides=[192   1],
+# CHECK: Inside Unranked Callback:np.shape=(128, 192), np.strides=(768, 4),
 test_memref_metadata(128, 192)
-# CHECK: Inside Ranked Callback:offset=0,       shape=[1024 1024],       strides=[1024    1],
-# CHECK: Inside Ranked Callback:np.shape=(1024, 1024),         np.strides=(4096, 4),
-# CHECK: Inside Unranked Callback:offset=0,       shape=[1024 1024],       strides=[1024    1],
-# CHECK: Inside Unranked Callback:np.shape=(1024, 1024),         np.strides=(4096, 4),
+# CHECK: Inside Ranked Callback:offset=0, shape=[1024 1024], strides=[1024    1],
+# CHECK: Inside Ranked Callback:np.shape=(1024, 1024), np.strides=(4096, 4),
+# CHECK: Inside Unranked Callback:offset=0, shape=[1024 1024], strides=[1024    1],
+# CHECK: Inside Unranked Callback:np.shape=(1024, 1024), np.strides=(4096, 4),
 test_memref_metadata(1024, 1024)

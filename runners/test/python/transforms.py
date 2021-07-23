@@ -1,8 +1,6 @@
 # Bootstrap our local extensions first.
-# TODO: Requires that both ${LLVM_INSTALL}/python and ./build are on
-# PYTHONPATH
-
-import runners
+# TODO: Come up with a way to make this auto-load.
+import mlir.iree_sandbox
 
 from mlir.ir import *
 from mlir.passmanager import *
