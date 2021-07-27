@@ -54,7 +54,7 @@ which python
 python -m venv ~/.venv/mlirdev
 source ~/.venv/mlirdev/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r $HOME/src/llvm-project/mlir/lib/Bindings/Python/requirements.txt
+python -m pip install -r $HOME/src/llvm-project/mlir/python/requirements.txt
 ```
 
 Optionally, install pytorch nightly:

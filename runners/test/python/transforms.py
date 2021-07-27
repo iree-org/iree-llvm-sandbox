@@ -7,7 +7,6 @@ from mlir.passmanager import *
 
 import mlir.all_passes_registration
 
-
 class Transform:
   """Base class for all parametrized transformations."""
 
@@ -20,13 +19,15 @@ class Fuse(Transform):
   def __init__(self, func_name: str, op_name: str, tile_sizes: list, pad=False):
     pad_str = f'fuse-padding' if pad else ''
     tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
-    pipeline = (f'func(linalg-tensor-codegen-strategy{{anchor-func={func_name} '
-                f'     anchor-op={op_name} '
-                f'     fuse '
-                f'     {pad_str}'
-                f'     {tile_str}}}),'
-                f'canonicalize,'
-                f'cse')
+    pipeline = (
+        f'linalg-tensor-codegen-driver{{'
+        f'     anchor-func={func_name} '
+        f'     anchor-op={op_name} '
+        #f'     fuse '
+        f'     {pad_str}'
+        f'     {tile_str}}},'
+        f'canonicalize,'
+        f'cse')
     self.pipeline = pipeline
 
 
@@ -44,11 +45,12 @@ class TileAndPad(Transform):
       pad_str = 'pad'
     if hoist_padding:
       hoist_padding_str = f'hoist-padding={hoist_padding}'
-    pipeline = (f'func(linalg-tensor-codegen-strategy{{anchor-func={func_name} '
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     anchor-func={func_name} '
                 f'     anchor-op={op_name} '
                 f'     {tile_str} '
                 f'     {pad_str} '
-                f'     {hoist_padding_str}}}),'
+                f'     {hoist_padding_str}}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
@@ -57,10 +59,11 @@ class TileAndPad(Transform):
 class Vectorize(Transform):
 
   def __init__(self, func_name: str, op_name: str):
-    pipeline = (f'func(linalg-tensor-codegen-strategy{{anchor-func={func_name} '
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     anchor-func={func_name} '
                 f'     anchor-op={op_name} '
                 f'     vectorize '
-                f'     vectorize-padding}}),'
+                f'     vectorize-padding}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
@@ -78,15 +81,9 @@ class Bufferize(Transform):
 class LowerToLLVM(Transform):
 
   def __init__(self):
-    pipeline = (f'func(convert-linalg-to-loops,'
-                f'     convert-vector-to-scf{{full-unroll=true}}),'
-                f'canonicalize,'
-                f'cse,'
-                f'lower-affine,'
-                f'convert-scf-to-std,'
-                f'convert-vector-to-llvm,'
-                f'convert-memref-to-llvm,'
-                f'convert-std-to-llvm')
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'    lower-vector '
+                f'    lower-to-llvm}}')
     self.pipeline = pipeline
 
 

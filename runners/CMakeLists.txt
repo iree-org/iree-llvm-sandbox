@@ -1,3 +1,7 @@
+include_directories(include)
+include_directories(${IREE_LLVM_SANDBOX_BINARY_DIR}/runners/include)
+
+add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(python)
 

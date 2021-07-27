@@ -3,6 +3,7 @@ include(AddMLIR)
 add_mlir_library(IREELinalgTensorSandbox
   ConvertToAsyncDialect.cpp
   ConvertToGPUDialect.cpp
+  LinalgTensorCodegenDriver.cpp
   LinalgTensorCodegenStrategy.cpp
   LinalgTileAndFuse.cpp
 
@@ -11,6 +12,9 @@ add_mlir_library(IREELinalgTensorSandbox
   MLIRAsync
   MLIRGPUOps
   MLIRLinalgTransforms
+
+  DEPENDS
+  RunnersPassIncGen
 )
 
 add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI

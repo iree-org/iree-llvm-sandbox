@@ -1,6 +1,7 @@
 // RUN: mlir-opt %s -linalg-comprehensive-module-bufferize |\
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
-// RUN: mlir-opt -canonicalize -convert-scf-to-std -convert-memref-to-llvm -convert-vector-to-llvm -convert-std-to-llvm | \
+// RUN: mlir-opt -canonicalize -convert-scf-to-std -convert-vector-to-llvm -convert-memref-to-llvm |\
+// RUN: mlir-opt -convert-std-to-llvm | \
 
 // RUN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
 // RUN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext | \
