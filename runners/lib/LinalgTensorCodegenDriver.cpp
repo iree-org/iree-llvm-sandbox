@@ -54,24 +54,24 @@ struct LinalgTensorCodegenDriverPass
 }  // namespace
 
 void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
-  // Module lowering pipeline.
-  PassManager pm(&getContext());
-  OpPassManager &nestedFuncOpPM = pm.nest<FuncOp>();
+  OpPassManager dynamicPM("LowerToLLVM");
+  OpPassManager &nestedFuncOpPM = dynamicPM.nest<FuncOp>();
   nestedFuncOpPM.addPass(createConvertVectorToSCFPass());
   nestedFuncOpPM.addPass(createConvertLinalgToLoopsPass());
-  pm.addPass(createCanonicalizerPass());
-  pm.addPass(createLowerAffinePass());
-  pm.addPass(createLowerToCFGPass());
-  pm.addPass(createConvertLinalgToLLVMPass());
-  pm.addPass(createConvertVectorToLLVMPass());
-  pm.addPass(createMemRefToLLVMPass());
-  pm.addPass(createLowerToLLVMPass());
-  pm.addPass(createCanonicalizerPass());
-  pm.addPass(createCSEPass());
-  if (failed(pm.run(getOperation()))) return signalPassFailure();
+  dynamicPM.addPass(createCanonicalizerPass());
+  dynamicPM.addPass(createLowerAffinePass());
+  dynamicPM.addPass(createLowerToCFGPass());
+  dynamicPM.addPass(createConvertLinalgToLLVMPass());
+  dynamicPM.addPass(createConvertVectorToLLVMPass());
+  dynamicPM.addPass(createMemRefToLLVMPass());
+  dynamicPM.addPass(createLowerToLLVMPass());
+  dynamicPM.addPass(createCanonicalizerPass());
+  dynamicPM.addPass(createCSEPass());
+  if (failed(runPipeline(dynamicPM, getOperation())))
+    return signalPassFailure();
 }
 
-/// Return the neutral elementas a new Value.
+/// Return the neutral element as a new Value.
 /// For now, just assume it is the zero of type.
 /// In the future, it should be the zero of type + op.
 static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
@@ -124,13 +124,11 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
 }
 
 void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
-  // Module-level bufferization enables later vector transforms.
-  StringRef pipeline =
-      "canonicalize,"
-      "cse,"
-      "linalg-comprehensive-module-bufferize";
-  PassManager pm(&getContext());
-  if (failed(parsePassPipeline(pipeline, pm)) || failed(pm.run(getOperation())))
+  OpPassManager dynamicPM("ComprehensiveBufferization");
+  dynamicPM.addPass(createCanonicalizerPass());
+  dynamicPM.addPass(createCSEPass());
+  dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass());
+  if (failed(runPipeline(dynamicPM, getOperation())))
     return signalPassFailure();
 }
 
@@ -152,8 +150,8 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
 
   // Per-function lowering pipeline.
   getOperation().walk([&](FuncOp funcOp) {
-    CodegenStrategy strategy2;
-    strategy2
+    CodegenStrategy strategy;
+    strategy
         // Lowering of vector contractions.
         .setEnableVectorContractLowering(true)
         // Whether to split full/partial vector.transfer ops.
