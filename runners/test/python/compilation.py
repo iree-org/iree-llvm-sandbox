@@ -89,29 +89,13 @@ def op_boilerplate(operand_defs, func_name: str, **assignments):
                           attr) in zip(param_names, param_types, param_attrs))
 
   in_args = ", ".join(param_names[:-1])
-  in_types = ", ".join(param_types[:-1])
   out_arg = param_names[-1]
-  out_type = param_types[-1]
   iter_arg = "%iter" + out_arg[1:]
 
   return f"""
-func @{func_name}({params}) -> {return_type}
-  attributes {{
-    // Activate manually for AVX-512.
-    passthrough = ["inline", ["target-cpu", "skylake"], ["prefer-vector-width", "256"]]}}
-{{
-  %cst = constant 0.0 : {element_type}
-  %zero = linalg.fill(%cst, {out_arg}) : {element_type}, {out_type} -> {return_type}
-  %result = linalg.matmul ins({in_args} : {in_types}) outs(%zero : {out_type}) -> {return_type}
-  return %result : {return_type}
-}}
-
 func @main({params}, %iters : index)
   -> {return_type}
-  attributes {{
-    llvm.emit_c_interface,
-    // Activate manually for AVX-512.
-    passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}}
+  attributes {{llvm.emit_c_interface}}
 {{
   %c0 = constant 0: index
   %c1 = constant 1: index
@@ -121,7 +105,6 @@ func @main({params}, %iters : index)
       ({", ".join(param_types)}) -> ({return_type})
     scf.yield %r : {return_type}
   }}
-
   return %res : {return_type}
 }}
 """
@@ -133,32 +116,52 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
       op.model.registered_operands.values(),
       key=lambda odef: odef.registered_index)
 
-  # TODO: reactive once bufferization does not require function argument
-  # attributes anymore.
-  #   ranked_tensor_types = [
-  #       operand_type(odef, **assignments) for odef in operand_defs
-  #   ]
-  #   return_elem_type = scalar_type(operand_defs[-1], **assignments)
-  #   module = Module.create()
-  #   with InsertionPoint(module.body):
+  ranked_tensor_types = [
+      operand_type(odef, **assignments) for odef in operand_defs
+  ]
+  return_elem_type = scalar_type(operand_defs[-1], **assignments)
+  module = Module.create()
+  with InsertionPoint(module.body):
 
-  #     @builtin.FuncOp.from_py_func(*ranked_tensor_types)
-  #     def matmul_on_tensors(*outer_args):
-  #       # TODO: in the future, should be writeable more concisely as:
-  #       #   zero = std.constant(0.0, elem_type)
-  #       #   tmp = linalg.fill(zero, out)
-  #       #   linalg.matmul(lhs, rhs, tmp)
-  #       zero = std.ConstantOp(
-  #           value=FloatAttr.get(return_elem_type, 0.),
-  #           result=return_elem_type).result
-  #       tensor_zero = linalg.FillOp(output=outer_args[-1], value=zero).results[0]
-  #       args = outer_args[:-1]
-  #       return op(*args, outs=[tensor_zero])
+    @builtin.FuncOp.from_py_func(*ranked_tensor_types)
+    def matmul_on_tensors(*outer_args):
+      # TODO: in the future, should be writeable more concisely as:
+      #   zero = std.constant(0.0, elem_type)
+      #   tmp = linalg.fill(zero, out)
+      #   linalg.matmul(lhs, rhs, tmp)
+      zero = std.ConstantOp(
+          value=FloatAttr.get(return_elem_type, 0.),
+          result=return_elem_type).result
+      tensor_zero = linalg.FillOp(output=outer_args[-1], value=zero).results[0]
+      args = outer_args[:-1]
+      return op(*args, outs=[tensor_zero])
+
+  # Set the bufferization and optimization attributes.
+  func = module.operation.regions[0].blocks[0].operations[0].operation
+  layout_map = AffineMap.get(2, 0, [AffineDimExpr.get(0), AffineDimExpr.get(1)])
+  input_attr = DictAttr.get({
+      "linalg.buffer_layout": AffineMapAttr.get(layout_map),
+      "linalg.inplaceable": BoolAttr.get(False)
+  })
+  output_attr = DictAttr.get({
+      "linalg.buffer_layout": AffineMapAttr.get(layout_map),
+      "linalg.inplaceable": BoolAttr.get(True)
+  })
+  func.attributes["arg_attrs"] = ArrayAttr.get(
+      [input_attr, input_attr, output_attr])
+  func.attributes["passthrough"] = ArrayAttr.get([
+      ArrayAttr.get(
+          [StringAttr.get("target-cpu"),
+           StringAttr.get("skylake-avx512")]),
+      ArrayAttr.get(
+          [StringAttr.get("prefer-vector-width"),
+           StringAttr.get("512")])
+  ])
 
   # JIT compile.
   start = time.time()
   transformed_module = transform(
-      None, op_boilerplate(operand_defs, "matmul_on_tensors", **assignments))
+      module, op_boilerplate(operand_defs, "matmul_on_tensors", **assignments))
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
 

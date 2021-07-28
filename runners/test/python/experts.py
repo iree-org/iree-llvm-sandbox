@@ -18,13 +18,8 @@ class Expert:
     self.assignments = Assignments(**asignments)
 
   def _pre_transform(self, module, boilerplate_code):
-
-    # TODO: Allow cloning functions from one module to another.
-    # Atm we have to resort to string concatenation.
-    benchmark_fun = ''
-    if module:
-      benchmark_fun = str(
-          module.operation.regions[0].blocks[0].operations[0].operation)
+    benchmark_fun = str(
+        module.operation.regions[0].blocks[0].operations[0].operation)
     module = Module.parse(benchmark_fun + boilerplate_code)
     return module
 
