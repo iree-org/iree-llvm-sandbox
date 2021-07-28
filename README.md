@@ -24,10 +24,6 @@ ways to set this up but the following is recommended. It is left to the reader
 to adapt paths if deviating. We assume below that projects are checked out to
 `$HOME/src`.
 
-Patches required in LLVM:
-
-*   https://reviews.llvm.org/D106520
-
 ## Check out projects
 
 In your `$HOME/src` directory, check out each project:
