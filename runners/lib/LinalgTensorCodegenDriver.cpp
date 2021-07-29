@@ -124,7 +124,7 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
 }
 
 void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
-  OpPassManager dynamicPM("ComprehensiveBufferization");
+  OpPassManager dynamicPM("module");
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
   dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass());
