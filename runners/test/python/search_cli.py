@@ -9,7 +9,7 @@ import shlex
 from random import choice
 from mlir.dialects import linalg
 from compilation import scalar_types
-from search import collect_variables, instantiate_variables
+from search import collect_variables, instantiate_variables, are_constraints_satisfied
 import experts
 
 
@@ -38,13 +38,22 @@ def parse_args():
   parser.add_argument(
       '--tsize_length_range',
       type=str,
-      default='1,4,1',
-      help='Range of potential lengths for tiling sizes.')
+      default='default=3,4,1',
+      help='Ranges of potential lengths for tiling sizes either specified for '
+      'all tiling hierarchies =\"default=3,4,1\" or for all of '
+      'them =\"sizes3=3,4,1 sizes2=3,4,1 sizes1=3,4,1\"')
   parser.add_argument(
       '--tsize_value_range',
       type=str,
-      default='8,513,8',
-      help='Range of potential values for tiling sizes.')
+      default='sizes3=8,33,8 sizes2=32,129,16 sizes1=128,513,32',
+      help='Ranges of potential values for tiling sizes either specified for '
+      'all tiling hierarchies =\"default=0,513,32\" or for all of '
+      'them =\"sizes3=8,33,8 sizes2=32,129,16 sizes1=128,513,32\"')
+  parser.add_argument(
+      '--tsize_register_tile_bound',
+      type=int,
+      default=64,
+      help='Upper bound for the register tiling sizes.')
   parser.add_argument(
       '--hpad_range',
       type=str,
@@ -103,8 +112,7 @@ def validate_args(args):
     no_errors = False
     print(msg)
 
-  def validate_range(range_name):
-    range_str = getattr(args, range_name)
+  def validate_range_str(range_str):
     range_parts = range_str.split(',')
     if len(range_parts) < 1 or len(range_parts) > 3:
       error(
@@ -120,10 +128,25 @@ def validate_args(args):
     if len(value_range) < 1:
       error(f'Must have at least one value in {range_name} range.')
 
+  def validate_range(range_name):
+    range_str = getattr(args, range_name)
+    validate_range_str(range_str)
+
+  def validate_named_range(named_range_name):
+    named_range_str = getattr(args, named_range_name)
+    str_parts = named_range_str.split(' ')
+    for str_part in str_parts:
+      assign_parts = str_part.split('=')
+      if len(assign_parts) != 2:
+        error(
+            f'{assign_parts} should contain assignments of the form name=range.'
+        )
+      validate_range_str(assign_parts[1])
+
   validate_range('int_range')
   validate_range('dim_range')
-  validate_range('tsize_length_range')
-  validate_range('tsize_value_range')
+  validate_named_range('tsize_length_range')
+  validate_named_range('tsize_value_range')
   validate_range('hpad_range')
 
   if not hasattr(linalg, args.op):
@@ -177,6 +200,15 @@ def parse_assignments(args):
   return assignments
 
 
+def parse_named_ranges(named_range_str):
+  str_parts = named_range_str.split(' ')
+  named_ranges = {}
+  for str_part in str_parts:
+    [name, range_str] = str_part.split('=')
+    named_ranges[name] = parse_range(range_str)
+  return named_ranges
+
+
 def parse_range(range_str):
   str_parts = range_str.split(',')
   int_parts = map(int, str_parts)
@@ -188,8 +220,9 @@ def parse_settings(args):
   settings['types'] = args.types.split(',')
   settings['int_range'] = parse_range(args.int_range)
   settings['dim_range'] = parse_range(args.dim_range)
-  settings['tsize_length_range'] = parse_range(args.tsize_length_range)
-  settings['tsize_value_range'] = parse_range(args.tsize_value_range)
+  settings['tsize_length_range'] = parse_named_ranges(args.tsize_length_range)
+  settings['tsize_value_range'] = parse_named_ranges(args.tsize_value_range)
+  settings['tsize_register_tile_bound'] = args.tsize_register_tile_bound
   settings['hpad_range'] = parse_range(args.hpad_range)
   return settings
 
@@ -207,9 +240,14 @@ def search(args):
     variables = {}
     variables.update(op_variables)
     variables.update(expert.variables)
-    assignments = dict()
-    assignments.update(instantiate_variables(variables, **settings))
-    assignments.update(cli_assignments)
+    print('Search random assignment...')
+    while True:
+      assignments = dict()
+      assignments.update(instantiate_variables(variables, **settings))
+      assignments.update(cli_assignments)
+      if are_constraints_satisfied(assignments, variables, **settings):
+        break
+    print('Done: ' + str(assignments))
     invoke_subprocess(args.op, expert_name, assignments, args.output,
                       args.timeout, args.iters, args.runs)
 
