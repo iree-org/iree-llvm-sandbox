@@ -93,11 +93,11 @@ class Sparsify(Transform):
     pipeline = (
         f'sparsification{{{options}}},'
         f'sparse-tensor-conversion,'
-        f'func(convert-linalg-to-loops,convert-vector-to-scf),'
+        f'builtin.func(convert-linalg-to-loops,convert-vector-to-scf),'
         f'convert-scf-to-std,'
         f'func-bufferize,'
         f'tensor-constant-bufferize,'
-        f'func(tensor-bufferize,std-bufferize,finalizing-bufferize),'
+        f'builtin.func(tensor-bufferize,std-bufferize,finalizing-bufferize),'
         f'convert-vector-to-llvm{{reassociate-fp-reductions=1 enable-index-optimizations=1}},'
         f'convert-memref-to-llvm,'
         f'convert-std-to-llvm')
