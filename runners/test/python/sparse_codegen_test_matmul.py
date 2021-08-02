@@ -4,9 +4,9 @@ This module tests the matrix multiplication operation with all combinations of
 sparsity annotation and codegen options.
 """
 
+from typing import List
 import itertools
 import sys
-from typing import List
 
 import numpy as np
 
@@ -19,11 +19,10 @@ from mlir.dialects.linalg.opdsl import lang as dsl
 import sparse_codegen_test_common as test_common
 
 
-# TODO:
-# Uses generated test data and more general tensor dimensions.
-# Parallelizes the tests.
-# Allows the tests to continue until the number of failures reaches a threshold.
-# Allows inputs with different values for (pw, iw).
+# TODO(b/195340661): Parallelize the tests.
+# TODO(b/195340661): Allow the tests to continue until the number of failures
+# reaches a threshold.
+# TODO(b/195340661): Allow inputs with different values for (pw, iw).
 def _test_matmul(test_desc: test_common.TestDesc, a2: List[st.DimLevelType],
                  b2: List[st.DimLevelType], a_so2: List[int], b_so2: List[int],
                  pw: int, iw: int, ps: int, vl: int) -> None:
@@ -47,7 +46,7 @@ def _test_matmul(test_desc: test_common.TestDesc, a2: List[st.DimLevelType],
         test_common.InputDesc(b_so2, b2, pw, iw)
     ])
 
-    if np.allclose(actual_result, test_desc.reference_result):
+    if np.allclose(actual_result, test_desc.get_reference_result):
       print(test_name, " passed")
     else:
       print(test_name, " failed")
@@ -57,9 +56,9 @@ def _test_matmul(test_desc: test_common.TestDesc, a2: List[st.DimLevelType],
 def run_test():
   # Defines the test descriptor. The operation being test will be assigned
   # later.
-  test_desc = test_common.TestDesc([dsl.S.M, dsl.S.N, dsl.S.K], [8, 8, 8],
-                                   [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.K],
-                                   [dsl.S.K, dsl.S.N])
+  test_desc = test_common.TestDesc("matmul", [dsl.S.M, dsl.S.N, dsl.S.K],
+                                   [8, 8, 8], [dsl.S.M, dsl.S.N],
+                                   [dsl.S.M, dsl.S.K], [dsl.S.K, dsl.S.N])
 
   @dsl.linalg_structured_op
   def matmul_dsl(

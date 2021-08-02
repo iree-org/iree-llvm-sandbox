@@ -72,7 +72,7 @@ def _test_invalid_affine_expression() -> int:
   """
   name = inspect.currentframe().f_code.co_name
   try:
-    _ = tc.TestDesc([dsl.S.M, dsl.S.N], [8, 8], [dsl.S.M, dsl.S.X])
+    _ = tc.TestDesc("dummy", [dsl.S.M, dsl.S.N], [8, 8], [dsl.S.M, dsl.S.X])
   except ValueError:
     num_failed = _pass_test(name)
   else:

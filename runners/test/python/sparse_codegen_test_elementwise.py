@@ -4,8 +4,9 @@ This module tests the elementwise add operation with all combinations of
 sparsity annotation and codegen options.
 """
 
-import itertools
 from typing import List
+import itertools
+import sys
 
 import numpy as np
 
@@ -15,17 +16,16 @@ from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
 # Import common test tools.
-import sparse_codegen_test_common as tc
+import sparse_codegen_test_common as test_common
 
 
-# TODO:
-# Uses generated test data and more general tensor dimensions.
-# Parallelizes the tests.
-# Allows the tests to continue until the number of failures reaches a threshold.
-# Allows inputs with different values for (pw, iw).
-def _test_add(test_desc: tc.TestDesc, a2: List[st.DimLevelType],
+# TODO(b/195340661): Parallelize the tests.
+# TODO(b/195340661): Allow the tests to continue until the number of failures
+# reaches a threshold.
+# TODO(b/195340661): Allow inputs with different values for (pw, iw).
+def _test_add(test_desc: test_common.TestDesc, a2: List[st.DimLevelType],
               b2: List[st.DimLevelType], so2: List[int], pw: int, iw: int,
-              pa: int, vl: int):
+              ps: int, vl: int):
   """Generates and runs C = A + B to explore annotation and codegen options.
 
   Args:
@@ -35,27 +35,29 @@ def _test_add(test_desc: tc.TestDesc, a2: List[st.DimLevelType],
     so2: The dimension ordering for A and B. Its value is a list of integers.
     pw: The integer pointer bitwidth.
     iw: The integer index bitwidth.
-    pa: The integer parallelization strategy.
+    ps: The integer parallelization strategy.
     vl: The integer vector length.
   """
-  test_name = f"test_{a2}_{b2}_{so2}_{pw}_{iw}_{pa}_{vl}"
+  test_name = f"test_{a2}_{b2}_{so2}_{pw}_{iw}_{ps}_{vl}"
   with ir.Context() as ctx:
-    actual_result = test_desc.get_result(
-        pa, vl, [tc.InputDesc(so2, a2, pw, iw),
-                 tc.InputDesc(so2, b2, pw, iw)])
+    actual_result = test_desc.get_result(ps, vl, [
+        test_common.InputDesc(so2, a2, pw, iw),
+        test_common.InputDesc(so2, b2, pw, iw)
+    ])
 
-    if np.allclose(actual_result, test_desc.reference_result):
+    if np.allclose(actual_result, test_desc.get_reference_result):
       print(test_name, " passed")
     else:
       print(test_name, " failed")
-      quit("FAILURE")
+      sys.exit("FAILURE")
 
 
 def run_test():
   # Defines the test descriptor. The operation being test will be assigned
   # later.
-  test_desc = tc.TestDesc([dsl.S.M, dsl.S.N], [8, 8], [dsl.S.M, dsl.S.N],
-                          [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.N])
+  test_desc = test_common.TestDesc("add", [dsl.S.M, dsl.S.N], [8, 16],
+                                   [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.N],
+                                   [dsl.S.M, dsl.S.N])
 
   @dsl.linalg_structured_op
   def add_dsl(
@@ -72,12 +74,10 @@ def run_test():
   test_desc.calculate_reference_result()
 
   # Test all combinations of annotations and codegen options.
-  for a2, b2, so2, pw, iw, pa, vl in itertools.product(tc.sparsities2(),
-                                                       tc.sparsities2(),
-                                                       tc.orderings2(),
-                                                       tc.bitwidths(),
-                                                       tc.bitwidths(),
-                                                       tc.pars(), tc.vls()):
+  for a2, b2, so2, pw, iw, pa, vl in itertools.product(
+      test_common.sparsities2(), test_common.sparsities2(),
+      test_common.orderings2(), test_common.bitwidths(),
+      test_common.bitwidths(), test_common.pars(), test_common.vls()):
     _test_add(test_desc, a2, b2, so2, pw, iw, pa, vl)
 
 

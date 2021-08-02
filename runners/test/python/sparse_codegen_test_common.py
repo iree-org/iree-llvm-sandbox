@@ -13,10 +13,13 @@ codegen option.
 """
 
 from collections.abc import Callable
+from enum import Enum
+from typing import Any, BinaryIO, Iterable, List, Optional, Tuple
 import ctypes
 import itertools
 import os
-from typing import List
+import random
+import tempfile
 
 import numpy as np
 
@@ -39,21 +42,153 @@ _TEST_DATA_DIR = _TEST_LIB_DIR + r"/data/"
 # Load the supporting library that provides C functions to support the execution
 # of the compiler generated code for the operations being tested, such as to
 # read and write sparse tensors, and to print vectors.
-# TODO: Remove this code when the execution engine is able to do this set up.
+# TODO(b/195340661): Remove this code when the execution engine is able to do
+# this set up.
 _ = ctypes.CDLL(_TEST_LIB, mode=runtime.ctypes.RTLD_GLOBAL)
 
 
-class InputDesc(object):
-  """An input for the operation being tested.
+class _Scheme(Enum):
+  """Schemes for generating non-zero values for sparse input tensors.
 
-  Attributes:
-    _ordering: A list of integers, representing the storage ordering for each
-      input dimension.
-    _sparsity: A list of DimLevelType, representing the sparsity for each input
-      dimension.
-    _pointer_bw: The integer bit width for the pointer.
-    _index_bw: The integer bit width for the index.
+  * `DOT`: A scheme for generating non-zero values as scattered dots.
+  * `PLANE`: A scheme for generating non-zero values in hyperplanes.
   """
+  DOT = 0
+  PLANE = 1
+
+
+class _Generator(object):
+  """Generating values for a sparse input tensor."""
+
+  # A generator has the following attributes:
+  # _scheme: A Enum value of _Scheme, representing the generation scheme to be
+  #   used.
+  # _shape: A list of integers, representing the shape of the input tensor.
+  # _values: A list of integers used as the non-zero values for the sparse input
+  #   tensor.
+
+  def __init__(self,
+               shape: List[int],
+               scheme: Optional[_Scheme] = None,
+               values: Optional[List[int]] = None):
+    """Constructs an input descriptor.
+
+    Args:
+      shape: A list of integers, representing the shape of the input tensor.
+      scheme: An Enum value of _Scheme, representing the scheme to be used. If a
+        scheme is not provided, a scheme is chosen randomly.
+      values: A list of integers used cyclically as the non-zero values for the
+        sparse input tensor.
+    """
+    self._shape = shape
+    # If a scheme is not specified, randomly choose a scheme.
+    random_int = random.randrange(2)
+    scheme = scheme or _Scheme.DOT if random_int == 0 else _Scheme.PLANE
+    # For tensors with rank <=2, _Scheme.PLANE degenerates to _Scheme.DOT.
+    self._scheme = _Scheme.DOT if len(shape) <= 2 else scheme
+
+    self._values = values or [1, 2, 3, 4, 5]
+
+  def generate(self, filename: str) -> None:
+    """ Generates the input data and writes it to the given file."""
+    # TODO(b/195340661): Use buffers to pass the generated data when the
+    # execution engine runtime supports this.
+    with open(filename, "w") as file:
+      # Output the generation scheme as a comment.
+      file.write(f"# scheme={self._scheme}\n")
+
+      # Generate and return the data in a coordinate format.
+      data = (
+          self._generate_dot(file)
+          if self._scheme == _Scheme.DOT else self._generate_plane(file))
+
+      # Output rank and total_elements.
+      file.write(f"{len(self._shape)} {len(data)}\n")
+
+      # Output the size for each dimension.
+      for d in self._shape:
+        file.write(f"{d} ")
+      file.write("\n")
+
+      # Output each element using format [coordinates value].
+      for e in data:
+        for v in e[:-1]:
+          # Coordinate format used by the test starts from 1 not 0.
+          file.write(f"{v+1} ")
+        # Output the value.
+        file.write(f" {e[-1]}\n")
+
+  def _generate_dot(self, file: BinaryIO) -> List[int]:
+    """Generates a tensor with non-zero values as scattered dots."""
+    num_elements = np.prod(self._shape)
+    # Generate a non-zero every n values to achieve 20% density.
+    n = max(num_elements // 20, 1)
+    # Randomdize the position of the first non-zero value.
+    first = random.randrange(n)
+    # Output these two parameters as a comment.
+    file.write(f"# n={n} first={first}\n")
+
+    num_generated = 0
+    num_available = len(self._values)
+    data = []
+    for i in range(num_elements):
+      if (i % n) == first:
+        ele = self._index_to_coordinate(i, self._shape)
+        ele.append(self._values[num_generated % num_available])
+        data.append(ele)
+        num_generated += 1
+    return data
+
+  def _generate_plane(self, file: BinaryIO) -> List[int]:
+    """Generates a tensor with non-zero values on a plane."""
+    plane_shape = self._shape[-2:]
+    other_shape = self._shape[:-2]
+    num_plane_elements = np.prod(plane_shape)
+    num_other_elements = np.prod(other_shape)
+    # Generate a non-zero every n values to achieve 20% density.
+    n = max((num_plane_elements * num_other_elements) // 20, 1)
+    # Randomdize the position of the first non-zero value on the plane.
+    first = random.randrange(n)
+    # Output these two parameters as a comment.
+    file.write(f"# n={n} first={first}\n")
+
+    num_generated = 0
+    num_available = len(self._values)
+    data = []
+    for j in range(num_other_elements):
+      other_coords = self._index_to_coordinate(j, other_shape)
+      for i in range(num_plane_elements):
+        if (i % n) == first:
+          plane_coords = self._index_to_coordinate(i, plane_shape)
+          ele = other_coords + plane_coords
+          ele.append(self._values[num_generated % num_available])
+          data.append(ele)
+          num_generated += 1
+    return data
+
+  def _index_to_coordinate(self, order: int, shape: List[int]) -> List[int]:
+    """Converts a linear index to coordinates."""
+    low = 1
+    high = order
+    coordinates = []
+    for dim in shape:
+      low *= dim
+      coordinates.append(high % low)
+      high //= dim
+    assert (high == 0 and low == np.prod(shape))
+    return coordinates
+
+
+class InputDesc(object):
+  """An input for the operation being tested."""
+
+  # An InputDesc has the following attributes:
+  #  _ordering: A list of integers, representing the storage ordering for each
+  #    input dimension.
+  #  _sparsity: A list of DimLevelType, representing the sparsity for each input
+  #    dimension.
+  #  _pointer_bw: The integer bit width for the pointer.
+  #  _index_bw: The integer bit width for the index.
 
   def __init__(self, ordering: List[int], sparsity: List[st.DimLevelType],
                pointer_bw: int, index_bw: int):
@@ -103,29 +238,30 @@ class InputDesc(object):
 
 
 class TestDesc(object):
-  """A test descriptor.
+  """A test descriptor."""
 
-  Attributes:
-    _iter_space: Represents the affine expression definition and the size for
-      each dimension in the iteration space.
-    _inputs: The inputs for the operation being tested. Each input is
-      represented by a list of affine expression definitions.
-    _output: The output for the operation being tests, represented as a list of
-      affine expression definitions.
-    _linalg_op: The operation being tested. This is assigned after the object is
-      defined because the definition of linalg_op requires other fields in the
-      TestDesc object and we can't move the definition of _linalg_op to
-      TestDesc.
-    _ref_result: The reference result of the test, set up through method
-      calculate_reference_result.
-  """
+  # A TestDesc has the following attributes:
+  #  _name: The name of the test.
+  #  _iter_space: Represents the affine expression definition and the size for
+  #    each dimension in the iteration space.
+  #  _inputs: The inputs for the operation being tested. Each input is
+  #    represented by a list of affine expression definitions.
+  #  _output: The output for the operation being tests, represented as a list of
+  #    affine expression definitions.
+  #  _linalg_op: The operation being tested. This is assigned after the object
+  #    is defined because the definition of linalg_op requires other fields in
+  #    the TestDesc object and we can't move the definition of _linalg_op to
+  #    TestDesc.
+  #  _ref_result: The reference result of the test, set up through method
+  #    calculate_reference_result.
 
-  def __init__(self, iter_space_exps: List[dsl.AffineExprDef],
+  def __init__(self, name: str, iter_space_exps: List[dsl.AffineExprDef],
                iter_space_sizes: List[int], output: List[dsl.AffineExprDef],
                *inputs: List[dsl.AffineExprDef]):
     """Constructs a test descriptor.
 
     Args:
+      name: The name of the test.
       iter_space_exps: A list of AffineExprDef, representing the affine
         expression definition for each dimension in the iteration space.
       iter_space_sizes: A list of integers, representing the size for each
@@ -161,7 +297,9 @@ class TestDesc(object):
         raise ValueError(f"Output affine expression {str(affine)}" +
                          " not defined in the iteration space.")
     self._output = output
+    self._name = name
 
+    self._create_data_directory()
     self._inputs = []
     for index, affines in enumerate(inputs):
       # Verify each affine expression in the input.
@@ -173,10 +311,8 @@ class TestDesc(object):
       self._inputs.append(affines)
       # The current way of getting a test input is through a filename specified
       # by environment variable TENSOR<N>, where N is the index for the input.
-      # TODO: We currently use the same data for all the test input. This will
-      # be replaced by a dynamic generated input, and the generation method
-      # may be specified in the TestDesc object.
-      os.environ["TENSOR" + str(index)] = _TEST_DATA_DIR + "mat8.mtx"
+      input_file_path = self._generate_input_data(index)
+      os.environ["TENSOR" + str(index)] = input_file_path
 
   @property
   def inputs(self):
@@ -195,7 +331,7 @@ class TestDesc(object):
     self._linalg_op = op
 
   @property
-  def reference_result(self):
+  def get_reference_result(self) -> Iterable[Any]:
     """ Returns the reference result for the test.
 
     This routine assumes calculate_reference_result has been called to
@@ -205,7 +341,8 @@ class TestDesc(object):
       "Need to call calculate_reference_result to set up the reference result"
     return self._ref_result
 
-  def get_result(self, p: int, vl: int, input_descs: List[InputDesc]):
+  def get_result(self, p: int, vl: int,
+                 input_descs: List[InputDesc]) -> Iterable[Any]:
     """Returns the result for the test with the given codegen parameters.
 
     Args:
@@ -228,7 +365,7 @@ class TestDesc(object):
 
       v = 0 if vl == 1 else 1
 
-      # TODO: When vl is non-trivial, enumerates the options for
+      # TODO(b/195340661): When vl is non-trivial, enumerates the options for
       # enable-simd-index32.
       si = False
       opt = (f"parallelization-strategy={p} "
@@ -238,7 +375,7 @@ class TestDesc(object):
 
       return self._compile_and_run(compiler, attrs)
 
-  def calculate_reference_result(self):
+  def calculate_reference_result(self) -> None:
     """Calculates the reference result for the test.
 
     Returns:
@@ -293,7 +430,28 @@ class TestDesc(object):
     """Returns the type string representation for the output."""
     return self._get_type_str(self._output)
 
-  def _op_boilerplate(self, func_name: str, attrs: List[st.EncodingAttr]):
+  def _create_data_directory(self) -> None:
+    """Creates a directory for the generated test inputs."""
+    tmp_dir = os.getenv("TEST_TMPDIR", tempfile.gettempdir())
+    self._tmp_dir = os.path.join(tmp_dir, self._name)
+    if not os.path.exists(self._tmp_dir):
+      os.makedirs(self._tmp_dir)
+
+  def _generate_input_data(self, index: int) -> str:
+    """Generates data for an input and returns the full path of the file."""
+    filename = self._generate_input_filename(index)
+    generator = _Generator(self._input_dims(index))
+    generator.generate(filename)
+    return filename
+
+  def _generate_input_filename(self, index: int) -> str:
+    """Generate the full path filename for an input."""
+    dim_strs = [str(d) for d in self._input_dims(index)]
+    filename = f"tensor{index}_" + "_".join(dim_strs) + ".tns"
+    return os.path.join(self._tmp_dir, filename)
+
+  def _op_boilerplate(self, func_name: str,
+                      attrs: List[st.EncodingAttr]) -> str:
     """Returns the main method to call the generated sparse kernel."""
 
     # The function prototype for main.
@@ -336,14 +494,15 @@ func @main(%c: tensor<{output_type_str}>) -> tensor<{output_type_str}>
 
     return code
 
-  def _build_module_and_engine(self, compiler: Callable,
-                               attrs: List[st.EncodingAttr]):
+  def _build_module_and_engine(
+      self, compiler: Callable,
+      attrs: List[st.EncodingAttr]) -> ee.ExecutionEngine:
     """Build the module and the execution engine."""
 
     module = ir.Module.create()
 
     # Build the data types for the inputs and output.
-    # TODO: Support more data types.
+    # TODO(b/195340661): Support more data types.
     f64 = ir.F64Type.get()
     inputs_output = []
     for i in range(self._num_inputs()):
@@ -365,7 +524,8 @@ func @main(%c: tensor<{output_type_str}>) -> tensor<{output_type_str}>
 
     return engine
 
-  def _compile_and_run(self, compiler: Callable, attrs: List[st.EncodingAttr]):
+  def _compile_and_run(self, compiler: Callable,
+                       attrs: List[st.EncodingAttr]) -> Iterable[Any]:
     """Compiles and executes the test."""
 
     # Feed numpy arrays into MLIR computation.
@@ -386,32 +546,45 @@ func @main(%c: tensor<{output_type_str}>) -> tensor<{output_type_str}>
 # Defines the annotation and codegen options used for the exhaustive tests.
 
 
-def _sparsities():
+def _sparsities() -> List[st.DimLevelType]:
   """Enumerates the sparsity values."""
   return [st.DimLevelType.dense, st.DimLevelType.compressed]
 
 
-def sparsities2():
+def sparsities2() -> List[Tuple[st.DimLevelType, st.DimLevelType]]:
   """Enumerates the sparsities for an input with rank 2."""
   return itertools.product(_sparsities(), _sparsities())
 
 
-def orderings2():
+def sparsities3(
+) -> List[Tuple[st.DimLevelType, st.DimLevelType, st.DimLevelType]]:
+  """Enumerates the sparsities for an input with rank 3."""
+  return itertools.product(_sparsities(), _sparsities(), _sparsities())
+
+
+def orderings2() -> List[List[int]]:
   """Enumerates the storage orderings an input with rank 2."""
   return [[0, 1], [1, 0]]
 
 
-# TODO: add bitwidth 8.
-def bitwidths():
+# TODO(b/195340661): Add a method to generate a permutation for range(n) to
+# support larger rank values.
+def orderings3() -> List[List[int]]:
+  """Enumerates the storage orderings for an input with rank 3."""
+  return [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]]
+
+
+# TODO(b/195340661): Add bitwidth 8.
+def bitwidths() -> List[int]:
   """Enumerates the bit widths to be tested."""
   return [0, 16, 32, 64]
 
 
-def pars():
+def pars() -> List[int]:
   """Enumerates the parallelization option values."""
   return [0, 1, 2, 3, 4]
 
 
-def vls():
+def vls() -> List[int]:
   """Enumerates the vector length option values."""
   return [1, 16, 64]
