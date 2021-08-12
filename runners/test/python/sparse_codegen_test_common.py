@@ -588,3 +588,18 @@ def pars() -> List[int]:
 def vls() -> List[int]:
   """Enumerates the vector length option values."""
   return [1, 16, 64]
+
+
+def command_line_parser():
+  """Parses the command line arguments and returns the argument parser."""
+  import argparse
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+      "-num_processes",
+      type=int,
+      required=False,
+      default=os.cpu_count(),
+      help="the number of processes used to run the test (default to os.cpu_count())"
+  )
+  args = parser.parse_args()
+  return args
