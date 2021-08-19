@@ -590,7 +590,7 @@ def vls() -> List[int]:
   return [1, 16, 64]
 
 
-def command_line_parser():
+def _command_line_parser():
   """Parses the command line arguments and returns the argument parser."""
   import argparse
   parser = argparse.ArgumentParser()
@@ -603,3 +603,72 @@ def command_line_parser():
   )
   args = parser.parse_args()
   return args
+
+
+def _run_tests_sequential(combinations: Callable, run_test: Callable) -> bool:
+  """Tests all combinations sequentially."""
+  return all(run_test(*c) for c in combinations())
+
+
+def _run_tests_parallel(num_processes: int, combinations: Callable,
+                        run_test: Callable) -> bool:
+  """Tests all combinations in parallel with the given number of processes."""
+
+  # Python multiprocessing doesn't work within Google. Import the Pool module
+  # only when multiprocessing is enable for this reason.
+  from multiprocessing import Pool
+  with Pool(num_processes) as pool:
+    # For each combination, assign a job to the worker pool and return a
+    # placeholder object for getting the test result. We use `c` not `*c` here
+    # as apply_async unpacks the tuple.
+    result_objs = [pool.apply_async(run_test, c) for c in combinations()]
+
+    # Get the results of the tests using the placeholder objects.
+    return all(result.get() for result in result_objs)
+
+
+def run_tests_sequential_or_parallel(num_processes: int, combinations: Callable,
+                                     run_test: Callable) -> bool:
+  """Runs the tests with the given number of processes.
+
+  Args:
+    num_processes: An integer for the number of processes used to run the tests.
+      The tests are run in parallel when this value is larger than one.
+    combinations: A Callable object for generating all the combinations of the
+      parameter values used to invoke run_test.
+    run_test: A Callable object for running a test with a given combination of
+      parameter values.
+
+  Returns:
+    A boolean to indicate whether all tests pass (True) or there are failing
+      tests (False).
+  """
+  return (_run_tests_sequential(combinations, run_test) if num_processes <= 1
+          else _run_tests_parallel(num_processes, combinations, run_test))
+
+
+def get_num_processes_and_run_tests(module_name: str,
+                                    test_driver: Callable) -> bool:
+  """Determines the number of processes and invokes the test driver.
+
+  The tests run differently in OSS vs in Google for two reasons.
+  - In Google, we use a python script to load and execute the module that
+    contains the tests to support the loading of the MLIR libraries. In OSS, we
+    directly run the module that contains the tests.
+  - Python multiprocessing works in OSS but doesn't work in Google.
+  As such, we only enable the commandline parser and multiprocessing when the
+  module is run directly.
+
+  Args:
+    module_name: The __name__ of the module that contains the tests, used to
+      determine whether the module is run directly or not.
+    test_driver: A callable object to run all tests in the module with the given
+      number of processes.
+
+  Returns:
+    A boolean to indicate whether all tests pass (True) or there are failing
+      tests (False).
+  """
+  num_processes = (1 if module_name != "__main__" else
+                   _command_line_parser().num_processes)
+  return test_driver(num_processes)

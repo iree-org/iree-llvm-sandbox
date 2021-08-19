@@ -39,7 +39,7 @@ def _test_print(a3: List[st.DimLevelType], a_so3: List[int], pw: int, iw: int,
                 ps: int, vl: int) -> bool:
   """Generates and runs B = reduce(A) to explore annotation and codegen options.
 
-  Also prints the test name and the passed or failed status.
+  Also prints the test name and the passing or failing status.
 
   Args:
     a3: The sparsity of A and is a list of DimLevelType.
@@ -50,7 +50,7 @@ def _test_print(a3: List[st.DimLevelType], a_so3: List[int], pw: int, iw: int,
     vl: The integer vector length.
 
   Returns:
-    A boolean to indicate whether the test passed (True) or failed (False).
+    A boolean to indicate whether the test passes (True) or fails (False).
   """
   with ir.Context() as ctx:
     actual_result = _test_desc.get_result(
@@ -59,7 +59,7 @@ def _test_print(a3: List[st.DimLevelType], a_so3: List[int], pw: int, iw: int,
     status = np.allclose(actual_result, _test_desc.get_reference_result)
 
   test_name = f"test_{a3}_{a_so3}_{pw}_{iw}_{ps}_{vl}"
-  print(test_name, " passed" if status == True else " failed")
+  print(test_name, " passed" if status else " failed")
   return status
 
 
@@ -67,35 +67,24 @@ def _combinations():
   """Returns all parameter combinations for the reduction test.
 
     The reduction test currently tests rank 3 input tensors. As such, the
-    cardinalities for sparsities, ordering, bitwidths,
-    parallelization options(pars) and vector length (vls) are 8, 6, 4, 5, and 3
-    respectively.
+    cardinalities for sparsities, ordering, bitwidths, parallelization
+    options (pars) and vector length (vls) are 8, 6, 4, 5, and 3 respectively.
   """
   return itertools.product(test_common.sparsities3(), test_common.orderings3(),
                            test_common.bitwidths(), test_common.bitwidths(),
                            test_common.pars(), test_common.vls())
 
 
-def _run_test_sequential() -> bool:
-  """Tests all combinations of annotations and codegen options sequentially."""
-  return all(_test_print(*c) for c in _combinations())
+def run_tests(num_processes: int) -> bool:
+  """Runs the tests with the given number of processes.
 
+  Args:
+    num_processes: An integer for the number of processes used to run the tests.
 
-def _run_test_parallel(num_processes: int) -> bool:
-  """Tests all combinations of annotations and codegen options parallelly."""
-  from multiprocessing import Pool
-  with Pool(num_processes) as pool:
-    # For each combination, assign a job to the worker pool and return a
-    # placeholder object for getting the test result. We use `c` not `*c` here
-    # as apply_async unpacks the tuple.
-    result_objs = [pool.apply_async(_test_print, c) for c in _combinations()]
-
-    # Get the results of the tests using the placeholder objects.
-    return all(result.get() for result in result_objs)
-
-
-def run_test(num_processes: int):
-  """Runs the tests with the given number of processes."""
+  Returns:
+    A boolean to indicate whether all tests pass (True) or there are failing
+      tests (False).
+  """
   # The operation used to test the JIT compiler and runtime.
   @dsl.linalg_structured_op
   def _reduce_dsl(
@@ -110,21 +99,10 @@ def run_test(num_processes: int):
   # Calculate the reference result.
   _test_desc.calculate_reference_result()
 
-  if num_processes <= 1:
-    return _run_test_sequential()
+  return test_common.run_tests_sequential_or_parallel(num_processes,
+                                                      _combinations,
+                                                      _test_print)
 
-  return _run_test_parallel(num_processes)
 
-
-# The test runs differently in OSS vs in Google for two reasons:
-#   In Google, we use a python script to load and execute the test to support
-#     the loading of the MLIR libraries. In OSS, we directly run the test.
-#   Python multiprocessing works in OSS but doesn't work in Google.
-# As such, we only enable the commandline parser and multiprocessing when the
-# module is run directly.
-num_processes = (
-    test_common.command_line_parser().num_processes
-    if __name__ == "__main__" else 1)
-status = run_test(num_processes)
-if status == False:
+if test_common.get_num_processes_and_run_tests(__name__, run_tests) == False:
   sys.exit("FAILURE")
