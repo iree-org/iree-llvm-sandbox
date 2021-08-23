@@ -54,7 +54,7 @@ struct LinalgTensorCodegenDriverPass
 }  // namespace
 
 void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
-  OpPassManager dynamicPM("module");
+  OpPassManager dynamicPM("builtin.module");
   OpPassManager &nestedFuncOpPM = dynamicPM.nest<FuncOp>();
   nestedFuncOpPM.addPass(createConvertVectorToSCFPass());
   nestedFuncOpPM.addPass(createConvertLinalgToLoopsPass());
@@ -124,7 +124,7 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
 }
 
 void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
-  OpPassManager dynamicPM("module");
+  OpPassManager dynamicPM("builtin.module");
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
   dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass());
