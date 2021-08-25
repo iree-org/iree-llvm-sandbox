@@ -26,6 +26,7 @@
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/Transforms.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
@@ -251,31 +252,33 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
   return b.create<ConstantOp>(op.getOwner()->getLoc(), t, b.getZeroAttr(t));
 }
 
-static std::pair<AffineExpr, AffineExpr> getMinMaxLoopIndVar(
-    Value lbVal, Value ubVal, Value stepVal, SmallVectorImpl<Value> &dims,
-    SmallVectorImpl<Value> &symbols) {
-  MLIRContext *ctx = lbVal.getContext();
-  AffineExpr lb = getAffineDimExpr(dims.size(), ctx);
-  dims.push_back(lbVal);
-  AffineExpr ub = getAffineDimExpr(dims.size(), ctx);
-  dims.push_back(ubVal);
-  AffineExpr step = getAffineSymbolExpr(symbols.size(), ctx);
-  symbols.push_back(stepVal);
-  return std::make_pair(lb, lb + step * ((ub - 1) - lb).floorDiv(step));
-}
+namespace {
+/// Canonicalize AffineMinOp operations in the context of tiled loops with a
+/// known range.
+struct AffineMinTiledLoopCanonicalizationPattern
+    : public OpRewritePattern<AffineMinOp> {
+  using OpRewritePattern<AffineMinOp>::OpRewritePattern;
 
-static Optional<std::pair<AffineExpr, AffineExpr>> getTiledLoopOpMinMax(
-    Value value, SmallVectorImpl<Value> &dims,
-    SmallVectorImpl<Value> &symbols) {
-  auto ivArg = value.dyn_cast<BlockArgument>();
-  if (!ivArg) return {};
-  auto tiledLoopOp = dyn_cast<TiledLoopOp>(ivArg.getOwner()->getParentOp());
-  if (!tiledLoopOp) return {};
-  unsigned idx = ivArg.getArgNumber();
-  return getMinMaxLoopIndVar(tiledLoopOp.lowerBound()[idx],
-                             tiledLoopOp.upperBound()[idx],
-                             tiledLoopOp.step()[idx], dims, symbols);
-}
+  // getTiledLoopOpMinMax
+  LogicalResult matchAndRewrite(AffineMinOp minOp,
+                                PatternRewriter &rewriter) const override {
+    return scf::canonicalizeMinMaxOpInLoop(
+        rewriter, minOp, minOp.map(), minOp.operands(), /*isMin=*/true,
+        /*loopMatcher=*/[](Value iv, Value &lb, Value &ub, Value &step) {
+          auto ivArg = iv.dyn_cast<BlockArgument>();
+          if (!ivArg) return failure();
+          auto tiledLoopOp =
+              dyn_cast<TiledLoopOp>(ivArg.getOwner()->getParentOp());
+          if (!tiledLoopOp) return failure();
+          unsigned idx = ivArg.getArgNumber();
+          lb = tiledLoopOp.lowerBound()[idx];
+          ub = tiledLoopOp.upperBound()[idx];
+          step = tiledLoopOp.step()[idx];
+          return success();
+        });
+  }
+};
+}  // namespace
 
 /// Apply transformations specified as patterns.
 void LinalgTensorCodegenStrategyPass::runOnFunction() {
@@ -339,8 +342,8 @@ void LinalgTensorCodegenStrategyPass::runOnFunction() {
     });
     RewritePatternSet canonicalizationPatterns =
         linalg::getLinalgTilingCanonicalizationPatterns(funcOp.getContext());
-    canonicalizationPatterns.add<AffineMinRangeCanonicalizationPattern>(
-        funcOp.getContext(), getTiledLoopOpMinMax);
+    canonicalizationPatterns.add<AffineMinTiledLoopCanonicalizationPattern>(
+        funcOp.getContext());
     (void)applyPatternsAndFoldGreedily(funcOp,
                                        std::move(canonicalizationPatterns));
   }
