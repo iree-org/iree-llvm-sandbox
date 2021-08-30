@@ -154,9 +154,11 @@ int main() {
                       W0, W1, W2, W3);
   // 1.b. Dump the function for testing and erase it: we can't compile it to
   // buffers for now.
-  modelBuilder.getModuleRef()->dump();
+  auto &module = modelBuilder.getModuleRef();
+  module->dump();
   SymbolTable::lookupNearestSymbolFrom(
-      modelBuilder.getModuleRef()->getOperation(), kFuncTensorsName)
+      module->getOperation(),
+      StringAttr::get(module->getContext(), kFuncTensorsName))
       ->erase();
 
   // 2. Build a separate func "test_mnist_jit_buffers" that takes a

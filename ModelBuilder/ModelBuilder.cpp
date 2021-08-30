@@ -350,8 +350,8 @@ Operation *ModelBuilder::emitCallToRegisteredSymbol(StringRef functionName,
   auto &builder = ScopedContext::getBuilderRef();
   auto callerFunc =
       builder.getInsertionBlock()->getParent()->getParentOfType<FuncOp>();
-  FuncOp calleeFunc =
-      SymbolTable::lookupNearestSymbolFrom<FuncOp>(callerFunc, functionName);
+  FuncOp calleeFunc = SymbolTable::lookupNearestSymbolFrom<FuncOp>(
+      callerFunc, builder.getStringAttr(functionName));
   if (!calleeFunc) {
     OpBuilder::InsertionGuard insertGuard(builder);
     auto module = callerFunc->getParentOfType<ModuleOp>();
