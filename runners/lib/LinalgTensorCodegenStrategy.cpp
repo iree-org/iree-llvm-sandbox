@@ -44,6 +44,13 @@ struct LinalgTensorCodegenStrategyPass
   LinalgTensorCodegenStrategyPass(const LinalgTensorCodegenStrategyPass &pass) {
   }
 
+  StringRef getArgument() const final {
+    return "linalg-tensor-codegen-strategy";
+  }
+  StringRef getDescription() const final {
+    return "Linalg Tensor Codegen Strategy.";
+  }
+
   void getDependentDialects(DialectRegistry &registry) const override {
     // clang-format off
     registry.insert<AffineDialect,
@@ -451,8 +458,7 @@ namespace mlir {
 namespace linalg {
 void registerLinalgTensorCodegenStrategyPass() {
   PassRegistration<LinalgTensorCodegenStrategyPass>
-      testLinalgCodegenStrategyPass("linalg-tensor-codegen-strategy",
-                                    "Linalg Tensor Codegen Strategy.");
+      testLinalgCodegenStrategyPass;
 }
 }  // namespace linalg
 }  // namespace mlir
