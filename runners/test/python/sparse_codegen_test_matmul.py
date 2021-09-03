@@ -8,11 +8,10 @@ TODO(b/195340661): Allow the tests to continue until the number of failures
 reaches a threshold specified by the user.
 """
 
-from typing import List
+from typing import List, Tuple
 import itertools
-import sys
-
 import numpy as np
+import sys
 
 # Import MLIR related modules.
 from mlir import ir
@@ -35,12 +34,11 @@ _test_desc = test_common.TestDesc("matmul", [dsl.S.M, dsl.S.N, dsl.S.K],
                                   [dsl.S.M, dsl.S.K], [dsl.S.K, dsl.S.N])
 
 
-def _test_print(a2: List[st.DimLevelType], b2: List[st.DimLevelType],
-                a_so2: List[int], b_so2: List[int], a_pw: int, b_pw: int,
-                a_iw: int, b_iw: int, ps: int, vl: int) -> bool:
-  """Generates and runs C = A * B to explore annotation and codegen options.
-
-  Also prints the test name and the passing or failing status.
+def _test_combination_impl(a2: List[st.DimLevelType], b2: List[st.DimLevelType],
+                           a_so2: List[int], b_so2: List[int], a_pw: int,
+                           b_pw: int, a_iw: int, b_iw: int, ps: int,
+                           vl: int) -> bool:
+  """Runs the test for the given parameter combination.
 
   Args:
     test_desc: The test descriptor.
@@ -64,15 +62,22 @@ def _test_print(a2: List[st.DimLevelType], b2: List[st.DimLevelType],
         test_common.InputDesc(b_so2, b2, b_pw, b_iw)
     ])
 
-    status = np.allclose(actual_result, _test_desc.get_reference_result)
+    passed = np.allclose(actual_result, _test_desc.reference_result)
 
-  test_name = (f"test_{a2}_{b2}_{a_so2}_{b_so2}_{a_pw}_{b_pw}_{a_iw}_{b_iw}"
-               f"_{ps}_{vl}")
-  print(test_name, " passed" if status else " failed")
-  return status
+  return passed
 
 
-def _combinations():
+# Python multiprocessing doesn't support decorators. We have to use a wrapped
+# function in the module scope instead.
+#
+# See https://stackoverflow.com/questions/9336646/python-decorator-with-multiprocessing-fails
+def _test_combination(*args):
+  return test_common.test_combination_wrapper(_test_combination_impl)(*args)
+
+
+def _parameter_combinations(
+) -> Tuple[st.DimLevelType, st.DimLevelType, List[int], List[int], int, int,
+           int, int, int, int]:
   """Returns all parameter combinations for the matrix multiplication test.
 
     The matrix multiplication test currently tests rank 2 input tensors. As
@@ -87,7 +92,7 @@ def _combinations():
 
 
 def run_tests(num_processes: int) -> bool:
-  """Runs the tests with the given number of processes.
+  """Tests operation C = A * B for various codegen options and sparsities.
 
   Args:
     num_processes: An integer for the number of processes used to run the tests.
@@ -101,7 +106,7 @@ def run_tests(num_processes: int) -> bool:
   def matmul_dsl(
       A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
       B=dsl.TensorDef(dsl.T, *_test_desc.inputs[1]),
-      C=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)):
+      C=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
     """The operation being tested: C = A * B."""
     C[dsl.D.m, dsl.D.n] += A[dsl.D.m, dsl.D.k] * B[dsl.D.k, dsl.D.n]
 
@@ -112,9 +117,9 @@ def run_tests(num_processes: int) -> bool:
   _test_desc.calculate_reference_result()
 
   return test_common.run_tests_sequential_or_parallel(num_processes,
-                                                      _combinations,
-                                                      _test_print)
+                                                      _parameter_combinations,
+                                                      _test_combination)
 
 
 if test_common.get_num_processes_and_run_tests(__name__, run_tests) == False:
-  sys.exit("FAILURE")
+  sys.exit(test_common.FAILURE_MESSAGE)

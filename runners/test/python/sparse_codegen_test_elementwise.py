@@ -1,14 +1,17 @@
 """Testing elementwise operations to explore annotation and codegen options.
 
 This module tests the elementwise add operation with all combinations of
-sparsity annotation and codegen options.
+sparsity annotation and codegen options. If there is any set of parameters that
+triggers a test failure, the module raises a SystemExit exception.
+
+TODO(b/195340661): Allow the tests to continue until the number of failures
+reaches a threshold specified by the user.
 """
 
-from typing import List
+from typing import List, Tuple
 import itertools
-import sys
-
 import numpy as np
+import sys
 
 # Import MLIR related modules.
 from mlir import ir
@@ -19,66 +22,102 @@ from mlir.dialects.linalg.opdsl import lang as dsl
 import sparse_codegen_test_common as test_common
 
 
-# TODO(b/195340661): Parallelize the tests.
-# TODO(b/195340661): Allow the tests to continue until the number of failures
-# reaches a threshold.
-# TODO(b/195340661): Allow inputs with different values for (pw, iw).
-def _test_add(test_desc: test_common.TestDesc, a2: List[st.DimLevelType],
-              b2: List[st.DimLevelType], so2: List[int], pw: int, iw: int,
-              ps: int, vl: int):
-  """Generates and runs C = A + B to explore annotation and codegen options.
+# TODO(b/195422626): Make _test_desc a local variable and pass it to
+# routine _test after fixing the issue.
+#
+# Defines the test descriptor. The operation being test will be assigned
+# later. Notation dsl.S.X defines a symbol in the domain specific language
+# dialect of mlir.dialects.linalg.opdsl as a tensor dimension, where X is the
+# name of the symbol.
+_test_desc = test_common.TestDesc("add", [dsl.S.M, dsl.S.N], [8, 16],
+                                  [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.N],
+                                  [dsl.S.M, dsl.S.N])
+
+
+def _test_combination_impl(a2: List[st.DimLevelType], b2: List[st.DimLevelType],
+                           so2: List[int], a_pw: int, b_pw: int, a_iw: int,
+                           b_iw: int, ps: int, vl: int) -> bool:
+  """Runs the test for the given parameter combination.
 
   Args:
     test_desc: The test descriptor.
     a2: The sparsity of A and is a list of DimLevelType.
     b2: The sparsity of B and is a list of DimLevelType.
     so2: The dimension ordering for A and B. Its value is a list of integers.
-    pw: The integer pointer bitwidth.
-    iw: The integer index bitwidth.
+    a_pw: The integer pointer bitwidth for A.
+    b_pw: The integer pointer bitwidth for B.
+    a_iw: The integer index bitwidth for A.
+    b_iw: The integer index bitwidth for B.
     ps: The integer parallelization strategy.
     vl: The integer vector length.
+
+  Returns:
+    A boolean to indicate whether all tests pass (True) or there are failing
+      tests (False).
   """
-  test_name = f"test_{a2}_{b2}_{so2}_{pw}_{iw}_{ps}_{vl}"
-  with ir.Context() as ctx:
-    actual_result = test_desc.get_result(ps, vl, [
-        test_common.InputDesc(so2, a2, pw, iw),
-        test_common.InputDesc(so2, b2, pw, iw)
+  with ir.Context():
+    actual_result = _test_desc.get_result(ps, vl, [
+        test_common.InputDesc(so2, a2, a_pw, a_iw),
+        test_common.InputDesc(so2, b2, b_pw, b_iw)
     ])
 
-    if np.allclose(actual_result, test_desc.get_reference_result):
-      print(test_name, " passed")
-    else:
-      print(test_name, " failed")
-      sys.exit("FAILURE")
+    passed = np.allclose(actual_result, _test_desc.reference_result)
+
+  return passed
 
 
-def run_test():
-  # Defines the test descriptor. The operation being test will be assigned
-  # later.
-  test_desc = test_common.TestDesc("add", [dsl.S.M, dsl.S.N], [8, 16],
-                                   [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.N],
-                                   [dsl.S.M, dsl.S.N])
+# Python multiprocessing doesn't support decorators. We have to use a wrapped
+# function in the module scope instead.
+#
+# See https://stackoverflow.com/questions/9336646/python-decorator-with-multiprocessing-fails
+def _test_combination(*args):
+  return test_common.test_combination_wrapper(_test_combination_impl)(*args)
+
+
+def _parameter_combinations() -> Tuple[st.DimLevelType, st.DimLevelType,
+                                       List[int], int, int, int, int, int, int]:
+  """Returns all parameter combinations for the elementwise add test.
+
+    The elementwise add test currently tests rank 2 input tensors. As such, the
+    cardinalities for sparsities, ordering, bitwidths, parallelization options
+    (pars) and vector length (vls) are 4, 2, 4, 5, and 3 respectively.
+  """
+  return itertools.product(test_common.sparsities2(), test_common.sparsities2(),
+                           test_common.orderings2(), test_common.bitwidths(),
+                           test_common.bitwidths(), test_common.bitwidths(),
+                           test_common.bitwidths(), test_common.pars(),
+                           test_common.vls())
+
+
+def run_tests(num_processes: int) -> bool:
+  """Tests operation C = A + B for various codegen options and sparsities.
+
+  Args:
+    num_processes: An integer for the number of processes used to run the tests.
+
+  Returns:
+    A boolean to indicate whether all tests pass (True) or there are failing
+      tests (False).
+  """
 
   @dsl.linalg_structured_op
   def add_dsl(
-      A=dsl.TensorDef(dsl.T, *test_desc.inputs[0]),
-      B=dsl.TensorDef(dsl.T, *test_desc.inputs[1]),
-      C=dsl.TensorDef(dsl.T, *test_desc.output, output=True)):
+      A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
+      B=dsl.TensorDef(dsl.T, *_test_desc.inputs[1]),
+      C=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
     """The operation being tested: C = A + B."""
     C[dsl.D.m, dsl.D.n] = A[dsl.D.m, dsl.D.n] + B[dsl.D.m, dsl.D.n]
 
   # Pass the operation to the test descriptor.
-  test_desc.linalg_op = add_dsl
+  _test_desc.linalg_op = add_dsl
 
   # Calculate the reference result.
-  test_desc.calculate_reference_result()
+  _test_desc.calculate_reference_result()
 
-  # Test all combinations of annotations and codegen options.
-  for a2, b2, so2, pw, iw, pa, vl in itertools.product(
-      test_common.sparsities2(), test_common.sparsities2(),
-      test_common.orderings2(), test_common.bitwidths(),
-      test_common.bitwidths(), test_common.pars(), test_common.vls()):
-    _test_add(test_desc, a2, b2, so2, pw, iw, pa, vl)
+  return test_common.run_tests_sequential_or_parallel(num_processes,
+                                                      _parameter_combinations,
+                                                      _test_combination)
 
 
-run_test()
+if test_common.get_num_processes_and_run_tests(__name__, run_tests) == False:
+  sys.exit(test_common.FAILURE_MESSAGE)

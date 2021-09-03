@@ -10,9 +10,8 @@ reaches a threshold specified by the user.
 
 from typing import List, Tuple
 import itertools
-import sys
-
 import numpy as np
+import sys
 
 # Import MLIR related modules.
 from mlir import ir
@@ -35,11 +34,9 @@ _test_desc = test_common.TestDesc("reduce", [dsl.S.M, dsl.S.N, dsl.S.O],
                                   [dsl.S.M, dsl.S.N, dsl.S.O])
 
 
-def _test_print(a3: List[st.DimLevelType], a_so3: List[int], pw: int, iw: int,
-                ps: int, vl: int) -> bool:
-  """Generates and runs B = reduce(A) to explore annotation and codegen options.
-
-  Also prints the test name and the passing or failing status.
+def _test_combination_impl(a3: List[st.DimLevelType], a_so3: List[int], pw: int,
+                           iw: int, ps: int, vl: int) -> bool:
+  """Runs the test for the given parameter combination.
 
   Args:
     a3: The sparsity of A and is a list of DimLevelType.
@@ -56,14 +53,21 @@ def _test_print(a3: List[st.DimLevelType], a_so3: List[int], pw: int, iw: int,
     actual_result = _test_desc.get_result(
         ps, vl, [test_common.InputDesc(a_so3, a3, pw, iw)])
 
-    status = np.allclose(actual_result, _test_desc.get_reference_result)
+    passed = np.allclose(actual_result, _test_desc.reference_result)
 
-  test_name = f"test_{a3}_{a_so3}_{pw}_{iw}_{ps}_{vl}"
-  print(test_name, " passed" if status else " failed")
-  return status
+  return passed
 
 
-def _combinations():
+# Python multiprocessing doesn't support decorators. We have to use a wrapped
+# function in the module scope instead.
+#
+# See https://stackoverflow.com/questions/9336646/python-decorator-with-multiprocessing-fails
+def _test_combination(*args):
+  return test_common.test_combination_wrapper(_test_combination_impl)(*args)
+
+
+def _parameter_combinations(
+) -> Tuple[st.DimLevelType, List[int], int, int, int, int]:
   """Returns all parameter combinations for the reduction test.
 
     The reduction test currently tests rank 3 input tensors. As such, the
@@ -76,7 +80,7 @@ def _combinations():
 
 
 def run_tests(num_processes: int) -> bool:
-  """Runs the tests with the given number of processes.
+  """Tests operation B = sum(A) for various codegen options and sparsities.
 
   Args:
     num_processes: An integer for the number of processes used to run the tests.
@@ -89,7 +93,7 @@ def run_tests(num_processes: int) -> bool:
   @dsl.linalg_structured_op
   def _reduce_dsl(
       A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
-      B=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)):
+      B=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
     """The operation being tested: B = sum(A)."""
     B[dsl.D.m] += A[dsl.D.m, dsl.D.n, dsl.D.o]
 
@@ -100,9 +104,9 @@ def run_tests(num_processes: int) -> bool:
   _test_desc.calculate_reference_result()
 
   return test_common.run_tests_sequential_or_parallel(num_processes,
-                                                      _combinations,
-                                                      _test_print)
+                                                      _parameter_combinations,
+                                                      _test_combination)
 
 
 if test_common.get_num_processes_and_run_tests(__name__, run_tests) == False:
-  sys.exit("FAILURE")
+  sys.exit(test_common.FAILURE_MESSAGE)
