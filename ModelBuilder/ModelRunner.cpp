@@ -14,6 +14,7 @@
 #include "mlir/Conversion/GPUToVulkan/ConvertGPUToVulkanPass.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
+#include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/StandardToSPIRV/StandardToSPIRVPass.h"
@@ -137,6 +138,7 @@ static void addVulkanLoweringPass(mlir::PassManager& manager) {
   mlir::LowerToLLVMOptions llvmOptions(manager.getContext());
   llvmOptions.emitCWrappers = true;
   manager.addPass(createLowerToLLVMPass(llvmOptions));
+  manager.addPass(mlir::createReconcileUnrealizedCastsPass());
   manager.addPass(mlir::createConvertVulkanLaunchFuncToVulkanCallsPass());
 }
 
@@ -150,6 +152,7 @@ static void addCPULoweringPass(mlir::PassManager& manager) {
   manager.addPass(mlir::createLowerToCFGPass());
   manager.addPass(mlir::createConvertVectorToLLVMPass());
   manager.addPass(mlir::createLowerToLLVMPass());
+  manager.addPass(mlir::createReconcileUnrealizedCastsPass());
 }
 
 std::function<void(mlir::PassManager&)>
