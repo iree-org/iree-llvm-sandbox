@@ -5,6 +5,9 @@ from typing import List
 from search import *
 from transforms import *
 
+# Only for debugging: Print IR after each transform.
+print_ir_after_each = False
+
 
 class Assignments:
 
@@ -26,7 +29,11 @@ class Expert:
   def __call__(self, module, boilerplate_code):
     module = self._pre_transform(module, boilerplate_code)
     for transform in self.transforms():
+      if print_ir_after_each:
+        print('[[[ IR after transform: ' + str(transform) + ']]]')
       transform(module, 'matmul_on_tensors')
+      if print_ir_after_each:
+        print(module)
     return module
 
   def transforms(self) -> List[Transform]:
@@ -45,12 +52,12 @@ class ExpertCompiler1(Expert):
   def transforms(self) -> List[Transform]:
     v = self.assignments
     return [
-        TileAndPad('matmul_on_tensors', 'linalg.matmul', v.sizes1),
-        TileAndPad('matmul_on_tensors', 'linalg.matmul', v.sizes2),
-        TileAndPad(
+        Tile('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes1),
+        Tile('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes2),
+        Tile(
             'matmul_on_tensors',
             'linalg.matmul',
-            v.sizes3,
+            tile_sizes=v.sizes3,
             pad=v.pad,
             hoist_padding=v.hoist_padding),
         Vectorize('matmul_on_tensors', 'linalg.matmul'),
@@ -69,9 +76,9 @@ class ExpertCompiler2(Expert):
   def transforms(self) -> List[Transform]:
     v = self.assignments
     return [
-        Fuse('matmul_on_tensors', 'linalg.matmul', v.sizes1),
-        Fuse('matmul_on_tensors', 'linalg.matmul', v.sizes2),
-        TileAndPad('matmul_on_tensors', 'linalg.matmul', v.sizes3),
+        Fuse('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes1),
+        Fuse('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes2),
+        Tile('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes3),
         Vectorize('matmul_on_tensors', 'linalg.matmul'),
         Vectorize('matmul_on_tensors', 'linalg.fill'),
         Bufferize(),
@@ -91,19 +98,50 @@ class ExpertCompiler3(Expert):
   def transforms(self) -> List[Transform]:
     v = self.assignments
     return [
-        Fuse('matmul_on_tensors', 'linalg.matmul', v.sizes1),
-        TileAndPad(
+        Fuse('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes1),
+        Tile(
             'matmul_on_tensors',
             'linalg.matmul',
-            v.sizes2,
+            tile_sizes=v.sizes2,
             pad=v.pad,
             hoist_padding=v.hoist_padding),
         Vectorize('matmul_on_tensors', 'linalg.matmul'),
-        TileAndPad('matmul_on_tensors', 'linalg.fill', v.sizes3),
+        Tile('matmul_on_tensors', 'linalg.fill', tile_sizes=v.sizes3),
         Vectorize('matmul_on_tensors', 'linalg.fill'),
         Bufferize(),
         LowerToLLVM(),
     ]
+
+
+class ExpertCompiler4(Expert):
+  variables = {
+      'sizes1': TilingSizesVariable,
+      'sizes2': TilingSizesVariable,
+      'sizes3': TilingSizesVariable,
+      'peel': BoolVariable,
+      'scalarize_dyn_dims': BoolVariable,
+  }
+
+  def transforms(self) -> List[Transform]:
+    v = self.assignments
+    passes = [
+        Tile('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes1),
+        Tile('matmul_on_tensors', 'linalg.matmul', tile_sizes=v.sizes2),
+        Tile(
+            'matmul_on_tensors',
+            'linalg.matmul',
+            tile_sizes=v.sizes3,
+            peel=[0, 1, 2] if v.peel else [])
+    ]
+    if v.scalarize_dyn_dims:
+      passes.append(
+          Tile('matmul_on_tensors', 'linalg.matmul', scalarize_dyn_dims=True))
+    passes = passes + [
+        Vectorize('matmul_on_tensors', 'linalg.matmul'),
+        Bufferize(),
+        LowerToLLVM(),
+    ]
+    return passes
 
 
 class ExpertSparseCompiler(Expert):
@@ -133,3 +171,10 @@ expert_compilerr_3 = ExpertCompiler3(
     sizes3=[8, 32],
     pad=True,
     hoist_padding=3)
+
+expert_compilerr_4 = ExpertCompiler4(
+    sizes1=[256, 256, 256],
+    sizes2=[64, 64, 64],
+    sizes3=[8, 16, 32],
+    peel=True,
+    scalarize_dyn_dims=True)

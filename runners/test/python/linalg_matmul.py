@@ -131,7 +131,10 @@ for np_type in [np.float32]:
     # Init printing.
     print(f'\n###############################################################\n'
           f'Problem size {M}x{N}x{K}')
-    for expert in [expert_compilerr_1, expert_compilerr_2, expert_compilerr_3]:
+    for expert in [
+        expert_compilerr_1, expert_compilerr_2, expert_compilerr_3,
+        expert_compilerr_4
+    ]:
       compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert)
     # For single-threaded apples-to-apples comparisons, run with:
     # MKL_NUM_THREADS=1 ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1

@@ -25,10 +25,14 @@ def LinalgTensorCodegenDriver
     // Tiling options.
     ListOption<"tileSizes", "tile-sizes", "int64_t", "Tile sizes",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"peeledLoops", "peeled-loops", "int64_t", "Peeled loops",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"pad", "pad", "bool", /*default=*/"false",
       "Apply padding when tiling to ensure static data tile sizes.">,
     Option<"hoistPadding", "hoist-padding", "int", /*default=*/"0",
       "Hoist padding operations by the number of specified loops.">,
+    Option<"scalarizeDynamicDims", "scalarize-dynamic-dims", "bool",
+      /*default=*/"false", "Tile dynamic dimensions by 1.">,
 
     // Fusion options.
     Option<"fuse", "fuse", "bool", /*default=*/"false",

@@ -112,11 +112,16 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;
   if (!tileSizes.empty()) tilingOptions = tilingOptions.setTileSizes(tileSizes);
+  if (scalarizeDynamicDims)
+    tilingOptions = tilingOptions.scalarizeDynamicDims();
+  tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
   if (pad)
     tilingOptions =
         tilingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
   CodegenStrategy strategy;
-  strategy.tileIf<LinalgOp>(!tileSizes.empty(), anchorOpName, tilingOptions)
+  strategy
+      .tileIf<LinalgOp>(!tileSizes.empty() || scalarizeDynamicDims,
+                        anchorOpName, tilingOptions)
       .vectorizeIf(vectorize, anchorOpName)
       .setEnableVectorContractLowering(false)
       .setEnableVectorToSCFConversion(false)
