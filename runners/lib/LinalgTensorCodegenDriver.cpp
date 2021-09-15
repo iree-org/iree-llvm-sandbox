@@ -123,8 +123,6 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
       .tileIf<LinalgOp>(!tileSizes.empty() || scalarizeDynamicDims,
                         anchorOpName, tilingOptions)
       .vectorizeIf(vectorize, anchorOpName)
-      .setEnableVectorContractLowering(false)
-      .setEnableVectorToSCFConversion(false)
       .transform(funcOp);
 }
 
@@ -160,6 +158,7 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
         // Lowering of vector contractions.
         .setEnableVectorContractLowering(true)
         // Whether to split full/partial vector.transfer ops.
+        .setEnableVectorTransferPartialRewrite(true)
         .setEnableVectorTransferPartialRewrite(
             vectorTransferSplit != vector::VectorTransferSplit::None)
         .setVectorTransformsOptions(
@@ -185,6 +184,7 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
       runOpAnchoredStrategy(funcOp);
 
       // Run other transforms that do not require a named linalg op.
+      // TODO: Move to codegen strategy as late transformations.
       if (hoistPadding > 0) {
         SmallVector<PadTensorOp> ops;
         funcOp.walk([&](PadTensorOp op) { ops.push_back(op); });
@@ -198,18 +198,15 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
         (void)applyPatternsAndFoldGreedily(
             funcOp, std::move(extraVectorizationPatterns));
       }
-
-      // Perform other hoistings.
-      CodegenStrategy strategy;
-      strategy.setEnableLICM(true)
-          .setEnableHoistRedundantVectorTransfersOnTensor(true)
-          .setEnableVectorContractLowering(false)
-          .setEnableVectorToSCFConversion(false)
-          .transform(funcOp);
     });
   }
 
-  if (bufferize) runComprehensiveBufferization();
+  if (bufferize) {
+    runComprehensiveBufferization();
+    // Perform buffer-level hoistings.
+    getOperation().walk(
+        [&](FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
+  }
 
   if (vectorLowering) runVectorLowering();
 

@@ -3,8 +3,7 @@
 
 // RUN: mlir-proto-opt -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul tile-sizes=4,8,16 vectorize vector-contract-lowering=false" |\
 // RUN: mlir-opt -linalg-comprehensive-module-bufferize |\
-// RUN: tee
-//| FileCheck %s
+// RUN: tee | FileCheck %s
 
 // CHECK-LABEL: func @init_and_matmul(
 //  CHECK-SAME:       %[[A:[0-9a-zA-Z]+]]: memref<

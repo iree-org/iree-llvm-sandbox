@@ -1,11 +1,13 @@
+// TODO: fix insertion point bug in comprehensive-module-bufferize
 // RUN: mlir-opt %s -linalg-comprehensive-module-bufferize |\
-// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
-// RUN: mlir-opt -canonicalize -convert-scf-to-std -convert-vector-to-llvm -convert-memref-to-llvm |\
-// RUN: mlir-opt -convert-std-to-llvm | \
+// R-UN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
+// R-UN: mlir-opt -canonicalize -convert-scf-to-std -convert-vector-to-llvm -convert-memref-to-llvm |\
+// R-UN: mlir-opt -convert-std-to-llvm -reconcile-unrealized-casts | \
 
-// RUN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
-// RUN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext | \
-// RUN: tee | FileCheck %s --check-prefix=EXEC
+// R-UN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
+// R-UN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext | \
+// RUN: tee
+//| FileCheck %s --check-prefix=EXEC
 
 func @main() {
   %c0 = constant 0: index

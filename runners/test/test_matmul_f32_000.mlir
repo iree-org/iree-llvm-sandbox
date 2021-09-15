@@ -19,9 +19,9 @@
 //   CHECK-DAG:   %[[f0:.*]] = constant 0.0
 //   CHECK-DAG:   %[[f1:.*]] = constant 1.0
 //   CHECK-DAG:   %[[f2:.*]] = constant 2.0
-//   CHECK-DAG:   memref.alloc() : memref<32x128xf32>
-//   CHECK-DAG:   memref.alloc() : memref<128x64xf32>
-//   CHECK-DAG:   memref.alloc() : memref<32x64xf32>
+//   CHECK-DAG:   memref.alloc() {{.*}} : memref<32x128xf32>
+//   CHECK-DAG:   memref.alloc() {{.*}} : memref<128x64xf32>
+//   CHECK-DAG:   memref.alloc() {{.*}} : memref<32x64xf32>
 //   CHECK-DAG:   linalg.fill(%[[f1]], %[[A:.*]]) : f32, memref<32x128xf32>
 //   CHECK-DAG:   linalg.fill(%[[f2]], %[[B:.*]]) : f32, memref<128x64xf32>
 //   CHECK-DAG:   linalg.fill(%[[f0]], %[[C:.*]]) : f32, memref<32x64xf32>
