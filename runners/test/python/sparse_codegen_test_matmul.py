@@ -34,18 +34,27 @@ _test_desc = test_common.TestDesc("matmul", [dsl.S.M, dsl.S.N, dsl.S.K],
                                   [dsl.S.M, dsl.S.K], [dsl.S.K, dsl.S.N])
 
 
-def _test_combination_impl(a2: List[st.DimLevelType], b2: List[st.DimLevelType],
-                           a_so2: List[int], b_so2: List[int], a_pw: int,
-                           b_pw: int, a_iw: int, b_iw: int, ps: int,
-                           vl: int) -> bool:
+def _test_combination_impl(
+    a2: List[st.DimLevelType],
+    b2: List[st.DimLevelType],
+    a_so2: List[int],
+    b_so2: List[int],
+    type: test_common.TDType,
+    a_pw: int,
+    b_pw: int,
+    a_iw: int,
+    b_iw: int,
+    ps: int,
+    vl: int,
+) -> bool:
   """Runs the test for the given parameter combination.
 
   Args:
-    test_desc: The test descriptor.
     a2: The sparsity of A and is a list of DimLevelType.
     b2: The sparsity of B and is a list of DimLevelType.
     a_so2: The dimension ordering for A. Its value is a list of integers.
     b_so2: The dimension ordering for B. Its value is a list of integers.
+    type: The data type used to run the operation, represented as a TDType.
     a_pw: The integer pointer bitwidth for A.
     b_pw: The integer pointer bitwidth for B.
     a_iw: The integer index bitwidth for A.
@@ -57,14 +66,52 @@ def _test_combination_impl(a2: List[st.DimLevelType], b2: List[st.DimLevelType],
     A boolean to indicate whether the test passes (True) or fails (False).
   """
   with ir.Context() as ctx:
-    actual_result = _test_desc.get_result(ps, vl, [
+    actual_result = _test_desc.get_result(ps, vl, type, [
         test_common.InputDesc(a_so2, a2, a_pw, a_iw),
         test_common.InputDesc(b_so2, b2, b_pw, b_iw)
     ])
 
-    passed = np.allclose(actual_result, _test_desc.reference_result)
+    passed = np.allclose(actual_result, _test_desc.get_reference_result(type))
 
   return passed
+
+
+def _is_supported_combination(
+    a2: List[st.DimLevelType],
+    b2: List[st.DimLevelType],
+    a_so2: List[int],
+    b_so2: List[int],
+    type: test_common.TDType,
+    a_pw: int,
+    b_pw: int,
+    a_iw: int,
+    b_iw: int,
+    ps: int,
+    vl: int,
+) -> bool:
+  """Validates the given parameter combination.
+
+  Args:
+    a2: The sparsity of A and is a list of DimLevelType.
+    b2: The sparsity of B and is a list of DimLevelType.
+    a_so2: The dimension ordering for A. Its value is a list of integers.
+    b_so2: The dimension ordering for B. Its value is a list of integers.
+    type: The data type used to run the operation, represented as a TDType.
+    a_pw: The integer pointer bitwidth for A.
+    b_pw: The integer pointer bitwidth for B.
+    a_iw: The integer index bitwidth for A.
+    b_iw: The integer index bitwidth for B.
+    ps: The integer parallelization strategy.
+    vl: The integer vector length.
+
+  Returns:
+    A boolean to indicate whether the combination is supported (True) or
+      not supported (False).
+  """
+  # Currently, only the data type and bitwidths are used in validation.
+  del a2, b2, a_so2, b_so2, ps, vl
+  return (test_common.supported_tensor_types(type, a_pw, a_iw) and
+          test_common.supported_tensor_types(type, b_pw, b_iw))
 
 
 # Python multiprocessing doesn't support decorators. We have to use a wrapped
@@ -76,19 +123,29 @@ def _test_combination(*args):
 
 
 def _parameter_combinations(
-) -> Tuple[st.DimLevelType, st.DimLevelType, List[int], List[int], int, int,
-           int, int, int, int]:
+) -> Tuple[st.DimLevelType, st.DimLevelType, List[int], List[int],
+           test_common.TDType, int, int, int, int, int, int]:
   """Returns all parameter combinations for the matrix multiplication test.
 
     The matrix multiplication test currently tests rank 2 input tensors. As
-    such, the cardinalities for sparsities, ordering, bitwidths, parallelization
-    options (pars) and vector length (vls) are 4, 2, 4, 5, and 3 respectively.
+    such, the cardinalities for sparsities, ordering, data types, bitwidths,
+    parallelization options (pars) and vector length (vls) are 4, 2, 5, 4, 5,
+    and 3 respectively.
   """
-  return itertools.product(test_common.sparsities2(), test_common.sparsities2(),
-                           test_common.orderings2(), test_common.orderings2(),
-                           test_common.bitwidths(), test_common.bitwidths(),
-                           test_common.bitwidths(), test_common.bitwidths(),
-                           test_common.pars(), test_common.vls())
+  all_combs = itertools.product(
+      test_common.sparsities2(),
+      test_common.sparsities2(),
+      test_common.orderings2(),
+      test_common.orderings2(),
+      test_common.all_types(),
+      test_common.bitwidths(),
+      test_common.bitwidths(),
+      test_common.bitwidths(),
+      test_common.bitwidths(),
+      test_common.pars(),
+      test_common.vls(),
+  )
+  return (comb for comb in all_combs if _is_supported_combination(*comb))
 
 
 def run_tests(num_processes: int) -> bool:
@@ -114,7 +171,7 @@ def run_tests(num_processes: int) -> bool:
   _test_desc.linalg_op = matmul_dsl
 
   # Calculate the reference result.
-  _test_desc.calculate_reference_result()
+  _test_desc.calculate_reference_result(test_common.TDType.F64)
 
   return test_common.run_tests_sequential_or_parallel(num_processes,
                                                       _parameter_combinations,

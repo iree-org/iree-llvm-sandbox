@@ -6,6 +6,7 @@ for the MLIR sparse codegen.
 
 from typing import Callable, List
 import inspect
+import itertools
 import logging
 import numpy as np
 import sys
@@ -93,20 +94,54 @@ def _test_invalid_affine_expression() -> bool:
     return False
 
 
-def _is_numpy_array_with_shape(shape: List[int], array: np.ndarray) -> bool:
-  """Returns True iff array is a numpy array with the given shape."""
-  return isinstance(array, np.ndarray) and tuple(shape) == array.shape
+@_test_unit_wrapper
+def _test_float_sparse_tensor_types() -> bool:
+  """Tests the supported floating point sparse tensor type combinations.
+
+  For floating point types, all combinations of (type, pointer-bitwidth,
+  index-bitwidth) are supported.
+  """
+  for comb in itertools.product(test_common.fp_types(), test_common.bitwidths(),
+                                test_common.bitwidths()):
+    if not test_common.supported_tensor_types(*comb):
+      return False
+
+  return True
+
+
+@_test_unit_wrapper
+def _test_int_sparse_tensor_types() -> bool:
+  """Tests the supported integer sparse tensor type combinations.
+
+  Checks the supported combination of (type, pointer-bitwidth, index-bitwidth)
+  where type is an integer type.
+
+  For integer types, we only support the cases where pointer-bitwidth and
+  index-bitwidth have the same value. For I64, we only support 64 bitwidth.
+  """
+  for comb in itertools.product(test_common.int_types(),
+                                test_common.bitwidths(),
+                                test_common.bitwidths()):
+    supported = (
+        comb[1] == comb[2] and
+        (comb[0] != test_common.TDType.I64 or comb[1] == 64))
+
+    if supported != test_common.supported_tensor_types(*comb):
+      return False
+
+  return True
 
 
 @_test_unit_wrapper
 def _test_generate_tensor() -> bool:
   """Tests the tensor generating function.
 
-  In particular, checks that function returns a numpy array with the expected
-  shape.
+  In particular, checks that function returns a list of integer with the same
+  number of elements as the given shape.
   """
   shape = [2, 3, 4]
-  return _is_numpy_array_with_shape(shape, test_common.generate_tensor(shape))
+  array = test_common.generate_tensor(shape)
+  return len(array) == np.prod(shape) and isinstance(array[0], int)
 
 
 @_test_unit_wrapper
@@ -122,7 +157,7 @@ def _test_reference_result_before_available() -> bool:
                                    [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.N])
 
   try:
-    reference_result = test_desc.reference_result
+    reference_result = test_desc.get_reference_result(test_common.TDType.F64)
   except ValueError:
     return True
   else:
@@ -134,7 +169,7 @@ def _test_reference_result() -> bool:
   """Verifies the shape of the reference result returned by a TestDesc object.
 
   This is to make sure that the program runs and the reference result is a numpy
-  array with the expected shape.
+  array with the expected shape and data type.
   """
   shape = [2, 3]
   # Defines the test descriptor. The operation being test will be assigned
@@ -155,9 +190,13 @@ def _test_reference_result() -> bool:
   test_desc.linalg_op = copy_dsl
 
   # Calculate the reference result.
-  test_desc.calculate_reference_result()
+  test_desc.calculate_reference_result(test_common.TDType.F64)
 
-  return _is_numpy_array_with_shape(shape, test_desc.reference_result)
+  result_type = test_common.TDType.I32
+  array = test_desc.get_reference_result(result_type)
+
+  return isinstance(array, np.ndarray) and tuple(
+      shape) == array.shape and array.dtype == result_type.value
 
 
 def run_test() -> None:
@@ -165,6 +204,7 @@ def run_test() -> None:
   num_failed = (
       _test_mismatching_ordering_sparsity() + _test_invalid_ordering() +
       _test_invalid_affine_expression() + _test_generate_tensor() +
+      _test_float_sparse_tensor_types() + _test_int_sparse_tensor_types() +
       _test_reference_result_before_available() + _test_reference_result())
 
   if num_failed:
