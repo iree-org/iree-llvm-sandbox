@@ -11,12 +11,9 @@
 #include "CAPI.h"
 
 #include "Passes.h"
-#include "Registration.h"
 
 using namespace mlir;
-using namespace mlir::linalg;
 
 void ireeLlvmSandboxRegisterPasses() {
   registerRunnersPasses();
-  registerLinalgTensorCodegenStrategyPass();
 }

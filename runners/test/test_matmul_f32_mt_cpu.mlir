@@ -2,7 +2,7 @@
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
 // RUN: mlir-proto-opt -canonicalize -mlir-disable-threading \
-// RUN: -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=24,16" |\
+// R-UN: -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=24,16" |\
 
 // TODO: bufferization bug
 // R-UN: mlir-proto-opt -linalg-tensor-codegen-driver="bufferize lower-vector" |\

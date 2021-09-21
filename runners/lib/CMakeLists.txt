@@ -4,7 +4,6 @@ add_mlir_library(IREELinalgTensorSandbox
   ConvertToAsyncDialect.cpp
   ConvertToGPUDialect.cpp
   LinalgTensorCodegenDriver.cpp
-  LinalgTensorCodegenStrategy.cpp
   LinalgTileAndFuse.cpp
 
   PARTIAL_SOURCES_INTENDED
