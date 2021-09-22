@@ -1,5 +1,3 @@
-# RUN: %PYTHON %s 2>&1 | FileCheck %s
-
 import sys, time
 from collections.abc import Callable
 
@@ -17,8 +15,13 @@ from experts import *
 from compilation import compile_and_callback, f32
 
 
-def compile_and_test_linalg_matmul(M: int, N: int, K: int, ITERS: int,
-                                   np_type: np.dtype, transform: Callable):
+def compile_and_test_linalg_matmul(M: int,
+                                   N: int,
+                                   K: int,
+                                   ITERS: int,
+                                   np_type: np.dtype,
+                                   transform: Callable,
+                                   dry_run: bool = True):
   A = np.random.rand(M, K).astype(np_type)
   B = np.random.rand(K, N).astype(np_type)
   C = np.random.rand(M, N).astype(np_type)
@@ -36,12 +39,13 @@ def compile_and_test_linalg_matmul(M: int, N: int, K: int, ITERS: int,
       execution_engine.invoke('main', A_memref_ptr, B_memref_ptr, C_memref_ptr,
                               index_ptr_t(iters))
 
-    # Dry-run.
-    n_iters_dry_run = 1
-    elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-        execute, n_iters_dry_run, M, N, K, n_iters_dry_run)
-    print(f'dry_run in {elapsed_s_per_iter:.{4}}s per iter '
-          f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
+    if dry_run:
+      # Dry-run.
+      n_iters_dry_run = 1
+      elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
+          execute, n_iters_dry_run, M, N, K, n_iters_dry_run)
+      print(f'dry_run in {elapsed_s_per_iter:.{4}}s per iter '
+            f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
 
     # Run for ITERS and report timing.
     elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
@@ -119,27 +123,3 @@ def test_torch_matmul(M: int, N: int, K: int, ITERS: int, np_type,
   print(f'xxxxxxxxxx : torch time on {torch.get_num_threads()} threads '
         f'in {elapsed_s_per_iter:.{4}}s per iter '
         f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
-
-
-# CHECK-NOT: FAILURE
-n_iters = 10
-benchmark_torch = False
-problem_size_list = [[128, 192, 256], [256, 256, 256], [1024, 1024, 1024]]
-for np_type in [np.float32]:
-  for problem_sizes in problem_size_list:
-    M, N, K = problem_sizes
-    # Init printing.
-    print(f'\n###############################################################\n'
-          f'Problem size {M}x{N}x{K}')
-    for expert in [
-        expert_compilerr_1, expert_compilerr_2, expert_compilerr_3,
-        expert_compilerr_4
-    ]:
-      compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert)
-    # For single-threaded apples-to-apples comparisons, run with:
-    # MKL_NUM_THREADS=1 ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
-    import os
-    if os.environ.get('BENCHMARK_NUMPY'):
-      test_numpy_matmul(M, N, K, n_iters, np_type)
-    if os.environ.get('BENCHMARK_TORCH'):
-      test_torch_matmul(M, N, K, n_iters, np_type, 1)
