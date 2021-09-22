@@ -12,7 +12,19 @@ from mlir.runtime import *
 
 from harness import *
 from experts import *
-from compilation import compile_and_callback, f32
+from compilation import build_op_under_context_manager, compile_and_callback, f32
+
+
+def gflop_count_matmul(M: int, N: int, K: int):
+  return (2.0 * M * N * K) / 1e9
+
+
+def setup_matmul_np(M: int, N: int, K: int, np_type: np.dtype):
+  A = np.random.rand(M, K).astype(np_type)
+  B = np.random.rand(K, N).astype(np_type)
+  C = np.random.rand(M, N).astype(np_type)
+  C.fill(0.)
+  return [A, B, C]
 
 
 def compile_and_test_linalg_matmul(M: int,
@@ -22,38 +34,28 @@ def compile_and_test_linalg_matmul(M: int,
                                    np_type: np.dtype,
                                    transform: Callable,
                                    dry_run: bool = True):
-  A = np.random.rand(M, K).astype(np_type)
-  B = np.random.rand(K, N).astype(np_type)
-  C = np.random.rand(M, N).astype(np_type)
-  C.fill(0.)
+  # np's A, B and C are hoisted out so they aren't garbage collected.
+  A, B, C = setup_matmul_np(M, N, K, np_type)
 
-  # Arguments must be passed as pointers.
-  A_memref_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(A)))
-  B_memref_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(B)))
-  C_memref_ptr = ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(C)))
-  index_ptr_t = ctypes.c_longlong * 1
+  def setup_fun():
+    # Arguments must be passed as pointers.
+    A_memref_ptr, B_memref_ptr, C_memref_ptr = (
+        ctypes.pointer(ctypes.pointer(get_ranked_memref_descriptor(t)))
+        for t in (A, B, C))
+    return A_memref_ptr, B_memref_ptr, C_memref_ptr
 
-  def callback(module, execution_engine):
-
-    def execute(m, n, k, iters):
+  def run_fun(iters, A_memref_ptr, B_memref_ptr, C_memref_ptr):
+    with Context() as ctx, Location.unknown():
+      index_ptr_t = ctypes.c_longlong * 1
+      module, execution_engine = build_op_under_context_manager(
+          linalg.matmul, transform, M=M, N=N, K=K, T1=f32, T2=f32, U=f32)
       execution_engine.invoke('main', A_memref_ptr, B_memref_ptr, C_memref_ptr,
-                              index_ptr_t(iters))
+                              index_ptr_t(123))
 
-    if dry_run:
-      # Dry-run.
-      n_iters_dry_run = 1
-      elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-          execute, n_iters_dry_run, M, N, K, n_iters_dry_run)
-      print(f'dry_run in {elapsed_s_per_iter:.{4}}s per iter '
-            f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
-
-    # Run for ITERS and report timing.
-    elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-        execute, ITERS, M, N, K, ITERS)
-    print(f'run in {elapsed_s_per_iter:.{4}}s per iter '
-          f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
-
-    # Check results vs NP and print timings.
+  # Check results vs NP and print timings.
+  # Note that MLIR directly modifies np's tensor memory and the memref_ptr
+  # operands are unused here: we can directly look at the result in C.
+  def check_fun(A_memref_ptr, B_memref_ptr, C_memref_ptr):
     success = 'SUCCESS' if np.allclose(C, np.dot(A, B)) else 'FAILURE'
     if success == 'SUCCESS':
       print(f'{success} ')
@@ -62,64 +64,42 @@ def compile_and_test_linalg_matmul(M: int,
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       print(f'max_abs_delta: {max_abs_delta} -> {success} ')
 
-  compile_and_callback(
-      linalg.matmul, transform, callback, M=M, N=N, K=K, T1=f32, T2=f32, U=f32)
+  setup_and_invoke(
+      setup_fun,
+      run_fun,
+      ITERS,
+      gflop_count_matmul(M, N, K),
+      check_fun=check_fun)
 
 
-def test_numpy_matmul(M: int, N: int, K: int, ITERS, np_type):
-  A = np.random.rand(M, K).astype(np_type)
-  B = np.random.rand(K, N).astype(np_type)
-  C = np.random.rand(M, N).astype(np_type)
-  C.fill(0.)
+def test_numpy_matmul(M: int, N: int, K: int, ITERS: int, np_type):
 
-  def execute(m, n, k, iters):
+  def setup_fun():
+    return setup_matmul_np(M, N, K, np_type)
+
+  def run_fun(iters, A, B, C):
     for iters in range(iters):
-      # TODO: True GEMM semantics ?
       C.fill(0.)
       np.dot(A, B, out=C)
 
-  # Dry-run.
-  n_iters_dry_run = 1
-  elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-      execute, n_iters_dry_run, M, N, K, n_iters_dry_run)
-  print(f'xxxxxxxxxx : numpy dry_run time on {1} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
-
-  # Run for ITERS and report timing.
-  elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-      execute, ITERS, M, N, K, ITERS)
-  print(f'xxxxxxxxxx : numpy time on {1} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
+  setup_and_invoke(setup_fun, run_fun, ITERS, gflop_count_matmul(M, N, K))
 
 
-def test_torch_matmul(M: int, N: int, K: int, ITERS: int, np_type,
-                      num_threads: int):
-  import torch
-  torch.set_num_threads(num_threads)
-  A = torch.rand(M, K)
-  B = torch.rand(K, N)
-  C = torch.rand(M, N)
-  C.fill_(0.)
+def test_torch_matmul(M: int,
+                      N: int,
+                      K: int,
+                      ITERS: int,
+                      np_type,
+                      num_threads=2):
 
-  def execute(m, n, k, iters):
+  def setup_fun():
+    import torch
+    torch.set_num_threads(num_threads)
+    return [torch.from_numpy(t) for t in setup_matmul_np(M, N, K, np_type)]
+
+  def run_fun(iters, A, B, C):
     for iters in range(iters):
-      # TODO: True GEMM semantics ?
       C.fill_(0.)
       torch.mm(A, B, out=C)
 
-  # Dry-run.
-  n_iters_dry_run = 1
-  elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-      execute, n_iters_dry_run, M, N, K, n_iters_dry_run)
-  print(f'xxxxxxxxxx : torch dry_run time on {torch.get_num_threads()} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
-
-  # Run for ITERS and report timing.
-  elapsed_s_per_iter, gflop_per_s_per_iter = timed_invoke(
-      execute, ITERS, M, N, K, ITERS)
-  print(f'xxxxxxxxxx : torch time on {torch.get_num_threads()} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
+  setup_and_invoke(setup_fun, run_fun, ITERS, gflop_count_matmul(M, N, K))
