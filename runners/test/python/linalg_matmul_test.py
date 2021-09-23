@@ -10,10 +10,7 @@ class TestExpert(Expert):
     self.tiling_transforms = tiling_transforms
 
   def transforms(self) -> List[Transform]:
-    return self.tiling_transforms + [
-        Bufferize(),
-        LowerToLLVM()
-    ]
+    return self.tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
 
 # TODO: Check generate code for basic code quality, e.g., no linalg.copy.
 

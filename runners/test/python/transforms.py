@@ -103,7 +103,21 @@ class Vectorize(Transform):
 class Bufferize(Transform):
 
   def __init__(self):
-    pipeline = (f'linalg-comprehensive-module-bufferize,'
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     bufferize=true}},'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = pipeline
+
+
+class LowerVectors(Transform):
+
+  def __init__(self):
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'    lower-vector '
+                f'    split-transfers=vector-transfers '
+                f'    vectorize-contraction-to=outerproduct '
+                f'    unroll-vector-transfers=true}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
@@ -113,7 +127,6 @@ class LowerToLLVM(Transform):
 
   def __init__(self):
     pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'    lower-vector '
                 f'    lower-to-llvm}},'
                 f'canonicalize,'
                 f'cse')

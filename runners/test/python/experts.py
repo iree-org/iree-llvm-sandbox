@@ -7,7 +7,7 @@ from transforms import *
 
 # Only for debugging: Print IR after each transform.
 print_ir_after_each = False
-
+print_llvmir = False
 
 class Assignments:
 
@@ -20,19 +20,15 @@ class Expert:
   def __init__(self, **asignments):
     self.assignments = Assignments(**asignments)
 
-  def _pre_transform(self, module, boilerplate_code):
-    benchmark_fun = str(
-        module.operation.regions[0].blocks[0].operations[0].operation)
-    module = Module.parse(benchmark_fun + boilerplate_code)
-    return module
-
-  def __call__(self, module, boilerplate_code):
-    module = self._pre_transform(module, boilerplate_code)
+  def __call__(self, entry_point, module, boilerplate_code):
     for transform in self.transforms():
-      if print_ir_after_each:
+      is_llvmir = str(transform).find('LowerToLLVM') >= 0
+      print_ir = print_ir_after_each and (print_llvmir or not is_llvmir)
+
+      if print_ir:
         print('[[[ IR after transform: ' + str(transform) + ']]]')
-      transform(module, 'matmul_on_tensors')
-      if print_ir_after_each:
+      transform(module, entry_point)
+      if print_ir:
         print(module)
     return module
 

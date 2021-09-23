@@ -39,7 +39,6 @@ def setup_and_invoke(
 
   # Dry-run.
   if n_iters_dry_run > 0:
-    print('dry run')
     timed_invoke(
         run_fun,
         gflop_count,

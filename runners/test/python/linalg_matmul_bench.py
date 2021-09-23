@@ -28,6 +28,7 @@ class SingleTilingExpert(Expert):
             hoist_padding=v.hoist_padding),
         Vectorize('matmul_on_tensors', 'linalg.matmul'),
         Bufferize(),
+        LowerVectors(),
         LowerToLLVM(),
     ]
 
@@ -38,7 +39,7 @@ all_experts = [
 ]
 
 # CHECK-NOT: FAILURE
-n_iters = 100
+n_iters = 1000
 problem_size_list = [[128, 192, 256], [104, 96, 108]]
 for np_type in [np.float32]:
   for problem_sizes in problem_size_list:
@@ -46,12 +47,15 @@ for np_type in [np.float32]:
     # Init printing.
     print(f'\n###############################################################\n'
           f'Problem size {M}x{N}x{K}')
+    print('MLIR Codegen')
     for expert in all_experts:
       compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert)
     # For single-threaded apples-to-apples comparisons, run with:
     # MKL_NUM_THREADS=1 ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
     import os
     if os.environ.get('BENCHMARK_NUMPY'):
+      print('Numpy')
       test_numpy_matmul(M, N, K, n_iters, np_type)
     if os.environ.get('BENCHMARK_TORCH'):
+      print('Torch')
       test_torch_matmul(M, N, K, n_iters, np_type, 1)

@@ -56,6 +56,8 @@ struct LinalgTensorCodegenDriverPass
 void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
   OpPassManager dynamicPM("builtin.module");
   OpPassManager &nestedFuncOpPM = dynamicPM.nest<FuncOp>();
+  // This is a failsafe catchall, if it does something performance opportunities
+  // have been missed previously.
   nestedFuncOpPM.addPass(createConvertVectorToSCFPass());
   nestedFuncOpPM.addPass(createConvertLinalgToLoopsPass());
   dynamicPM.addPass(createCanonicalizerPass());
