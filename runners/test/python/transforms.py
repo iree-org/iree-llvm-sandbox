@@ -18,17 +18,14 @@ class Transform:
 class Fuse(Transform):
 
   def __init__(self, func_name: str, op_name: str, tile_sizes: list, pad=False):
-    pad_str = f'fuse-padding' if pad else ''
     tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
-    pipeline = (
-        f'linalg-tensor-codegen-driver{{'
-        f'     anchor-func={func_name} '
-        f'     anchor-op={op_name} '
-        #f'     fuse '
-        f'     {pad_str}'
-        f'     {tile_str}}},'
-        f'canonicalize,'
-        f'cse')
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     anchor-func={func_name} '
+                f'     anchor-op={op_name} '
+                f'     fuse '
+                f'     {tile_str}}},'
+                f'canonicalize,'
+                f'cse')
     self.pipeline = pipeline
 
 

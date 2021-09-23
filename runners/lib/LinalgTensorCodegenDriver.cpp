@@ -93,17 +93,15 @@ void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
   });
   if (walkResult.wasInterrupted()) return signalPassFailure();
 
-  linalg::Aliases aliases;
-  LinalgDependenceGraph dependenceGraph(aliases, linalgOps);
-  OpBuilder builder(funcOp.getContext());
-  LinalgTilingOptions tilingOptions;
-  tilingOptions = tilingOptions.setTileSizes(tileSizes).setLoopType(
-      LinalgTilingLoopType::Loops);
-  Optional<TiledAndFusedLinalgOps> tileAndFuseOps =
-      tileAndFuseLinalgOps(builder, linalgOps, dependenceGraph, tilingOptions);
-  if (tileAndFuseOps)
-    linalgOps.back().getOperation()->replaceAllUsesWith(
-        tileAndFuseOps->fusedLoops.front());
+  SmallVector<int64_t> tileInterchange =
+      llvm::to_vector<6>(llvm::seq<int64_t>(0, tileSizes.size()));
+  OpBuilder b(funcOp.getContext());
+  FailureOr<TileLoopNest> tileLoopNest = tileConsumerAndFuseProducers(
+      b, linalgOps.back(), tileSizes, tileInterchange);
+  if (failed(tileLoopNest)) return signalPassFailure();
+  // TODO: uncomment once https://reviews.llvm.org/D110169 landed.
+  // linalgOps.back()->replaceAllUsesWith(
+  //     tileLoopNest->getRootOpReplacementResults());
 }
 
 void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
