@@ -2,6 +2,7 @@ import time
 
 from collections.abc import Callable
 
+
 # Log everything to stderr and flush so that we have a unified stream to match
 # errors/info emitted by MLIR to stderr.
 def log(*args):
@@ -9,12 +10,17 @@ def log(*args):
   sys.stderr.flush()
 
 
-def timed_invoke(execute: Callable, gflop_count: int, n_iters: int, args: list):
+def timed_invoke(execute: Callable, gflop_count: int, n_iters: int, args: list,
+                 **kwargs):
   start = time.time()
-  execute(n_iters, *args)
-  elapsed_s_per_iteration = (time.time() - start) / n_iters
-  gflop_per_s_per_iteration = gflop_count / (elapsed_s_per_iteration)
-  return elapsed_s_per_iteration, gflop_per_s_per_iteration
+  execute(*args, **kwargs, n_iters=n_iters)
+  elapsed_s = time.time() - start
+  elapsed_s_per_iter = elapsed_s / n_iters
+  gflop_per_s_per_iter = gflop_count / (elapsed_s_per_iter)
+  print(f'xxxxxxxxxx : {n_iters} iters time on {1} threads '
+        f'in {elapsed_s_per_iter:.{4}}s per iter '
+        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) '
+        f'total time {elapsed_s:.{4}}s ')
 
 
 def setup_and_invoke(
@@ -27,19 +33,29 @@ def setup_and_invoke(
     **kwargs):
   tensors = setup_fun()
 
+  module, execution_engine = None, None
+  if 'compile_fun' in kwargs:
+    module, execution_engine = kwargs['compile_fun'](*tensors)
+
   # Dry-run.
   if n_iters_dry_run > 0:
-    elapsed_s_per_iter, gflop_per_s_per_iter = \
-        timed_invoke(run_fun, gflop_count, n_iters_dry_run, tensors)
-    print(f'dry_run in {elapsed_s_per_iter:.{4}}s per iter '
-          f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
+    print('dry run')
+    timed_invoke(
+        run_fun,
+        gflop_count,
+        n_iters_dry_run,
+        tensors,
+        module=module,
+        execution_engine=execution_engine)
+
+  if 'check_fun' in kwargs:
+    kwargs['check_fun'](*tensors)
 
   # Run for ITERS and report timing.
-  elapsed_s_per_iter, gflop_per_s_per_iter = \
-      timed_invoke(run_fun, gflop_count, n_iters, tensors)
-  print(f'xxxxxxxxxx : time on {1} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) ')
-
-  if kwargs['check_fun']:
-    kwargs['check_fun'](*tensors)
+  timed_invoke(
+      run_fun,
+      gflop_count,
+      n_iters,
+      tensors,
+      module=module,
+      execution_engine=execution_engine)

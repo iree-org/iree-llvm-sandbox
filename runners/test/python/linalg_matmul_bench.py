@@ -34,11 +34,11 @@ class SingleTilingExpert(Expert):
 
 all_experts = [
     SingleTilingExpert(
-        sizes=[52, 48, 54], pad=True, peel=False, hoist_padding=3)
+        sizes=[8, 16, 32], pad=True, peel=False, hoist_padding=3)
 ]
 
 # CHECK-NOT: FAILURE
-n_iters = 10
+n_iters = 100
 problem_size_list = [[128, 192, 256], [104, 96, 108]]
 for np_type in [np.float32]:
   for problem_sizes in problem_size_list:

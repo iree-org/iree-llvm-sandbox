@@ -7,6 +7,7 @@ from mlir.passmanager import *
 
 import mlir.all_passes_registration
 
+
 class Transform:
   """Base class for all parametrized transformations."""
 
@@ -113,7 +114,9 @@ class LowerToLLVM(Transform):
   def __init__(self):
     pipeline = (f'linalg-tensor-codegen-driver{{'
                 f'    lower-vector '
-                f'    lower-to-llvm}}')
+                f'    lower-to-llvm}},'
+                f'canonicalize,'
+                f'cse')
     self.pipeline = pipeline
 
 

@@ -44,13 +44,17 @@ def compile_and_test_linalg_matmul(M: int,
         for t in (A, B, C))
     return A_memref_ptr, B_memref_ptr, C_memref_ptr
 
-  def run_fun(iters, A_memref_ptr, B_memref_ptr, C_memref_ptr):
+  def compile_fun(A_memref_ptr, B_memref_ptr, C_memref_ptr):
     with Context() as ctx, Location.unknown():
-      index_ptr_t = ctypes.c_longlong * 1
       module, execution_engine = build_op_under_context_manager(
           linalg.matmul, transform, M=M, N=N, K=K, T1=f32, T2=f32, U=f32)
-      execution_engine.invoke('main', A_memref_ptr, B_memref_ptr, C_memref_ptr,
-                              index_ptr_t(123))
+      return module, execution_engine
+
+  def run_fun(A_memref_ptr, B_memref_ptr, C_memref_ptr, **kwargs):
+    index_ptr_t = ctypes.c_longlong * 1
+    kwargs['execution_engine'].invoke('main', A_memref_ptr, B_memref_ptr,
+                                      C_memref_ptr,
+                                      index_ptr_t(kwargs['n_iters']))
 
   # Check results vs NP and print timings.
   # Note that MLIR directly modifies np's tensor memory and the memref_ptr
@@ -69,6 +73,7 @@ def compile_and_test_linalg_matmul(M: int,
       run_fun,
       ITERS,
       gflop_count_matmul(M, N, K),
+      compile_fun=compile_fun,
       check_fun=check_fun)
 
 
@@ -77,8 +82,8 @@ def test_numpy_matmul(M: int, N: int, K: int, ITERS: int, np_type):
   def setup_fun():
     return setup_matmul_np(M, N, K, np_type)
 
-  def run_fun(iters, A, B, C):
-    for iters in range(iters):
+  def run_fun(A, B, C, **kwargs):
+    for kwargs['n_iters'] in range(iters):
       C.fill(0.)
       np.dot(A, B, out=C)
 
@@ -97,8 +102,8 @@ def test_torch_matmul(M: int,
     torch.set_num_threads(num_threads)
     return [torch.from_numpy(t) for t in setup_matmul_np(M, N, K, np_type)]
 
-  def run_fun(iters, A, B, C):
-    for iters in range(iters):
+  def run_fun(A, B, C, **kwargs):
+    for kwargs['n_iters'] in range(iters):
       C.fill_(0.)
       torch.mm(A, B, out=C)
 
