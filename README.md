@@ -103,7 +103,7 @@ export PYTHONPATH=$PWD/tools/iree_llvm_sandbox/python_package
 python -c "import mlir.iree_sandbox"
 
 # Run a matmul.
-python ../iree-llvm-sandbox/runners/test/python/linalg_matmul.py
+python ../iree-llvm-sandbox/runners/test/python/linalg_matmul_bench.py
 ```
 
 ## Using mlir-proto-opt
