@@ -19,7 +19,7 @@ from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
 # Import common test tools.
-import sparse_codegen_test_common as test_common
+from . import sparse_codegen_test_common as test_common
 
 
 # TODO(b/195422626): Make _test_desc a local variable and pass it to
@@ -174,5 +174,11 @@ def run_tests(num_processes: int) -> bool:
                                                       _test_combination)
 
 
-if test_common.get_num_processes_and_run_tests(__name__, run_tests) == False:
-  sys.exit(test_common.FAILURE_MESSAGE)
+def main():
+  if test_common.get_num_processes_and_run_tests("__main__",
+                                                 run_tests) == False:
+    sys.exit(test_common.FAILURE_MESSAGE)
+
+
+if __name__ == "__main__":
+  main()

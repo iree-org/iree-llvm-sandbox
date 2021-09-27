@@ -16,7 +16,7 @@ from mlir.dialects import std
 from mlir.execution_engine import *
 from mlir.runtime import *
 
-from transforms import *
+from .transforms import *
 
 f16 = "f16"
 f32 = "f32"

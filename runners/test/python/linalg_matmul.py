@@ -10,9 +10,9 @@ from mlir.dialects import std
 from mlir.execution_engine import *
 from mlir.runtime import *
 
-from harness import *
-from experts import *
-from compilation import f32
+from .harness import *
+from .experts import *
+from .compilation import f32
 
 avx512 = True
 

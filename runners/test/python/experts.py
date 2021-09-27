@@ -2,8 +2,9 @@
 # import time
 
 from typing import List
-from search import *
-from transforms import *
+
+from .search import *
+from .transforms import *
 
 # Only for debugging: Print IR after each transform.
 print_ir_after_each = False

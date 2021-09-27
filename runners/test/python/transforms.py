@@ -1,7 +1,3 @@
-# Bootstrap our local extensions first.
-# TODO: Come up with a way to make this auto-load.
-import mlir.iree_sandbox
-
 from mlir.ir import *
 from mlir.passmanager import *
 

@@ -2,8 +2,8 @@
 
 # This file contains simple test cases that combine various codegen options.
 
-from experts import *
-from linalg_matmul import *
+from .experts import *
+from .linalg_matmul import *
 
 class TestExpert(Expert):
   def __init__(self, tiling_transforms):
@@ -189,12 +189,18 @@ all_experts = [
 ]
 
 # CHECK-NOT: FAILURE
-n_iters = 1
-problem_size_list = [[24, 32, 48], [27, 37, 43]]
-for np_type in [np.float32]:
-  for problem_sizes in problem_size_list:
-    M, N, K = problem_sizes
-    print(f'\n###############################################################\n'
+def main():
+  n_iters = 1
+  problem_size_list = [[24, 32, 48], [27, 37, 43]]
+  for np_type in [np.float32]:
+    for problem_sizes in problem_size_list:
+      M, N, K = problem_sizes
+      print(
+          f'\n###############################################################\n'
           f'Problem size {M}x{N}x{K}')
-    for expert in all_experts:
-      compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert, False)
+      for expert in all_experts:
+        compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert, False)
+
+
+if __name__ == '__main__':
+  main()

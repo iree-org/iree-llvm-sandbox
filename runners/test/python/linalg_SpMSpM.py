@@ -1,3 +1,5 @@
+# pytype: skip-file
+
 import os, sys, time
 from collections.abc import Callable
 
@@ -11,8 +13,8 @@ from mlir.dialects.sparse_tensor import *
 from mlir.execution_engine import *
 from mlir.runtime import *
 
-from experts import *
-from transforms import *
+from .experts import *
+from .transforms import *
 
 from mlir.dialects.linalg.opdsl.lang import *
 
@@ -131,43 +133,50 @@ def compile_and_test(transform: Callable, a1: EncodingAttr, a2: EncodingAttr):
   compile_and_callback(transform, callback, a1, a2)
 
 
-# Read support library.
-# TODO: setup via execution engine
-support = os.getenv('SUPPORTLIB')
-support_lib = ctypes.CDLL(support, mode=ctypes.RTLD_GLOBAL)
+def main():
+  # Read support library.
+  # TODO: setup via execution engine
+  support = os.getenv('SUPPORTLIB')
+  support_lib = ctypes.CDLL(support, mode=ctypes.RTLD_GLOBAL)
 
-# Generate and run C += AB for all annotation combinations for A and B
-# (dense/sparse in all dimensions, row- and column-wise access, bit-widths)
-# and various compiler options. Note that we do not exhaustively visit
-# all possibilities to keep testing time reasonable (but the parameters
-# can be changed by hand for more coverage).
-count = 0
-with Context() as ctx:
-  level1 = [DimLevelType.dense, DimLevelType.dense]
-  level2 = [DimLevelType.dense, DimLevelType.compressed]
-  level3 = [DimLevelType.compressed, DimLevelType.dense]
-  level4 = [DimLevelType.compressed, DimLevelType.compressed]
-  order1 = AffineMap.get_permutation([0, 1])
-  order2 = AffineMap.get_permutation([1, 0])
-  for levels1 in [level1, level2, level3, level4]:
-    for levels2 in [level1, level2, level3, level4]:
-      for ordering1 in [order1, order2]:
-        for ordering2 in [order1, order2]:
-          for pwidth in [0, 32]:
-            for iwidth in [0, 32]:
-              for p in [0, 1]:
-                for v in [0, 1]:
-                  for vl in [1, 16, 64]:
-                    if v == 0 and vl > 1:
-                      continue
-                    if v > 0 and vl == 1:
-                      continue
-                    attr1 = EncodingAttr.get(levels1, ordering1, pwidth, iwidth)
-                    attr2 = EncodingAttr.get(levels2, ordering2, pwidth, iwidth)
-                    opt = (f'parallelization-strategy={p} '
-                           f'vectorization-strategy={v} vl={vl}')
-                    compiler = ExpertSparseCompiler(options=opt)
-                    compile_and_test(compiler, attr1, attr2)
-                    count = count + 1
+  # Generate and run C += AB for all annotation combinations for A and B
+  # (dense/sparse in all dimensions, row- and column-wise access, bit-widths)
+  # and various compiler options. Note that we do not exhaustively visit
+  # all possibilities to keep testing time reasonable (but the parameters
+  # can be changed by hand for more coverage).
+  count = 0
+  with Context() as ctx:
+    level1 = [DimLevelType.dense, DimLevelType.dense]
+    level2 = [DimLevelType.dense, DimLevelType.compressed]
+    level3 = [DimLevelType.compressed, DimLevelType.dense]
+    level4 = [DimLevelType.compressed, DimLevelType.compressed]
+    order1 = AffineMap.get_permutation([0, 1])
+    order2 = AffineMap.get_permutation([1, 0])
+    for levels1 in [level1, level2, level3, level4]:
+      for levels2 in [level1, level2, level3, level4]:
+        for ordering1 in [order1, order2]:
+          for ordering2 in [order1, order2]:
+            for pwidth in [0, 32]:
+              for iwidth in [0, 32]:
+                for p in [0, 1]:
+                  for v in [0, 1]:
+                    for vl in [1, 16, 64]:
+                      if v == 0 and vl > 1:
+                        continue
+                      if v > 0 and vl == 1:
+                        continue
+                      attr1 = EncodingAttr.get(levels1, ordering1, pwidth,
+                                               iwidth)
+                      attr2 = EncodingAttr.get(levels2, ordering2, pwidth,
+                                               iwidth)
+                      opt = (f'parallelization-strategy={p} '
+                             f'vectorization-strategy={v} vl={vl}')
+                      compiler = ExpertSparseCompiler(options=opt)
+                      compile_and_test(compiler, attr1, attr2)
+                      count = count + 1
 
-print('Done with', count, 'tests')
+  print('Done with', count, 'tests')
+
+
+if __name__ == '__main__':
+  main()

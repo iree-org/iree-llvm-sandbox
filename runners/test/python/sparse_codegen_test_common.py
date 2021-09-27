@@ -37,7 +37,7 @@ from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
 # Import compilation utilties for the tests.
-import experts
+from . import experts
 
 
 # Message to print out when tests stop with failure.
