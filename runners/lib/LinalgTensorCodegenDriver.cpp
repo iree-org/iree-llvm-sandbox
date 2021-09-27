@@ -93,8 +93,6 @@ void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
   });
   if (walkResult.wasInterrupted()) return signalPassFailure();
 
-  SmallVector<int64_t> tileInterchange =
-      llvm::to_vector<6>(llvm::seq<int64_t>(0, tileSizes.size()));
   OpBuilder b(funcOp.getContext());
   FailureOr<TileLoopNest> tileLoopNest = tileConsumerAndFuseProducers(
       b, linalgOps.back(), tileSizes, tileInterchange);
@@ -112,6 +110,9 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;
   if (!tileSizes.empty()) tilingOptions = tilingOptions.setTileSizes(tileSizes);
+  if (!tileInterchange.empty())
+    tilingOptions = tilingOptions.setInterchange(
+        SmallVector<unsigned>(tileInterchange.begin(), tileInterchange.end()));
   if (scalarizeDynamicDims)
     tilingOptions = tilingOptions.scalarizeDynamicDims();
   tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);

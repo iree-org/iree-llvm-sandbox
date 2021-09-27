@@ -16,14 +16,32 @@ class Transform:
 
 
 class Fuse(Transform):
+  """Tile a linalg op and fuse its producers.
 
-  def __init__(self, func_name: str, op_name: str, tile_sizes: list, pad=False):
-    tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
+  This transform can be configured as follows:
+  * `tile_sizes`: Tile sizes used for tiling.
+  * `tile_interchange`: Interchange used for tiling.
+  """
+
+  def __init__(self,
+               func_name: str,
+               op_name: str,
+               tile_sizes=[],
+               tile_interchange=[],
+               pad=False):
+    tile_str = ''
+    interchange_str = ''
+    if tile_sizes:
+      tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
+    if tile_interchange:
+      dims = [str(ic) for ic in tile_interchange]
+      interchange_str = f'tile-interchange={",".join(dims)}'
     pipeline = (f'linalg-tensor-codegen-driver{{'
                 f'     anchor-func={func_name} '
                 f'     anchor-op={op_name} '
                 f'     fuse '
-                f'     {tile_str}}},'
+                f'     {tile_str} '
+                f'     {interchange_str}}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
@@ -34,6 +52,7 @@ class Tile(Transform):
 
   This transform can be configured as follows:
   * `tile_sizes`: Tile sizes used for tiling.
+  * `tile_interchange`: Interchange used for tiling.
   * `pad`: Request padding of tensors.
   * `hoist_padding`: Hoist padding around the specified number of loops. `pad`
      must also be specified.
@@ -49,11 +68,13 @@ class Tile(Transform):
                func_name: str,
                op_name: str,
                tile_sizes=[],
+               tile_interchange=[],
                pad=False,
                peel=[],
                hoist_padding=None,
                scalarize_dyn_dims=False):
     tile_str = ''
+    interchange_str = ''
     pad_str = ''
     hoist_padding_str = ''
     peeled_loops_str = ''
@@ -61,6 +82,9 @@ class Tile(Transform):
 
     if tile_sizes:
       tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
+    if tile_interchange:
+      dims = [str(ic) for ic in tile_interchange]
+      interchange_str = f'tile-interchange={",".join(dims)}'
     if pad:
       pad_str = 'pad'
     if hoist_padding:
@@ -75,6 +99,7 @@ class Tile(Transform):
                 f'     anchor-func={func_name} '
                 f'     anchor-op={op_name} '
                 f'     {tile_str} '
+                f'     {interchange_str} '
                 f'     {peeled_loops_str} '
                 f'     {scalarize_dyn_dims_str} '
                 f'     {pad_str} '

@@ -28,6 +28,18 @@ expert_tile_1 = TestExpert([
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
 
+# 1 level of tile and interchange.
+expert_tile_and_interchange_1 = TestExpert([
+    Tile(
+        'matmul_on_tensors',
+        'linalg.matmul',
+        tile_sizes=[8, 8, 24],
+        tile_interchange=[2, 0, 1],
+        pad=False,
+        peel=False),
+    Vectorize('matmul_on_tensors', 'linalg.matmul')
+])
+
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
 expert_tile_1_peel_scalarize = TestExpert([
     Tile(

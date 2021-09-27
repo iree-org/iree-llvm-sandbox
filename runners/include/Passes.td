@@ -25,6 +25,9 @@ def LinalgTensorCodegenDriver
     // Tiling options.
     ListOption<"tileSizes", "tile-sizes", "int64_t", "Tile sizes",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"tileInterchange", "tile-interchange", "int64_t",
+                "Tile loop interchange",
+                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     ListOption<"peeledLoops", "peeled-loops", "int64_t", "Peeled loops",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"pad", "pad", "bool", /*default=*/"false",

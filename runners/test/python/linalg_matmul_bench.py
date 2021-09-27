@@ -11,6 +11,7 @@ from linalg_matmul import *
 class SingleTilingExpert(Expert):
   variables = {
       'sizes': TilingSizesVariable,
+      'interchange': InterchangeVariable,
       'pad': BoolVariable,
       'peel': BoolVariable,
       'hoist_padding': HoistPaddingVariable,
@@ -23,6 +24,7 @@ class SingleTilingExpert(Expert):
             'matmul_on_tensors',
             'linalg.matmul',
             tile_sizes=v.sizes,
+            tile_interchange=v.interchange,
             pad=v.pad,
             peel=v.peel,
             hoist_padding=v.hoist_padding),
@@ -35,7 +37,11 @@ class SingleTilingExpert(Expert):
 
 all_experts = [
     SingleTilingExpert(
-        sizes=[8, 16, 32], pad=True, peel=False, hoist_padding=3)
+        sizes=[8, 16, 32],
+        interchange=[0, 1, 2],
+        pad=True,
+        peel=False,
+        hoist_padding=3)
 ]
 
 # CHECK-NOT: FAILURE

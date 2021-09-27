@@ -97,6 +97,25 @@ class TilingSizesVariable(Variable):
     return result
 
 
+class InterchangeVariable(Variable):
+  'Variable that corresponds to a dimension interchange.'
+
+  def __init__(self, name, length_ranges):
+    Variable.__init__(self, name)
+    if name in length_ranges:
+      self.length_range = length_ranges[name]
+    else:
+      self.length_range = length_ranges['default']
+
+  def __repr__(self):
+    return f'InterchangeVariable({self.name}, {self.length_range})'
+
+  def random_value(self):
+    result = list(range(rand_in_range(self.length_range)))
+    random.shuffle(result)
+    return result
+
+
 class HoistPaddingVariable(IntVariable):
   'Variable that corresponds to hoist padding.'
 
@@ -137,7 +156,8 @@ def create_variable(name, variable_type, **settings):
   elif variable_type is TilingSizesVariable:
     return TilingSizesVariable(name, settings['tsize_length_range'],
                                settings['tsize_value_range'])
-
+  elif variable_type is InterchangeVariable:
+    return InterchangeVariable(name, settings['tsize_length_range'])
   elif variable_type is HoistPaddingVariable:
     return HoistPaddingVariable(name, settings['hpad_range'])
   else:
@@ -153,15 +173,25 @@ def instantiate_variables(variables, **settings):
 
 
 def are_constraints_satisfied(assignment, variables, **settings):
-  names = [
+  tile_sizes_names = [
       name for name, variablecls in variables.items()
       if variablecls is TilingSizesVariable
   ]
-  dims = max([len(assignment[name]) for name in names])
+  interchange_names = [
+      name for name, variablecls in variables.items()
+      if variablecls is InterchangeVariable
+  ]
+  # Check the tile sizes and interchange lengths match.
+  for tile_sizes, interchange in zip(tile_sizes_names, interchange_names):
+    if len(assignment[interchange]) == 0:
+      continue
+    if len(assignment[interchange]) != len(assignment[tile_sizes]):
+      return False
+  dims = max([len(assignment[name]) for name in tile_sizes_names])
   # Check the tile sizes increase monotonically from inner to outer tile loops.
   for dim in range(dims):
     last = math.inf
-    for name in names:
+    for name in tile_sizes_names:
       current = assignment[name][dim] if dim < len(assignment[name]) else 0
       if current == 0:
         continue
