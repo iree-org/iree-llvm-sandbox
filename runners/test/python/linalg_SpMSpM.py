@@ -77,7 +77,11 @@ def build_sparse_under_context_manager(transform: Callable, a1: EncodingAttr,
 
   # JIT compile.
   start = time.time()
-  transformed_module = transform(module, op_boilerplate('SpMxSpM', a1, a2))
+  # TDO: stop hacking strings.
+  string_stitch_input_ir = True
+  transformed_module = transform('main', module,
+                                 op_boilerplate('SpMxSpM', a1, a2),
+                                 string_stitch_input_ir)
   execution_engine = ExecutionEngine(transformed_module, 0)
   elapsed_compilation_s = time.time() - start
 
