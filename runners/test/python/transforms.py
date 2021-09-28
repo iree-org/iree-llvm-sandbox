@@ -8,7 +8,7 @@ class Transform:
   """Base class for all parametrized transformations."""
 
   def __call__(self, module: Module, func_name: str):
-    PassManager.parse(self.pipeline[0]).run(module)
+    PassManager.parse(self.pipeline).run(module)
 
 
 class Fuse(Transform):
@@ -165,5 +165,6 @@ class Sparsify(Transform):
         f'convert-vector-to-llvm{{reassociate-fp-reductions=1 enable-index-optimizations=1}},'
         f'lower-affine,'
         f'convert-memref-to-llvm,'
-        f'convert-std-to-llvm', f'reconcile-unrealized-casts')
+        f'convert-std-to-llvm,'
+        f'reconcile-unrealized-casts')
     self.pipeline = pipeline
