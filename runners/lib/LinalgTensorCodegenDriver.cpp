@@ -94,13 +94,28 @@ void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
   });
   if (walkResult.wasInterrupted()) return signalPassFailure();
 
+  // Compute the tile sizes and the interchange.
+  LinalgOp rootOp = linalgOps.back();
+  assert(tileSizes.size() >= rootOp.getNumLoops() &&
+         "expect one tile sizes per root op loop dimension");
+  assert(tileInterchange.empty() ||
+         tileInterchange.size() == tileSizes.size() &&
+             "expect the number of tile sizes and interchange dims to match");
+  SmallVector<int64_t> rootTileSizes(tileSizes.begin(),
+                                     tileSizes.begin() + rootOp.getNumLoops());
+  SmallVector<int64_t> rootInterchange =
+      tileInterchange.empty()
+          ? llvm::to_vector<6>(llvm::seq<int64_t>(0, rootOp.getNumLoops()))
+          : SmallVector<int64_t>(
+                tileInterchange.begin(),
+                tileInterchange.begin() + rootOp.getNumLoops());
+
+  // Tile the root operation and fuse it with its producers.
   OpBuilder b(funcOp.getContext());
-  FailureOr<TileLoopNest> tileLoopNest = tileConsumerAndFuseProducers(
-      b, linalgOps.back(), tileSizes, tileInterchange);
+  FailureOr<TileLoopNest> tileLoopNest =
+      tileConsumerAndFuseProducers(b, rootOp, rootTileSizes, rootInterchange);
   if (failed(tileLoopNest)) return signalPassFailure();
-  // TODO: uncomment once https://reviews.llvm.org/D110169 landed.
-  // linalgOps.back()->replaceAllUsesWith(
-  //     tileLoopNest->getRootOpReplacementResults());
+  rootOp->replaceAllUsesWith(tileLoopNest->getRootOpReplacementResults());
 }
 
 void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
