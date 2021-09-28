@@ -61,3 +61,31 @@ class ExpertSparseCompiler(Expert):
     return [
         Sparsify(v.options),
     ]
+
+
+# Expert compiler that applies a single level of tiling.
+class SingleTilingExpert(Expert):
+  variables = {
+      'sizes1': TilingSizesVariable,
+      'interchange': InterchangeVariable,
+      'pad': BoolVariable,
+      'peel': PeelingVariable,
+      'hoist_padding': HoistPaddingVariable,
+  }
+
+  def transforms(self) -> List[Transform]:
+    v = self.assignments
+    return [
+        Tile(
+            'matmul_on_tensors',
+            'linalg.matmul',
+            tile_sizes=v.sizes1,
+            tile_interchange=v.interchange,
+            pad=v.pad,
+            peel=v.peel,
+            hoist_padding=v.hoist_padding),
+        Vectorize('matmul_on_tensors', 'linalg.matmul'),
+        Bufferize(),
+        LowerVectors(),
+        LowerToLLVM(),
+    ]

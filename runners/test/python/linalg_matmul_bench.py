@@ -7,37 +7,9 @@ from .experts import *
 from .linalg_matmul import *
 
 
-# Expert compiler that applies a single level of tiling.
-class SingleTilingExpert(Expert):
-  variables = {
-      'sizes': TilingSizesVariable,
-      'interchange': InterchangeVariable,
-      'pad': BoolVariable,
-      'peel': BoolVariable,
-      'hoist_padding': HoistPaddingVariable,
-  }
-
-  def transforms(self) -> List[Transform]:
-    v = self.assignments
-    return [
-        Tile(
-            'matmul_on_tensors',
-            'linalg.matmul',
-            tile_sizes=v.sizes,
-            tile_interchange=v.interchange,
-            pad=v.pad,
-            peel=v.peel,
-            hoist_padding=v.hoist_padding),
-        Vectorize('matmul_on_tensors', 'linalg.matmul'),
-        Bufferize(),
-        LowerVectors(),
-        LowerToLLVM(),
-    ]
-
-
 all_experts = [
     SingleTilingExpert(
-        sizes=[8, 16, 32],
+        sizes1=[8, 16, 32],
         interchange=[0, 1, 2],
         pad=True,
         peel=False,

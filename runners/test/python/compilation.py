@@ -160,8 +160,9 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
 
   # JIT compile.
   start = time.time()
+  boilerplate = op_boilerplate(operand_defs, "matmul_on_tensors", **assignments)
   transformed_module = transform(
-      module, op_boilerplate(operand_defs, "matmul_on_tensors", **assignments))
+      "matmul_on_tensors", module, boilerplate, string_stitch_input_ir=True)
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
 

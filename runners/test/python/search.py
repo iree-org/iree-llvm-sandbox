@@ -116,6 +116,26 @@ class InterchangeVariable(Variable):
     return result
 
 
+class PeelingVariable(Variable):
+  'Variable that corresponds to loop peeling.'
+
+  def __init__(self, name, length_ranges):
+    Variable.__init__(self, name)
+    if name in length_ranges:
+      self.length_range = length_ranges[name]
+    else:
+      self.length_range = length_ranges['default']
+
+  def __repr__(self):
+    return f'PeelingVariable({self.name}, {self.length_range})'
+
+  def random_value(self):
+    options = list(range(rand_in_range(self.length_range)))
+    k = random.randint(0, len(options))
+    return sorted(random.sample(options, k))
+
+
+
 class HoistPaddingVariable(IntVariable):
   'Variable that corresponds to hoist padding.'
 
@@ -160,6 +180,8 @@ def create_variable(name, variable_type, **settings):
     return InterchangeVariable(name, settings['tsize_length_range'])
   elif variable_type is HoistPaddingVariable:
     return HoistPaddingVariable(name, settings['hpad_range'])
+  elif variable_type is PeelingVariable:
+    return PeelingVariable(name, settings['tsize_length_range'])
   else:
     raise Exception(f'unknown variable type: {variable_type}')
 

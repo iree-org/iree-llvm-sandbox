@@ -3,16 +3,18 @@ import argparse
 import json
 import numpy as np
 from itertools import chain
+
 from mlir.dialects import linalg
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.runtime import *
-from compilation import numpy_type, compile_and_callback
-from search import collect_variables
-import experts
-from search_cli import parse_assignments
+
+from .compilation import numpy_type, compile_and_callback
+from .search import collect_variables
+from . import experts
+from .search_cli import parse_assignments
 
 
-def parse_args():
+def parse_args(argv):
   parser = argparse.ArgumentParser(description='Command-line directed search.')
   parser.add_argument(
       '--op', type=str, help='Name of the linalg op to instantiate.')
@@ -33,7 +35,7 @@ def parse_args():
       type=int,
       default=10,
       help='Number of times the MLIR program is run to measure runtime.')
-  return parser.parse_args()
+  return parser.parse_args(argv[1:])
 
 
 def validate_args(args):
@@ -133,8 +135,8 @@ def invoke(op, expert, assignments, iters, runs):
   compile_and_callback(op, expert(**assignments), callback, **assignments)
 
 
-def main():
-  args = parse_args()
+def main(argv):
+  args = parse_args(argv)
   validated = validate_args(args)
   if validated is None:
     return
@@ -142,4 +144,5 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  import sys
+  main(sys.argv)

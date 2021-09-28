@@ -1,19 +1,23 @@
+# pytype: skip-file
+
 import os
 import argparse
-import multiprocessing as mp
-import subprocess as subp
+import multiprocessing
+import subprocess
 import json
 import hashlib
 import pathlib
 import shlex
 from random import choice
+
 from mlir.dialects import linalg
-from compilation import scalar_types
-from search import collect_variables, instantiate_variables, are_constraints_satisfied
-import experts
+
+from .compilation import scalar_types
+from .search import collect_variables, instantiate_variables, are_constraints_satisfied
+from . import experts
 
 
-def parse_args():
+def parse_args(argv):
   parser = argparse.ArgumentParser(description='Command-line directed search.')
   parser.add_argument(
       '--op',
@@ -28,7 +32,7 @@ def parse_args():
   parser.add_argument(
       '--dim_range',
       type=str,
-      default='8,1025,8',
+      default='128,513,128',
       help='Range of potential dimension values.')
   parser.add_argument(
       '--int_range',
@@ -52,7 +56,7 @@ def parse_args():
   parser.add_argument(
       '--tsize_register_tile_bound',
       type=int,
-      default=64,
+      default=256,
       help='Upper bound for the register tiling sizes.')
   parser.add_argument(
       '--hpad_range',
@@ -62,7 +66,7 @@ def parse_args():
   parser.add_argument(
       '--experts',
       type=str,
-      default='ExpertCompiler1,ExpertCompiler2,ExpertCompiler3',
+      default='SingleTilingExpert',
       help='Comma-separated list of possible experts to use for compilation.')
   parser.add_argument(
       '--samples',
@@ -73,7 +77,7 @@ def parse_args():
   parser.add_argument(
       '--timeout',
       type=int,
-      default=30,
+      default=120,
       help='Timeout for running a subprocess in seconds.')
   parser.add_argument(
       '--par',
@@ -83,7 +87,7 @@ def parse_args():
   parser.add_argument(
       '--output',
       type=str,
-      default='output',
+      default='/tmp/sandbox-output',
       help='The output directory to accumulate search results.')
   parser.add_argument(
       '--assign',
@@ -101,7 +105,16 @@ def parse_args():
       type=int,
       default=10,
       help='Number of times the MLIR program is run to measure runtime.')
-  return parser.parse_args()
+  parser.add_argument(
+      '--invoke-cli',
+      default='python3 invoke_cli',
+      help='Location of the benchmark invocation command.')
+  parser.add_argument(
+      '--use-llvm-mca',
+      type=bool,
+      default=False,
+      help='Use llvm-mca to report information about generated code.')
+  return parser.parse_args(argv[1:])
 
 
 def validate_args(args):
@@ -178,15 +191,19 @@ def validate_args(args):
   return no_errors
 
 
-def main():
-  args = parse_args()
+def run_in_parallel(target, kwargs, num_workers):
+  for _ in range(num_workers):
+    p = multiprocessing.Process(target=target, kwargs=kwargs)
+    p.start()
+
+
+def main(argv):
+  args = parse_args(argv)
   if not validate_args(args):
     return
 
   if args.par > 1:
-    for _ in range(args.par):
-      p = mp.Process(target=search, args=(args,))
-      p.start()
+    run_in_parallel(target=search, kwargs={'args': args}, num_workers=args.par)
   else:
     search(args)
 
@@ -240,7 +257,7 @@ def search(args):
     variables = {}
     variables.update(op_variables)
     variables.update(expert.variables)
-    print('Search random assignment...')
+    print('Searching for random assignment...')
     while True:
       assignments = dict()
       assignments.update(instantiate_variables(variables, **settings))
@@ -248,8 +265,9 @@ def search(args):
       if are_constraints_satisfied(assignments, variables, **settings):
         break
     print('Done: ' + str(assignments))
-    invoke_subprocess(args.op, expert_name, assignments, args.output,
-                      args.timeout, args.iters, args.runs)
+    invoke_subprocess(args.invoke_cli, args.op, expert_name, assignments,
+                      args.output, args.timeout, args.iters, args.runs,
+                      args.use_llvm_mca)
 
   if args.samples > 0:
     for _ in range(args.samples):
@@ -259,12 +277,11 @@ def search(args):
       collect_sample()
 
 
-def invoke_subprocess(op, expert, assignments, output_dir, timeout, iters,
-                      runs):
+def invoke_subprocess(invoke_cli, op, expert, assignments, output_dir, timeout,
+                      iters, runs, use_llvm_mca):
   file_dirname = os.path.dirname(__file__)
-  invoke_cli = os.path.join(file_dirname, 'invoke_cli.py')
-  command = [
-      'python3', invoke_cli, '--op', op, '--expert', expert, '--iters',
+  command = invoke_cli.split(' ') + [
+      '--op', op, '--expert', expert, '--iters',
       str(iters), '--runs',
       str(runs), '--assign'
   ]
@@ -321,17 +338,18 @@ def invoke_subprocess(op, expert, assignments, output_dir, timeout, iters,
     return base_output
 
   try:
-    result = subp.run(
+    result = subprocess.run(
         command,
         timeout=timeout,
-        stderr=subp.PIPE,
-        stdout=subp.PIPE,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
         check=True)
     output_path = persist('ok', result.stdout.decode('utf-8'))
-    invoke_llvm_mca(output_path)
-  except subp.CalledProcessError as e:
+    if use_llvm_mca:
+      invoke_llvm_mca(base_path)
+  except subprocess.CalledProcessError as e:
     persist('fail', e.stderr.decode('utf-8'))
-  except subp.TimeoutExpired as e:
+  except subprocess.TimeoutExpired as e:
     persist('timeout', '')
 
 
@@ -363,4 +381,5 @@ def invoke_llvm_mca(base_path):
 
 
 if __name__ == '__main__':
-  main()
+  import sys
+  main(sys.argv)
