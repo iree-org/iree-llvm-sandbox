@@ -68,7 +68,7 @@ class SingleTilingExpert(Expert):
   variables = {
       'sizes1': TilingSizesVariable,
       'interchange': InterchangeVariable,
-      'pad': BoolVariable,
+      'pad': PaddingVariable,
       'peel': PeelingVariable,
       'hoist_padding': HoistPaddingVariable,
   }

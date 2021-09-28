@@ -132,9 +132,16 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   if (scalarizeDynamicDims)
     tilingOptions = tilingOptions.scalarizeDynamicDims();
   tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
-  if (pad)
+  if (!paddedOperands.empty()) {
+    auto paddingFunc = [&](OpBuilder &b,
+                           OpOperand &opOperand) -> FailureOr<Value> {
+      if (llvm::count(paddedOperands, opOperand.getOperandNumber()) == 0)
+        return failure();
+      return getNeutralOfLinalgOp(b, opOperand);
+    };
     tilingOptions =
-        tilingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
+        tilingOptions.setPaddingValueComputationFunction(paddingFunc);
+  }
   CodegenStrategy strategy;
   strategy
       .tileIf<LinalgOp>(!tileSizes.empty() || scalarizeDynamicDims,
