@@ -144,10 +144,10 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   }
   CodegenStrategy strategy;
   strategy
-      .tileIf<LinalgOp>(!tileSizes.empty() || scalarizeDynamicDims,
-                        anchorOpName, tilingOptions)
-      .vectorizeIf(vectorize, anchorOpName)
-      .transform(funcOp);
+      .tileIf(!tileSizes.empty() || scalarizeDynamicDims, anchorOpName,
+              tilingOptions)
+      .vectorizeIf(vectorize, anchorOpName);
+  (void)strategy.transform(funcOp);
 }
 
 void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
@@ -193,8 +193,8 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
         .setEnableVectorToSCFConversion(true)
         .setVectorTransferToSCFOptions(VectorTransferToSCFOptions()
                                            .setUnroll(unrollVectorTransfers)
-                                           .setLowerPermutationMaps(true))
-        .transform(funcOp);
+                                           .setLowerPermutationMaps(true));
+    (void)strategy.transform(funcOp);
   });
 }
 
