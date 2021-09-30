@@ -6,9 +6,12 @@ import numpy as np
 from mlir.ir import *
 from mlir.dialects import builtin
 from mlir.dialects import linalg
+from mlir.dialects import scf
 from mlir.dialects import std
 from mlir.execution_engine import *
 from mlir.runtime import *
+
+from typing import Sequence, Optional
 
 from .harness import *
 from .experts import *
@@ -40,6 +43,92 @@ def setup_matmul_np(M: int, N: int, K: int, np_type: np.dtype):
   return [A, B, C]
 
 
+def attach_inplaceable_attributes(func: builtin.FuncOp,
+                                  inplaceable: Sequence[Optional[bool]]):
+  identity_map = AffineMapAttr.get(AffineMap.get_identity(2))
+  read_attrs = DictAttr.get({
+      "linalg.inplaceable": BoolAttr.get(False),
+      "linalg.buffer_layout": identity_map
+  })
+  write_attrs = DictAttr.get({
+      "linalg.inplaceable": BoolAttr.get(True),
+      "linalg.buffer_layout": identity_map
+  })
+  func.arg_attrs = ArrayAttr.get([
+      DictAttr.get({}) if flag is None else write_attrs if flag else read_attrs
+      for flag in inplaceable
+  ])
+
+
+def attach_passthrough(func: builtin.FuncOp, extras: Sequence[Attribute] = []):
+  attributes = extras[:]
+  global avx512
+  if avx512:
+    attributes.append(
+        ArrayAttr.get(
+            [StringAttr.get("target-cpu"),
+             StringAttr.get("skylake-avx512")]))
+    attributes.append(
+        ArrayAttr.get(
+            [StringAttr.get("prefer-vector-width"),
+             StringAttr.get("512")]))
+  func.attributes["passthrough"] = ArrayAttr.get(attributes)
+
+
+def get_matmul_types(M: int, N: int, K: int, lhs_type, rhs_type, acc_type):
+  lhs_tensor_type = RankedTensorType.get([M, K], lhs_type)
+  rhs_tensor_type = RankedTensorType.get([K, N], rhs_type)
+  acc_tensor_type = RankedTensorType.get([M, N], acc_type)
+  return lhs_tensor_type, rhs_tensor_type, acc_tensor_type
+
+
+def emit_wrapper_function(entry_point: str, fun_to_benchmark: str,
+                          types: Sequence[Type]):
+  entry_point_func = builtin.FuncOp(
+      entry_point, (list(types) + [IndexType.get()], [types[2]]),
+      visibility="public")
+  entry_point_func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+
+  attach_inplaceable_attributes(entry_point_func, [False, False, True, None])
+  attach_passthrough(entry_point_func)
+
+  index_type = IndexType.get()
+  with InsertionPoint(entry_point_func.add_entry_block()):
+    constant_zero = std.ConstantOp(index_type, IntegerAttr.get(index_type, 0))
+    constant_one = std.ConstantOp(index_type, IntegerAttr.get(index_type, 1))
+    loop = scf.ForOp(constant_zero.result, entry_point_func.arguments[-1],
+                     constant_one.result, [entry_point_func.arguments[2]])
+    with InsertionPoint(loop.body):
+      # TODO: consider adding a .types on list-of-value classes
+      call = std.CallOp([entry_point_func.arguments[2].type],
+                        FlatSymbolRefAttr.get(fun_to_benchmark),
+                        entry_point_func.arguments[:2] + loop.inner_iter_args)
+      scf.YieldOp(call.results)
+    std.ReturnOp(loop.results)
+
+
+def emit_compute_function(name: str, types: Sequence[Type]):
+  # Actual benchmarked function called under entry_point.
+  func = builtin.FuncOp(name, (types, [types[2]]))
+  attach_inplaceable_attributes(func, [False, False, True])
+  attach_passthrough(func, [StringAttr.get("noinline")])
+  # ArrayAttr.get([StringAttr.get('alignstack'),
+  #                StringAttr.get('4')])
+
+  acc_type = types[2].element_type
+  with InsertionPoint(func.add_entry_block()):
+    # TODO: in the future, should be writeable more concisely as:
+    #   zero = std.constant(0.0, elem_type)
+    #   tmp = linalg.fill(out, zero)
+    #   linalg.matmul(lhs, rhs, tmp)
+    zero = std.ConstantOp(
+        value=FloatAttr.get(acc_type, 0.), result=acc_type).result
+    tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero).results[0]
+    matmul = linalg.matmul(
+        func.arguments[0], func.arguments[1], outs=[tensor_zero])
+    std.ReturnOp([matmul])
+
+
 # The `matmul_main` function entry point connects MLIR compiled files to python
 # allocated tensors. This encodes the runtime / compiler contract that:
 #   1. The memory corresponding to the `%C : !acc_tensor_t` can be safely
@@ -52,117 +141,17 @@ def setup_matmul_np(M: int, N: int, K: int, np_type: np.dtype):
 # runtime tasks and special allocators, a runtime abstraction and a more robust
 # contract are needed. This is orthogonal to evaluating and benchmarking codegen
 # and is the responsibility of projects such as IREE and TFRT.
-def matmul_main(entry_point: str,
-                fun_to_benchmark: str,
-                M: int,
-                N: int,
-                K: int,
-                lhs_type=f32,
-                rhs_type=f32,
-                acc_type=f32):
-  global avx512
-  main_fun_attr = 'attributes {llvm.emit_c_interface}'
-  if avx512:
-    main_fun_attr = f"""attributes {{
-        llvm.emit_c_interface,
-        passthrough = [["target-cpu", "skylake-avx512"],
-                       ["prefer-vector-width", "512"]]}}"""
-
-  return f"""
-!lhs_tensor_t = type tensor<{M}x{K}x{str(lhs_type)}>
-!rhs_tensor_t = type tensor<{K}x{N}x{str(rhs_type)}>
-!acc_tensor_t = type tensor<{M}x{N}x{str(acc_type)}>
-
-// This func declaration is needed for the module to parse in the first place.
-// It is subsequently deleted before being constructed
-func private @{fun_to_benchmark}(!lhs_tensor_t, !rhs_tensor_t, !acc_tensor_t) -> (!acc_tensor_t)
-
-func @{entry_point}(
-      %A : !lhs_tensor_t {{linalg.inplaceable = false,
-                           linalg.buffer_layout = affine_map<(i, j)[] -> (i, j)>}},
-      %B : !rhs_tensor_t {{linalg.inplaceable = false,
-                           linalg.buffer_layout = affine_map<(i, j)[] -> (i, j)>}},
-      %C : !acc_tensor_t {{linalg.inplaceable =  true,
-                           linalg.buffer_layout = affine_map<(i, j)[] -> (i, j)>}},
-      %iters : index) -> !acc_tensor_t
-  {main_fun_attr}
-{{
-  %c0 = constant 0: index
-  %c1 = constant 1: index
-
-  %res = scf.for %arg0 = %c0 to %iters step %c1 iter_args(%iterC = %C) -> (!acc_tensor_t) {{
-    %r = call @{fun_to_benchmark}(%A, %B, %iterC) :
-      (!lhs_tensor_t, !rhs_tensor_t, !acc_tensor_t) -> (!acc_tensor_t)
-    scf.yield %r : !acc_tensor_t
-  }}
-
-  return %res : !acc_tensor_t
-}}
-"""
 
 
 def build_matmul_under_context_manager(entry_point: str, fun_to_benchmark: str,
                                        transform: Callable, M: int, N: int,
                                        K: int, lhs_type, rhs_type, acc_type):
   # Build module and function to benchmark.
-  module = Module.parse(
-      matmul_main(entry_point, fun_to_benchmark, M, N, K, lhs_type, rhs_type,
-                  acc_type))
-
-  # TODO: this erasure is ugly but is currently needed to avoid string stitching
-  # If the func declaration is not present the module does not parse.
-  # If the func declaration is present and not erased then we fail with
-  # `redefinition of symbol`.
-  # This situation may be due to internals of `@builtin.FuncOp.from_py_func`
-  module.body.operations[0].operation.erase()
-
-  with InsertionPoint(module.body.operations[0]):
-    # Actual benchmarked function called under entry_point.
-    @builtin.FuncOp.from_py_func(
-        RankedTensorType.get((M, K), lhs_type),
-        RankedTensorType.get((K, N), rhs_type),
-        RankedTensorType.get((M, N), acc_type))
-    # TODO: this name must match fun_to_benchmark, make this safer.
-    def matmul_on_tensors(lhs, rhs, out):
-      # TODO: in the future, should be writeable more concisely as:
-      #   zero = std.constant(0.0, elem_type)
-      #   tmp = linalg.fill(out, zero)
-      #   linalg.matmul(lhs, rhs, tmp)
-      zero = std.ConstantOp(
-          value=FloatAttr.get(acc_type, 0.), result=acc_type).result
-      tensor_zero = linalg.FillOp(output=out, value=zero).results[0]
-      return linalg.matmul(lhs, rhs, outs=[tensor_zero])
-
-  func = module.operation.regions[0].blocks[0].operations[0].operation
-
-  global avx512
-  attr_list = [
-      StringAttr.get('noinline'),
-      # ArrayAttr.get([StringAttr.get('alignstack'),
-      #                StringAttr.get('4')])
-  ]
-  if avx512:
-    attr_list = attr_list + [
-        ArrayAttr.get(
-            [StringAttr.get('target-cpu'),
-             StringAttr.get('skylake-avx512')]),
-        ArrayAttr.get(
-            [StringAttr.get('prefer-vector-width'),
-             StringAttr.get('512')])
-    ]
-  func.attributes['passthrough'] = ArrayAttr.get(attr_list)
-
-  layout_map = AffineMap.get(2, 0, [AffineDimExpr.get(0), AffineDimExpr.get(1)])
-  input_attr = DictAttr.get({
-      'linalg.buffer_layout': AffineMapAttr.get(layout_map),
-      'linalg.inplaceable': BoolAttr.get(False)
-  })
-  output_attr = DictAttr.get({
-      'linalg.buffer_layout': AffineMapAttr.get(layout_map),
-      'linalg.inplaceable': BoolAttr.get(True)
-  })
-  func.attributes['arg_attrs'] = ArrayAttr.get(
-      [input_attr, input_attr, output_attr])
+  module = Module.create()
+  with InsertionPoint(module.body):
+    types = get_matmul_types(M, N, K, lhs_type, rhs_type, acc_type)
+    emit_compute_function(fun_to_benchmark, types)
+    emit_wrapper_function(entry_point, fun_to_benchmark, types)
 
   # JIT compile.
   start = time.time()
