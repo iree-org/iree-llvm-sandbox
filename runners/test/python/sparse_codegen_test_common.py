@@ -482,8 +482,10 @@ class TestDesc:
 
     # Invoke JIT compilation.
     compiled_module = compiler(
-        module, self._generate_mlir_program(linalg_funcop.__name__, type,
-                                            attrs))
+        _ENTRY_NAME,
+        module,
+        self._generate_mlir_program(linalg_funcop.__name__, type, attrs),
+        string_stitch_input_ir=True)
 
     # We currently rely on an environment to pass in the full path for a
     # supporting library to overwrite the default supporting library.
