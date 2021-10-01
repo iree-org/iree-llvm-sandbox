@@ -5,6 +5,7 @@ from typing import List
 from collections import namedtuple
 from collections.abc import Callable
 from itertools import chain
+from typing import Sequence, Optional
 
 import numpy as np
 
@@ -12,6 +13,7 @@ from mlir.ir import *
 from mlir.dialects import builtin
 from mlir.dialects import linalg
 from mlir.dialects.linalg.opdsl.lang import OperandKind
+from mlir.dialects import scf
 from mlir.dialects import std
 from mlir.execution_engine import *
 from mlir.runtime import *
@@ -56,7 +58,40 @@ def operand_type(odef, **assignments):
   raise Exception(f"unsupported operand type: {repr(odef)}")
 
 
-def op_boilerplate(operand_defs, func_name: str, **assignments):
+def attach_inplaceable_attributes(func: builtin.FuncOp, rank: int,
+                                  inplaceable: Sequence[Optional[bool]]):
+  identity_map = AffineMapAttr.get(AffineMap.get_identity(rank))
+  read_attrs = DictAttr.get({
+      "linalg.inplaceable": BoolAttr.get(False),
+      "linalg.buffer_layout": identity_map
+  })
+  write_attrs = DictAttr.get({
+      "linalg.inplaceable": BoolAttr.get(True),
+      "linalg.buffer_layout": identity_map
+  })
+  func.arg_attrs = ArrayAttr.get([
+      DictAttr.get({}) if flag is None else write_attrs if flag else read_attrs
+      for flag in inplaceable
+  ])
+
+
+def attach_passthrough(func: builtin.FuncOp,
+                       extras: Sequence[Attribute] = [],
+                       avx512: bool = False):
+  attributes = extras[:]
+  if avx512:
+    attributes.append(
+        ArrayAttr.get(
+            [StringAttr.get("target-cpu"),
+             StringAttr.get("skylake-avx512")]))
+    attributes.append(
+        ArrayAttr.get(
+            [StringAttr.get("prefer-vector-width"),
+             StringAttr.get("512")]))
+  func.attributes["passthrough"] = ArrayAttr.get(attributes)
+
+
+def emit_main_function(operand_defs, func_name: str, **assignments):
   inputs = [
       odef for odef in operand_defs
       if odef.kind == OperandKind.InputTensor or odef.kind == OperandKind.Scalar
@@ -66,48 +101,28 @@ def op_boilerplate(operand_defs, func_name: str, **assignments):
   ]
 
   assert (len(outputs) == 1)
-  return_type = str(operand_type(outputs[0], **assignments))
+  return_types = [operand_type(output, **assignments) for output in outputs]
+  param_types = [operand_type(operand, **assignments) for operand in inputs]
+  param_types += return_types
+  func = builtin.FuncOp("main", (param_types + [IndexType.get()], return_types))
 
-  param_types = []
-  for tdef in chain(inputs, outputs):
-    param_types.append(str(operand_type(tdef, **assignments)))
-  element_type = scalar_type(outputs[0], **assignments)
+  attach_inplaceable_attributes(
+      func,
+      rank=2,
+      inplaceable=[False] * len(inputs) + [True] * len(outputs) + [None])
+  func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
-  letter = lambda i: chr(ord("A") + i)
-  param_names = [f"%{letter(i)}" for (i, _) in enumerate(param_types)]
-  read_attr = ("{linalg.inplaceable = false, linalg.buffer_layout = "
-               "affine_map<(i, j)[] -> (i, j)>}")
-  write_attr = ("{linalg.inplaceable = true, linalg.buffer_layout = "
-                "affine_map<(i, j)[] -> (i, j)>}")
-  param_attrs = [
-      write_attr if output else read_attr
-      for output in [False] * len(inputs) + [True] * len(outputs)
-  ]
-
-  params = ", ".join(f"{name} : {ty} {attr}"
-                     for (name, ty,
-                          attr) in zip(param_names, param_types, param_attrs))
-
-  in_args = ", ".join(param_names[:-1])
-  out_arg = param_names[-1]
-  iter_arg = "%iter" + out_arg[1:]
-
-  return f"""
-func @main({params}, %iters : index)
-  -> {return_type}
-  attributes {{llvm.emit_c_interface}}
-{{
-  %c0 = constant 0: index
-  %c1 = constant 1: index
-
-  %res = scf.for %arg0 = %c0 to %iters step %c1 iter_args({iter_arg} = {out_arg}) -> ({return_type}) {{
-    %r = call @{func_name}({in_args}, {iter_arg}) :
-      ({", ".join(param_types)}) -> ({return_type})
-    scf.yield %r : {return_type}
-  }}
-  return %res : {return_type}
-}}
-"""
+  index_type = IndexType.get()
+  with InsertionPoint(func.add_entry_block()):
+    constant_zero = std.ConstantOp(index_type, IntegerAttr.get(index_type, 0))
+    constant_one = std.ConstantOp(index_type, IntegerAttr.get(index_type, 1))
+    loop = scf.ForOp(constant_zero.result, func.arguments[-1],
+                     constant_one.result, [func.arguments[2]])
+    with InsertionPoint(loop.body):
+      call = std.CallOp(return_types, FlatSymbolRefAttr.get(func_name),
+                        func.arguments[:-2] + loop.inner_iter_args)
+      scf.YieldOp(call.results)
+    std.ReturnOp(loop.results)
 
 
 def build_op_under_context_manager(op, transform: Callable, **assignments):
@@ -137,32 +152,15 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
       return op(*args, outs=[tensor_zero])
 
   # Set the bufferization and optimization attributes.
-  func = module.operation.regions[0].blocks[0].operations[0].operation
-  layout_map = AffineMap.get(2, 0, [AffineDimExpr.get(0), AffineDimExpr.get(1)])
-  input_attr = DictAttr.get({
-      "linalg.buffer_layout": AffineMapAttr.get(layout_map),
-      "linalg.inplaceable": BoolAttr.get(False)
-  })
-  output_attr = DictAttr.get({
-      "linalg.buffer_layout": AffineMapAttr.get(layout_map),
-      "linalg.inplaceable": BoolAttr.get(True)
-  })
-  func.attributes["arg_attrs"] = ArrayAttr.get(
-      [input_attr, input_attr, output_attr])
-  func.attributes["passthrough"] = ArrayAttr.get([
-      ArrayAttr.get(
-          [StringAttr.get("target-cpu"),
-           StringAttr.get("skylake-avx512")]),
-      ArrayAttr.get(
-          [StringAttr.get("prefer-vector-width"),
-           StringAttr.get("512")])
-  ])
+  func = module.operation.regions[0].blocks[0].operations[0]
+  attach_inplaceable_attributes(func, 2, [False, False, True])
+  attach_passthrough(func, avx512=True)
 
   # JIT compile.
   start = time.time()
-  boilerplate = op_boilerplate(operand_defs, "matmul_on_tensors", **assignments)
-  transformed_module = transform(
-      "matmul_on_tensors", module, boilerplate, string_stitch_input_ir=True)
+  with InsertionPoint(module.body):
+    emit_main_function(operand_defs, "matmul_on_tensors", **assignments)
+  transformed_module = transform("matmul_on_tensors", module)
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
 

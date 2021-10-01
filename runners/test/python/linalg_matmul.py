@@ -15,7 +15,7 @@ from typing import Sequence, Optional
 
 from .harness import *
 from .experts import *
-from .compilation import f32
+from .compilation import f32, attach_inplaceable_attributes, attach_passthrough
 
 avx512 = True
 
@@ -43,38 +43,6 @@ def setup_matmul_np(M: int, N: int, K: int, np_type: np.dtype):
   return [A, B, C]
 
 
-def attach_inplaceable_attributes(func: builtin.FuncOp,
-                                  inplaceable: Sequence[Optional[bool]]):
-  identity_map = AffineMapAttr.get(AffineMap.get_identity(2))
-  read_attrs = DictAttr.get({
-      "linalg.inplaceable": BoolAttr.get(False),
-      "linalg.buffer_layout": identity_map
-  })
-  write_attrs = DictAttr.get({
-      "linalg.inplaceable": BoolAttr.get(True),
-      "linalg.buffer_layout": identity_map
-  })
-  func.arg_attrs = ArrayAttr.get([
-      DictAttr.get({}) if flag is None else write_attrs if flag else read_attrs
-      for flag in inplaceable
-  ])
-
-
-def attach_passthrough(func: builtin.FuncOp, extras: Sequence[Attribute] = []):
-  attributes = extras[:]
-  global avx512
-  if avx512:
-    attributes.append(
-        ArrayAttr.get(
-            [StringAttr.get("target-cpu"),
-             StringAttr.get("skylake-avx512")]))
-    attributes.append(
-        ArrayAttr.get(
-            [StringAttr.get("prefer-vector-width"),
-             StringAttr.get("512")]))
-  func.attributes["passthrough"] = ArrayAttr.get(attributes)
-
-
 def get_matmul_types(M: int, N: int, K: int, lhs_type, rhs_type, acc_type):
   lhs_tensor_type = RankedTensorType.get([M, K], lhs_type)
   rhs_tensor_type = RankedTensorType.get([K, N], rhs_type)
@@ -89,8 +57,10 @@ def emit_wrapper_function(entry_point: str, fun_to_benchmark: str,
       visibility="public")
   entry_point_func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
-  attach_inplaceable_attributes(entry_point_func, [False, False, True, None])
-  attach_passthrough(entry_point_func)
+  attach_inplaceable_attributes(
+      entry_point_func, rank=2, inplaceable=[False, False, True, None])
+  global avx512
+  attach_passthrough(entry_point_func, avx512=avx512)
 
   index_type = IndexType.get()
   with InsertionPoint(entry_point_func.add_entry_block()):
@@ -110,8 +80,9 @@ def emit_wrapper_function(entry_point: str, fun_to_benchmark: str,
 def emit_compute_function(name: str, types: Sequence[Type]):
   # Actual benchmarked function called under entry_point.
   func = builtin.FuncOp(name, (types, [types[2]]))
-  attach_inplaceable_attributes(func, [False, False, True])
-  attach_passthrough(func, [StringAttr.get("noinline")])
+  attach_inplaceable_attributes(func, rank=2, inplaceable=[False, False, True])
+  global avx512
+  attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
   # ArrayAttr.get([StringAttr.get('alignstack'),
   #                StringAttr.get('4')])
 
@@ -155,7 +126,7 @@ def build_matmul_under_context_manager(entry_point: str, fun_to_benchmark: str,
 
   # JIT compile.
   start = time.time()
-  transformed_module = transform(entry_point, module, fun_to_benchmark)
+  transformed_module = transform(entry_point, module)
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
   print(f'compilation in {elapsed_compilation_s:.{4}}s')

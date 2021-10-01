@@ -17,9 +17,15 @@ from .search_cli import parse_assignments
 def parse_args(argv):
   parser = argparse.ArgumentParser(description='Command-line directed search.')
   parser.add_argument(
-      '--op', type=str, help='Name of the linalg op to instantiate.')
+      '--op',
+      type=str,
+      required=True,
+      help='Name of the linalg op to instantiate.')
   parser.add_argument(
-      '--expert', type=str, help='Name of the expert to use for compilation.')
+      '--expert',
+      type=str,
+      required=True,
+      help='Name of the expert to use for compilation.')
   parser.add_argument(
       '--assign',
       type=str,

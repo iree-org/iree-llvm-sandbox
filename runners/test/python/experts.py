@@ -22,21 +22,7 @@ class Expert:
   def __init__(self, **asignments):
     self.assignments = Assignments(**asignments)
 
-  def _string_stitch_input_ir(self, module, boilerplate_code):
-    benchmark_fun = str(
-        module.operation.regions[0].blocks[0].operations[0].operation)
-    module = Module.parse(benchmark_fun + boilerplate_code)
-    return module
-
-  def __call__(self,
-               entry_point,
-               module,
-               boilerplate_code='',
-               string_stitch_input_ir=False):
-    # TODO: stop hacking strings.
-    if string_stitch_input_ir:
-      module = self._string_stitch_input_ir(module, boilerplate_code)
-
+  def __call__(self, entry_point, module):
     for transform in self.transforms():
       is_llvmir = str(transform).find('LowerToLLVM') >= 0
       print_ir = print_ir_after_each and (print_llvmir or not is_llvmir)
