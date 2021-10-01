@@ -33,6 +33,7 @@ from mlir import execution_engine as ee
 from mlir import ir
 from mlir import runtime
 from mlir.dialects import builtin
+from mlir.dialects import std
 from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
@@ -100,13 +101,21 @@ class TDType(Enum):
   F64 = np.float64
 
 
+def mlir_type_from_td_type(td_type: TDType) -> ir.Type:
+  """Returns the MLIR type that corresponds to the given test descr type."""
+  tdtype_to_irtype = {
+      TDType.I16: ir.IntegerType.get_signless(16),
+      TDType.I32: ir.IntegerType.get_signless(32),
+      TDType.I64: ir.IntegerType.get_signless(64),
+      TDType.F32: ir.F32Type.get(),
+      TDType.F64: ir.F64Type.get()
+  }
+  return tdtype_to_irtype[td_type]
+
 # Supported integer types.
 _SUPPORTED_INT_TYPES = (TDType.I16, TDType.I32, TDType.I64)
 # Supported floating point types.
 _SUPPORTED_FP_TYPES = (TDType.F32, TDType.F64)
-# The prefix for TDType enum string name produced by str(an enum).
-_TDTYPE_NAME_PREFIX = TDType.__name__ + "."
-
 
 def _generate_tensor_dot(shape: List[int], values: Tuple[int, ...],
                          first_nonzero_pos: int) -> List[int]:
@@ -348,97 +357,51 @@ class TestDesc:
         for v, a in zip(self._input_tensors, self._input_affines)
     ]
 
-  def _get_type_str(self, dims: List[int], type: TDType) -> str:
-    """Returns the type string for the given shape and type."""
-    dim_strs = [f"{i}x" for i in dims]
-    # For a TDType enum, such as I32, its string name is TDType.I32 while its MLIR
-    # string name is i32.
-    return "".join(dim_strs) + (str(type))[len(_TDTYPE_NAME_PREFIX):].lower()
+  def _emit_main_function(self, callee_name: str, td_type: TDType,
+                          attrs: List[st.EncodingAttr]):
+    """Emits the 'main' method to call the `callee_name` function.
 
-  def _generate_mlir_program(self, func_name: str, type: TDType,
-                             attrs: List[st.EncodingAttr]) -> str:
-    """Returns the MLIR text program for the main method to call the function.
-
-    The MLIR text program has this format:
-    main (%d0: tensor<xtype>, %d1: tensor<xtype>, %c: tensor<xtype>)
-      -> tensor<xtype> attributes { llvm.emit_c_interface } {
-      // Set up input tensor
-      // Call the function.
-      // Return the result of the function call.
-    }
+    The function is emitted at the current insertion point, assumed to be within
+    a module. This function contains the following:
+    - Set up input tensors.
+    - Call the callee function.
+    - Return the result of the function call.
 
     Args:
-      func_name: The name of the function for the operation being tested.
-      type: The data type used to run the operation being tested.
+      calee_name: The name of the function for the operation being tested.
+      td_type: The data type used to run the operation being tested.
       attrs: A list of EncodingAttr, one for each input of the operation being
         tested.
-
-    Returns:
-      The MLIR program in text format.
     """
 
-    # Construct the MLIR text for the main function header. This includes the
-    # input argument names and data types, the output data types, and the
-    # attribute for the main function.
-
+    # Define the main function.
+    mlir_type = mlir_type_from_td_type(td_type)
     num_inputs = self._get_num_inputs()
-    input_type_strs = [
-        self._get_type_str(self._get_input_dims(i), type)
+    input_types = [
+        ir.RankedTensorType.get(self._get_input_dims(i), mlir_type)
         for i in range(num_inputs)
     ]
-    # An argument string describes an input name and data type or the output
-    # data type. The separator between argument strings will be added when
-    # joining the strings.
-    argument_strs = []
-    for i in range(num_inputs):
-      argument_strs.append(f"%d{i}: tensor<{input_type_strs[i]}>")
+    output_types = [ir.RankedTensorType.get(self._get_output_dims(), mlir_type)]
+    main_func = builtin.FuncOp(
+        _ENTRY_NAME, (input_types + output_types, output_types),
+        visibility="public")
+    main_func.attributes["llvm.emit_c_interface"] = ir.UnitAttr.get()
 
-    output_type_str = self._get_type_str(self._get_output_dims(), type)
-    argument_strs.append(f"%c: tensor<{output_type_str}>")
-    argument_string = ", ".join(argument_strs)
-    code_header = f"func @{_ENTRY_NAME}({argument_string}) " + f"""-> tensor<{output_type_str}>
-  attributes {{ llvm.emit_c_interface }} {{"""
+    # Convert the operands to sparse encodings, call the callee and return its
+    # result.
+    with ir.InsertionPoint(main_func.add_entry_block()):
+      converted_tensors = []
+      for i, argument, encoding in zip(
+          range(num_inputs), main_func.arguments, attrs):
+        conversion = st.ConvertOp(
+            ir.RankedTensorType.get(
+                self._get_input_dims(i), mlir_type, encoding), argument)
+        converted_tensors.append(conversion.dest)
 
-    # Construct the MLIR text to set up the inputs for calling the given
-    # function. Each input to the function is computed by applying a sparse
-    # tensor conversion on an input of the main function.
-    input_setup_strs = []
-    for i in range(num_inputs):
-      input_setup_strs.append(
-          f"  %t{i} = sparse_tensor.convert %d{i} : tensor<{input_type_strs[i]}> to tensor<{input_type_strs[i]},{attrs[i]}>"
-      )
+      call = std.CallOp(output_types, ir.FlatSymbolRefAttr.get(callee_name),
+                        converted_tensors + [main_func.arguments[-1]])
+      std.ReturnOp(call.results)
 
-    # Start each input setup in a new line.
-    code_input_setup = "\n".join(input_setup_strs)
-
-    # Construct the MLIR text to call the given function.
-
-    # The separator between input name strings will be added when joining the
-    # strings.
-    input_name_strs = []
-    for i in range(num_inputs):
-      input_name_strs.append(f"%t{i}")
-    input_name_strs.append("%c) : (")
-    input_name_string = ", ".join(input_name_strs)
-
-    # The separator between input/output type strings will be added when joining
-    # the strings.
-    input_output_type_strs = []
-    for i in range(num_inputs):
-      input_output_type_strs.append(f"tensor<{input_type_strs[i]},{attrs[i]}>")
-    input_output_type_strs.append(
-        f"tensor<{output_type_str}>) -> tensor<{output_type_str}>")
-    input_output_type_string = ", ".join(input_output_type_strs)
-
-    code_call = f"  %0 = call @{func_name}(" + input_name_string + input_output_type_string
-
-    # Construct the MLIR text to return the result and mark the ending of the
-    # program.
-    code_return = f"""  return %0 : tensor<{output_type_str}>
-}}"""
-
-    # Use a blank line to separate different parts of the MLIR text program.
-    return "\n".join([code_header, code_input_setup, code_call, code_return])
 
   def _build_module_and_engine(
       self, compiler: CompilerType, type: TDType,
@@ -458,14 +421,7 @@ class TestDesc:
     module = ir.Module.create()
 
     # Build the data types for the inputs and output.
-    tdtype_to_irtype = {
-        TDType.I16: ir.IntegerType.get_signless(16),
-        TDType.I32: ir.IntegerType.get_signless(32),
-        TDType.I64: ir.IntegerType.get_signless(64),
-        TDType.F32: ir.F32Type.get(),
-        TDType.F64: ir.F64Type.get()
-    }
-    ir_type = tdtype_to_irtype[type]
+    ir_type = mlir_type_from_td_type(type)
     inputs_output = []
     for i in range(self._get_num_inputs()):
       inputs_output.append(
@@ -480,12 +436,10 @@ class TestDesc:
       def linalg_funcop(*args):
         return self._linalg_op(*args[:-1], outs=[args[len(args) - 1]])
 
+      self._emit_main_function(linalg_funcop.__name__, type, attrs)
+
     # Invoke JIT compilation.
-    compiled_module = compiler(
-        _ENTRY_NAME,
-        module,
-        self._generate_mlir_program(linalg_funcop.__name__, type, attrs),
-        string_stitch_input_ir=True)
+    compiled_module = compiler(_ENTRY_NAME, module)
 
     # We currently rely on an environment to pass in the full path for a
     # supporting library to overwrite the default supporting library.

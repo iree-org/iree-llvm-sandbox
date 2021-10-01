@@ -31,7 +31,7 @@ class Expert:
   def __call__(self,
                entry_point,
                module,
-               boilerplate_code,
+               boilerplate_code='',
                string_stitch_input_ir=False):
     # TODO: stop hacking strings.
     if string_stitch_input_ir:
