@@ -15,7 +15,7 @@ from typing import Sequence, Optional
 
 from .harness import *
 from .experts import *
-from .compilation import f32, attach_inplaceable_attributes, attach_passthrough
+from .compilation import f32, attach_inplaceable_attributes, attach_passthrough, emit_benchmarking_function
 
 avx512 = True
 
@@ -50,33 +50,6 @@ def get_matmul_types(M: int, N: int, K: int, lhs_type, rhs_type, acc_type):
   return lhs_tensor_type, rhs_tensor_type, acc_tensor_type
 
 
-def emit_wrapper_function(entry_point: str, fun_to_benchmark: str,
-                          types: Sequence[Type]):
-  entry_point_func = builtin.FuncOp(
-      entry_point, (list(types) + [IndexType.get()], [types[2]]),
-      visibility="public")
-  entry_point_func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
-
-  attach_inplaceable_attributes(
-      entry_point_func, rank=2, inplaceable=[False, False, True, None])
-  global avx512
-  attach_passthrough(entry_point_func, avx512=avx512)
-
-  index_type = IndexType.get()
-  with InsertionPoint(entry_point_func.add_entry_block()):
-    constant_zero = std.ConstantOp(index_type, IntegerAttr.get(index_type, 0))
-    constant_one = std.ConstantOp(index_type, IntegerAttr.get(index_type, 1))
-    loop = scf.ForOp(constant_zero.result, entry_point_func.arguments[-1],
-                     constant_one.result, [entry_point_func.arguments[2]])
-    with InsertionPoint(loop.body):
-      # TODO: consider adding a .types on list-of-value classes
-      call = std.CallOp([entry_point_func.arguments[2].type],
-                        FlatSymbolRefAttr.get(fun_to_benchmark),
-                        entry_point_func.arguments[:2] + loop.inner_iter_args)
-      scf.YieldOp(call.results)
-    std.ReturnOp(loop.results)
-
-
 def emit_compute_function(name: str, types: Sequence[Type]):
   # Actual benchmarked function called under entry_point.
   func = builtin.FuncOp(name, (types, [types[2]]))
@@ -99,6 +72,8 @@ def emit_compute_function(name: str, types: Sequence[Type]):
         func.arguments[0], func.arguments[1], outs=[tensor_zero])
     std.ReturnOp([matmul])
 
+  return func
+
 
 # The `matmul_main` function entry point connects MLIR compiled files to python
 # allocated tensors. This encodes the runtime / compiler contract that:
@@ -117,12 +92,15 @@ def emit_compute_function(name: str, types: Sequence[Type]):
 def build_matmul_under_context_manager(entry_point: str, fun_to_benchmark: str,
                                        transform: Callable, M: int, N: int,
                                        K: int, lhs_type, rhs_type, acc_type):
+  global avx512
+
   # Build module and function to benchmark.
   module = Module.create()
   with InsertionPoint(module.body):
     types = get_matmul_types(M, N, K, lhs_type, rhs_type, acc_type)
-    emit_compute_function(fun_to_benchmark, types)
-    emit_wrapper_function(entry_point, fun_to_benchmark, types)
+    func = emit_compute_function(fun_to_benchmark, types)
+    wrapper = emit_benchmarking_function(entry_point, func)
+    attach_passthrough(wrapper, avx512=avx512)
 
   # JIT compile.
   start = time.time()

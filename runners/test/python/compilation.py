@@ -1,4 +1,5 @@
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
+# pytype: skip-file
 
 import sys, time
 from typing import List
@@ -91,38 +92,32 @@ def attach_passthrough(func: builtin.FuncOp,
   func.attributes["passthrough"] = ArrayAttr.get(attributes)
 
 
-def emit_main_function(operand_defs, func_name: str, **assignments):
-  inputs = [
-      odef for odef in operand_defs
-      if odef.kind == OperandKind.InputTensor or odef.kind == OperandKind.Scalar
-  ]
-  outputs = [
-      odef for odef in operand_defs if odef.kind == OperandKind.OutputTensor
-  ]
+def emit_benchmarking_function(name: str,
+                               func: builtin.FuncOp) -> builtin.FuncOp:
+  """Produces the benchmarking function.
 
-  assert (len(outputs) == 1)
-  return_types = [operand_type(output, **assignments) for output in outputs]
-  param_types = [operand_type(operand, **assignments) for operand in inputs]
-  param_types += return_types
-  func = builtin.FuncOp("main", (param_types + [IndexType.get()], return_types))
+  This function calls the given function `func` as many times as requested by
+  its last argument.
+  """
+  wrapper = builtin.FuncOp(
+      name, (func.arguments.types + [IndexType.get()], func.type.results),
+      visibility="public")
+  wrapper.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+  wrapper.arg_attrs = func.arg_attrs + [DictAttr.get()]
 
-  attach_inplaceable_attributes(
-      func,
-      rank=2,
-      inplaceable=[False] * len(inputs) + [True] * len(outputs) + [None])
-  func.attributes["llvm.emit_c_interface"] = UnitAttr.get()
-
-  index_type = IndexType.get()
-  with InsertionPoint(func.add_entry_block()):
-    constant_zero = std.ConstantOp(index_type, IntegerAttr.get(index_type, 0))
-    constant_one = std.ConstantOp(index_type, IntegerAttr.get(index_type, 1))
-    loop = scf.ForOp(constant_zero.result, func.arguments[-1],
-                     constant_one.result, [func.arguments[2]])
+  num_results = len(func.type.results)
+  with InsertionPoint(wrapper.add_entry_block()):
+    zero = std.ConstantOp.create_index(0).result
+    one = std.ConstantOp.create_index(1).result
+    loop = scf.ForOp(zero, wrapper.arguments[-1], one,
+                     wrapper.arguments[-num_results - 1:-1])
     with InsertionPoint(loop.body):
-      call = std.CallOp(return_types, FlatSymbolRefAttr.get(func_name),
-                        func.arguments[:-2] + loop.inner_iter_args)
+      call = std.CallOp(
+          func, wrapper.arguments[:-num_results - 1] + loop.inner_iter_args)
       scf.YieldOp(call.results)
     std.ReturnOp(loop.results)
+
+  return wrapper
 
 
 def build_op_under_context_manager(op, transform: Callable, **assignments):
@@ -159,7 +154,7 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
   # JIT compile.
   start = time.time()
   with InsertionPoint(module.body):
-    emit_main_function(operand_defs, "matmul_on_tensors", **assignments)
+    emit_benchmarking_function("main", func)
   transformed_module = transform("matmul_on_tensors", module)
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
