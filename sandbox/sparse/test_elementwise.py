@@ -19,8 +19,7 @@ from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
 # Import common test tools.
-from . import sparse_codegen_test_common as test_common
-
+from . import test_common
 
 # TODO(b/195422626): Make _test_desc a local variable and pass it to
 # routine _test after fixing the issue.

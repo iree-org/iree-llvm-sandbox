@@ -2,7 +2,7 @@ from glob import glob
 import argparse
 
 
-def parse_args():
+def parse_args(argv):
   parser = argparse.ArgumentParser(description='Command-line directed search.')
   parser.add_argument(
       '--op', type=str, default='matmul', help='Name of the op.')
@@ -15,11 +15,11 @@ def parse_args():
       help='Extension of the output file to read metric from.')
   parser.add_argument(
       '--limit', type=int, default='20', help='Number of results to show.')
-  return parser.parse_args()
+  return parser.parse_args(argv)
 
 
-def main():
-  args = parse_args()
+def main(argv):
+  args = parse_args(argv)
 
   candidates = []
   metric = args.by.lower()

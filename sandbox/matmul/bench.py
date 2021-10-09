@@ -3,9 +3,8 @@
 # This file contains small benchmarks with reasonably-sized problem/tiling sizes
 # and codegen options.
 
-from .experts import *
-from .linalg_matmul import *
-
+from ..core.experts import *
+from .util import *
 
 all_experts = [
     SingleTilingExpert(

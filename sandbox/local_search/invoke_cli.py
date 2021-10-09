@@ -8,9 +8,9 @@ from mlir.dialects import linalg
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.runtime import *
 
-from .compilation import numpy_type, compile_and_callback
-from .search import collect_variables
-from . import experts
+from ..core.compilation import numpy_type, compile_and_callback
+from ..core.search import collect_variables
+from ..core import experts
 from .search_cli import parse_assignments
 
 

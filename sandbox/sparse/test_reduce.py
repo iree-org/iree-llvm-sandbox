@@ -1,8 +1,8 @@
-"""Testing MatMul operations to explore annotation and codegen options.
+"""Testing reduce operations to explore annotation and codegen options.
 
-This module tests the matrix multiplication operation with all combinations of
-sparsity annotation and codegen options. If there is any set of parameters that
-triggers a test failure, the module raises a SystemExit exception.
+This module tests the reduce operation with all combinations of sparsity
+annotation and codegen options. If there is any set of parameters that triggers
+a test failure, the module raises a SystemExit exception.
 
 TODO(b/195340661): Allow the tests to continue until the number of failures
 reaches a threshold specified by the user.
@@ -19,8 +19,7 @@ from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
 # Import common test tools.
-from . import sparse_codegen_test_common as test_common
-
+from . import test_common
 
 # TODO(b/195422626): Make _test_desc a local variable and pass it to
 # routine _test_print after fixing the issue.
@@ -29,36 +28,28 @@ from . import sparse_codegen_test_common as test_common
 # later. Notation dsl.S.X defines a symbol in the domain specific language
 # dialect of mlir.dialects.linalg.opdsl as a tensor dimension, where X is the
 # name of the symbol.
-_test_desc = test_common.TestDesc("matmul", [dsl.S.M, dsl.S.N, dsl.S.K],
-                                  [8, 8, 8], [dsl.S.M, dsl.S.N],
-                                  [dsl.S.M, dsl.S.K], [dsl.S.K, dsl.S.N])
+_test_desc = test_common.TestDesc("reduce", [dsl.S.M, dsl.S.N, dsl.S.O],
+                                  [8, 4, 16], [dsl.S.M],
+                                  [dsl.S.M, dsl.S.N, dsl.S.O])
 
 
 def _test_combination_impl(
-    a2: List[st.DimLevelType],
-    b2: List[st.DimLevelType],
-    a_so2: List[int],
-    b_so2: List[int],
+    a3: List[st.DimLevelType],
+    a_so3: List[int],
     type: test_common.TDType,
-    a_pw: int,
-    b_pw: int,
-    a_iw: int,
-    b_iw: int,
+    pw: int,
+    iw: int,
     ps: int,
     vl: int,
 ) -> bool:
   """Runs the test for the given parameter combination.
 
   Args:
-    a2: The sparsity of A and is a list of DimLevelType.
-    b2: The sparsity of B and is a list of DimLevelType.
-    a_so2: The dimension ordering for A. Its value is a list of integers.
-    b_so2: The dimension ordering for B. Its value is a list of integers.
+    a3: The sparsity of A and is a list of DimLevelType.
+    a_so3: The dimension ordering for A. Its value is a list of integers.
     type: The data type used to run the operation, represented as a TDType.
-    a_pw: The integer pointer bitwidth for A.
-    b_pw: The integer pointer bitwidth for B.
-    a_iw: The integer index bitwidth for A.
-    b_iw: The integer index bitwidth for B.
+    pw: The integer pointer bitwidth.
+    iw: The integer index bitwidth.
     ps: The integer parallelization strategy.
     vl: The integer vector length.
 
@@ -66,10 +57,8 @@ def _test_combination_impl(
     A boolean to indicate whether the test passes (True) or fails (False).
   """
   with ir.Context() as ctx:
-    actual_result = _test_desc.get_result(ps, vl, type, [
-        test_common.InputDesc(a_so2, a2, a_pw, a_iw),
-        test_common.InputDesc(b_so2, b2, b_pw, b_iw)
-    ])
+    actual_result = _test_desc.get_result(
+        ps, vl, type, [test_common.InputDesc(a_so3, a3, pw, iw)])
 
     passed = np.allclose(actual_result, _test_desc.get_reference_result(type))
 
@@ -77,30 +66,22 @@ def _test_combination_impl(
 
 
 def _is_supported_combination(
-    a2: List[st.DimLevelType],
-    b2: List[st.DimLevelType],
-    a_so2: List[int],
-    b_so2: List[int],
+    a3: List[st.DimLevelType],
+    a_so3: List[int],
     type: test_common.TDType,
-    a_pw: int,
-    b_pw: int,
-    a_iw: int,
-    b_iw: int,
+    pw: int,
+    iw: int,
     ps: int,
     vl: int,
 ) -> bool:
   """Validates the given parameter combination.
 
   Args:
-    a2: The sparsity of A and is a list of DimLevelType.
-    b2: The sparsity of B and is a list of DimLevelType.
-    a_so2: The dimension ordering for A. Its value is a list of integers.
-    b_so2: The dimension ordering for B. Its value is a list of integers.
+    a3: The sparsity of A and is a list of DimLevelType.
+    a_so3: The dimension ordering for A. Its value is a list of integers.
     type: The data type used to run the operation, represented as a TDType.
-    a_pw: The integer pointer bitwidth for A.
-    b_pw: The integer pointer bitwidth for B.
-    a_iw: The integer index bitwidth for A.
-    b_iw: The integer index bitwidth for B.
+    pw: The integer pointer bitwidth.
+    iw: The integer index bitwidth.
     ps: The integer parallelization strategy.
     vl: The integer vector length.
 
@@ -109,9 +90,8 @@ def _is_supported_combination(
       not supported (False).
   """
   # Currently, only the data type and bitwidths are used in validation.
-  del a2, b2, a_so2, b_so2, ps, vl
-  return (test_common.supported_tensor_types(type, a_pw, a_iw) and
-          test_common.supported_tensor_types(type, b_pw, b_iw))
+  del a3, a_so3, ps, vl
+  return test_common.supported_tensor_types(type, pw, iw)
 
 
 # Python multiprocessing doesn't support decorators. We have to use a wrapped
@@ -123,23 +103,19 @@ def _test_combination(*args):
 
 
 def _parameter_combinations(
-) -> Tuple[st.DimLevelType, st.DimLevelType, List[int], List[int],
-           test_common.TDType, int, int, int, int, int, int]:
-  """Returns all parameter combinations for the matrix multiplication test.
+) -> Tuple[st.DimLevelType, List[int], test_common.TDType, int, int, int, int]:
+  """Returns all parameter combinations for the reduction test.
 
-    The matrix multiplication test currently tests rank 2 input tensors. As
-    such, the cardinalities for sparsities, ordering, data types, bitwidths,
-    parallelization options (pars) and vector length (vls) are 4, 2, 5, 4, 5,
-    and 3 respectively.
+    The reduction test currently tests rank 3 input tensors. As such, the
+    cardinalities for sparsities, ordering, data types, bitwidths,
+    parallelization
+    options (pars) and vector length (vls) are 8, 6, 5, 4, 5, and 3
+    respectively.
   """
   all_combs = itertools.product(
-      test_common.sparsities2(),
-      test_common.sparsities2(),
-      test_common.orderings2(),
-      test_common.orderings2(),
+      test_common.sparsities3(),
+      test_common.orderings3(),
       test_common.all_types(),
-      test_common.bitwidths(),
-      test_common.bitwidths(),
       test_common.bitwidths(),
       test_common.bitwidths(),
       test_common.pars(),
@@ -149,7 +125,7 @@ def _parameter_combinations(
 
 
 def run_tests(num_processes: int) -> bool:
-  """Tests operation C = A * B for various codegen options and sparsities.
+  """Tests operation B = sum(A) for various codegen options and sparsities.
 
   Args:
     num_processes: An integer for the number of processes used to run the tests.
@@ -160,15 +136,14 @@ def run_tests(num_processes: int) -> bool:
   """
   # The operation used to test the JIT compiler and runtime.
   @dsl.linalg_structured_op
-  def matmul_dsl(
+  def _reduce_dsl(
       A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
-      B=dsl.TensorDef(dsl.T, *_test_desc.inputs[1]),
-      C=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
-    """The operation being tested: C = A * B."""
-    C[dsl.D.m, dsl.D.n] += A[dsl.D.m, dsl.D.k] * B[dsl.D.k, dsl.D.n]
+      B=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
+    """The operation being tested: B = sum(A)."""
+    B[dsl.D.m] += A[dsl.D.m, dsl.D.n, dsl.D.o]
 
   # Pass the operation to the test descriptor.
-  _test_desc.linalg_op = matmul_dsl
+  _test_desc.linalg_op = _reduce_dsl
 
   # Calculate the reference result.
   _test_desc.calculate_reference_result(test_common.TDType.F64)

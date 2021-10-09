@@ -12,9 +12,9 @@ from random import choice
 
 from mlir.dialects import linalg
 
-from .compilation import scalar_types
-from .search import collect_variables, instantiate_variables, are_constraints_satisfied
-from . import experts
+from ..core.compilation import scalar_types
+from ..core.search import collect_variables, instantiate_variables, are_constraints_satisfied
+from ..core import experts
 
 
 def parse_args(argv):

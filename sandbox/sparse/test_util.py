@@ -16,7 +16,7 @@ from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
 # Import common test tools.
-from . import sparse_codegen_test_common as test_common
+from . import test_common
 
 
 def _test_unit_wrapper(test_func: Callable[[], bool]) -> Callable[[], int]:

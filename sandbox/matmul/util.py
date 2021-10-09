@@ -13,9 +13,9 @@ from mlir.runtime import *
 
 from typing import Sequence, Optional
 
-from .harness import *
-from .experts import *
-from .compilation import f32, attach_inplaceable_attributes, attach_passthrough, emit_benchmarking_function
+from ..core.harness import *
+from ..core.experts import *
+from ..core.compilation import f32, attach_inplaceable_attributes, attach_passthrough, emit_benchmarking_function
 
 avx512 = True
 

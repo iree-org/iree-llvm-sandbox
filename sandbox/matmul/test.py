@@ -2,9 +2,9 @@
 
 # This file contains simple test cases that combine various codegen options.
 
-from .experts import *
-from .transforms import *
-from .linalg_matmul import *
+from ..core.experts import *
+from ..core.transforms import *
+from .util import *
 
 
 class TestExpert(Expert):
