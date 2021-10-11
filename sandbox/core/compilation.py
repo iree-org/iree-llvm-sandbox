@@ -107,15 +107,15 @@ def emit_benchmarking_function(name: str,
 
   num_results = len(func.type.results)
   with InsertionPoint(wrapper.add_entry_block()):
-    zero = std.ConstantOp.create_index(0).result
-    one = std.ConstantOp.create_index(1).result
+    zero = std.ConstantOp.create_index(0)
+    one = std.ConstantOp.create_index(1)
     loop = scf.ForOp(zero, wrapper.arguments[-1], one,
                      wrapper.arguments[-num_results - 1:-1])
     with InsertionPoint(loop.body):
       call = std.CallOp(
           func, wrapper.arguments[:-num_results - 1] + loop.inner_iter_args)
-      scf.YieldOp(call.results)
-    std.ReturnOp(loop.results)
+      scf.YieldOp(call)
+    std.ReturnOp(loop)
 
   return wrapper
 
@@ -135,16 +135,10 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
 
     @builtin.FuncOp.from_py_func(*ranked_tensor_types)
     def matmul_on_tensors(*outer_args):
-      # TODO: in the future, should be writeable more concisely as:
-      #   zero = std.constant(0.0, elem_type)
-      #   tmp = linalg.fill(zero, out)
-      #   linalg.matmul(lhs, rhs, tmp)
-      zero = std.ConstantOp(
-          value=FloatAttr.get(return_elem_type, 0.),
-          result=return_elem_type).result
-      tensor_zero = linalg.FillOp(output=outer_args[-1], value=zero).results[0]
+      zero = std.ConstantOp(return_elem_type, 0.0)
+      tensor_zero = linalg.FillOp(output=outer_args[-1], value=zero)
       args = outer_args[:-1]
-      return op(*args, outs=[tensor_zero])
+      return op(*args, outs=tensor_zero)
 
   # Set the bufferization and optimization attributes.
   func = module.operation.regions[0].blocks[0].operations[0]

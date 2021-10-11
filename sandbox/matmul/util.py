@@ -61,15 +61,12 @@ def emit_compute_function(name: str, types: Sequence[Type]):
 
   acc_type = types[2].element_type
   with InsertionPoint(func.add_entry_block()):
-    # TODO: in the future, should be writeable more concisely as:
-    #   zero = std.constant(0.0, elem_type)
-    #   tmp = linalg.fill(out, zero)
-    #   linalg.matmul(lhs, rhs, tmp)
-    zero = std.ConstantOp(
-        value=FloatAttr.get(acc_type, 0.), result=acc_type).result
-    tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero).results[0]
+    zero = std.ConstantOp(acc_type, 0.0)
+    tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
     matmul = linalg.matmul(
         func.arguments[0], func.arguments[1], outs=[tensor_zero])
+    # linalg.matmul returns a Value instead of OpView, so we have to manually
+    # wrap it in a list here.
     std.ReturnOp([matmul])
 
   return func
