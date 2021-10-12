@@ -29,7 +29,7 @@ class Expert:
 
       if print_ir:
         print('[[[ IR after transform: ' + str(transform) + ']]]')
-      transform(module, entry_point)
+      module = transform(module, entry_point)
       if print_ir:
         print(module)
     return module
