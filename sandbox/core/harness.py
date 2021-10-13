@@ -10,6 +10,10 @@ def log(*args):
   sys.stderr.flush()
 
 
+def invoke(execute: Callable, n_iters: int, args: list, **kwargs):
+  execute(*args, **kwargs, n_iters=n_iters)
+
+
 def timed_invoke(execute: Callable, gflop_count: int, n_iters: int, args: list,
                  **kwargs):
   start = time.time()
@@ -36,6 +40,9 @@ def setup_and_invoke(
   module, execution_engine = None, None
   if 'compile_fun' in kwargs:
     module, execution_engine = kwargs['compile_fun'](*tensors)
+
+  # Run the function with zero iterations to make subsequent timings accurate.
+  invoke(run_fun, 0, tensors, module=module, execution_engine=execution_engine)
 
   # Dry-run.
   if n_iters_dry_run > 0:
