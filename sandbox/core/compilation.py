@@ -161,4 +161,4 @@ def compile_and_callback(op, transform: Callable, callback: Callable,
   with Context() as ctx, Location.unknown():
     module, execution_engine = build_op_under_context_manager(
         op, transform, **assignments)
-    callback(module, execution_engine)
+    return callback(module, execution_engine)
