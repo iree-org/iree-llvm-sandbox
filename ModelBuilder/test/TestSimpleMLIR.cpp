@@ -54,13 +54,13 @@ void testValueVectorAdd() {
 
     MemRefIndexedValue A(bufferA), B(bufferB), C(bufferC);
 
-    // CHECK: %[[C1:.*]] = constant 1.000000e+00 : f32
+    // CHECK: %[[C1:.*]] = arith.constant 1.000000e+00 : f32
     // CHECK: %[[S1:.*]] = vector.broadcast %[[C1]] : f32 to vector<8x128xf32>
     // CHECK: memref.store %[[S1]], %[[A]][] : memref<vector<8x128xf32>>
     auto one = std_constant_float(llvm::APFloat(1.0f), f32);
     A() = (vector_broadcast(mnVectorType, one));
 
-    // CHECK: %[[C2:.*]] = constant 2.000000e+00 : f32
+    // CHECK: %[[C2:.*]] = arith.constant 2.000000e+00 : f32
     // CHECK: %[[S2:.*]] = vector.broadcast %[[C2]] : f32 to vector<8x128xf32>
     // CHECK: memref.store %[[S2]], %[[B]][] : memref<vector<8x128xf32>>
     auto two = std_constant_float(llvm::APFloat(2.0f), f32);
@@ -68,7 +68,7 @@ void testValueVectorAdd() {
 
     // CHECK-DAG: %[[a:.*]] = memref.load %[[A]][] : memref<vector<8x128xf32>>
     // CHECK-DAG: %[[b:.*]] = memref.load %[[B]][] : memref<vector<8x128xf32>>
-    //     CHECK: %[[c:.*]] = addf %[[a]], %[[b]] : vector<8x128xf32>
+    //     CHECK: %[[c:.*]] = arith.addf %[[a]], %[[b]] : vector<8x128xf32>
     //     CHECK: memref.store %[[c]], %[[C]][] : memref<vector<8x128xf32>>
     C() = A() + B();
 
@@ -104,11 +104,11 @@ void testMemRefVectorAdd() {
     OpBuilder b(&f.getBody());
     edsc::ScopedContext scope(b, f.getLoc());
 
-    // CHECK-DAG: %[[z:.*]] = constant 0 : index
+    // CHECK-DAG: %[[z:.*]] = arith.constant 0 : index
     // CHECK-DAG: %[[a:.*]] = memref.load %[[A]][%[[z]]] :
     // memref<1xvector<8x128xf32>> CHECK-DAG: %[[b:.*]] = memref.load
     // %[[B]][%[[z]]] : memref<1xvector<8x128xf32>>
-    //     CHECK: %[[c:.*]] = addf %[[a]], %[[b]] : vector<8x128xf32>
+    //     CHECK: %[[c:.*]] = arith.addf %[[a]], %[[b]] : vector<8x128xf32>
     //     CHECK: memref.store %[[c]], %[[C]][%[[z]]] :
     //     memref<1xvector<8x128xf32>>
     MemRefIndexedValue A(f.getArgument(0)), B(f.getArgument(1)),

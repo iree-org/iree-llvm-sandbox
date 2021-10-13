@@ -131,7 +131,7 @@ static SmallVector<linalg::ProcInfo, 2> getSubgroupIds(
   Type indexType = b.getIndexType();
   Value sg = b.create<gpu::SubgroupIdOp>(loc, indexType);
   Value vSubgroupX = std_constant_index(loc, numSubgroupX);
-  Value sgdiv = b.create<SignedDivIOp>(loc, indexType, sg, vSubgroupX);
+  Value sgdiv = b.create<arith::DivSIOp>(loc, indexType, sg, vSubgroupX);
   Value vSubgroupY = std_constant_index(loc, numSubgroupY);
   SmallVector<linalg::ProcInfo, 2> procInfo(2);
   using namespace edsc::op;

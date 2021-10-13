@@ -154,15 +154,15 @@ void AddVulkanLaunchWrapper::convertGpuLaunchFunc(
   // and the workgroup size picked by the tiling pass.
   for (int i = 0; i < 3; i++) {
     auto dispatchSize = std::max(int64_t(1), workloadSize[i]);
-    Value numGroups = builder.create<ConstantIndexOp>(loc, dispatchSize);
+    Value numGroups = builder.create<arith::ConstantIndexOp>(loc, dispatchSize);
     arguments.push_back(numGroups);
   }
   arguments.insert(arguments.end(), function.args_begin(), function.args_end());
 
   // Create vulkan launch call op.
   auto vulkanLaunchCallOp = builder.create<CallOp>(
-      loc, ArrayRef<Type>{}, builder.getSymbolRefAttr(kVulkanLaunch),
-      arguments);
+      loc, ArrayRef<Type>{},
+      FlatSymbolRefAttr::get(builder.getStringAttr(kVulkanLaunch)), arguments);
 
   // Set SPIR-V binary shader data as an attribute.
   vulkanLaunchCallOp->setAttr(

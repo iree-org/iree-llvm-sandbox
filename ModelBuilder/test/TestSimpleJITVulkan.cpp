@@ -61,9 +61,9 @@ void testVectorAdd1d() {
         modelBuilder.loc, b.getIndexType(), b.getStringAttr("x"));
     auto GroupSize = b.create<gpu::BlockDimOp>(
         modelBuilder.loc, b.getIndexType(), b.getStringAttr("x"));
-    Value Index = b.create<AddIOp>(
+    Value Index = b.create<arith::AddIOp>(
         modelBuilder.loc, ThreadIndex,
-        b.create<MulIOp>(modelBuilder.loc, BlockIndex, GroupSize));
+        b.create<arith::MulIOp>(modelBuilder.loc, BlockIndex, GroupSize));
     C(Index) = A(Index) + B(Index);
     b.create<gpu::ReturnOp>(kernelFunc.getLoc());
   }

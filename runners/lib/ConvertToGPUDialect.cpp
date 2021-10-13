@@ -36,13 +36,13 @@ struct TiledLoopToGPUPattern : public OpRewritePattern<linalg::TiledLoopOp> {
         tiledLoopOp->getParentOfType<gpu::LaunchOp>())
       return failure();
     Location loc = tiledLoopOp.getLoc();
-    Value c1 = rewriter.create<ConstantIndexOp>(loc, 1);
-    Value c32 = rewriter.create<ConstantIndexOp>(loc, 32);
+    Value c1 = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    Value c32 = rewriter.create<arith::ConstantIndexOp>(loc, 32);
     std::array<Value, numWorkgroupDim> workgroups = {c1, c1, c1};
     for (auto nw : llvm::enumerate(numWorkgroups)) {
       if (nw.index() >= numWorkgroupDim) break;
       workgroups[nw.index()] =
-          rewriter.create<ConstantIndexOp>(loc, nw.value());
+          rewriter.create<arith::ConstantIndexOp>(loc, nw.value());
     }
     //  Wrap the linalg.tiled_loops into a gpu Launch op. Pick a workgroup size
     //  of 32 to have a full warp active as this is needed for tensorcore.

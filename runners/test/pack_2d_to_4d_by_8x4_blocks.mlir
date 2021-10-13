@@ -29,8 +29,8 @@
 }
 
 func @main() {
-  %c0 = constant 0 : index
-  %v0 = constant 0.0 : f32
+  %c0 = arith.constant 0 : index
+  %v0 = arith.constant 0.0 : f32
   // Generate some input 2d tensor %a. We fill it with values of row-major offsets
   // to make it easy to track how the subsequent packing op shuffled data.
   %dst_init = linalg.init_tensor [32, 32] : tensor<32x32xf32>
@@ -38,11 +38,11 @@ func @main() {
     ^bb0(%x : f32):
       %i = linalg.index 0 : index
       %j = linalg.index 1 : index
-      %c32 = constant 32 : index
-      %m = std.muli %i, %c32 : index
-      %s = std.addi %m, %j : index
-      %k = std.index_cast %s : index to i32
-      %f = std.sitofp %k : i32 to f32
+      %c32 = arith.constant 32 : index
+      %m = arith.muli %i, %c32 : index
+      %s = arith.addi %m, %j : index
+      %k = arith.index_cast %s : index to i32
+      %f = arith.sitofp %k : i32 to f32
       linalg.yield %f : f32
   } -> tensor<32x32xf32>
   // Perform the packing of the above 2d tensor %a into a 4d tensor %a4d

@@ -535,8 +535,8 @@ static std::pair<AffineExpr, Value> categorizeValueByAffineType(
     MLIRContext *context, Value val, unsigned &numDims, unsigned &numSymbols) {
   AffineExpr d;
   Value resultVal = nullptr;
-  if (auto constant = val.getDefiningOp<ConstantIndexOp>()) {
-    d = getAffineConstantExpr(constant.getValue(), context);
+  if (auto constant = val.getDefiningOp<arith::ConstantIndexOp>()) {
+    d = getAffineConstantExpr(constant.value(), context);
   } else if (isValidSymbol(val) && !isValidDim(val)) {
     d = getAffineSymbolExpr(numSymbols++, context);
     resultVal = val;
@@ -598,29 +598,29 @@ static Value createBinaryHandle(
 }
 
 Value mlir::edsc::op::operator+(Value lhs, Value rhs) {
-  return createBinaryHandle<AddIOp, AddFOp>(
+  return createBinaryHandle<arith::AddIOp, arith::AddFOp>(
       lhs, rhs, [](AffineExpr d0, AffineExpr d1) { return d0 + d1; });
 }
 
 Value mlir::edsc::op::operator-(Value lhs, Value rhs) {
-  return createBinaryHandle<SubIOp, SubFOp>(
+  return createBinaryHandle<arith::SubIOp, arith::SubFOp>(
       lhs, rhs, [](AffineExpr d0, AffineExpr d1) { return d0 - d1; });
 }
 
 Value mlir::edsc::op::operator*(Value lhs, Value rhs) {
-  return createBinaryHandle<MulIOp, MulFOp>(
+  return createBinaryHandle<arith::MulIOp, arith::MulFOp>(
       lhs, rhs, [](AffineExpr d0, AffineExpr d1) { return d0 * d1; });
 }
 
 Value mlir::edsc::op::operator/(Value lhs, Value rhs) {
-  return createBinaryHandle<SignedDivIOp, DivFOp>(
+  return createBinaryHandle<arith::DivSIOp, arith::DivFOp>(
       lhs, rhs, [](AffineExpr d0, AffineExpr d1) -> AffineExpr {
         llvm_unreachable("only exprs of non-index type support operator/");
       });
 }
 
 Value mlir::edsc::op::operator%(Value lhs, Value rhs) {
-  return createBinaryHandle<SignedRemIOp, RemFOp>(
+  return createBinaryHandle<arith::RemSIOp, arith::RemFOp>(
       lhs, rhs, [](AffineExpr d0, AffineExpr d1) { return d0 % d1; });
 }
 
@@ -636,22 +636,22 @@ Value mlir::edsc::op::ceilDiv(Value lhs, Value rhs) {
 
 Value mlir::edsc::op::negate(Value value) {
   assert(value.getType().isInteger(1) && "expected boolean expression");
-  return ValueBuilder<ConstantIntOp>(1, 1) - value;
+  return ValueBuilder<arith::ConstantIntOp>(1, 1) - value;
 }
 
 Value mlir::edsc::op::operator&&(Value lhs, Value rhs) {
   assert(lhs.getType().isInteger(1) && "expected boolean expression on LHS");
   assert(rhs.getType().isInteger(1) && "expected boolean expression on RHS");
-  return ValueBuilder<AndOp>(lhs, rhs);
+  return ValueBuilder<arith::AndIOp>(lhs, rhs);
 }
 
 Value mlir::edsc::op::operator||(Value lhs, Value rhs) {
   assert(lhs.getType().isInteger(1) && "expected boolean expression on LHS");
   assert(rhs.getType().isInteger(1) && "expected boolean expression on RHS");
-  return ValueBuilder<OrOp>(lhs, rhs);
+  return ValueBuilder<arith::OrIOp>(lhs, rhs);
 }
 
-static Value createIComparisonExpr(CmpIPredicate predicate, Value lhs,
+static Value createIComparisonExpr(arith::CmpIPredicate predicate, Value lhs,
                                    Value rhs) {
   auto lhsType = lhs.getType();
   auto rhsType = rhs.getType();
@@ -661,11 +661,11 @@ static Value createIComparisonExpr(CmpIPredicate predicate, Value lhs,
   assert((lhsType.isa<IndexType>() || lhsType.isSignlessInteger()) &&
          "only integer comparisons are supported");
 
-  return ScopedContext::getBuilderRef().create<CmpIOp>(
+  return ScopedContext::getBuilderRef().create<arith::CmpIOp>(
       ScopedContext::getLocation(), predicate, lhs, rhs);
 }
 
-static Value createFComparisonExpr(CmpFPredicate predicate, Value lhs,
+static Value createFComparisonExpr(arith::CmpFPredicate predicate, Value lhs,
                                    Value rhs) {
   auto lhsType = lhs.getType();
   auto rhsType = rhs.getType();
@@ -674,7 +674,7 @@ static Value createFComparisonExpr(CmpFPredicate predicate, Value lhs,
   assert(lhsType == rhsType && "cannot mix types in operators");
   assert(lhsType.isa<FloatType>() && "only float comparisons are supported");
 
-  return ScopedContext::getBuilderRef().create<CmpFOp>(
+  return ScopedContext::getBuilderRef().create<arith::CmpFOp>(
       ScopedContext::getLocation(), predicate, lhs, rhs);
 }
 
@@ -682,60 +682,60 @@ static Value createFComparisonExpr(CmpFPredicate predicate, Value lhs,
 Value mlir::edsc::op::eq(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OEQ, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::eq, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OEQ, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::eq, lhs, rhs);
 }
 Value mlir::edsc::op::ne(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::ONE, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::ne, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::ONE, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::ne, lhs, rhs);
 }
 Value mlir::edsc::op::slt(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OLT, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::slt, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OLT, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::slt, lhs, rhs);
 }
 Value mlir::edsc::op::sle(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OLE, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::sle, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OLE, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::sle, lhs, rhs);
 }
 Value mlir::edsc::op::sgt(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OGT, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::sgt, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OGT, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::sgt, lhs, rhs);
 }
 Value mlir::edsc::op::sge(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OGE, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::sge, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OGE, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::sge, lhs, rhs);
 }
 Value mlir::edsc::op::ult(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OLT, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::ult, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OLT, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::ult, lhs, rhs);
 }
 Value mlir::edsc::op::ule(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OLE, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::ule, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OLE, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::ule, lhs, rhs);
 }
 Value mlir::edsc::op::ugt(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OGT, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::ugt, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OGT, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::ugt, lhs, rhs);
 }
 Value mlir::edsc::op::uge(Value lhs, Value rhs) {
   auto type = lhs.getType();
   return type.isa<FloatType>()
-             ? createFComparisonExpr(CmpFPredicate::OGE, lhs, rhs)
-             : createIComparisonExpr(CmpIPredicate::uge, lhs, rhs);
+             ? createFComparisonExpr(arith::CmpFPredicate::OGE, lhs, rhs)
+             : createIComparisonExpr(arith::CmpIPredicate::uge, lhs, rhs);
 }

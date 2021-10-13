@@ -718,60 +718,60 @@ using memref_tensor_load = edsc::ValueBuilder<memref::TensorLoadOp>;
 using memref_tensor_store = edsc::OperationBuilder<memref::TensorStoreOp>;
 using memref_view = edsc::ValueBuilder<memref::ViewOp>;
 // From the Std Dialect.
-using std_addi = edsc::ValueBuilder<AddIOp>;
-using std_addf = edsc::ValueBuilder<AddFOp>;
+using std_addi = edsc::ValueBuilder<arith::AddIOp>;
+using std_addf = edsc::ValueBuilder<arith::AddFOp>;
 using std_call = edsc::OperationBuilder<CallOp>;
-using std_constant = edsc::ValueBuilder<ConstantOp>;
-using std_constant_float = edsc::ValueBuilder<ConstantFloatOp>;
-using std_constant_index = edsc::ValueBuilder<ConstantIndexOp>;
-using std_constant_int = edsc::ValueBuilder<ConstantIntOp>;
-using std_divis = edsc::ValueBuilder<SignedDivIOp>;
-using std_diviu = edsc::ValueBuilder<UnsignedDivIOp>;
-using std_fpext = edsc::ValueBuilder<FPExtOp>;
-using std_fptrunc = edsc::ValueBuilder<FPTruncOp>;
-using std_index_cast = edsc::ValueBuilder<IndexCastOp>;
-using std_muli = edsc::ValueBuilder<MulIOp>;
-using std_mulf = edsc::ValueBuilder<MulFOp>;
+using std_constant = edsc::ValueBuilder<arith::ConstantOp>;
+using std_constant_float = edsc::ValueBuilder<arith::ConstantFloatOp>;
+using std_constant_index = edsc::ValueBuilder<arith::ConstantIndexOp>;
+using std_constant_int = edsc::ValueBuilder<arith::ConstantIntOp>;
+using std_divis = edsc::ValueBuilder<arith::DivSIOp>;
+using std_diviu = edsc::ValueBuilder<arith::DivUIOp>;
+using std_fpext = edsc::ValueBuilder<arith::ExtFOp>;
+using std_fptrunc = edsc::ValueBuilder<arith::TruncFOp>;
+using std_index_cast = edsc::ValueBuilder<arith::IndexCastOp>;
+using std_muli = edsc::ValueBuilder<arith::MulIOp>;
+using std_mulf = edsc::ValueBuilder<arith::MulIOp>;
 using std_ret = edsc::OperationBuilder<ReturnOp>;
 using std_select = edsc::ValueBuilder<SelectOp>;
-using std_sign_extendi = edsc::ValueBuilder<SignExtendIOp>;
+using std_sign_extendi = edsc::ValueBuilder<arith::ExtSIOp>;
 using std_splat = edsc::ValueBuilder<SplatOp>;
-using std_subf = edsc::ValueBuilder<SubFOp>;
-using std_subi = edsc::ValueBuilder<SubIOp>;
-using std_zero_extendi = edsc::ValueBuilder<ZeroExtendIOp>;
+using std_subf = edsc::ValueBuilder<arith::SubFOp>;
+using std_subi = edsc::ValueBuilder<arith::SubIOp>;
+using std_zero_extendi = edsc::ValueBuilder<arith::ExtUIOp>;
 using tensor_extract = edsc::ValueBuilder<tensor::ExtractOp>;
 
 template <int N>
-struct SExtiValueBuilder : public edsc::ValueBuilder<SignExtendIOp> {
-  using edsc::ValueBuilder<SignExtendIOp>::ValueBuilder;
+struct SExtiValueBuilder : public edsc::ValueBuilder<arith::ExtSIOp> {
+  using edsc::ValueBuilder<arith::ExtSIOp>::ValueBuilder;
   template <typename... Args>
   SExtiValueBuilder(Args... args)
-      : edsc::ValueBuilder<SignExtendIOp>(
+      : edsc::ValueBuilder<arith::ExtSIOp>(
             edsc::ScopedContext::getBuilderRef().getI32Type(), args...) {}
 };
 
 using std_sexti32 = SExtiValueBuilder<32>;
 
-template <CmpFPredicate Predicate>
-struct CmpFValueBuilder : public edsc::ValueBuilder<CmpFOp> {
-  using edsc::ValueBuilder<CmpFOp>::ValueBuilder;
+template <arith::CmpFPredicate Predicate>
+struct CmpFValueBuilder : public edsc::ValueBuilder<arith::CmpFOp> {
+  using edsc::ValueBuilder<arith::CmpFOp>::ValueBuilder;
   template <typename... Args>
   CmpFValueBuilder(Args... args)
-      : edsc::ValueBuilder<CmpFOp>(Predicate, args...) {}
+      : edsc::ValueBuilder<arith::CmpFOp>(Predicate, args...) {}
 };
 
-using std_cmpf_ogt = CmpFValueBuilder<CmpFPredicate::OGT>;
-using std_cmpf_olt = CmpFValueBuilder<CmpFPredicate::OLT>;
+using std_cmpf_ogt = CmpFValueBuilder<arith::CmpFPredicate::OGT>;
+using std_cmpf_olt = CmpFValueBuilder<arith::CmpFPredicate::OLT>;
 
-template <CmpIPredicate Predicate>
-struct CmpIValueBuilder : public edsc::ValueBuilder<CmpIOp> {
-  using ValueBuilder<CmpIOp>::ValueBuilder;
+template <arith::CmpIPredicate Predicate>
+struct CmpIValueBuilder : public edsc::ValueBuilder<arith::CmpIOp> {
+  using ValueBuilder<arith::CmpIOp>::ValueBuilder;
   template <typename... Args>
   CmpIValueBuilder(Args... args)
-      : edsc::ValueBuilder<CmpIOp>(Predicate, args...) {}
+      : edsc::ValueBuilder<arith::CmpIOp>(Predicate, args...) {}
 };
 
-using std_cmpi_sgt = CmpIValueBuilder<CmpIPredicate::sgt>;
+using std_cmpi_sgt = CmpIValueBuilder<arith::CmpIPredicate::sgt>;
 
 /// Branches into `block` with `operands`.
 BranchOp std_br(Block *block, ValueRange operands);

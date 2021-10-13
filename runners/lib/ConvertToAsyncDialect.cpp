@@ -45,7 +45,7 @@ struct TiledLoopToAsyncPattern : public OpRewritePattern<linalg::TiledLoopOp> {
     Location loc = tiledLoopOp.getLoc();
 
     // Group size of one as a placeholder. What should be the right size?
-    Value groupSize = rewriter.create<ConstantIndexOp>(loc, 1);
+    Value groupSize = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     // Wrap the linalg.tiled_loops into an async::ExecuteOp.
     // 1. Create the async::GroupType object on which we synchronize.
     Value asyncGroup = rewriter.create<async::CreateGroupOp>(

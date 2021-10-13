@@ -12,7 +12,7 @@ func @init_and_matmul(
 // TODO: activate manually for now.
 // attributes { passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}
 {
-  %v0 = constant 0.0 : !elem_type_c
+  %v0 = arith.constant 0.0 : !elem_type_c
   %d = linalg.fill(%v0, %c) : !elem_type_c, !row_major_C -> !row_major_C
   %e = linalg.matmul ins(%a, %b : !row_major_A, !row_major_B)
     outs(%d: !row_major_C) -> !row_major_C
@@ -20,29 +20,29 @@ func @init_and_matmul(
 }
 
 func @print_perf(%iters: index, %total_time: f64) {
-  %c2 = constant 2 : index
-  %cM = constant ${M} : index
-  %cN = constant ${N} : index
-  %cK = constant ${K} : index
+  %c2 = arith.constant 2 : index
+  %cM = arith.constant ${M} : index
+  %cN = arith.constant ${N} : index
+  %cK = arith.constant ${K} : index
 
-  %mn = muli %cM, %cN : index
-  %mnk = muli %mn, %cK : index
+  %mn = arith.muli %cM, %cN : index
+  %mnk = arith.muli %mn, %cK : index
 
   // 2*M*N*K.
-  %flops_per_iter = muli %c2, %mnk : index
-  %flops = muli %iters, %flops_per_iter : index
-  %flops_i64 = index_cast %flops : index to i64
-  %flops_f = sitofp %flops_i64 : i64 to f64
-  %flops_per_s = divf %flops_f, %total_time : f64
+  %flops_per_iter = arith.muli %c2, %mnk : index
+  %flops = arith.muli %iters, %flops_per_iter : index
+  %flops_i64 = arith.index_cast %flops : index to i64
+  %flops_f = arith.sitofp %flops_i64 : i64 to f64
+  %flops_per_s = arith.divf %flops_f, %total_time : f64
   vector.print %flops_per_s : f64
 
   return
 }
 
 func @exec(%iters : index) {
-  %v0 = constant 0.0 : !elem_type_c
-  %v1 = constant 1.0 : !elem_type_a
-  %v2 = constant 2.0 : !elem_type_b
+  %v0 = arith.constant 0.0 : !elem_type_c
+  %v1 = arith.constant 1.0 : !elem_type_a
+  %v2 = arith.constant 2.0 : !elem_type_b
 
   %A = linalg.init_tensor [${M}, ${K}] : !row_major_A
   %B = linalg.init_tensor [${K}, ${N}] : !row_major_B
@@ -51,8 +51,8 @@ func @exec(%iters : index) {
   %BB = linalg.fill(%v2, %B) : !elem_type_b, !row_major_B -> !row_major_B
   %CC = linalg.fill(%v0, %C) : !elem_type_c, !row_major_C -> !row_major_C
 
-  %c0 = constant 0: index
-  %c1 = constant 1: index
+  %c0 = arith.constant 0: index
+  %c1 = arith.constant 1: index
 
   /// Run and dump performance for matmul.
   %t_start_matmul = call @rtclock() : () -> f64
@@ -61,7 +61,7 @@ func @exec(%iters : index) {
     scf.yield %r : !row_major_C
   }
   %t_end_matmul = call @rtclock() : () -> f64
-  %tmatmul = subf %t_end_matmul, %t_start_matmul: f64
+  %tmatmul = arith.subf %t_end_matmul, %t_start_matmul: f64
   call @print_perf(%iters, %tmatmul) : (index, f64) -> ()
 
   // %res2 = tensor.cast %res: !row_major_C to tensor<*xf32>
@@ -73,7 +73,7 @@ func @exec(%iters : index) {
 }
 
 func @main() {
-  %iters = constant ${ITERS} : index
+  %iters = arith.constant ${ITERS} : index
   call @exec(%iters) : (index) -> ()
   return
 }

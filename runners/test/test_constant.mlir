@@ -8,13 +8,13 @@
 // RUN: tee | FileCheck %s --check-prefix=EXEC
 
 func @main() {
-  %c0 = constant 0: index
-  %v0 = constant 0.0 : f32
+  %c0 = arith.constant 0: index
+  %v0 = arith.constant 0.0 : f32
 
   // Top of the function globals, memref.alloc, copy.
-  %lhs = constant dense<[[2.]]> : tensor<1x1xf32>
-  %rhs = constant dense<[[3.]]> : tensor<1x1xf32>
-  %accum = constant dense<[[1.]]> : tensor<1x1xf32>
+  %lhs = arith.constant dense<[[2.]]> : tensor<1x1xf32>
+  %rhs = arith.constant dense<[[3.]]> : tensor<1x1xf32>
+  %accum = arith.constant dense<[[1.]]> : tensor<1x1xf32>
 
   %result_vector_0 = vector.transfer_read %lhs[%c0, %c0], %v0 : tensor<1x1xf32>, vector<1x1xf32>
 
