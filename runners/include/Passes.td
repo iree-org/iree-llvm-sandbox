@@ -42,6 +42,13 @@ def LinalgTensorCodegenDriver
     Option<"fuse", "fuse", "bool", /*default=*/"false",
       "Rewrite the linalg op as a vector operation.">,
 
+    // Generalization options.
+    Option<"generalize", "generalize", "bool", /*default=*/"false",
+      "Convert named operations to their generic form.">,
+    ListOption<"iteratorInterchange", "iterator-interchange", "int64_t",
+               "Interator interchange.",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+
     // Vectorization options.
     Option<"vectorize", "vectorize", "bool", /*default=*/"false",
       "Rewrite the linalg op as a vector operation.">,

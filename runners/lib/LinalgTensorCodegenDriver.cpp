@@ -143,10 +143,13 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
         tilingOptions.setPaddingValueComputationFunction(paddingFunc);
   }
   CodegenStrategy strategy;
+  StringRef genericOpName = GenericOp::getOperationName();
   strategy
       .tileIf(!tileSizes.empty() || scalarizeDynamicDims, anchorOpName,
               tilingOptions)
-      .vectorizeIf(vectorize, anchorOpName);
+      .generalizeIf(generalize, anchorOpName)
+      .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
+      .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName);
   (void)strategy.transform(funcOp);
 }
 

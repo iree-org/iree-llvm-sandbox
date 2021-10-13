@@ -152,6 +152,30 @@ class Vectorize(Transform):
     self.pipeline = pipeline
 
 
+class Generalize(Transform):
+  """Transform a named operation to its generic form.
+
+  This transform can be configured as follows:
+  * `iterator_interchange`: Interchange the iterators of the generic operation.
+
+  Note: After generalization the anchor op name changes to 'linalg.generic'.
+  """
+
+  def __init__(self, func_name: str, op_name: str, iterator_interchange=[]):
+    interchange_str = ''
+
+    if iterator_interchange:
+      dims = [str(ic) for ic in iterator_interchange]
+      interchange_str = f'iterator-interchange={",".join(dims)}'
+
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     anchor-func={func_name} '
+                f'     anchor-op={op_name} '
+                f'     generalize '
+                f'     {interchange_str}}}')
+    self.pipeline = pipeline
+
+
 class Bufferize(Transform):
 
   def __init__(self):
