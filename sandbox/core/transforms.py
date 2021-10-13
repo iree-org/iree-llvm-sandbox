@@ -191,6 +191,7 @@ class LowerVectors(Transform):
   def __init__(self):
     pipeline = (f'linalg-tensor-codegen-driver{{'
                 f'    lower-vector '
+                f'    max-transfer-rank=1 '
                 f'    split-transfers=linalg-copy '
                 f'    vectorize-contraction-to=outerproduct '
                 f'    unroll-vector-transfers=true}},'

@@ -182,6 +182,9 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
   getOperation().walk([&](FuncOp funcOp) {
     CodegenStrategy strategy;
     strategy
+        // Set the maximum vector load / store rank.
+        .setEnableVectorTransferLowering(true)
+        .setMaxTransferRank(maxTransferRank)
         // Lowering of vector contractions.
         .setEnableVectorContractLowering(true)
         // Whether to split full/partial vector.transfer ops.

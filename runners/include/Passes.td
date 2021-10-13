@@ -79,6 +79,8 @@ def LinalgTensorCodegenDriver
     Option<"unrollVectorTransfers", "unroll-vector-transfers", "bool",
       /*default=*/"true",
       "Run transformations that lower high-level vectors.">,
+    Option<"maxTransferRank", "max-transfer-rank", "int64_t", /*default=*/"1",
+      "Set the maximum vector load/store rank.">,
 
     // LLVM lowering options.
     Option<"llvmLowering", "lower-to-llvm", "bool", /*default=*/"false",
