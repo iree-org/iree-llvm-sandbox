@@ -17,8 +17,8 @@
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
-#include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/HoistPadding.h"
+#include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -215,11 +215,11 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
 
       // Run other transforms that do not require a named linalg op.
       // TODO: Move to codegen strategy as late transformations.
-      if (hoistPadding > 0) {
+      if (!hoistPadding.empty()) {
         SmallVector<PadTensorOp> ops;
         funcOp.walk([&](PadTensorOp op) { ops.push_back(op); });
-        for (auto op : llvm::reverse(ops))
-          (void)hoistPaddingOnTensors(op, hoistPadding);
+        for (auto it : llvm::reverse(llvm::zip(ops, hoistPadding)))
+          (void)hoistPaddingOnTensors(std::get<0>(it), std::get<1>(it));
       }
       if (vectorizePadding) {
         OwningRewritePatternList extraVectorizationPatterns(

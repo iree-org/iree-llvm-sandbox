@@ -100,7 +100,7 @@ class Tile(Transform):
                tile_interchange=[],
                pad=[],
                peel=[],
-               hoist_padding=None,
+               hoist_padding=[],
                scalarize_dyn_dims=False):
     tile_str = ''
     interchange_str = ''
@@ -118,7 +118,8 @@ class Tile(Transform):
       operand_indices = [str(operand) for operand in pad]
       pad_str = f'padded-operands={",".join(operand_indices)}'
     if hoist_padding:
-      hoist_padding_str = f'hoist-padding={hoist_padding}'
+      hoisting_depths = [str(hd) for hd in hoist_padding]
+      hoist_padding_str = f'hoist-padding={",".join(hoisting_depths)}'
     if peel:
       loop_indices = [str(l) for l in peel]
       peeled_loops_str = f'peeled-loops={",".join(loop_indices)}'

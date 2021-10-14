@@ -66,10 +66,19 @@ def parse_args(argv):
       'all tiling hierarchies =\"default=3,4,1\" or for all of '
       'them =\"pad3=0,3,4 pad2=0,1,1 pad1=0,1,1\"')
   parser.add_argument(
-      '--hpad_range',
+      '--hpad_length_range',
       type=str,
-      default='0,3',
-      help='Range of potential values for hoist padding.')
+      default='default=2,3,1',
+      help='Ranges of potential lengths for hoist padding depths specified for '
+      'all hoist padding variables =\"default==0,3,1\" or for all of '
+      'them =\"hoist_padding0=0,3,1 hoist_padding1=0,3,1\"')
+  parser.add_argument(
+      '--hpad_value_range',
+      type=str,
+      default='default=0,4,1',
+      help='Ranges of potential values for hoist padding depths specified for '
+      'all hoist padding variables =\"default=0,513,32\" or for all of '
+      'them =\"hoist_padding0=0,4,1 hoist_padding1=0,7,1\"')
   parser.add_argument(
       '--experts',
       type=str,
@@ -168,7 +177,8 @@ def validate_args(args):
   validate_named_range('tsize_length_range')
   validate_named_range('tsize_value_range')
   validate_named_range('pad_length_range')
-  validate_range('hpad_range')
+  validate_named_range('hpad_length_range')
+  validate_named_range('hpad_value_range')
 
   if not hasattr(linalg, args.op):
     error(f'Unknown op: {args.op}.')
@@ -249,7 +259,8 @@ def parse_settings(args):
   settings['tsize_value_range'] = parse_named_ranges(args.tsize_value_range)
   settings['tsize_register_tile_bound'] = args.tsize_register_tile_bound
   settings['pad_length_range'] = parse_named_ranges(args.pad_length_range)
-  settings['hpad_range'] = parse_range(args.hpad_range)
+  settings['hpad_length_range'] = parse_named_ranges(args.hpad_length_range)
+  settings['hpad_value_range'] = parse_named_ranges(args.hpad_value_range)
   return settings
 
 

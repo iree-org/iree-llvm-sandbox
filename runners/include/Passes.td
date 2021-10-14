@@ -33,8 +33,9 @@ def LinalgTensorCodegenDriver
     ListOption<"paddedOperands", "padded-operands", "int64_t",
                "Operands to pad",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
-    Option<"hoistPadding", "hoist-padding", "int", /*default=*/"0",
-      "Hoist padding operations by the number of specified loops.">,
+    ListOption<"hoistPadding", "hoist-padding", "int64_t",
+               "Hoist padding depths.",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"scalarizeDynamicDims", "scalarize-dynamic-dims", "bool",
       /*default=*/"false", "Tile dynamic dimensions by 1.">,
 

@@ -157,11 +157,25 @@ class PaddingVariable(Variable):
 class HoistPaddingVariable(IntVariable):
   'Variable that corresponds to hoist padding.'
 
-  def __init__(self, name, value_range):
-    IntVariable.__init__(self, name, value_range)
+  def __init__(self, name, length_ranges, value_ranges):
+    Variable.__init__(self, name)
+    if name in length_ranges:
+      self.length_range = length_ranges[name]
+    else:
+      self.length_range = length_ranges['default']
+    if name in value_ranges:
+      self.value_range = value_ranges[name]
+    else:
+      self.value_range = value_ranges['default']
 
   def __repr__(self):
-    return f'HoistPaddingVariable({self.name}, {self.value_range})'
+    return f'HoistPaddingVariable({self.name}, {self.length_range}, {self.value_range})'
+
+  def random_value(self):
+    result = []
+    for x in range(rand_in_range(self.length_range)):
+      result.append(rand_in_range(self.value_range))
+    return result
 
 
 def collect_variables(op):
@@ -199,7 +213,8 @@ def create_variable(name, variable_type, **settings):
   elif variable_type is PaddingVariable:
     return PaddingVariable(name, settings['pad_length_range'])
   elif variable_type is HoistPaddingVariable:
-    return HoistPaddingVariable(name, settings['hpad_range'])
+    return HoistPaddingVariable(name, settings['hpad_length_range'],
+                                settings['hpad_value_range'])
   elif variable_type is PeelingVariable:
     return PeelingVariable(name, settings['tsize_length_range'])
   else:

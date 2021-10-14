@@ -12,7 +12,7 @@ all_experts = [
         interchange=[0, 1, 2],
         pad=[0, 1, 2],
         peel=False,
-        hoist_padding=3)
+        hoist_padding=[2, 3, 0])
 ]
 
 
