@@ -10,8 +10,9 @@ all_experts = [
     SingleTilingExpert(
         sizes=[8, 16, 32],
         interchange=[0, 1, 2],
-        pad=[0, 1, 2],
         peel=False,
+        pad=True,
+        pack_padding=[0, 1, 2],
         hoist_padding=[2, 3, 0])
 ]
 

@@ -135,8 +135,8 @@ class PeelingVariable(Variable):
     return sorted(random.sample(options, k))
 
 
-class PaddingVariable(Variable):
-  'Variable that corresponds to padding.'
+class PackPaddingVariable(Variable):
+  'Variable that corresponds to pack padding.'
 
   def __init__(self, name, length_ranges):
     Variable.__init__(self, name)
@@ -146,7 +146,7 @@ class PaddingVariable(Variable):
       self.length_range = length_ranges['default']
 
   def __repr__(self):
-    return f'PaddingVariable({self.name}, {self.length_range})'
+    return f'PackPaddingVariable({self.name}, {self.length_range})'
 
   def random_value(self):
     options = list(range(rand_in_range(self.length_range)))
@@ -210,8 +210,8 @@ def create_variable(name, variable_type, **settings):
                                settings['tsize_value_range'])
   elif variable_type is InterchangeVariable:
     return InterchangeVariable(name, settings['tsize_length_range'])
-  elif variable_type is PaddingVariable:
-    return PaddingVariable(name, settings['pad_length_range'])
+  elif variable_type is PackPaddingVariable:
+    return PackPaddingVariable(name, settings['ppad_length_range'])
   elif variable_type is HoistPaddingVariable:
     return HoistPaddingVariable(name, settings['hpad_length_range'],
                                 settings['hpad_value_range'])

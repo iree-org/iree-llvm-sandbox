@@ -27,11 +27,10 @@ expert_tile_1 = TestExpert([
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
-        pad=[],
+        pad=False,
         peel=False),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 1 level of tile and interchange.
 expert_tile_and_interchange_1 = TestExpert([
     Tile(
@@ -39,11 +38,10 @@ expert_tile_and_interchange_1 = TestExpert([
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
         tile_interchange=[2, 0, 1],
-        pad=[],
+        pad=False,
         peel=False),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 1 level of tiling and then generalize and interchange.
 expert_tile_1_and_generalize_interchange = TestExpert([
     Tile(
@@ -51,86 +49,88 @@ expert_tile_1_and_generalize_interchange = TestExpert([
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
         tile_interchange=[2, 0, 1],
-        pad=[],
+        pad=False,
         peel=False),
     Generalize(
         'matmul_on_tensors', 'linalg.matmul', iterator_interchange=[0, 2, 1]),
     Vectorize('matmul_on_tensors', 'linalg.generic')
 ])
-
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
 expert_tile_1_peel_scalarize = TestExpert([
     Tile(
-        'matmul_on_tensors', 'linalg.matmul', tile_sizes=[8], pad=[], peel=[0]),
+        'matmul_on_tensors',
+        'linalg.matmul',
+        tile_sizes=[8],
+        pad=False,
+        peel=[0]),
     Tile('matmul_on_tensors', 'linalg.matmul', scalarize_dyn_dims=True),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 1 level of tiling, with padding.
 expert_tile_1_pad = TestExpert([
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
-        pad=[0, 1, 2],
+        pad=True,
+        pack_padding=[0, 1, 2],
         peel=False),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 1 level of tiling, with padding, hoisted.
 expert_tile_1_pad_hoist = TestExpert([
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 64],
-        pad=[0, 1, 2],
+        pad=True,
+        pack_padding=[0, 1, 2],
         hoist_padding=[3, 3, 3],
         peel=False),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 2 levels of tiling, with padding, hoisted.
 expert_tile_2_pad_hoist = TestExpert([
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
-        pad=[],
+        pad=False,
         peel=False),
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[4, 4, 12],
-        pad=[0, 1, 2],
+        pad=True,
+        pack_padding=[0, 1, 2],
         hoist_padding=[6, 6, 6],
         peel=False),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
 expert_tile_3_pad_hoist_peel = TestExpert([
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
-        pad=[],
+        pad=False,
         peel=False),
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[4, 4, 12],
-        pad=[0, 1, 2],
+        pad=True,
+        pack_padding=[0, 1, 2],
         hoist_padding=[6, 6, 6],
         peel=False),
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[2, 3, 7],
-        pad=[],
+        pad=False,
         peel=[0, 1, 2]),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
 # Scalarize remaining dynamic dims.
 expert_tile_3_pad_hoist_peel_scalarize = TestExpert([
@@ -138,25 +138,25 @@ expert_tile_3_pad_hoist_peel_scalarize = TestExpert([
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 24],
-        pad=[],
+        pad=False,
         peel=False),
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[4, 4, 12],
-        pad=[0, 1, 2],
+        pad=True,
+        pack_padding=[0, 1, 2],
         hoist_padding=[6, 6, 6],
         peel=False),
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[2, 3, 7],
-        pad=[],
+        pad=False,
         peel=[0, 1, 2]),
     Tile('matmul_on_tensors', 'linalg.matmul', scalarize_dyn_dims=True),
     Vectorize('matmul_on_tensors', 'linalg.matmul')
 ])
-
 # Fuse, then tile.
 expert_fuse_2_tile_1 = TestExpert([
     Fuse('matmul_on_tensors', 'linalg.matmul', tile_sizes=[8, 16, 0]),
@@ -165,20 +165,19 @@ expert_fuse_2_tile_1 = TestExpert([
     Vectorize('matmul_on_tensors', 'linalg.matmul'),
     Vectorize('matmul_on_tensors', 'linalg.fill')
 ])
-
 expert_fuse_and_pad = TestExpert([
     Fuse('matmul_on_tensors', 'linalg.matmul', [16, 16, 0]),
     Tile(
         'matmul_on_tensors',
         'linalg.matmul',
         tile_sizes=[8, 8, 32],
-        pad=[0, 1, 2],
+        pad=True,
+        pack_padding=[0, 1, 2],
         hoist_padding=[3, 3, 3]),
     Vectorize('matmul_on_tensors', 'linalg.matmul'),
     Tile('matmul_on_tensors', 'linalg.fill', tile_sizes=[8, 8]),
     Vectorize('matmul_on_tensors', 'linalg.fill')
 ])
-
 # TODO: Fix broken tests.
 all_experts = [
     expert_no_tiling, expert_tile_1, expert_tile_and_interchange_1,
@@ -187,8 +186,6 @@ all_experts = [
     expert_tile_3_pad_hoist_peel, expert_tile_3_pad_hoist_peel_scalarize,
     expert_fuse_2_tile_1, expert_fuse_and_pad
 ]
-
-
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
@@ -201,7 +198,5 @@ def main():
           f'Problem size {M}x{N}x{K}')
       for expert in all_experts:
         compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert, False)
-
-
 if __name__ == '__main__':
   main()

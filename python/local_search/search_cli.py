@@ -59,12 +59,12 @@ def parse_args(argv):
       default=256,
       help='Upper bound for the register tiling sizes.')
   parser.add_argument(
-      '--pad_length_range',
+      '--ppad_length_range',
       type=str,
       default='default=3,4,1',
-      help='Ranges of potential operand indices to pad either specified for '
+      help='Ranges of potential operand indices to pack either specified for '
       'all tiling hierarchies =\"default=3,4,1\" or for all of '
-      'them =\"pad3=0,3,4 pad2=0,1,1 pad1=0,1,1\"')
+      'them =\"pack_padding0=0,3,4 pack_padding1=0,1,1\"')
   parser.add_argument(
       '--hpad_length_range',
       type=str,
@@ -176,7 +176,7 @@ def validate_args(args):
   validate_range('dim_range')
   validate_named_range('tsize_length_range')
   validate_named_range('tsize_value_range')
-  validate_named_range('pad_length_range')
+  validate_named_range('ppad_length_range')
   validate_named_range('hpad_length_range')
   validate_named_range('hpad_value_range')
 
@@ -258,7 +258,7 @@ def parse_settings(args):
   settings['tsize_length_range'] = parse_named_ranges(args.tsize_length_range)
   settings['tsize_value_range'] = parse_named_ranges(args.tsize_value_range)
   settings['tsize_register_tile_bound'] = args.tsize_register_tile_bound
-  settings['pad_length_range'] = parse_named_ranges(args.pad_length_range)
+  settings['ppad_length_range'] = parse_named_ranges(args.ppad_length_range)
   settings['hpad_length_range'] = parse_named_ranges(args.hpad_length_range)
   settings['hpad_value_range'] = parse_named_ranges(args.hpad_value_range)
   return settings

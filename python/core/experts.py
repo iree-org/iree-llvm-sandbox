@@ -86,22 +86,24 @@ class SingleTilingExpert(TransformationList):
   variables = {
       'sizes': TilingSizesVariable,
       'interchange': InterchangeVariable,
-      'pad': PaddingVariable,
       'peel': PeelingVariable,
+      'pad': BoolVariable,
+      'pack_padding': PackPaddingVariable,
       'hoist_padding': HoistPaddingVariable,
   }
 
   def __init__(self, sizes: Sequence[int], interchange: Sequence[int],
-               pad: Sequence[int], peel: bool, hoist_padding: Sequence[int],
-               **kwargs):
+               peel: bool, pad: bool, pack_padding: Sequence[int],
+               hoist_padding: Sequence[int], **kwargs):
     extra_transforms = [
         Tile(
             'matmul_on_tensors',
             'linalg.matmul',
             tile_sizes=sizes,
             tile_interchange=interchange,
-            pad=pad,
             peel=peel,
+            pad=pad,
+            pack_padding=pack_padding,
             hoist_padding=hoist_padding),
         Vectorize('matmul_on_tensors', 'linalg.matmul'),
         Bufferize(),
