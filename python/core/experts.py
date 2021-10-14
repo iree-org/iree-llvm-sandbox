@@ -81,6 +81,15 @@ class ExpertSparseCompiler(Expert):
 
 # Expert compiler that applies a single level of tiling.
 class SingleTilingExpert(TransformationList):
+  # Variables are the hooks for search, their names must correspond to the
+  # __init__
+  variables = {
+      'sizes': TilingSizesVariable,
+      'interchange': InterchangeVariable,
+      'pad': PaddingVariable,
+      'peel': PeelingVariable,
+      'hoist_padding': HoistPaddingVariable,
+  }
 
   def __init__(self, sizes: Sequence[int], interchange: Sequence[int],
                pad: Sequence[int], peel: bool, hoist_padding: Sequence[int],

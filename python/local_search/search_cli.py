@@ -45,14 +45,14 @@ def parse_args(argv):
       default='default=3,4,1',
       help='Ranges of potential lengths for tiling sizes either specified for '
       'all tiling hierarchies =\"default=3,4,1\" or for all of '
-      'them =\"sizes3=3,4,1 sizes2=3,4,1 sizes1=3,4,1\"')
+      'them =\"sizes3=3,4,1 sizes2=3,4,1 sizes=3,4,1\"')
   parser.add_argument(
       '--tsize_value_range',
       type=str,
-      default='sizes3=8,33,8 sizes2=32,129,16 sizes1=128,513,32',
+      default='sizes3=8,33,8 sizes2=32,129,16 sizes=128,513,32',
       help='Ranges of potential values for tiling sizes either specified for '
       'all tiling hierarchies =\"default=0,513,32\" or for all of '
-      'them =\"sizes3=8,33,8 sizes2=32,129,16 sizes1=128,513,32\"')
+      'them =\"sizes3=8,33,8 sizes2=32,129,16 sizes=128,513,32\"')
   parser.add_argument(
       '--tsize_register_tile_bound',
       type=int,
@@ -358,6 +358,7 @@ def invoke_subprocess(invoke_cli, op, expert, assignments, output_dir, timeout,
     return base_output
 
   try:
+    print(command)
     result = subprocess.run(
         command,
         timeout=timeout,
