@@ -60,11 +60,9 @@ def main():
     create_vector_add(module, 'add2d_f32', [8, 128], f32)
     create_vector_add(module, 'add3d_i8', [8, 128, 4], i8)
 
-    print(module)
-
     transform = Transform(
-        print_ir_after_all=True,
-        #print_llvmir=True
+        # print_ir_after_all=True,
+        # print_llvmir=True
     )
 
     def apply_transform_to_entry_point(module):

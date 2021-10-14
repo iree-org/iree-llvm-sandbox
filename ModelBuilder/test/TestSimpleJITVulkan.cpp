@@ -82,6 +82,7 @@ void testVectorAdd1d() {
     b.create<gpu::LaunchFuncOp>(
         f.getLoc(), kernelFunc, gpu::KernelDim3{dispatchSizeX, one, one},
         gpu::KernelDim3{wgx, one, one},
+        b.create<arith::ConstantIndexOp>(f.getLoc(), 0),
         ValueRange({f.getArgument(0), f.getArgument(1), f.getArgument(2)}));
     std_ret();
   }
