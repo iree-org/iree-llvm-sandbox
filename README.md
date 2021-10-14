@@ -37,6 +37,7 @@ Optional: * `git clone https://github.com/llvm/mlir-npcomp.git`
 
 We use the following environment variables in these instructions:
 
+*   `LLVM_SOURCE_DIR`: $HOME/src/llvm-project
 *   `IREE_LLVM_SANDBOX_SOURCE_DIR`: $HOME/src/iree-llvm-sandbox
 *   `IREE_LLVM_SANDBOX_BUILD_DIR`: $HOME/src/sandbox_build
 
@@ -50,7 +51,7 @@ which python
 python -m venv ~/.venv/mlirdev
 source ~/.venv/mlirdev/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r $HOME/src/llvm-project/mlir/python/requirements.txt
+python -m pip install -r ${LLVM_SOURCE_DIR}/mlir/python/requirements.txt
 ```
 
 Optionally, install pytorch nightly:
@@ -64,8 +65,8 @@ pip3 install --pre torch torchvision torchaudio -f https://download.pytorch.org/
 The following assumes that you will be building into `$HOME/src/sandbox_build`:
 
 ```
-cd $HOME/src
-cmake -GNinja -Bsandbox_build llvm-project/llvm \
+cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}/..
+cmake -GNinja -B${IREE_LLVM_SANDBOX_BUILD_DIR} llvm-project/llvm \
   -DLLVM_ENABLE_PROJECTS=mlir \
   -DLLVM_EXTERNAL_PROJECTS=iree_llvm_sandbox \
   -DLLVM_EXTERNAL_IREE_LLVM_SANDBOX_SOURCE_DIR=$PWD/iree-llvm-sandbox \
@@ -86,7 +87,7 @@ corresponding tools installed:
 *   `-DLLVM_ENABLE_LLD=ON`
 *   `-DLLVM_CCACHE_BUILD=ON`
 
-Useful build commands (from the `sandbox_build` directory):
+Useful build commands (from the `${IREE_LLVM_SANDBOX_BUILD_DIR}` directory):
 
 *   `ninja check-mlir`: Run MLIR tests.
 *   `ninja all`: Build everything.
@@ -96,14 +97,14 @@ Useful build commands (from the `sandbox_build` directory):
 ## Using the Python API
 
 ```
-cd "${IREE_LLVM_SANDBOX_BUILD_DIR}"
-export PYTHONPATH=$PWD/tools/iree_llvm_sandbox/python_package
+export PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/iree_llvm_sandbox/python_package
 
 # Sanity check (should not error).
 python -c "import mlir.iree_sandbox"
 
 # Run a matmul.
-python ../iree-llvm-sandbox/runners/test/python/linalg_matmul_bench.py
+cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}; \
+python -m python.matmul.bench
 ```
 
 ## Using mlir-proto-opt
@@ -112,7 +113,7 @@ python ../iree-llvm-sandbox/runners/test/python/linalg_matmul_bench.py
 cd "${IREE_LLVM_SANDBOX_BUILD_DIR}"
 
 ./bin/mlir-proto-opt \
-  ../iree-llvm-sandbox/runners/test/test_constant.mlir \
+  ../iree-llvm-sandbox/test/test_constant.mlir \
   -linalg-comprehensive-module-bufferize
 ```
 
