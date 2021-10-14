@@ -11,11 +11,8 @@ from typing import Sequence, Optional
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import builtin
-from mlir.dialects import linalg
+from mlir.dialects import arith, builtin, linalg, scf, std
 from mlir.dialects.linalg.opdsl.lang import OperandKind
-from mlir.dialects import scf
-from mlir.dialects import std
 from mlir.execution_engine import *
 from mlir.runtime import *
 
@@ -107,8 +104,8 @@ def emit_benchmarking_function(name: str,
 
   num_results = len(func.type.results)
   with InsertionPoint(wrapper.add_entry_block()):
-    zero = std.ConstantOp.create_index(0)
-    one = std.ConstantOp.create_index(1)
+    zero = arith.ConstantOp.create_index(0)
+    one = arith.ConstantOp.create_index(1)
     loop = scf.ForOp(zero, wrapper.arguments[-1], one,
                      wrapper.arguments[-num_results - 1:-1])
     with InsertionPoint(loop.body):
@@ -135,7 +132,7 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
 
     @builtin.FuncOp.from_py_func(*ranked_tensor_types)
     def matmul_on_tensors(*outer_args):
-      zero = std.ConstantOp(return_elem_type, 0.0)
+      zero = arith.ConstantOp(return_elem_type, 0.0)
       tensor_zero = linalg.FillOp(output=outer_args[-1], value=zero)
       args = outer_args[:-1]
       return op(*args, outs=tensor_zero)
@@ -162,3 +159,14 @@ def compile_and_callback(op, transform: Callable, callback: Callable,
     module, execution_engine = build_op_under_context_manager(
         op, transform, **assignments)
     return callback(module, execution_engine)
+
+
+# JIT compile and return an execution engine that can be invoked.
+# Needs to be run under Context.
+def compile_to_execution_engine(module, transform: Callable):
+  start = time.time()
+  transformed_module = transform(module)
+  execution_engine = ExecutionEngine(transformed_module)
+  elapsed_compilation_s = time.time() - start
+  print(f"compilation in {elapsed_compilation_s:.{4}}s")
+  return transformed_module, execution_engine

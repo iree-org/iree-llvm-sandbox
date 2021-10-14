@@ -5,10 +5,7 @@ import numpy as np
 import torch
 
 from mlir.ir import *
-from mlir.dialects import builtin
-from mlir.dialects import linalg
-from mlir.dialects import scf
-from mlir.dialects import std
+from mlir.dialects import arith, builtin, linalg, scf, std
 from mlir.execution_engine import *
 from mlir.runtime import *
 from mlir.dialects.linalg.opdsl.lang import *
@@ -67,7 +64,7 @@ def emit_compute_function(name: str, types: Sequence[Type]):
 
   output_elem_type = types[1].element_type
   with InsertionPoint(func.add_entry_block()):
-    zero = std.ConstantOp(output_elem_type, 0.0)
+    zero = arith.ConstantOp(output_elem_type, 0.0)
     tensor_zero = linalg.FillOp(output=func.arguments[1], value=zero)
 
     result = column_reduction(func.arguments[0], outs=[tensor_zero])

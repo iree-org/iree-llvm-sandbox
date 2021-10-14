@@ -6,6 +6,36 @@ from typing import List
 from .search import *
 from .transforms import *
 
+
+# TODO: replace Expert with this
+class TransformationList:
+  """Base class for an Expert compiler that applies transformations in sequence.
+
+  :Parameters:
+    - `transforms` (`List[Transform]`) - List of transforms to apply in sequence
+    - `print_ir_after_all` (`bool`) - triggers printing of IR
+    - `print_llvmir` (`bool`) - dummy description for y
+  """
+  transforms = []
+  print_ir_after_all = False
+  print_llvmir = False
+
+  def __init__(self, **kwargs):
+    self.__dict__.update(kwargs)
+
+  def __call__(self, entry_point, module):
+    for transform in self.transforms:
+      is_llvmir = str(transform).find('LowerToLLVM') >= 0
+      print_ir = self.print_llvmir if is_llvmir else self.print_ir_after_all
+
+      if print_ir:
+        print('[[[ IR after transform: ' + str(transform) + ']]]')
+      module = transform(module, entry_point)
+      if print_ir:
+        print(module)
+    return module
+
+
 # Only for debugging: Print IR after each transform.
 print_ir_after_each = False
 print_llvmir = False

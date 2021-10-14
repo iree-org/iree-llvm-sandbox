@@ -4,10 +4,7 @@ from collections.abc import Callable
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import builtin
-from mlir.dialects import linalg
-from mlir.dialects import scf
-from mlir.dialects import std
+from mlir.dialects import arith, builtin, linalg, scf, std
 from mlir.execution_engine import *
 from mlir.runtime import *
 
@@ -15,7 +12,8 @@ from typing import Sequence, Optional
 
 from ..core.harness import *
 from ..core.experts import *
-from ..core.compilation import f32, attach_inplaceable_attributes, attach_passthrough, emit_benchmarking_function
+from ..core.compilation import f32, attach_inplaceable_attributes, \
+    attach_passthrough, compile_to_execution_engine, emit_benchmarking_function
 
 avx512 = True
 
@@ -32,7 +30,7 @@ def np_type_to_mlir_type(np_type: np.dtype):
   elif np_type == np.float64:
     return F64Type.get()
   else:
-    raise Exception(f'unknown scalar type: {scalar_type}')
+    raise Exception(f'unknown scalar type: {np_type}')
 
 
 def setup_matmul_np(M: int, N: int, K: int, np_type: np.dtype):
@@ -61,7 +59,7 @@ def emit_compute_function(name: str, types: Sequence[Type]):
 
   acc_type = types[2].element_type
   with InsertionPoint(func.add_entry_block()):
-    zero = std.ConstantOp(acc_type, 0.0)
+    zero = arith.ConstantOp(acc_type, 0.0)
     tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
     matmul = linalg.matmul(
         func.arguments[0], func.arguments[1], outs=[tensor_zero])
@@ -99,13 +97,11 @@ def build_matmul_under_context_manager(entry_point: str, fun_to_benchmark: str,
     wrapper = emit_benchmarking_function(entry_point, func)
     attach_passthrough(wrapper, avx512=avx512)
 
-  # JIT compile.
-  start = time.time()
-  transformed_module = transform(entry_point, module)
-  execution_engine = ExecutionEngine(transformed_module)
-  elapsed_compilation_s = time.time() - start
-  print(f'compilation in {elapsed_compilation_s:.{4}}s')
+  def apply_transform_to_entry_point(module):
+    return transform(entry_point, module)
 
+  _, execution_engine = compile_to_execution_engine(
+      module, apply_transform_to_entry_point)
   return module, execution_engine
 
 
