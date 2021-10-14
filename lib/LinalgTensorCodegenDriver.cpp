@@ -132,20 +132,14 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   if (scalarizeDynamicDims)
     tilingOptions = tilingOptions.scalarizeDynamicDims();
   tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
-  if (!paddedOperands.empty()) {
-    auto paddingFunc = [&](OpBuilder &b,
-                           OpOperand &opOperand) -> FailureOr<Value> {
-      if (llvm::count(paddedOperands, opOperand.getOperandNumber()) == 0)
-        return failure();
-      return getNeutralOfLinalgOp(b, opOperand);
-    };
-   auto nofoldFunc = [&](OpOperand &opOperand) {
+  if (pad) {
+    auto nofoldFunc = [&](OpOperand &opOperand) {
       return llvm::count(nofoldOperands, opOperand.getOperandNumber()) != 0;
     };
-   tilingOptions =
-       tilingOptions.setPaddingValueComputationFunction(paddingFunc);
-   tilingOptions =
-       tilingOptions.setPaddingNoFoldComputationFunction(nofoldFunc);
+    tilingOptions =
+        tilingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
+    tilingOptions =
+        tilingOptions.setPaddingNoFoldComputationFunction(nofoldFunc);
   }
   CodegenStrategy strategy;
   StringRef genericOpName = GenericOp::getOperationName();
