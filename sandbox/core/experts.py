@@ -1,7 +1,7 @@
 #
 # import time
 
-from typing import List
+from typing import List, Sequence, Optional
 
 from .search import *
 from .transforms import *
@@ -80,28 +80,27 @@ class ExpertSparseCompiler(Expert):
 
 
 # Expert compiler that applies a single level of tiling.
-class SingleTilingExpert(Expert):
-  variables = {
-      'sizes1': TilingSizesVariable,
-      'interchange': InterchangeVariable,
-      'pad': PaddingVariable,
-      'peel': PeelingVariable,
-      'hoist_padding': HoistPaddingVariable,
-  }
+class SingleTilingExpert(TransformationList):
 
-  def transforms(self) -> List[Transform]:
-    v = self.assignments
-    return [
+  def __init__(self, sizes: Sequence[int], interchange: Sequence[int],
+               pad: Sequence[int], peel: bool, hoist_padding: Sequence[int],
+               **kwargs):
+    extra_transforms = [
         Tile(
             'matmul_on_tensors',
             'linalg.matmul',
-            tile_sizes=v.sizes1,
-            tile_interchange=v.interchange,
-            pad=v.pad,
-            peel=v.peel,
-            hoist_padding=v.hoist_padding),
+            tile_sizes=sizes,
+            tile_interchange=interchange,
+            pad=pad,
+            peel=peel,
+            hoist_padding=hoist_padding),
         Vectorize('matmul_on_tensors', 'linalg.matmul'),
         Bufferize(),
         LowerVectors(),
         LowerToLLVM(),
     ]
+    t = extra_transforms if 'transforms' not in kwargs else kwargs[
+        'transforms'] + extra_transforms
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)

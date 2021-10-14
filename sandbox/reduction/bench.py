@@ -8,11 +8,11 @@ from .util import *
 
 all_experts = [
     SingleTilingExpert(
-        sizes1=[8, 16, 32],
+        sizes=[8, 16, 32],
         interchange=[0, 1, 2],
         pad=[0, 1, 2],
         peel=False,
-        hoist_padding=3)
+        hoist_padding=[3])
 ]
 
 

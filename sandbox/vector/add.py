@@ -16,16 +16,6 @@ from ..core.utils import *
 from ..core.compilation import compile_to_execution_engine
 
 
-def inspect(obj):
-  print(obj)
-  print([name for name in dir(obj) if not name.startswith('__')])
-
-
-def inspect_all(obj):
-  inspect(obj)
-  print([name for name in dir(obj) if name.startswith('__')])
-
-
 def emit_func(name: str, operand_types: Sequence[Type],
               result_types: Sequence[Type]):
   # Actual benchmarked function called under entry_point.
@@ -36,8 +26,7 @@ def emit_func(name: str, operand_types: Sequence[Type],
   add = arith.AddIOp if IntegerType.isinstance(scal_type) else arith.AddFOp
   with InsertionPoint(func.add_entry_block()):
     A, B, C = func.arguments
-    # LoadOp has no nice form yet, must pass the result as first arg.
-    va, vb = memref.LoadOp(vec_type, A, []), memref.LoadOp(vec_type, B, [])
+    va, vb = memref.LoadOp(A, []), memref.LoadOp(B, [])
     vc = add(vec_type, va, vb)
     memref.StoreOp(vc, C, [])
     std.ReturnOp([])
