@@ -9,9 +9,8 @@ from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.runtime import *
 
 from ..core.compilation import numpy_type, compile_and_callback
-from ..core.search import collect_variables
+from ..core.search_vars import collect_variables
 from ..core import experts
-from .search_cli import parse_assignments
 
 
 def parse_args(argv):
@@ -29,8 +28,8 @@ def parse_args(argv):
   parser.add_argument(
       '--assign',
       type=str,
-      nargs='+',
-      help='A sequence of K=V arguments to specify op or expert variables.')
+      help='A json dictionary of key-value pairs to specify op or expert variables.'
+  )
   parser.add_argument(
       '--iters',
       type=int,
@@ -62,7 +61,7 @@ def validate_args(args):
   expert = getattr(experts, args.expert)
   variables = collect_variables(op)
   variables.update(expert.variables)
-  assignments = parse_assignments(args)
+  assignments = json.loads(args.assign)
   for var_name in assignments.keys():
     if var_name not in assignments:
       error(f'Variable {variable.name} was not assigned.')
