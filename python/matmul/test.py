@@ -12,13 +12,12 @@ from .matmul import *
 ### Compilation strategies.
 ################################################################################
 
-class TestExpert(Expert):
+
+class TestExpert(TransformationList):
 
   def __init__(self, tiling_transforms):
-    self.tiling_transforms = tiling_transforms
-
-  def transforms(self) -> List[Transform]:
-    return self.tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    TransformationList.__init__(self, **{'transforms': t})
 
 
 # TODO: Check generate code for basic code quality, e.g., no linalg.copy.

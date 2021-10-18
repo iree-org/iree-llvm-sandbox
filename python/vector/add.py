@@ -1,5 +1,6 @@
 import sys, time
 from collections.abc import Callable
+from typing import Any, List, NewType, Optional, Sequence, Type
 
 import numpy as np
 
@@ -7,8 +8,6 @@ from mlir.ir import *
 from mlir.dialects import arith, builtin, linalg, memref, scf, std, vector
 from mlir.execution_engine import *
 from mlir.runtime import *
-
-from typing import Sequence, Optional
 
 from ..core.experts import *
 from ..core.harness import *

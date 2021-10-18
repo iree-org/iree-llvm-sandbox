@@ -10,16 +10,24 @@ from .transforms import *
 class TransformationList:
   """Base class for an Expert compiler that applies transformations in sequence.
 
+  Derived classes that whish to expose their configuration to search need an
+  extra `variables` dictionary, which serves as a hook for search. The labels of
+  the dictionary need to correspond to the corresponding argument name in the
+  derived __init__ function.
+
   :Parameters:
     - `transforms` (`List[Transform]`) - List of transforms to apply in sequence
     - `print_ir_after_all` (`bool`) - triggers printing of IR
-    - `print_llvmir` (`bool`) - dummy description for y
+    - `print_llvmir` (`bool`) - dummy description for print LLVMIR in particular
   """
-  transforms = []
-  print_ir_after_all = False
-  print_llvmir = False
+  transforms: List
+  print_ir_after_all: bool
+  print_llvmir: bool
 
   def __init__(self, **kwargs):
+    self.transforms = []
+    self.print_ir_after_all = False
+    self.print_llvmir = False
     self.__dict__.update(kwargs)
 
   def __call__(self, entry_point_name: str, module: Module):
@@ -35,53 +43,11 @@ class TransformationList:
     return module
 
 
-# Only for debugging: Print IR after each transform.
-print_ir_after_each = False
-print_llvmir = False
-
-
-class Assignments:
-
-  def __init__(self, **kwargs):
-    self.__dict__.update(kwargs)
-
-
-class Expert:
-
-  def __init__(self, **asignments):
-    self.assignments = Assignments(**asignments)
-
-  def __call__(self, entry_point_name: str, module: Module):
-    for transform in self.transforms():
-      is_llvmir = str(transform).find('LowerToLLVM') >= 0
-      print_ir = print_ir_after_each and (print_llvmir or not is_llvmir)
-
-      if print_ir:
-        print('[[[ IR after transform: ' + str(transform) + ']]]')
-      module = transform(module, entry_point_name)
-      if print_ir:
-        print(module)
-    return module
-
-  def transforms(self) -> List[Transform]:
-    'Abstract method that returns a list of transforms for given expert.'
-
-
-class ExpertSparseCompiler(Expert):
-  variables = {'options': str}
-
-  def transforms(self) -> List[Transform]:
-    v = self.assignments
-    self.options = v.options
-    return [
-        Sparsify(v.options),
-    ]
-
-
-# Expert compiler that applies a single level of tiling.
 class SingleTilingExpert(TransformationList):
-  # Variables are the hooks for search, their names must correspond to the
-  # __init__
+  """Expert compiler that applies a single level of tiling."""
+
+  # Entries in the `variables` dictionary are the hooks for search, their names
+  # must correspond to the __init__ function arguments.
   variables = {
       'sizes': TilingSizesVariable,
       'interchange': InterchangeVariable,
@@ -114,3 +80,12 @@ class SingleTilingExpert(TransformationList):
     d = {'transforms': t}
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)
+
+
+# Expert compiler that applies the whole sparse compiler.
+class ExpertSparseCompiler(TransformationList):
+  variables = {'options': str}
+
+  def __init__(self, options):
+    self.options = options
+    TransformationList.__init__(self, **{'transforms': [Sparsify(options)]})
