@@ -1,7 +1,9 @@
 import sys, time
 
 from collections.abc import Callable
-from typing import Any, NewType, Optional, Sequence, Type
+from typing import Any, List, Optional, Sequence, Type, Union
+
+import numpy
 
 from mlir.execution_engine import *
 from mlir.ir import *
@@ -9,7 +11,9 @@ from mlir.runtime import *
 
 from ..core.compilation import f32, attach_inplaceable_attributes, \
     attach_passthrough, compile_to_execution_engine, emit_benchmarking_function
+from ..core.problem_definition import *
 from ..core.utils import *
+
 
 # Log everything to stderr and flush so that we have a unified stream to match
 # errors/info emitted by MLIR to stderr.
@@ -24,10 +28,10 @@ def timed_invoke(run_n_iters: Callable, gflop_count: float, n_iters: int):
   elapsed_s = time.time() - start
   elapsed_s_per_iter = elapsed_s / n_iters
   gflop_per_s_per_iter = gflop_count / (elapsed_s_per_iter)
-  print(f'xxxxxxxxxx : {n_iters} iters time on {1} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) '
-        f'total time {elapsed_s:.{4}}s ')
+  print(f"xxxxxxxxxx : {n_iters} iters time on {1} threads "
+        f"in {elapsed_s_per_iter:.{4}}s per iter "
+        f"sec ({gflop_per_s_per_iter:.{4}} GFlop/s) "
+        f"total time {elapsed_s:.{4}}s ")
 
 
 # TODO: support more than just RankedTensorType.
@@ -50,13 +54,10 @@ def compiled_function_element_types_mlir_builder(np_types: Sequence[np.dtype]):
 
 
 class ProblemInstance:
+  problem_definition: ProblemDefinition
+
   # Helpers for both compile-time and runtime.
   np_types: Sequence[np.dtype]
-  shapes_from_list_of_sizes_builder: Callable  # TODO: better type
-
-  # Functions to compile.
-  compile_time_function_types_mlir_builder: Callable  # TODO: better type
-  fun_to_compile_mlir_builder: Callable  # TODO: better type
 
   # Information about the problem to enable compilation.
   problem_sizes_keys: Sequence[str]
@@ -67,21 +68,11 @@ class ProblemInstance:
   mlir_module: Any  # TODO: better type
   mlir_execution_engine: Any  # TODO: better type
 
-  def __init__(
-      self,
-      problem_sizes_keys: Sequence[str],
-      np_types: Sequence[np.dtype],
-      # TODO: Better types than Callable.
-      shapes_from_list_of_sizes_builder: Callable,
-      compile_time_function_types_mlir_builder: Callable,
-      fun_to_compile_mlir_builder: Callable,
-  ):
+  def __init__(self, problem_definition: ProblemDefinition,
+               problem_sizes_keys: Sequence[str], np_types: Sequence[np.dtype]):
+    self.problem_definition = problem_definition
     # Helpers for both compile-time and runtime.
     self.np_types = np_types
-    self.shapes_from_list_of_sizes_builder = shapes_from_list_of_sizes_builder
-    # Functions to compile.
-    self.compile_time_function_types_mlir_builder = compile_time_function_types_mlir_builder
-    self.fun_to_compile_mlir_builder = fun_to_compile_mlir_builder
     # Information about the problem to enable compilation.
     self.problem_sizes_keys = problem_sizes_keys
     self.compile_time_problem_sizes_dict = None
@@ -98,7 +89,7 @@ class ProblemInstance:
       # TODO: Better type than Callable.
       transform: Callable):
     assert self.compile_time_problem_sizes_dict is None, \
-        f'Problem already compiled, please instantiate a new problem'
+        f"Problem already compiled, please instantiate a new problem"
     assert_dict_entries_match_keys(compile_time_problem_sizes_dict,
                                    self.problem_sizes_keys)
 
@@ -112,11 +103,12 @@ class ProblemInstance:
             self.compile_time_problem_sizes_dict[t]
             for t in self.problem_sizes_keys
         ]
-        types = self.compile_time_function_types_mlir_builder(
+        types = self.problem_definition.types_mlir_builder(
             *list_of_sizes,
-            compiled_function_element_types_mlir_builder(self.np_types))
+            *compiled_function_element_types_mlir_builder(self.np_types))
 
-        func = self.fun_to_compile_mlir_builder(fun_to_benchmark_name, types)
+        func = self.problem_definition.build_problem_under_context_manager(
+            fun_to_benchmark_name, *types)
         wrapper = emit_benchmarking_function(entry_point_name, func)
 
       def apply_transform_to_entry_point_name(module):
@@ -126,8 +118,7 @@ class ProblemInstance:
           self.mlir_module, apply_transform_to_entry_point_name)
 
   def run(self, n_iters: int, entry_point_name: str,
-          runtime_problem_sizes_dict: dict, runtime_data_np_builder: Callable,
-          gflop_count_builder: Callable, check_fun: Callable):
+          runtime_problem_sizes_dict: dict):
     assert_dict_entries_match_keys(runtime_problem_sizes_dict,
                                    self.problem_sizes_keys)
     assert_runtime_sizes_compatible_with_compile_time_sizes(
@@ -137,8 +128,8 @@ class ProblemInstance:
     list_of_sizes = [
         runtime_problem_sizes_dict[t] for t in self.problem_sizes_keys
     ]
-    np_input_and_outputs = runtime_data_np_builder(*list_of_sizes,
-                                                   self.np_types)
+    np_input_and_outputs = self.problem_definition.tensors_np_builder(
+        *list_of_sizes, *self.np_types)
     # np_input_and_outputs needs to remain live as long as
     # mlir_input_and_outputs_pointers is used
     mlir_input_and_outputs_pointers = get_mlir_abi_compatible_types(
@@ -155,13 +146,13 @@ class ProblemInstance:
     run_n_iters(1)
 
     # 4. Check.
-    if check_fun is not None:
-      check_fun(*np_input_and_outputs)
+    if self.problem_definition.check_np is not None:
+      self.problem_definition.check_np(*np_input_and_outputs)
 
     # 5. Showtime.
     timed_invoke(
         run_n_iters=run_n_iters,
-        gflop_count=gflop_count_builder(*list_of_sizes),
+        gflop_count=self.problem_definition.gflop_count_builder(*list_of_sizes),
         n_iters=n_iters)
 
     return

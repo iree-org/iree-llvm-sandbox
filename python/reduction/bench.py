@@ -47,12 +47,9 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
+            problem_definition=Reduction2dProblem(),
             problem_sizes_keys=keys,
-            np_types=np_types,
-            shapes_from_list_of_sizes_builder=reduction_2d_shapes_builder,
-            compile_time_function_types_mlir_builder=reduction_2d_types_mlir_builder,
-            fun_to_compile_mlir_builder=build_reduction_2d_under_context_manager
-        )
+            np_types=np_types)
 
         problem.compile(
             entry_point_name='reduction_2d_main',
@@ -63,17 +60,15 @@ def main():
         problem.run(
             n_iters=n_iters,
             entry_point_name='reduction_2d_main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
-            runtime_data_np_builder=reduction_2d_tensors_np_builder,
-            gflop_count_builder=reduction_2d_gflop_count_builder,
-            check_fun=reduction_2d_check)
+            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
 
       # For single-threaded apples-to-apples comparisons, run with:
       # MKL_NUM_THREADS=1
       import os
-      if True or os.environ.get('BENCHMARK_NUMPY'):
+      if os.environ.get('BENCHMARK_NUMPY'):
         print('Numpy')
-        A, B = reduction_2d_tensors_np_builder(*problem_sizes, np_types)
+        A, B = Reduction2dProblem().tensors_np_builder(*problem_sizes,
+                                                       *np_types)
 
         def run_n_iters(n_iters: int):
           for _ in range(n_iters):
@@ -82,7 +77,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            reduction_2d_gflop_count_builder(*problem_sizes),
+            Reduction2dProblem().gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
       # For single-threaded apples-to-apples comparisons, run with:
@@ -93,7 +88,8 @@ def main():
         torch.set_num_threads(1)
         A, B = [
             torch.from_numpy(t)
-            for t in reduction_2d_tensors_np_builder(*problem_sizes, np_types)
+            for t in Reduction2dProblem().tensors_np_builder(
+                *problem_sizes, *np_types)
         ]
 
         def run_n_iters(n_iters: int):
@@ -103,7 +99,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            reduction_2d_gflop_count_builder(*problem_sizes),
+            Reduction2dProblem().gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
 

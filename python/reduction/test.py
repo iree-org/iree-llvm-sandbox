@@ -4,6 +4,7 @@
 
 from ..core.experts import *
 from ..core.harness import *
+from ..core.problem_definition import *
 from ..core.transforms import *
 
 from .reduction import *
@@ -27,12 +28,12 @@ expert_no_tiling = TestExpert([])
 
 all_experts = [expert_no_tiling]
 
-
 ################################################################################
 ### Problem instantiations.
 ################################################################################
 
 keys = ['M', 'K']
+
 
 # CHECK-NOT: FAILURE
 def main():
@@ -51,12 +52,9 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
+            problem_definition=Reduction2dProblem(),
             problem_sizes_keys=keys,
-            np_types=np_types,
-            shapes_from_list_of_sizes_builder=reduction_2d_shapes_builder,
-            compile_time_function_types_mlir_builder=reduction_2d_types_mlir_builder,
-            fun_to_compile_mlir_builder=build_reduction_2d_under_context_manager
-        )
+            np_types=np_types)
 
         problem.compile(
             entry_point_name='reduction_2d_main',
@@ -67,10 +65,7 @@ def main():
         problem.run(
             n_iters=n_iters,
             entry_point_name='reduction_2d_main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
-            runtime_data_np_builder=reduction_2d_tensors_np_builder,
-            gflop_count_builder=reduction_2d_gflop_count_builder,
-            check_fun=reduction_2d_check)
+            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
 
 
 if __name__ == '__main__':

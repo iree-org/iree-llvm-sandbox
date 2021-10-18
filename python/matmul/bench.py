@@ -47,11 +47,9 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
+            problem_definition=MatmulProblem(),
             problem_sizes_keys=keys,
-            np_types=np_types,
-            shapes_from_list_of_sizes_builder=matmul_shapes_builder,
-            compile_time_function_types_mlir_builder=matmul_types_mlir_builder,
-            fun_to_compile_mlir_builder=build_matmul_under_context_manager)
+            np_types=np_types)
 
         problem.compile(
             entry_point_name='matmul_main',
@@ -62,17 +60,14 @@ def main():
         problem.run(
             n_iters=n_iters,
             entry_point_name='matmul_main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
-            runtime_data_np_builder=matmul_tensors_np_builder,
-            gflop_count_builder=matmul_gflop_count_builder,
-            check_fun=matmul_check)
+            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
 
       # For single-threaded apples-to-apples comparisons, run with:
       # MKL_NUM_THREADS=1
       import os
       if os.environ.get('BENCHMARK_NUMPY'):
         print('Numpy')
-        A, B, C = matmul_tensors_np_builder(*problem_sizes, np_types)
+        A, B, C = MatmulProblem().tensors_np_builder(*problem_sizes, *np_types)
 
         def run_n_iters(n_iters: int):
           for _ in range(n_iters):
@@ -81,7 +76,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            matmul_gflop_count_builder(*problem_sizes),
+            MatmulProblem().gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
       # For single-threaded apples-to-apples comparisons, run with:
@@ -91,8 +86,8 @@ def main():
         import torch
         torch.set_num_threads(1)
         A, B, C = [
-            torch.from_numpy(t)
-            for t in matmul_tensors_np_builder(*problem_sizes, np_types)
+            torch.from_numpy(t) for t in MatmulProblem().tensors_np_builder(
+                *problem_sizes, *np_types)
         ]
 
         def run_n_iters(n_iters: int):
@@ -102,7 +97,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            matmul_gflop_count_builder(*problem_sizes),
+            MatmulProblem().gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
 
