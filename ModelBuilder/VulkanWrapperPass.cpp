@@ -29,7 +29,8 @@
 using namespace mlir;  // NOLINT
 
 static constexpr const char *kSPIRVBlobAttrName = "spirv_blob";
-static constexpr const char *kSPIRVEntryPointAttrName = "spirv_entry_point";
+static constexpr const char *kSPIRVEntryPointAttrName =
+    "spirv_entry_point_name";
 static constexpr const char *kVulkanLaunch = "vulkanLaunch";
 
 namespace {

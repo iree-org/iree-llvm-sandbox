@@ -7,21 +7,43 @@ from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
 
-from .reduction import *
+from .definitions import *
+
+fun_name = 'reduction_2d_on_tensors'
+op_name = 'linalg.generic'
 
 ################################################################################
 ### Compilation strategies.
 ################################################################################
 
-all_experts = [
-    SingleTilingExpert(
-        sizes=[8, 128],
-        interchange=[0, 1],
-        peel=[0, 1],
-        pad=False,
-        pack_padding=[],
-        hoist_padding=[])
-]
+# TODO: activate post core changes.
+# all_experts = [
+#     SingleTilingExpert(
+#         fun_name=fun_name,
+#         op_name=op_name,
+#         sizes=[16, 4],
+#         interchange=[0, 1],
+#         peel=[0, 1],
+#         pad=False,
+#         pack_padding=[],
+#         hoist_padding=[],
+#         print_ir_after_all=True)
+# ]
+
+
+class LoweringOnly(TransformationList):
+
+  def __init__(self, tiling_transforms):
+    t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    TransformationList.__init__(self, **{'transforms': t})
+
+
+# TODO: Check generate code for basic code quality, e.g., no linalg.copy.
+
+# No tiling.
+expert_no_tiling = LoweringOnly([])
+
+all_experts = [expert_no_tiling]
 
 ################################################################################
 ### Problem instantiations.
@@ -52,14 +74,14 @@ def main():
             np_types=np_types)
 
         problem.compile(
-            entry_point_name='reduction_2d_main',
-            fun_to_benchmark_name='reduction_2d_on_tensors',
+            entry_point_name='main',
+            fun_to_benchmark_name=fun_name,
             compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
             transform=expert)
 
         problem.run(
             n_iters=n_iters,
-            entry_point_name='reduction_2d_main',
+            entry_point_name='main',
             runtime_problem_sizes_dict=runtime_problem_sizes_dict)
 
       # For single-threaded apples-to-apples comparisons, run with:

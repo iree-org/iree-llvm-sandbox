@@ -4,10 +4,9 @@
 
 from ..core.experts import *
 from ..core.harness import *
-from ..core.problem_definition import *
 from ..core.transforms import *
 
-from .matmul import *
+from .definitions import *
 
 ################################################################################
 ### Compilation strategies.

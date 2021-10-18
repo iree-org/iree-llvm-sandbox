@@ -57,20 +57,21 @@ class SingleTilingExpert(TransformationList):
       'hoist_padding': HoistPaddingVariable,
   }
 
-  def __init__(self, sizes: Sequence[int], interchange: Sequence[int],
-               peel: bool, pad: bool, pack_padding: Sequence[int],
-               hoist_padding: Sequence[int], **kwargs):
+  def __init__(self, fun_name: str, op_name: str, sizes: Sequence[int],
+               interchange: Sequence[int], peel: Sequence[int], pad: bool,
+               pack_padding: Sequence[int], hoist_padding: Sequence[int],
+               **kwargs):
     extra_transforms = [
         Tile(
-            'matmul_on_tensors',
-            'linalg.matmul',
+            fun_name,
+            op_name,
             tile_sizes=sizes,
             tile_interchange=interchange,
             peel=peel,
             pad=pad,
             pack_padding=pack_padding,
             hoist_padding=hoist_padding),
-        Vectorize('matmul_on_tensors', 'linalg.matmul'),
+        Vectorize(fun_name, op_name),
         Bufferize(),
         LowerVectors(),
         LowerToLLVM(),
@@ -101,16 +102,16 @@ class DoubleTilingExpert(TransformationList):
       'hoist_padding2': HoistPaddingVariable,
   }
 
-  def __init__(self, sizes1: Sequence[int], interchange1: Sequence[int],
-               peel1: bool, pad1: bool, pack_padding1: Sequence[int],
-               hoist_padding1: Sequence[int], sizes2: Sequence[int],
-               interchange2: Sequence[int], peel2: bool, pad2: bool,
-               pack_padding2: Sequence[int], hoist_padding2: Sequence[int],
-               **kwargs):
+  def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
+               interchange1: Sequence[int], peel1: bool, pad1: bool,
+               pack_padding1: Sequence[int], hoist_padding1: Sequence[int],
+               sizes2: Sequence[int], interchange2: Sequence[int], peel2: bool,
+               pad2: bool, pack_padding2: Sequence[int],
+               hoist_padding2: Sequence[int], **kwargs):
     extra_transforms = [
         Tile(
-            'matmul_on_tensors',
-            'linalg.matmul',
+            fun_name,
+            op_name,
             tile_sizes=sizes1,
             tile_interchange=interchange1,
             peel=peel1,
@@ -118,15 +119,18 @@ class DoubleTilingExpert(TransformationList):
             pack_padding=pack_padding1,
             hoist_padding=hoist_padding1),
         Tile(
-            'matmul_on_tensors',
-            'linalg.matmul',
+            fun_name,
+            op_name,
             tile_sizes=sizes2,
             tile_interchange=interchange2,
             peel=peel2,
             pad=pad2,
             pack_padding=pack_padding2,
             hoist_padding=hoist_padding2),
-        Vectorize('matmul_on_tensors', 'linalg.matmul'),
+        Vectorize(
+            fun_name,
+            op_name,
+        ),
         Bufferize(),
         LowerVectors(),
         LowerToLLVM(),

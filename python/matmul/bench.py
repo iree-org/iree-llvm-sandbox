@@ -7,7 +7,7 @@ from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
 
-from .matmul import *
+from .definitions import *
 
 ################################################################################
 ### Compilation strategies.
@@ -15,6 +15,8 @@ from .matmul import *
 
 all_experts = [
     SingleTilingExpert(
+        'matmul_on_tensors',
+        'linalg.matmul',
         sizes=[8, 16, 32],
         interchange=[0, 1, 2],
         peel=False,
@@ -22,6 +24,8 @@ all_experts = [
         pack_padding=[0, 1, 2],
         hoist_padding=[2, 3, 0]),
     DoubleTilingExpert(
+        'matmul_on_tensors',
+        'linalg.matmul',
         sizes1=[256, 128, 256],
         interchange1=[1, 2, 0],
         peel1=False,

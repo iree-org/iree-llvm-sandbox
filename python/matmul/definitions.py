@@ -97,13 +97,13 @@ class MatmulProblem(ProblemDefinition):
     types = [lhs_mlir_type, rhs_mlir_type, acc_mlir_type]
 
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [types[2]]))
+    func = builtin.FuncOp(name, (types, [acc_mlir_type]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(
         func, rank=2, inplaceable=[False, False, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
-    acc_type = types[2].element_type
+    acc_type = acc_mlir_type.element_type
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(acc_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
