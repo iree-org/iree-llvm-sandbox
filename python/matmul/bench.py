@@ -68,7 +68,7 @@ def main():
             check_fun=matmul_check)
 
       # For single-threaded apples-to-apples comparisons, run with:
-      # MKL_NUM_THREADS=1 ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
+      # MKL_NUM_THREADS=1
       import os
       if os.environ.get('BENCHMARK_NUMPY'):
         print('Numpy')
@@ -84,6 +84,8 @@ def main():
             matmul_gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
+      # For single-threaded apples-to-apples comparisons, run with:
+      # ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
       if os.environ.get('BENCHMARK_TORCH'):
         print('Torch')
         import torch

@@ -1,4 +1,4 @@
-from typing import Any, NewType, Optional, Sequence, Type
+from typing import Any, List, NewType, Optional, Sequence, Type
 
 from mlir.ir import *
 

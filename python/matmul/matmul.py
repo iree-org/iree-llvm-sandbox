@@ -11,7 +11,6 @@ from mlir.dialects import arith, builtin, linalg, scf, std
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.utils import *
 
-
 ################################################################################
 ### Matmul
 ################################################################################
