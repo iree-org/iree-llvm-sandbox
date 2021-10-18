@@ -82,6 +82,62 @@ class SingleTilingExpert(TransformationList):
     TransformationList.__init__(self, **kwargs)
 
 
+# Expert compiler that applies two levels of tiling.
+class DoubleTilingExpert(TransformationList):
+  # Variables are the hooks for search, their names must correspond to the
+  # __init__
+  variables = {
+      'sizes1': TilingSizesVariable,
+      'interchange1': InterchangeVariable,
+      'peel1': PeelingVariable,
+      'pad1': BoolVariable,
+      'pack_padding1': PackPaddingVariable,
+      'hoist_padding1': HoistPaddingVariable,
+      'sizes2': TilingSizesVariable,
+      'interchange2': InterchangeVariable,
+      'peel2': PeelingVariable,
+      'pad2': BoolVariable,
+      'pack_padding2': PackPaddingVariable,
+      'hoist_padding2': HoistPaddingVariable,
+  }
+
+  def __init__(self, sizes1: Sequence[int], interchange1: Sequence[int],
+               peel1: bool, pad1: bool, pack_padding1: Sequence[int],
+               hoist_padding1: Sequence[int], sizes2: Sequence[int],
+               interchange2: Sequence[int], peel2: bool, pad2: bool,
+               pack_padding2: Sequence[int], hoist_padding2: Sequence[int],
+               **kwargs):
+    extra_transforms = [
+        Tile(
+            'matmul_on_tensors',
+            'linalg.matmul',
+            tile_sizes=sizes1,
+            tile_interchange=interchange1,
+            peel=peel1,
+            pad=pad1,
+            pack_padding=pack_padding1,
+            hoist_padding=hoist_padding1),
+        Tile(
+            'matmul_on_tensors',
+            'linalg.matmul',
+            tile_sizes=sizes2,
+            tile_interchange=interchange2,
+            peel=peel2,
+            pad=pad2,
+            pack_padding=pack_padding2,
+            hoist_padding=hoist_padding2),
+        Vectorize('matmul_on_tensors', 'linalg.matmul'),
+        Bufferize(),
+        LowerVectors(),
+        LowerToLLVM(),
+    ]
+    t = extra_transforms if 'transforms' not in kwargs else kwargs[
+        'transforms'] + extra_transforms
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)
+
+
 # Expert compiler that applies the whole sparse compiler.
 class ExpertSparseCompiler(TransformationList):
   variables = {'options': str}

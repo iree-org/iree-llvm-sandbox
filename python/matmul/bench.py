@@ -20,7 +20,20 @@ all_experts = [
         peel=False,
         pad=True,
         pack_padding=[0, 1, 2],
-        hoist_padding=[2, 3, 0])
+        hoist_padding=[2, 3, 0]),
+    DoubleTilingExpert(
+        sizes1=[256, 128, 256],
+        interchange1=[1, 2, 0],
+        peel1=False,
+        pad1=False,
+        pack_padding1=[],
+        hoist_padding1=[0],
+        sizes2=[8, 16, 32],
+        interchange2=[0, 1, 2],
+        peel2=False,
+        pad2=True,
+        pack_padding2=[0, 1],
+        hoist_padding2=[3, 4])
 ]
 
 ################################################################################
