@@ -119,7 +119,8 @@ class Tile(Transform):
       interchange_str = f'tile-interchange={",".join(dims)}'
     if pad:
       nofold_indices = [str(pp) for pp in pack_padding]
-      pad_str = (f'pad nofold-operands={",".join(nofold_indices)}')
+      pad_str = (f'pad nofold-operands={",".join(nofold_indices)}'
+                ) if len(nofold_indices) > 0 else 'pad'
     if hoist_padding:
       hoisting_depths = [str(hd) for hd in hoist_padding]
       hoist_padding_str = f'hoist-padding={",".join(hoisting_depths)}'

@@ -3,9 +3,14 @@
 # This file contains simple test cases that combine various codegen options.
 
 from ..core.experts import *
+from ..core.harness import *
 from ..core.transforms import *
-from .util import *
 
+from .matmul import *
+
+################################################################################
+### Compilation strategies.
+################################################################################
 
 class TestExpert(Expert):
 
@@ -178,7 +183,7 @@ expert_fuse_and_pad = TestExpert([
     Tile('matmul_on_tensors', 'linalg.fill', tile_sizes=[8, 8]),
     Vectorize('matmul_on_tensors', 'linalg.fill')
 ])
-# TODO: Fix broken tests.
+
 all_experts = [
     expert_no_tiling, expert_tile_1, expert_tile_and_interchange_1,
     expert_tile_1_and_generalize_interchange, expert_tile_1_peel_scalarize,
@@ -186,17 +191,50 @@ all_experts = [
     expert_tile_3_pad_hoist_peel, expert_tile_3_pad_hoist_peel_scalarize,
     expert_fuse_2_tile_1, expert_fuse_and_pad
 ]
+
+################################################################################
+### Problem instantiations.
+################################################################################
+
+keys = ['M', 'N', 'K']
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
   problem_size_list = [[24, 32, 48], [27, 37, 43]]
-  for np_type in [np.float32]:
+  for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
-      M, N, K = problem_sizes
+      compile_time_problem_sizes_dict = {
+          k: v for k, v in zip(keys, problem_sizes)
+      }
+      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
+      # Init printing.
       print(
           f'\n###############################################################\n'
-          f'Problem size {M}x{N}x{K}')
+          f'Problem size {compile_time_problem_sizes_dict}\n'
+          f'Problem types {np_types}')
       for expert in all_experts:
-        compile_and_test_linalg_matmul(M, N, K, n_iters, np_type, expert, False)
+        problem = ProblemInstance(
+            problem_sizes_keys=keys,
+            np_types=np_types,
+            shapes_from_list_of_sizes_builder=matmul_shapes_builder,
+            compile_time_function_types_mlir_builder=matmul_types_mlir_builder,
+            fun_to_compile_mlir_builder=build_matmul_under_context_manager)
+
+        problem.compile(
+            entry_point_name='matmul_main',
+            fun_to_benchmark_name='matmul_on_tensors',
+            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
+            transform=expert)
+
+        problem.run(
+            n_iters=n_iters,
+            entry_point_name='matmul_main',
+            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
+            runtime_data_np_builder=matmul_tensors_np_builder,
+            gflop_count_builder=matmul_gflop_count_builder,
+            check_fun=matmul_check)
+
+
 if __name__ == '__main__':
   main()

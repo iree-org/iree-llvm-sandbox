@@ -1,7 +1,6 @@
-#
-# import time
+from typing import Any, NewType, Optional, Sequence, Type
 
-from typing import List, Sequence, Optional
+from mlir.ir import *
 
 from .search_vars import *
 from .transforms import *
@@ -23,14 +22,14 @@ class TransformationList:
   def __init__(self, **kwargs):
     self.__dict__.update(kwargs)
 
-  def __call__(self, entry_point, module):
+  def __call__(self, entry_point_name: str, module: Module):
     for transform in self.transforms:
       is_llvmir = str(transform).find('LowerToLLVM') >= 0
       print_ir = self.print_llvmir if is_llvmir else self.print_ir_after_all
 
       if print_ir:
         print('[[[ IR after transform: ' + str(transform) + ']]]')
-      module = transform(module, entry_point)
+      module = transform(module, entry_point_name)
       if print_ir:
         print(module)
     return module
@@ -52,14 +51,14 @@ class Expert:
   def __init__(self, **asignments):
     self.assignments = Assignments(**asignments)
 
-  def __call__(self, entry_point, module):
+  def __call__(self, entry_point_name: str, module: Module):
     for transform in self.transforms():
       is_llvmir = str(transform).find('LowerToLLVM') >= 0
       print_ir = print_ir_after_each and (print_llvmir or not is_llvmir)
 
       if print_ir:
         print('[[[ IR after transform: ' + str(transform) + ']]]')
-      module = transform(module, entry_point)
+      module = transform(module, entry_point_name)
       if print_ir:
         print(module)
     return module

@@ -18,7 +18,7 @@ from ..core.compilation import compile_to_execution_engine
 
 def emit_func(name: str, operand_types: Sequence[Type],
               result_types: Sequence[Type]):
-  # Actual benchmarked function called under entry_point.
+  # Actual benchmarked function called under entry_point_name.
   func = builtin.FuncOp(name, (operand_types, result_types))
 
   vec_type = VectorType(operand_types[0].element_type)
@@ -65,11 +65,11 @@ def main():
         # print_llvmir=True
     )
 
-    def apply_transform_to_entry_point(module):
+    def apply_transform_to_entry_point_name(module):
       return transform('add2d_f32', module)
 
     transformed_module, execution_engine = compile_to_execution_engine(
-        module, apply_transform_to_entry_point)
+        module, apply_transform_to_entry_point_name)
 
 
 if __name__ == '__main__':

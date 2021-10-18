@@ -19,8 +19,8 @@ from ..core.compilation import f32, attach_inplaceable_attributes, attach_passth
 avx512 = True
 
 
-def gflop_count_reduction(M: int, N: int):
-  return (M * N) / 1e9
+def get_gflop_count_reduction(M: int, N: int):
+  return float(M * N) / float(1e9)
 
 
 def np_type_to_mlir_type(np_type: np.dtype):
@@ -54,7 +54,7 @@ def column_reduction(
   B[D.m] += A[D.m, D.n]
 
 def emit_compute_function(name: str, types: Sequence[Type]):
-  # Actual benchmarked function called under entry_point.
+  # Actual benchmarked function called under entry_point_name.
   func = builtin.FuncOp(name, (types, [types[1]]))
   attach_inplaceable_attributes(func, rank=2, inplaceable=[False, True])
   global avx512
@@ -89,8 +89,8 @@ def emit_compute_function(name: str, types: Sequence[Type]):
 # and is the responsibility of projects such as IREE and TFRT.
 
 
-def build_reduction_under_context_manager(entry_point: str,
-                                          fun_to_benchmark: str,
+def build_reduction_under_context_manager(entry_point_name: str,
+                                          fun_to_benchmark_name: str,
                                           transform: Callable, M: int, N: int,
                                           input_elem_type, output_elem_type):
   global avx512
@@ -99,13 +99,13 @@ def build_reduction_under_context_manager(entry_point: str,
   module = Module.create()
   with InsertionPoint(module.body):
     types = get_reduction_types(M, N, input_elem_type, output_elem_type)
-    func = emit_compute_function(fun_to_benchmark, types)
-    wrapper = emit_benchmarking_function(entry_point, func)
+    func = emit_compute_function(fun_to_benchmark_name, types)
+    wrapper = emit_benchmarking_function(entry_point_name, func)
     attach_passthrough(wrapper, avx512=avx512)
 
   # JIT compile.
   start = time.time()
-  transformed_module = transform(entry_point, module)
+  transformed_module = transform(entry_point_name, module)
   execution_engine = ExecutionEngine(transformed_module)
   elapsed_compilation_s = time.time() - start
   print(f'compilation in {elapsed_compilation_s:.{4}}s')
@@ -119,8 +119,8 @@ def compile_and_test_linalg_reduction(M: int,
                                       np_type: np.dtype,
                                       transform: Callable,
                                       dry_run: bool = True):
-  entry_point = 'reduction_main'
-  fun_to_benchmark = 'reduction_on_tensors'
+  entry_point_name = 'reduction_main'
+  fun_to_benchmark_name = 'reduction_on_tensors'
 
   # np's A and B are hoisted out so they aren't garbage collected.
   A, B = setup_reduction_np(M, N, np_type)
@@ -135,8 +135,8 @@ def compile_and_test_linalg_reduction(M: int,
   def compile_fun(A_memref_ptr, B_memref_ptr):
     with Context() as ctx, Location.unknown():
       module, execution_engine = build_reduction_under_context_manager(
-          entry_point,
-          fun_to_benchmark,
+          entry_point_name,
+          fun_to_benchmark_name,
           transform,
           M=M,
           N=N,
@@ -146,7 +146,8 @@ def compile_and_test_linalg_reduction(M: int,
 
   def run_fun(A_memref_ptr, B_memref_ptr, **kwargs):
     index_ptr_t = ctypes.c_longlong * 1
-    kwargs['execution_engine'].invoke(entry_point, A_memref_ptr, B_memref_ptr,
+    kwargs['execution_engine'].invoke(entry_point_name, A_memref_ptr,
+                                      B_memref_ptr,
                                       index_ptr_t(kwargs['n_iters']))
 
   # Check results vs NP and print timings.
@@ -162,7 +163,7 @@ def compile_and_test_linalg_reduction(M: int,
       setup_fun,
       run_fun,
       ITERS,
-      gflop_count_reduction(M, N),
+      get_gflop_count_reduction(M, N),
       compile_fun=compile_fun,
       check_fun=check_fun)
 
@@ -177,7 +178,7 @@ def test_numpy_reduction(M: int, N: int, ITERS: int, np_type):
       B.fill(0.)
       np.sum(A, axis=1, out=B)
 
-  setup_and_invoke(setup_fun, run_fun, ITERS, gflop_count_reduction(M, N))
+  setup_and_invoke(setup_fun, run_fun, ITERS, get_gflop_count_reduction(M, N))
 
 
 def test_torch_reduction(M: int, N: int, ITERS: int, np_type, num_threads=2):
@@ -191,4 +192,4 @@ def test_torch_reduction(M: int, N: int, ITERS: int, np_type, num_threads=2):
       B.fill_(0.)
       torch.sum(A, dim=1, out=B)
 
-  setup_and_invoke(setup_fun, run_fun, ITERS, gflop_count_reduction(M, N))
+  setup_and_invoke(setup_fun, run_fun, ITERS, get_gflop_count_reduction(M, N))
