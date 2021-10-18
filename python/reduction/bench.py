@@ -29,6 +29,7 @@ all_experts = [
 
 keys = ['M', 'K']
 
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
@@ -79,7 +80,7 @@ def main():
             B.fill(0.)
             np.sum(A, axis=1, out=B)
 
-        timed_invoke_simple(
+        timed_invoke(
             run_n_iters,
             reduction_2d_gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
@@ -100,7 +101,7 @@ def main():
             B.fill_(0.)
             torch.sum(A, dim=1, out=B)
 
-        timed_invoke_simple(
+        timed_invoke(
             run_n_iters,
             reduction_2d_gflop_count_builder(*problem_sizes),
             n_iters=n_iters)

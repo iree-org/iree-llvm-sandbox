@@ -18,12 +18,7 @@ def log(*args):
   sys.stderr.flush()
 
 
-def invoke(execute: Callable, n_iters: int, args: list, **kwargs):
-  execute(*args, **kwargs, n_iters=n_iters)
-
-
-def timed_invoke_simple(run_n_iters: Callable, gflop_count: float,
-                        n_iters: int):
+def timed_invoke(run_n_iters: Callable, gflop_count: float, n_iters: int):
   start = time.time()
   run_n_iters(n_iters)
   elapsed_s = time.time() - start
@@ -33,59 +28,6 @@ def timed_invoke_simple(run_n_iters: Callable, gflop_count: float,
         f'in {elapsed_s_per_iter:.{4}}s per iter '
         f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) '
         f'total time {elapsed_s:.{4}}s ')
-
-
-def timed_invoke(execute: Callable, gflop_count: float, n_iters: int,
-                 args: list, **kwargs):
-  start = time.time()
-  execute(*args, **kwargs, n_iters=n_iters)
-  elapsed_s = time.time() - start
-  elapsed_s_per_iter = elapsed_s / n_iters
-  gflop_per_s_per_iter = gflop_count / (elapsed_s_per_iter)
-  print(f'xxxxxxxxxx : {n_iters} iters time on {1} threads '
-        f'in {elapsed_s_per_iter:.{4}}s per iter '
-        f'sec ({gflop_per_s_per_iter:.{4}} GFlop/s) '
-        f'total time {elapsed_s:.{4}}s ')
-
-
-def setup_and_invoke(
-    setup_fun: Callable,
-    run_fun: Callable,
-    n_iters: int,
-    gflop_count: float,
-    n_iters_dry_run=1,
-    # Used in particular to pass a check_fun callable.
-    **kwargs):
-  tensors = setup_fun()
-
-  module, execution_engine = None, None
-  if 'compile_fun' in kwargs:
-    module, execution_engine = kwargs['compile_fun'](*tensors)
-
-  # Run the function with zero iterations to make subsequent timings accurate.
-  invoke(run_fun, 0, tensors, module=module, execution_engine=execution_engine)
-
-  # Dry-run.
-  if n_iters_dry_run > 0:
-    timed_invoke(
-        run_fun,
-        gflop_count,
-        n_iters_dry_run,
-        tensors,
-        module=module,
-        execution_engine=execution_engine)
-
-  if 'check_fun' in kwargs:
-    kwargs['check_fun'](*tensors)
-
-  # Run for ITERS and report timing.
-  timed_invoke(
-      run_fun,
-      gflop_count,
-      n_iters,
-      tensors,
-      module=module,
-      execution_engine=execution_engine)
 
 
 # TODO: support more than just RankedTensorType.
@@ -217,7 +159,7 @@ class ProblemInstance:
       check_fun(*np_input_and_outputs)
 
     # 5. Showtime.
-    timed_invoke_simple(
+    timed_invoke(
         run_n_iters=run_n_iters,
         gflop_count=gflop_count_builder(*list_of_sizes),
         n_iters=n_iters)

@@ -79,7 +79,7 @@ def main():
             C.fill(0.)
             np.dot(A, B, out=C)
 
-        timed_invoke_simple(
+        timed_invoke(
             run_n_iters,
             matmul_gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
@@ -100,7 +100,7 @@ def main():
             C.fill_(0.)
             torch.mm(A, B, out=C)
 
-        timed_invoke_simple(
+        timed_invoke(
             run_n_iters,
             matmul_gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
