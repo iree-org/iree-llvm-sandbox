@@ -1,11 +1,7 @@
 include(AddMLIRPython)
 include(MLIRDetectPythonEnv)
 
-# TODO: Find a way to not have to duplicate this from MLIR.
-mlir_detect_pybind11_install()
-find_package(Python3 ${LLVM_MINIMUM_PYTHON_VERSION}
-COMPONENTS Interpreter Development NumPy REQUIRED)
-find_package(pybind11 2.6 CONFIG REQUIRED)
+mlir_configure_python_dev_packages()
 
 declare_mlir_python_sources(IREELLVMSandboxSources
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir"
