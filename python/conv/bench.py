@@ -19,7 +19,7 @@ all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        sizes=[4, 4, 32, 1, 1, 4],
+        sizes=[4, 4, 16, 1, 1, 8],
         interchange=[],
         peel=[],
         pad=False,

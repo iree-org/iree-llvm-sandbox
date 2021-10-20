@@ -88,12 +88,18 @@ class Conv1d_NWC_WCF_Problem(ProblemDefinition):
     # TODO: lift to __init__.
     N, W, C, KW, F = np.shape(O)[0], np.shape(O)[1], np.shape(K)[1], np.shape(
         K)[0], np.shape(O)[2]
-    O.fill(0.)
+    O2 = np.copy(O)
+    O2.fill(0.)
     import itertools
     for (n, w, c, kw, f) in itertools.product(
         range(N), range(W), range(C), range(KW), range(F)):
-      O[n, w, f] = O[n, w, f] + \
+      O2[n, w, f] = O2[n, w, f] + \
           I[n, self.stride * w + self.dilation * kw, c] * K[kw, c, f]
+
+    if not np.allclose(O, O2):
+      delta = O - O2
+      max_abs_delta = max(delta.max(), delta.min(), key=abs)
+      raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 
   def types_mlir_builder(self, N: int, W: int, C: int, KW: int, F: int,
                          dilation: int, stride: int, input_mlir_type: Type,
