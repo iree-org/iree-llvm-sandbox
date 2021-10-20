@@ -17,7 +17,7 @@ all_experts = [
     SingleTilingExpert(
         'matmul_on_tensors',
         'linalg.matmul',
-        sizes=[8, 16, 32],
+        sizes=[12, 32, 8],
         interchange=[0, 1, 2],
         peel=False,
         pad=True,

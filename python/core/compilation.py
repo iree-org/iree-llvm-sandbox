@@ -86,6 +86,15 @@ def attach_passthrough(func: builtin.FuncOp,
         ArrayAttr.get(
             [StringAttr.get("prefer-vector-width"),
              StringAttr.get("512")]))
+  else:
+    attributes.append(
+        ArrayAttr.get(
+            [StringAttr.get("target-cpu"),
+             StringAttr.get("broadwell")]))
+    attributes.append(
+        ArrayAttr.get(
+            [StringAttr.get("prefer-vector-width"),
+             StringAttr.get("256")]))
   func.attributes["passthrough"] = ArrayAttr.get(attributes)
 
 
