@@ -19,7 +19,7 @@ all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        sizes=[4, 4, 16, 1, 1, 8],
+        sizes=[4, 4, 16, 1, 8],
         interchange=[],
         peel=[],
         pad=False,
@@ -37,7 +37,7 @@ keys = ['N', 'W', 'C', 'KW', 'F', 'dilation', 'stride']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 100
+  n_iters = 1000
   problem_size_list = [[8, 16, 32, 3, 64, 1, 1], [8, 16, 32, 3, 64, 1, 2],
                        [8, 16, 32, 3, 64, 2, 1], [8, 16, 32, 3, 64, 2, 2]]
   for np_types in [[np.float32, np.float32, np.float32]]:

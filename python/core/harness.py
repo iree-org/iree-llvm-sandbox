@@ -148,6 +148,8 @@ class ProblemInstance:
     # 4. Check.
     if self.problem_definition.check_np is not None:
       self.problem_definition.check_np(*np_input_and_outputs)
+      # If we checked, do another dry run to warm back up.
+      run_n_iters(1)
 
     # 5. Showtime.
     timed_invoke(
