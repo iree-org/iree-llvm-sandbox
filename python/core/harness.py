@@ -87,7 +87,8 @@ class ProblemInstance:
       fun_to_benchmark_name: str,
       compile_time_problem_sizes_dict: dict,
       # TODO: Better type than Callable.
-      transform: Callable):
+      transform: Callable,
+      dump_ir_to_file: str = ""):
     assert self.compile_time_problem_sizes_dict is None, \
         f"Problem already compiled, please instantiate a new problem"
     assert_dict_entries_match_keys(compile_time_problem_sizes_dict,
@@ -114,8 +115,13 @@ class ProblemInstance:
       def apply_transform_to_entry_point_name(module):
         return transform(entry_point_name, module)
 
-      _, self.mlir_execution_engine = compile_to_execution_engine(
+      transformed_module, self.mlir_execution_engine = compile_to_execution_engine(
           self.mlir_module, apply_transform_to_entry_point_name)
+
+      if (len(dump_ir_to_file) > 0):
+        f = open(dump_ir_to_file, "w")
+        f.write(str(transformed_module))
+        f.close()
 
   def run(self, n_iters: int, entry_point_name: str,
           runtime_problem_sizes_dict: dict):
