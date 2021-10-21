@@ -16,15 +16,17 @@ from .definitions import *
 
 class LoweringOnly(TransformationList):
 
-  def __init__(self, tiling_transforms):
+  def __init__(self, tiling_transforms, **kwargs):
     t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
-    TransformationList.__init__(self, **{'transforms': t})
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)
 
 
 # TODO: Check generate code for basic code quality, e.g., no linalg.copy.
 
 # No tiling.
-expert_no_tiling = LoweringOnly([])
+expert_no_tiling = LoweringOnly([], print_ir_after_all=False)
 
 all_experts = [expert_no_tiling]
 

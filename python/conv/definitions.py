@@ -135,8 +135,7 @@ class Conv1d_NWC_WCF_Problem(ProblemDefinition):
     # Actual benchmarked function called under entry_point_name.
     func = builtin.FuncOp(name, (types, [output_mlir_type]))
     # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(
-        func, rank=3, inplaceable=[False, False, True])
+    attach_inplaceable_attributes(func, inplaceable=[False, False, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
     output_type = output_mlir_type.element_type

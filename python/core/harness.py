@@ -9,8 +9,8 @@ from mlir.execution_engine import *
 from mlir.ir import *
 from mlir.runtime import *
 
-from ..core.compilation import f32, attach_inplaceable_attributes, \
-    attach_passthrough, compile_to_execution_engine, emit_benchmarking_function
+from ..core.compilation import compile_to_execution_engine, \
+    emit_benchmarking_function
 from ..core.problem_definition import *
 from ..core.utils import *
 

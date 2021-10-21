@@ -98,7 +98,7 @@ class Reduction2dProblem(ProblemDefinition):
     func = builtin.FuncOp(name,
                           ([input_mlir_type, res_mlir_type], [res_mlir_type]))
     # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, rank=2, inplaceable=[False, True])
+    attach_inplaceable_attributes(func, inplaceable=[False, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
     output_elem_type = res_mlir_type.element_type

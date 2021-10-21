@@ -56,21 +56,22 @@ def operand_type(odef, **assignments):
   raise Exception(f"unsupported operand type: {repr(odef)}")
 
 
-def attach_inplaceable_attributes(func: builtin.FuncOp, rank: int,
+def attach_inplaceable_attributes(func: builtin.FuncOp,
                                   inplaceable: Sequence[Optional[bool]]):
-  identity_map = AffineMapAttr.get(AffineMap.get_identity(rank))
-  read_attrs = DictAttr.get({
-      "linalg.inplaceable": BoolAttr.get(False),
-      "linalg.buffer_layout": identity_map
-  })
-  write_attrs = DictAttr.get({
-      "linalg.inplaceable": BoolAttr.get(True),
-      "linalg.buffer_layout": identity_map
-  })
-  func.arg_attrs = ArrayAttr.get([
-      DictAttr.get({}) if flag is None else write_attrs if flag else read_attrs
-      for flag in inplaceable
-  ])
+  attrs = []
+  for t, flag in zip(func.type.inputs, inplaceable):
+    if flag is None:
+      attrs.append(DictAttr.get({}))
+      continue
+    assert RankedTensorType.isinstance(t), "Not a RankedTensorType: {t}"
+    identity_map = AffineMapAttr.get(
+        AffineMap.get_identity(RankedTensorType(t).rank))
+    attrs.append(
+        DictAttr.get({
+            "linalg.inplaceable": BoolAttr.get(flag),
+            "linalg.buffer_layout": identity_map
+        }))
+  func.arg_attrs = attrs
 
 
 def attach_passthrough(func: builtin.FuncOp,
@@ -126,6 +127,8 @@ def emit_benchmarking_function(name: str,
   return wrapper
 
 
+# TODO: retire this because it has internal  assumptions about number of
+# arguments and what is input/output
 def build_op_under_context_manager(op, transform: Callable, **assignments):
   # Build module and function to benchmark.
   operand_defs = sorted(
@@ -148,7 +151,7 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
 
   # Set the bufferization and optimization attributes.
   func = module.operation.regions[0].blocks[0].operations[0]
-  attach_inplaceable_attributes(func, 2, [False, False, True])
+  attach_inplaceable_attributes(func, [False, False, True])
   attach_passthrough(func, avx512=True)
 
   # JIT compile.
@@ -162,6 +165,8 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
   return transformed_module, execution_engine
 
 
+# TODO: retire this because build_op_under_context_manager has internal
+# assumptions about number of arguments and what is input/output
 def compile_and_callback(op, transform: Callable, callback: Callable,
                          **assignments):
   with Context() as ctx, Location.unknown():
