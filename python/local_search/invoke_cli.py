@@ -141,7 +141,7 @@ def invoke(op, expert, assignments, iters, runs):
       op,
       expert(
           'matmul_on_tensors',
-          op.op_name,
+          'linalg.' + op.op_name,
           print_ir_after_all=True,
           **assignments), callback, **assignments)
 
