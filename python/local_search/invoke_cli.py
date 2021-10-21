@@ -137,8 +137,13 @@ def invoke(op, expert, assignments, iters, runs):
       print(f'iters: {iters}')
       print(f'throughput: {iters/elapsed_time}')
 
-  compile_and_callback(op, expert(print_ir_after_all=True, **assignments),
-                       callback, **assignments)
+  compile_and_callback(
+      op,
+      expert(
+          'matmul_on_tensors',
+          op.op_name,
+          print_ir_after_all=True,
+          **assignments), callback, **assignments)
 
 
 def main(argv):
