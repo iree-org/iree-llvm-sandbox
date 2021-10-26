@@ -1,7 +1,7 @@
 // RUN: export M=1024 && export N=1024 && export K=1024 && export ITERS=25 &&\
 // RUN: cat %p/matmul_f32_base.mlir | sed 's@${M}@'"$M"'@g'| sed 's@${K}@'"$K"'@g' | sed 's@${N}@'"$N"'@g'| sed 's@${ITERS}@'"$ITERS"'@g' |\
 
-// RUN: mlir-proto-opt -canonicalize -mlir-disable-threading \
+// RUN: mlir-proto-opt -canonicalize
 // R-UN: -linalg-tensor-codegen-strategy="anchor-func=init_and_matmul anchor-op=linalg.matmul distribute distribute-tile-sizes=24,16" |\
 
 // TODO: bufferization bug
@@ -17,8 +17,6 @@
 
 
 // R-UN: mlir-cpu-runner -O3 -e main -entry-point-result=void \
-// R-UN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext | \
-// RUN: tee
-//| FileCheck %s
+// R-UN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext | FileCheck %s
 
 // C-HECK: ( ( 2048 ) )
