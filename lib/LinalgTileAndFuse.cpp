@@ -20,9 +20,7 @@
 using namespace mlir;
 using namespace mlir::linalg;
 
-namespace mlir {
-namespace linalg {
-
+namespace {
 struct TileAndFusePattern : public RewritePattern {
   /// MatchAnyOpTag-based constructor with a mandatory `filter`.
   TileAndFusePattern(LinalgTilingOptions options,
@@ -39,41 +37,43 @@ struct TileAndFusePattern : public RewritePattern {
   LinalgTransformationFilter filter;
   LinalgTilingOptions options;
 };
+}  // namespace
 
-}  // namespace linalg
-}  // namespace mlir
-
-static Optional<TiledLoopOp> tileAndFuseLinalgOp(
+static FailureOr<TiledLoopOp> tileAndFuseLinalgOp(
     PatternRewriter &rewriter, LinalgOp linalgOp,
     const LinalgTilingOptions &tilingOptions) {
   auto tiledLinalgOp = tileLinalgOp(rewriter, linalgOp, tilingOptions);
-  if (!tiledLinalgOp) return llvm::None;
+  if (failed(tiledLinalgOp)) return failure();
 
-  linalg::fuseProducerOfTensor(rewriter,
-                               linalgOp.getOutputOperands()
-                                   .front()
-                                   ->get()
-                                   .getDefiningOp()
-                                   ->getResults()
-                                   .front(),
-                               *tiledLinalgOp->op.getOutputOperands().front());
+  if (failed(linalg::fuseProducerOfTensor(
+          rewriter,
+          linalgOp.getOutputOperands()
+              .front()
+              ->get()
+              .getDefiningOp()
+              ->getResults()
+              .front(),
+          *tiledLinalgOp->op.getOutputOperands().front())))
+    return failure();
 
   // Try to pad on the fly by rewriting tiledLinalgOp->op as a padded op.
   // TODO: This requires padding and bounding box to symbolic multiples.
   // (void)rewriteAsPaddedOp(rewriter, *tiledLinalgOp, tilingOptions);
 
-  return tiledLinalgOp.getValue().op->getParentOfType<TiledLoopOp>();
+  if (auto res = tiledLinalgOp.getValue().op->getParentOfType<TiledLoopOp>())
+    return res;
+  return failure();
 }
 
-LogicalResult mlir::linalg::TileAndFusePattern::matchAndRewrite(
+LogicalResult TileAndFusePattern::matchAndRewrite(
     Operation *op, PatternRewriter &rewriter) const {
   LinalgOp linalgOp = dyn_cast<LinalgOp>(op);
   if (!linalgOp || !linalgOp.hasTensorSemantics()) return failure();
   if (failed(filter.checkAndNotify(rewriter, linalgOp))) return failure();
 
-  Optional<TiledLoopOp> tiledLoopOp =
-      tileAndFuseLinalgOp(rewriter, op, options);
-  if (!tiledLoopOp) return failure();
+  auto tiledLoopOp = tileAndFuseLinalgOp(rewriter, op, options);
+
+  if (failed(tiledLoopOp)) return failure();
   if (tiledLoopOp->getNumResults() > 0)
     rewriter.replaceOp(op, tiledLoopOp->getResults());
   else
@@ -87,6 +87,5 @@ LogicalResult mlir::linalg::TileAndFusePattern::matchAndRewrite(
 void mlir::linalg::populateTileAndFusePattern(
     OwningRewritePatternList &patterns, const LinalgTilingOptions &opts,
     const LinalgTransformationFilter &filter) {
-  patterns.insert<mlir::linalg::TileAndFusePattern>(opts, filter,
-                                                    patterns.getContext());
+  patterns.insert<TileAndFusePattern>(opts, filter, patterns.getContext());
 }

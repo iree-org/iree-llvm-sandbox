@@ -149,7 +149,11 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
       .generalizeIf(generalize, anchorOpName)
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
       .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName);
-  (void)strategy.transform(funcOp);
+
+  // Created a nested OpPassManager and run.
+  OpPassManager dynamicPM("builtin.func");
+  strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
+  if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
 }
 
 void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
@@ -180,26 +184,31 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
   // Per-function lowering pipeline.
   getOperation().walk([&](FuncOp funcOp) {
     CodegenStrategy strategy;
-    strategy
-        // Set the maximum vector load / store rank.
-        .setEnableVectorTransferLowering(true)
-        .setMaxTransferRank(maxTransferRank)
-        // Lowering of vector contractions.
-        .setEnableVectorContractLowering(true)
-        // Whether to split full/partial vector.transfer ops.
-        .setEnableVectorTransferPartialRewrite(true)
-        .setEnableVectorTransferPartialRewrite(
-            vectorTransferSplit != vector::VectorTransferSplit::None)
-        .setVectorTransformsOptions(
-            vector::VectorTransformsOptions()
-                .setVectorTransformsOptions(vectorContractLowering)
-                .setVectorTransferSplit(vectorTransferSplit))
-        // Conversion to scf.
-        .setEnableVectorToSCFConversion(true)
-        .setVectorTransferToSCFOptions(VectorTransferToSCFOptions()
-                                           .setUnroll(unrollVectorTransfers)
-                                           .setLowerPermutationMaps(true));
-    (void)strategy.transform(funcOp);
+    strategy.vectorLowering(
+        LinalgVectorLoweringOptions()
+            // Set the maximum vector load / store rank.
+            .enableTransferLowering()
+            .setMaxTransferRank(maxTransferRank)
+            // Lowering of vector contractions.
+            .enableContractionLowering()
+            // Whether to split full/partial vector.transfer ops.
+            .enableTransferPartialRewrite()
+            .enableTransferPartialRewrite(vectorTransferSplit !=
+                                          vector::VectorTransferSplit::None)
+            .setVectorTransformsOptions(
+                vector::VectorTransformsOptions()
+                    .setVectorTransformsOptions(vectorContractLowering)
+                    .setVectorTransferSplit(vectorTransferSplit))
+            // Conversion to scf.
+            .enableTransferToSCFConversion()
+            .setVectorTransferToSCFOptions(
+                VectorTransferToSCFOptions()
+                    .enableFullUnroll(unrollVectorTransfers)
+                    .enableLowerPermutationMaps()));
+    // Created a nested OpPassManager and run.
+    OpPassManager dynamicPM("builtin.func");
+    strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
+    if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
   });
 }
 
