@@ -16,6 +16,21 @@ op_name = 'linalg.generic'
 ### Compilation strategies.
 ################################################################################
 
+
+class TestExpert(TransformationList):
+
+  def __init__(self, transforms, **kwargs):
+    t = transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)
+
+
+expert_fuse_output = TestExpert([
+    ExperimentalReductionTilingAndFusion(
+        'reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[16, 16]),
+])
+
 all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
@@ -26,28 +41,19 @@ all_experts = [
         pad=False,
         pack_padding=[0, 1],
         hoist_padding=[1, 0],
-        print_ir_after_all=True)
+        print_ir_after_all=False), expert_fuse_output
 ]
 
 
-class LoweringOnly(TransformationList):
-
-  def __init__(self, transforms, **kwargs):
-    t = transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
-
-
 # No tiling.
-expert_no_tiling = LoweringOnly(
+expert_no_tiling = TestExpert(
     [
         # Used for IR injection and prototyping.
         Inject("""
 """),
     ],
-    print_ir_after_all=True,
-    print_llvmir=True)
+    print_ir_after_all=False,
+    print_llvmir=False)
 
 __all_experts = [expert_no_tiling]
 

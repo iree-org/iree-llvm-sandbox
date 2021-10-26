@@ -8,6 +8,7 @@
 
 #include "PassDetail.h"
 #include "Passes.h"
+#include "Transforms.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
@@ -22,6 +23,7 @@
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -45,6 +47,7 @@ struct LinalgTensorCodegenDriverPass
   void runOnOperation() override;
 
  private:
+  void fuseOutputIntoReduction(FuncOp funcOp);
   void fuseAll(FuncOp funcOp);
   void runOpAnchoredStrategy(FuncOp funcOp);
   void runComprehensiveBufferization();
@@ -117,10 +120,29 @@ void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
   rootOp->replaceAllUsesWith(tileLoopNest->getRootOpReplacementResults());
 }
 
+void LinalgTensorCodegenDriverPass::fuseOutputIntoReduction(FuncOp funcOp) {
+  LinalgTilingOptions tiling_options;
+  tiling_options.setTileSizes(tileSizes);
+
+  auto *context = funcOp.getContext();
+
+  auto patterns =
+      mlir::linalg::getLinalgTilingCanonicalizationPatterns(context);
+  mlir::memref::populateResolveRankedShapeTypeResultDimsPatterns(patterns);
+  populateFuseFillIntoReductionPatterns(patterns, tiling_options);
+  (void)mlir::applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+
+  // Ensure we drop the marker in the end.
+  funcOp.walk([](mlir::linalg::LinalgOp op) {
+    op->removeAttr(mlir::linalg::LinalgTransforms::kLinalgTransformMarker);
+  });
+}
+
 void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   if (anchorOpName.empty()) return;
 
   if (fuse) return fuseAll(funcOp);
+  if (fuseFillIntoReduction) return fuseOutputIntoReduction(funcOp);
 
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;

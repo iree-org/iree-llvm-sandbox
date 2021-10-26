@@ -29,6 +29,27 @@ class Print(Transform):
     return module
 
 
+class ExperimentalReductionTilingAndFusion(Transform):
+  """Tile and fuse FillOp into the output of reduction.
+
+  This transform can be configured as follows:
+  * `tile_sizes`: Tile sizes used for tiling.
+  """
+
+  def __init__(self, func_name: str, op_name: str, tile_sizes=[]):
+    if tile_sizes:
+      tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     anchor-func={func_name} '
+                f'     anchor-op={op_name} '
+                f'     fuse-fill-into-reduction '
+                f'     {tile_str}}},'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = pipeline
+
+
+
 class Inject(Transform):
   """Inject intermediate IR.
 

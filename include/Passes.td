@@ -44,6 +44,9 @@ def LinalgTensorCodegenDriver
     // Fusion options.
     Option<"fuse", "fuse", "bool", /*default=*/"false",
       "Rewrite the linalg op as a vector operation.">,
+    Option<"fuseFillIntoReduction", "fuse-fill-into-reduction",
+           "bool", /*default=*/"false",
+           "Fuse FillOp producer into a tiled reduction.">,
 
     // Generalization options.
     Option<"generalize", "generalize", "bool", /*default=*/"false",

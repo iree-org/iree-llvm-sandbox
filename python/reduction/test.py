@@ -14,7 +14,7 @@ from .definitions import *
 ################################################################################
 
 
-class LoweringOnly(TransformationList):
+class TestExpert(TransformationList):
 
   def __init__(self, tiling_transforms, **kwargs):
     t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
@@ -26,9 +26,13 @@ class LoweringOnly(TransformationList):
 # TODO: Check generate code for basic code quality, e.g., no linalg.copy.
 
 # No tiling.
-expert_no_tiling = LoweringOnly([], print_ir_after_all=False)
+expert_no_tiling = TestExpert([], print_ir_after_all=False)
+expert_fuse_output = TestExpert([
+    ExperimentalReductionTilingAndFusion(
+        'reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16]),
+])
 
-all_experts = [expert_no_tiling]
+all_experts = [expert_no_tiling, expert_fuse_output]
 
 ################################################################################
 ### Problem instantiations.
@@ -40,7 +44,7 @@ keys = ['M', 'K']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
-  problem_size_list = [[24, 32], [27, 37]]
+  problem_size_list = [[48, 16], [49, 17]]
   for np_types in [[np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
       compile_time_problem_sizes_dict = {
