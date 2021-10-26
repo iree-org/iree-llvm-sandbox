@@ -45,7 +45,7 @@
 
 #include "ModelBuilder/MemRefUtils.h"
 #include "llvm/ADT/SmallVector.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/VectorTransforms.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/IR/BuiltinOps.h"
 

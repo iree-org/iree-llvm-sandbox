@@ -25,7 +25,6 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/Dialect/Vector/VectorTransforms.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassManager.h"
@@ -166,9 +165,20 @@ void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
 }
 
 void LinalgTensorCodegenDriverPass::runVectorLowering() {
+  vector::VectorTransposeLowering vectorTransposeLowering =
+      llvm::StringSwitch<vector::VectorTransposeLowering>(
+          lowerVectorTransposeTo.getValue())
+          .Case("eltwise", vector::VectorTransposeLowering::EltWise)
+          .Default(vector::VectorTransposeLowering::Flat);
+  vector::VectorMultiReductionLowering vectorMultiReductionLowering =
+      llvm::StringSwitch<vector::VectorMultiReductionLowering>(
+          lowerVectorMultiReductionTo.getValue())
+          .Case("innerreduction",
+                vector::VectorMultiReductionLowering::InnerReduction)
+          .Default(vector::VectorMultiReductionLowering::InnerParallel);
   vector::VectorContractLowering vectorContractLowering =
       llvm::StringSwitch<vector::VectorContractLowering>(
-          vectorizeContractionTo.getValue())
+          lowerVectorContractionTo.getValue())
           .Case("matrixintrinsics", vector::VectorContractLowering::Matmul)
           .Case("dot", vector::VectorContractLowering::Dot)
           .Case("outerproduct", vector::VectorContractLowering::OuterProduct)
@@ -189,15 +199,22 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
             // Set the maximum vector load / store rank.
             .enableTransferLowering()
             .setMaxTransferRank(maxTransferRank)
+            // Lowering of vector transpose.
+            .enableVectorTransposeLowering(true)
             // Lowering of vector contractions.
             .enableContractionLowering()
+            // Lowering of vector multi_reduction.
+            .enableMultiReductionLowering()
             // Whether to split full/partial vector.transfer ops.
             .enableTransferPartialRewrite()
             .enableTransferPartialRewrite(vectorTransferSplit !=
                                           vector::VectorTransferSplit::None)
             .setVectorTransformsOptions(
                 vector::VectorTransformsOptions()
+                    .setVectorTransposeLowering(vectorTransposeLowering)
                     .setVectorTransformsOptions(vectorContractLowering)
+                    .setVectorMultiReductionLowering(
+                        vectorMultiReductionLowering)
                     .setVectorTransferSplit(vectorTransferSplit))
             // Conversion to scf.
             .enableTransferToSCFConversion()

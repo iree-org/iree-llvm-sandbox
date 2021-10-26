@@ -67,7 +67,7 @@ class Reduction2dProblem(ProblemDefinition):
        of the expected reference implementation.
     """
     if not np.allclose(B, np.sum(A, axis=1)):
-      delta = B - np.dot(A)
+      delta = B - np.sum(A, axis=1)
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 

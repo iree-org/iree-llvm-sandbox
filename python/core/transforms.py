@@ -198,7 +198,9 @@ class LowerVectors(Transform):
                 f'    lower-vector '
                 f'    max-transfer-rank=1 '
                 f'    split-transfers=linalg-copy '
-                f'    vectorize-contraction-to=outerproduct '
+                f'    lower-vector-transpose-to=eltwise '
+                f'    lower-vector-multi-reduction-to=innerparallel '
+                f'    lower-vector-contraction-to=outerproduct '
                 f'    unroll-vector-transfers=true}},'
                 f'canonicalize,'
                 f'cse')

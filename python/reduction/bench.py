@@ -16,34 +16,40 @@ op_name = 'linalg.generic'
 ### Compilation strategies.
 ################################################################################
 
-# TODO: activate post core changes.
-# all_experts = [
-#     SingleTilingExpert(
-#         fun_name=fun_name,
-#         op_name=op_name,
-#         sizes=[16, 4],
-#         interchange=[0, 1],
-#         peel=[0, 1],
-#         pad=False,
-#         pack_padding=[],
-#         hoist_padding=[],
-#         print_ir_after_all=True)
-# ]
+all_experts = [
+    SingleTilingExpert(
+        fun_name=fun_name,
+        op_name=op_name,
+        sizes=[16, 16],
+        interchange=[0, 1],
+        peel=[],
+        pad=False,
+        pack_padding=[0, 1],
+        hoist_padding=[1, 0],
+        print_ir_after_all=True)
+]
 
 
 class LoweringOnly(TransformationList):
 
-  def __init__(self, tiling_transforms):
-    t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
-    TransformationList.__init__(self, **{'transforms': t})
+  def __init__(self, transforms, **kwargs):
+    t = transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)
 
-
-# TODO: Check generate code for basic code quality, e.g., no linalg.copy.
 
 # No tiling.
-expert_no_tiling = LoweringOnly([])
+expert_no_tiling = LoweringOnly(
+    [
+        # Used for IR injection and prototyping.
+        Inject("""
+"""),
+    ],
+    print_ir_after_all=True,
+    print_llvmir=True)
 
-all_experts = [expert_no_tiling]
+__all_experts = [expert_no_tiling]
 
 ################################################################################
 ### Problem instantiations.
@@ -77,7 +83,10 @@ def main():
             entry_point_name='main',
             fun_to_benchmark_name=fun_name,
             compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert)
+            transform=expert,
+            # Used to pipe through llvm-mca
+            # dump_ir_to_file='/tmp/abc.mlir'
+        )
 
         problem.run(
             n_iters=n_iters,

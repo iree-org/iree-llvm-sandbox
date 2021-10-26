@@ -73,7 +73,17 @@ def LinalgTensorCodegenDriver
           "\tlinalg-copy: use linalg.fill + linalg.copy for the slow path\n"
           "\tvector-transfers: use extra small unmasked vector.transfers for"
           " the slow path\n}]>,
-    Option<"vectorizeContractionTo", "vectorize-contraction-to", "std::string",
+    Option<"lowerVectorTransposeTo", "lower-vector-transpose-to",
+       "std::string", /*default=*/[{"eltwise"}],
+      [{Lower vector.transpose to finer-grained vector ops, options are:\n"
+          "\teltwise [default]\n"
+          "\tflat_transpose (requires LLVM matrix intrinsics support)\n}]>,
+    Option<"lowerVectorMultiReductionTo", "lower-vector-multi-reduction-to",
+       "std::string", /*default=*/[{"innerparallel"}],
+      [{Lower vector.multi_reduction to finer-grained vector ops, options are:\n"
+          "\tinnerparallel [default]\n"
+          "\tinnerreduction\n}]>,
+    Option<"lowerVectorContractionTo", "lower-vector-contraction-to", "std::string",
       /*default=*/[{"outerproduct"}],
       [{Lower vector.contract to finer-grained vector ops, options are:\n"
           "\touterproduct [default]\n"
