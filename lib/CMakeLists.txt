@@ -3,6 +3,7 @@ include(AddMLIR)
 add_mlir_library(IREELinalgTensorSandbox
   ConvertToAsyncDialect.cpp
   ConvertToGPUDialect.cpp
+  FuseFillIntoReduction.cpp
   LinalgTensorCodegenDriver.cpp
   LinalgTileAndFuse.cpp
 
