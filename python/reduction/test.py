@@ -13,24 +13,14 @@ from .definitions import *
 ### Compilation strategies.
 ################################################################################
 
-
-class TestExpert(TransformationList):
-
-  def __init__(self, tiling_transforms, **kwargs):
-    t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
-
-
-# TODO: Check generate code for basic code quality, e.g., no linalg.copy.
-
 # No tiling.
-expert_no_tiling = TestExpert([], print_ir_after_all=False)
-expert_fuse_output = TestExpert([
-    ExperimentalReductionTilingAndFusion(
-        'reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16]),
-])
+expert_no_tiling = LoweringOnlyExpert([], print_ir_after_all=False)
+
+expert_fuse_output = LoweringOnlyExpert([
+    ExperimentalSplitAndFuseFillOp(
+        'reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16])
+],
+                                        print_ir_after_all=False)
 
 all_experts = [expert_no_tiling, expert_fuse_output]
 

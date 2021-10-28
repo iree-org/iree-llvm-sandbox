@@ -218,32 +218,35 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
     CodegenStrategy strategy;
     strategy.vectorLowering(
         LinalgVectorLoweringOptions()
-            // Set the maximum vector load / store rank.
-            .enableTransferLowering()
-            .setMaxTransferRank(maxTransferRank)
-            // Lowering of vector transpose.
-            .enableVectorTransposeLowering(true)
             // Lowering of vector contractions.
-            .enableContractionLowering()
+            .enableContractionLowering(vectorLoweringStage >= 0)
             // Lowering of vector multi_reduction.
-            .enableMultiReductionLowering()
+            .enableMultiReductionLowering(vectorLoweringStage >= 1)
             // Whether to split full/partial vector.transfer ops.
-            .enableTransferPartialRewrite()
-            .enableTransferPartialRewrite(vectorTransferSplit !=
-                                          vector::VectorTransferSplit::None)
+            .enableTransferPartialRewrite(vectorLoweringStage >= 2 &&
+                                          vectorTransferSplit !=
+                                              vector::VectorTransferSplit::None)
+            // Set the maximum vector load / store rank.
+            .setMaxTransferRank(maxTransferRank)
+            // Lower vector.transfer to vector.transfer of max rank.
+            .enableTransferLowering(vectorLoweringStage >= 3)
+            // Conversion to scf.
+            .enableTransferToSCFConversion(vectorLoweringStage >= 4)
+            .setVectorTransferToSCFOptions(
+                VectorTransferToSCFOptions()
+                    .enableFullUnroll(unrollVectorTransfers)
+                    .enableLowerPermutationMaps())
+            // Lowering of vector.shape_cast.
+            .enableShapeCastLowering(vectorLoweringStage >= 5)
+            // Lowering of vector.transpose.
+            .enableVectorTransposeLowering(vectorLoweringStage >= 6)
             .setVectorTransformsOptions(
                 vector::VectorTransformsOptions()
                     .setVectorTransposeLowering(vectorTransposeLowering)
                     .setVectorTransformsOptions(vectorContractLowering)
                     .setVectorMultiReductionLowering(
                         vectorMultiReductionLowering)
-                    .setVectorTransferSplit(vectorTransferSplit))
-            // Conversion to scf.
-            .enableTransferToSCFConversion()
-            .setVectorTransferToSCFOptions(
-                VectorTransferToSCFOptions()
-                    .enableFullUnroll(unrollVectorTransfers)
-                    .enableLowerPermutationMaps()));
+                    .setVectorTransferSplit(vectorTransferSplit)));
     // Created a nested OpPassManager and run.
     OpPassManager dynamicPM("builtin.func");
     strategy.configurePassPipeline(dynamicPM, funcOp.getContext());

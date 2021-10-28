@@ -43,6 +43,18 @@ class TransformationList:
     return module
 
 
+def StagedLowerVectorsTransformationList() -> List[LowerVectors]:
+  return [
+      LowerVectors(stage=0),  # vector.contract
+      LowerVectors(stage=1),  # vector.multi_reduction
+      LowerVectors(stage=2),  # vector.transfer split
+      LowerVectors(stage=3),  # vector.transfer to scf
+      LowerVectors(stage=4),  # vector.transfer lowering
+      LowerVectors(stage=5),  # vector.shape_cast lowering
+      LowerVectors(stage=6),  # vector.transpose lowering
+  ]
+
+
 class SingleTilingExpert(TransformationList):
   """Expert compiler that applies a single level of tiling."""
 
@@ -72,8 +84,8 @@ class SingleTilingExpert(TransformationList):
             pack_padding=pack_padding,
             hoist_padding=hoist_padding),
         Vectorize(fun_name, op_name),
-        Bufferize(),
-        LowerVectors(),
+        Bufferize()
+    ] + StagedLowerVectorsTransformationList() + [
         LowerToLLVM(),
     ]
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
@@ -132,11 +144,28 @@ class DoubleTilingExpert(TransformationList):
             op_name,
         ),
         Bufferize(),
-        LowerVectors(),
+        LowerVectors(stage=0),
+        LowerVectors(stage=1),
+        LowerVectors(stage=2),
+        LowerVectors(stage=3),
+        LowerVectors(stage=4),
+        LowerVectors(stage=5),
+        LowerVectors(stage=6),
         LowerToLLVM(),
     ]
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
         'transforms'] + extra_transforms
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)
+
+
+class LoweringOnlyExpert(TransformationList):
+
+  def __init__(self, transforms, **kwargs):
+    t = transforms + [Bufferize()] + StagedLowerVectorsTransformationList() + [
+        LowerToLLVM()
+    ]
     d = {'transforms': t}
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)

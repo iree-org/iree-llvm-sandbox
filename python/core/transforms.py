@@ -7,7 +7,7 @@ import mlir.all_passes_registration
 class Transform:
   """Base class for all parametrized transformations."""
 
-  def __call__(self, module: Module, func_name: str):
+  def __call__(self, module: Module, fun_name: str):
     PassManager.parse(self.pipeline).run(module)
     return module
 
@@ -23,24 +23,24 @@ class Print(Transform):
   def __init__(self, name=''):
     self.name = name
 
-  def __call__(self, module: Module, func_name: str):
+  def __call__(self, module: Module, fun_name: str):
     print('[[[ IR printer: ' + self.name + ' ]]]')
     module.dump()
     return module
 
 
-class ExperimentalReductionTilingAndFusion(Transform):
+class ExperimentalSplitAndFuseFillOp(Transform):
   """Tile and fuse FillOp into the output of reduction.
 
   This transform can be configured as follows:
   * `tile_sizes`: Tile sizes used for tiling.
   """
 
-  def __init__(self, func_name: str, op_name: str, tile_sizes=[]):
+  def __init__(self, fun_name: str, op_name: str, tile_sizes=[]):
     if tile_sizes:
       tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
     pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'     anchor-func={func_name} '
+                f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     fuse-fill-into-reduction '
                 f'     {tile_str}}},'
@@ -61,7 +61,7 @@ class Inject(Transform):
   def __init__(self, ir: str):
     self.ir = ir
 
-  def __call__(self, module: Module, func_name: str):
+  def __call__(self, module: Module, fun_name: str):
     return Module.parse(self.ir)
 
 
@@ -74,7 +74,7 @@ class Fuse(Transform):
   """
 
   def __init__(self,
-               func_name: str,
+               fun_name: str,
                op_name: str,
                tile_sizes=[],
                tile_interchange=[],
@@ -87,7 +87,7 @@ class Fuse(Transform):
       dims = [str(ic) for ic in tile_interchange]
       interchange_str = f'tile-interchange={",".join(dims)}'
     pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'     anchor-func={func_name} '
+                f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     fuse '
                 f'     {tile_str} '
@@ -117,7 +117,7 @@ class Tile(Transform):
   """
 
   def __init__(self,
-               func_name: str,
+               fun_name: str,
                op_name: str,
                tile_sizes=[],
                tile_interchange=[],
@@ -152,7 +152,7 @@ class Tile(Transform):
       scalarize_dyn_dims_str = 'scalarize-dynamic-dims'
 
     pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'     anchor-func={func_name} '
+                f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     {tile_str} '
                 f'     {interchange_str} '
@@ -167,9 +167,9 @@ class Tile(Transform):
 
 class Vectorize(Transform):
 
-  def __init__(self, func_name: str, op_name: str):
+  def __init__(self, fun_name: str, op_name: str):
     pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'     anchor-func={func_name} '
+                f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     vectorize '
                 f'     vectorize-padding}},'
@@ -187,7 +187,7 @@ class Generalize(Transform):
   Note: After generalization the anchor op name changes to 'linalg.generic'.
   """
 
-  def __init__(self, func_name: str, op_name: str, iterator_interchange=[]):
+  def __init__(self, fun_name: str, op_name: str, iterator_interchange=[]):
     interchange_str = ''
 
     if iterator_interchange:
@@ -195,7 +195,7 @@ class Generalize(Transform):
       interchange_str = f'iterator-interchange={",".join(dims)}'
 
     pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'     anchor-func={func_name} '
+                f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     generalize '
                 f'     {interchange_str}}}')
@@ -214,9 +214,10 @@ class Bufferize(Transform):
 
 class LowerVectors(Transform):
 
-  def __init__(self):
+  def __init__(self, stage):
     pipeline = (f'linalg-tensor-codegen-driver{{'
                 f'    lower-vector '
+                f'    lower-vector-stage={stage}'
                 f'    max-transfer-rank=1 '
                 f'    split-transfers=linalg-copy '
                 f'    lower-vector-transpose-to=eltwise '

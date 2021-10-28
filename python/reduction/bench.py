@@ -17,45 +17,40 @@ op_name = 'linalg.generic'
 ################################################################################
 
 
-class TestExpert(TransformationList):
+class ExperimentalSplitAndFuseFillOpExpert(TransformationList):
 
   def __init__(self, transforms, **kwargs):
-    t = transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    t = transforms + [
+        # TODO: bufferization before vectorization triggers
+        # a bufferization issue atm.
+        # This is inefficient wrt VTW/VTR forwarding.
+        #Bufferize()
+    ] + StagedLowerVectorsTransformationList() + [LowerToLLVM()]
     d = {'transforms': t}
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)
 
 
-expert_fuse_output = TestExpert([
-    ExperimentalReductionTilingAndFusion(
-        'reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[16, 16]),
-])
-
 all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        sizes=[16, 16],
+        sizes=[4, 4],
         interchange=[0, 1],
         peel=[],
         pad=False,
         pack_padding=[0, 1],
         hoist_padding=[1, 0],
-        print_ir_after_all=False), expert_fuse_output
+        print_ir_after_all=False),
+    ExperimentalSplitAndFuseFillOpExpert( \
+        [ \
+          ExperimentalSplitAndFuseFillOp( \
+              fun_name=fun_name, op_name=op_name, tile_sizes=[4, 4]), \
+          Bufferize(), \
+          Vectorize(fun_name=fun_name, op_name=op_name) \
+        ], \
+        print_ir_after_all=False),
 ]
-
-
-# No tiling.
-expert_no_tiling = TestExpert(
-    [
-        # Used for IR injection and prototyping.
-        Inject("""
-"""),
-    ],
-    print_ir_after_all=False,
-    print_llvmir=False)
-
-__all_experts = [expert_no_tiling]
 
 ################################################################################
 ### Problem instantiations.
@@ -67,7 +62,13 @@ keys = ['M', 'K']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
-  problem_size_list = [[128, 192], [104, 96], [8000, 6000]]
+  problem_size_list = [
+      [128, 192],
+      [104, 96],
+      [256, 256],
+      [1000, 1000],
+      [8000, 6000],
+  ]
   for np_types in [[np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
       compile_time_problem_sizes_dict = {
@@ -75,11 +76,14 @@ def main():
       }
       runtime_problem_sizes_dict = compile_time_problem_sizes_dict
       # Init printing.
-      print(
-          f'\n###############################################################\n'
-          f'Problem size {compile_time_problem_sizes_dict}\n'
-          f'Problem types {np_types}')
+      print(f'\n#############################################################\n'
+            f'Compile-time problem sizes {compile_time_problem_sizes_dict}\n'
+            f'Runtime problem sizes {runtime_problem_sizes_dict}\n'
+            f'Problem types {np_types}')
+
       for expert in all_experts:
+        print(f'\nCompilation expert {expert}')
+
         problem = ProblemInstance(
             problem_definition=Reduction2dProblem(),
             problem_sizes_keys=keys,

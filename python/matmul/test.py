@@ -16,7 +16,9 @@ from .definitions import *
 class TestExpert(TransformationList):
 
   def __init__(self, tiling_transforms):
-    t = tiling_transforms + [Bufferize(), LowerVectors(), LowerToLLVM()]
+    t = tiling_transforms + [
+        Bufferize()
+    ] + StagedLowerVectorsTransformationList() + [LowerToLLVM()]
     TransformationList.__init__(self, **{'transforms': t})
 
 

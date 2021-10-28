@@ -68,6 +68,15 @@ def LinalgTensorCodegenDriver
     // Vector lowering options.
     Option<"vectorLowering", "lower-vector", "bool", /*default=*/"false",
       "Run transformations that lower high-level vectors.">,
+    Option<"vectorLoweringStage", "lower-vector-stage", "int", /*default=*/"0",
+      [{Which stage of vector lowering to run:\n"
+          "\t0 [default] only lower vector.contract\n"
+          "\t1 additionally lower vector.multi_reduction\n"
+          "\t2 additionally enable vector.transfer split\n"
+          "\t3 additionally lower vector.transfer\n"
+          "\t4 additionally lower vector.transfer to scf\n"
+          "\t5 additionally lower vector.shape_cast\n"
+          "\t6 additionally lower vector.transpose\n}]>,
     Option<"splitVectorTransfersTo", "split-transfers", "std::string",
       /*default=*/"",
       [{Split vector transfers between slow (masked) and fast "
