@@ -8,8 +8,8 @@ from ..core.transforms import *
 
 from .definitions import *
 
-fun_name = 'conv1d_nwc_wcf_main'
-op_name = 'linalg.conv_1d_nwc_wcf'
+fun_name = 'conv2d_nhwc_hwcf_main'
+op_name = 'linalg.conv_2d_nhwc_hwcf'
 
 ################################################################################
 ### Compilation strategies.
@@ -19,8 +19,8 @@ all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        #      N  W   C  KW  F
-        sizes=[1, 8, 32, 1, 8],
+        #      N  H   W   C  KH  KW  F
+        sizes=[1, 1, 8, 32, 1, 1, 8],
         interchange=[],
         peel=[],
         pad=False,
@@ -33,19 +33,18 @@ all_experts = [
 ### Problem instantiation
 ################################################################################
 
-keys = ['N', 'W', 'C', 'KW', 'F', 'stride', 'dilation']
+keys = ['N', 'H', 'W', 'C', 'KH', 'KW', 'F', 'strides', 'dilations']
 
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1000
+  n_iters = 100
   problem_size_list = [\
-  #   N   W   C  KW   F  st  dil
-
-     [8, 16, 32,  3, 64,  1,  1], \
-     [8, 16, 32,  3, 64,  1,  2], \
-     [8, 16, 32,  3, 64,  2,  1], \
-     [8, 16, 32,  3, 64,  2,  2]  \
+  #   N   H   W   C  KH  KW   F     st      dil
+     [8, 16, 16, 32,  3,  3, 64, [1, 1], [1, 1]], \
+     [8, 16, 16, 32,  3,  3, 64, [1, 2], [1, 2]], \
+     [8, 16, 16, 32,  3,  3, 64, [2, 1], [1, 2]], \
+     [8, 16, 16, 32,  3,  3, 64, [2, 2], [2, 2]]  \
   ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
@@ -60,9 +59,9 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
-            problem_definition=Conv1d_NWC_WCF_Problem(
-                stride=compile_time_problem_sizes_dict['stride'],
-                dilation=compile_time_problem_sizes_dict['dilation']),
+            problem_definition=Conv2d_NHWC_HWCF_Problem(
+                strides=compile_time_problem_sizes_dict['strides'],
+                dilations=compile_time_problem_sizes_dict['dilations']),
             problem_sizes_keys=keys,
             np_types=np_types)
 
