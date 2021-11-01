@@ -18,7 +18,7 @@ def parse_args(argv):
   return parser.parse_args(argv)
 
 
-def main(argv):
+def main(argv=None):
   args = parse_args(argv)
 
   candidates = []

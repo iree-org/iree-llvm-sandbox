@@ -140,7 +140,8 @@ To run the search with default settings:
 
 ```
 export PATH="${IREE_LLVM_SANDBOX_BUILD_DIR}/bin:$PATH"
-alias search_cli="python ${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/search_cli.py"
+cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+alias search_cli="python -m python.local_search.search_cli"
 search_cli
 ```
 
@@ -196,7 +197,7 @@ search_cli --samples 100
 One can see a ranked list, based on llvm-mca performance estimates:
 
 ```
-alias rank_cli="${IREE_LLVM_SANDBOX_SOURCE_DIR}/runners/test/python/rank_mca_cli.py"
+alias rank_cli="python -m python.local_search.rank_cli"
 rank_cli
 ```
 
