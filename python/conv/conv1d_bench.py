@@ -32,14 +32,19 @@ all_experts = [
 ### Problem instantiation
 ################################################################################
 
-keys = ['N', 'W', 'C', 'KW', 'F', 'dilation', 'stride']
+keys = ['N', 'W', 'C', 'KW', 'F', 'stride', 'dilation']
 
 
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100000
-  problem_size_list = [[8, 16, 32, 3, 64, 1, 1], [8, 16, 32, 3, 64, 1, 2],
-                       [8, 16, 32, 3, 64, 2, 1], [8, 16, 32, 3, 64, 2, 2]]
+  problem_size_list = [\
+  #   N   W   C  KW   F  st  dil
+     [8, 16, 32,  3, 64,  1,  1], \
+     [8, 16, 32,  3, 64,  1,  2], \
+     [8, 16, 32,  3, 64,  2,  1], \
+     [8, 16, 32,  3, 64,  2,  2]  \
+  ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
       compile_time_problem_sizes_dict = {
@@ -54,8 +59,8 @@ def main():
       for expert in all_experts:
         problem = ProblemInstance(
             problem_definition=Conv1d_NWC_WCF_Problem(
-                dilation=compile_time_problem_sizes_dict['dilation'],
-                stride=compile_time_problem_sizes_dict['stride']),
+                stride=compile_time_problem_sizes_dict['stride'],
+                dilation=compile_time_problem_sizes_dict['dilation']),
             problem_sizes_keys=keys,
             np_types=np_types)
 

@@ -26,44 +26,44 @@ avx512 = True
 class Conv1d_NWC_WCF_Problem(ProblemDefinition):
   """ Problem definition for a single fill + conv1d_nwc_wcf problem."""
 
-  dilation: int
   stride: int
+  dilation: int
 
-  def __init__(self, dilation: int, stride: int):
-    self.dilation = dilation
+  def __init__(self, stride: int, dilation: int):
     self.stride = stride
+    self.dilation = dilation
 
-  def ensure_dilation_and_stride(self, dilation: int, stride: int):
+  def ensure_stride_and_dilation(self, stride: int, dilation: int):
     assert dilation == self.dilation and stride == self.stride, \
         f"""unexpected dilation {dilation} (expected {self.dilation}) or
         stride {stride} (expected {self.stride}) mismatch.\n
         They are attributes and must be fixed at problem creation time
         """
 
-  def shapes_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                     dilation: int, stride: int) -> List[List[int]]:
+  def shapes_builder(self, N: int, W: int, C: int, KW: int, F: int, stride: int,
+                     dilation: int) -> List[List[int]]:
     """Shape builder function.
 
        Given a list of integer dimensions, return the list of lists of shapes
        of the FuncOp operands. The FuncOp is responsible for distinguishing
        between input operands and results.
     """
-    self.ensure_dilation_and_stride(dilation, stride)
+    self.ensure_stride_and_dilation(stride, dilation)
     return [[N, stride * W + dilation * KW, C], \
             [KW, C, F], \
             [N, W, F]]
 
   def gflop_count_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                          dilation: int, stride: int) -> float:
+                          stride: int, dilation: int) -> float:
     """GFlop builder function.
 
        Given a list of integer dimensions, return the number of GFlops computed.
     """
-    self.ensure_dilation_and_stride(dilation, stride)
+    self.ensure_stride_and_dilation(stride, dilation)
     return (2.0 * N * W * C * KW * F) / 1e9
 
   def tensors_np_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                         dilation: int, stride: int, input_np_type: np.dtype,
+                         stride: int, dilation: int, input_np_type: np.dtype,
                          kernel_np_type: np.dtype,
                          output_np_type: np.dtype) -> List[np.dtype]:
     """NP tensors building function.
@@ -72,8 +72,8 @@ class Conv1d_NWC_WCF_Problem(ProblemDefinition):
        types, return constructed NP values of shapes given by `shaped_builder`
        and specified elemental types.
     """
-    self.ensure_dilation_and_stride(dilation, stride)
-    shapes = self.shapes_builder(N, W, C, KW, F, dilation, stride)
+    self.ensure_stride_and_dilation(stride, dilation)
+    shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
     np_types = [input_np_type, kernel_np_type, output_np_type]
     tensors = [np.random.rand(*s).astype(t) for s, t in zip(shapes, np_types)]
     tensors[len(tensors) - 1].fill(0.)
@@ -86,8 +86,8 @@ class Conv1d_NWC_WCF_Problem(ProblemDefinition):
        of the expected reference implementation.
     """
     # TODO: lift to __init__.
-    N, W, C, KW, F = np.shape(O)[0], np.shape(O)[1], np.shape(K)[1], np.shape(
-        K)[0], np.shape(O)[2]
+    N, W, F = np.shape(O)[0], np.shape(O)[1], np.shape(O)[2]
+    KW, C = np.shape(K)[0], np.shape(K)[1]
     O2 = np.copy(O)
     O2.fill(0.)
     import itertools
@@ -102,7 +102,7 @@ class Conv1d_NWC_WCF_Problem(ProblemDefinition):
       raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 
   def types_mlir_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                         dilation: int, stride: int, input_mlir_type: Type,
+                         stride: int, dilation: int, input_mlir_type: Type,
                          kernel_mlir_type: Type,
                          output_mlir_type: Type) -> List[Type]:
     """ MLIR types builder.
@@ -110,11 +110,11 @@ class Conv1d_NWC_WCF_Problem(ProblemDefinition):
         Given a list of NP values, check the precomputed results matches those
         of the expected reference implementation.
     """
-    self.ensure_dilation_and_stride(dilation, stride)
+    self.ensure_stride_and_dilation(stride, dilation)
     compiled_function_element_types = [
         input_mlir_type, kernel_mlir_type, output_mlir_type
     ]
-    shapes = self.shapes_builder(N, W, C, KW, F, dilation, stride)
+    shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
     return [RankedTensorType.get(s, t) for s, t in \
          zip(shapes, compiled_function_element_types)]
 
