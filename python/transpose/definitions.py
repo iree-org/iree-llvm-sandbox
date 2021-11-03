@@ -52,7 +52,8 @@ class Transpose2dProblem(ProblemDefinition):
 
        Given a list of integer dimensions, return the number of GFlops computed.
     """
-    return float(4. * M * N) / float(1e9)
+    # 1 array read, 1 array written with data type 4B
+    return float(2. * 4. * M * N) / float(1e9)
 
   def tensors_np_builder(self, M: int, N: int, input_np_type: np.dtype,
                          res_np_type: np.dtype) -> List[np.dtype]:
@@ -69,7 +70,7 @@ class Transpose2dProblem(ProblemDefinition):
        of the expected reference implementation.
     """
     if not np.allclose(O, np.transpose(I)):
-      delta = O, np.transpose(I)
+      delta = O - np.transpose(I)
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 

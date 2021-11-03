@@ -20,7 +20,7 @@ all_experts = [
     DoubleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        sizes1=[32, 32],
+        sizes1=[256, 256],
         interchange1=[],
         peel1=False,
         pad1=False,
@@ -29,9 +29,38 @@ all_experts = [
         sizes2=[8, 8],
         interchange2=[],
         peel2=False,
+        pad2=True,
+        pack_padding2=[0, 1],
+        hoist_padding2=[2, 2],
+        # kwargs passed down to LowerVectors.
+        # TODO: better composition of experts.
+        transpose_lowering='shuffle',
+        # Set to True to see the IR.
+        print_ir_after_all=False),
+    TripleTilingExpert(
+        fun_name=fun_name,
+        op_name=op_name,
+        sizes1=[256, 256],
+        interchange1=[],
+        peel1=False,
+        pad1=False,
+        pack_padding1=[],
+        hoist_padding1=[],
+        sizes2=[32, 32],
+        interchange2=[],
+        peel2=False,
         pad2=False,
         pack_padding2=[],
         hoist_padding2=[],
+        sizes3=[8, 8],
+        interchange3=[],
+        peel3=False,
+        pad3=True,
+        pack_padding3=[0, 1],
+        hoist_padding3=[3, 3],
+        # kwargs passed down to LowerVectors.
+        # TODO: better composition of experts.
+        transpose_lowering='shuffle',
         # Set to True to see the IR.
         print_ir_after_all=False)
 ]
@@ -45,17 +74,18 @@ keys = ['M', 'N']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1000
+  n_iters = 10
   problem_size_list = [
-      # Too small to be interesting.
-      # [128, 192],
-      # [104, 96],
-      [256, 256],
-      [512, 512],
-      [1024, 1024],
+      # Too small to be really interesting.
+      [128, 192],
+      [104, 96],
+      [240, 256],
+      [528, 512],
+      [1056, 1024],
 
       # TODO: this is too slow atm.
-      # [8192, 6144],
+      [4096, 4096],
+      [6912, 4608],
   ]
   for np_types in [[np.float32, np.float32]]:
     for problem_sizes in problem_size_list:

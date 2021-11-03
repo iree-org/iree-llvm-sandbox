@@ -204,7 +204,9 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
       llvm::StringSwitch<vector::VectorTransposeLowering>(
           lowerVectorTransposeTo.getValue())
           .Case("eltwise", vector::VectorTransposeLowering::EltWise)
-          .Default(vector::VectorTransposeLowering::Flat);
+          .Case("flat_transpose", vector::VectorTransposeLowering::Flat)
+          .Case("shuffle", vector::VectorTransposeLowering::Shuffle)
+          .Default(vector::VectorTransposeLowering::EltWise);
   vector::VectorMultiReductionLowering vectorMultiReductionLowering =
       llvm::StringSwitch<vector::VectorMultiReductionLowering>(
           lowerVectorMultiReductionTo.getValue())
