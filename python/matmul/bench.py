@@ -26,18 +26,19 @@ all_experts = [
     DoubleTilingExpert(
         'matmul_on_tensors',
         'linalg.matmul',
-        sizes1=[256, 128, 256],
-        interchange1=[1, 2, 0],
+        sizes1=[128, 128, 256],
+        interchange1=[0, 2, 1],
         peel1=False,
         pad1=False,
         pack_padding1=[],
-        hoist_padding1=[0],
-        sizes2=[8, 16, 32],
+        hoist_padding1=[],
+        sizes2=[12, 32, 8],
         interchange2=[0, 1, 2],
         peel2=False,
         pad2=True,
-        pack_padding2=[0, 1],
-        hoist_padding2=[3, 4])
+        pack_padding2=[1, 1, 0],
+        hoist_padding2=[4, 3, 0],
+        print_ir_after_all=True)
 ]
 
 ################################################################################
@@ -49,8 +50,15 @@ keys = ['M', 'N', 'K']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1000
-  problem_size_list = [[128, 192, 256], [104, 96, 108]]
+  n_iters = 100
+  problem_size_list = [
+      [192, 128, 256],
+      [260, 280, 300],
+      [1000, 1000, 1000],
+      [1024, 1024, 1024],
+      [2040, 2040, 2040],
+      [4000, 4000, 4000],
+  ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
       compile_time_problem_sizes_dict = {

@@ -129,7 +129,10 @@ def emit_benchmarking_function(name: str,
 
 # TODO: retire this because it has internal  assumptions about number of
 # arguments and what is input/output
-def build_op_under_context_manager(op, transform: Callable, **assignments):
+def build_op_under_context_manager(op,
+                                   transform: Callable,
+                                   opt_level: int = 3,
+                                   **assignments):
   # Build module and function to benchmark.
   operand_defs = sorted(
       op.model.registered_operands.values(),
@@ -159,7 +162,7 @@ def build_op_under_context_manager(op, transform: Callable, **assignments):
   with InsertionPoint(module.body):
     emit_benchmarking_function("main", func)
   transformed_module = transform("matmul_on_tensors", module)
-  execution_engine = ExecutionEngine(transformed_module)
+  execution_engine = ExecutionEngine(transformed_module, opt_level)
   elapsed_compilation_s = time.time() - start
 
   return transformed_module, execution_engine
@@ -177,10 +180,12 @@ def compile_and_callback(op, transform: Callable, callback: Callable,
 
 # JIT compile and return an execution engine that can be invoked.
 # Needs to be run under Context.
-def compile_to_execution_engine(module, transform: Callable):
+def compile_to_execution_engine(module,
+                                transform: Callable,
+                                opt_level: int = 3):
   start = time.time()
   transformed_module = transform(module)
-  execution_engine = ExecutionEngine(transformed_module)
+  execution_engine = ExecutionEngine(transformed_module, opt_level)
   elapsed_compilation_s = time.time() - start
   print(f"compilation in {elapsed_compilation_s:.{4}}s")
   return transformed_module, execution_engine

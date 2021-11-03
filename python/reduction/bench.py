@@ -31,26 +31,35 @@ class ExperimentalSplitAndFuseFillOpExpert(TransformationList):
     TransformationList.__init__(self, **kwargs)
 
 
-all_experts = [
-    SingleTilingExpert(
-        fun_name=fun_name,
-        op_name=op_name,
-        sizes=[4, 4],
-        interchange=[0, 1],
-        peel=[],
-        pad=False,
-        pack_padding=[0, 1],
-        hoist_padding=[1, 0],
-        print_ir_after_all=False),
-    ExperimentalSplitAndFuseFillOpExpert( \
-        [ \
-          ExperimentalSplitAndFuseFillOp( \
-              fun_name=fun_name, op_name=op_name, tile_sizes=[4, 4]), \
-          Bufferize(), \
-          Vectorize(fun_name=fun_name, op_name=op_name) \
-        ], \
-        print_ir_after_all=False),
-]
+experimental_tile_and_fuse_expert = \
+  ExperimentalSplitAndFuseFillOpExpert( \
+    [ \
+      ExperimentalSplitAndFuseFillOp( \
+        fun_name=fun_name, op_name=op_name, tile_sizes=[4, 4]), \
+      Bufferize(), \
+      Vectorize(fun_name=fun_name, op_name=op_name) \
+    ], \
+  print_ir_after_all=False)
+
+
+def all_experts(problem_sizes: List[int]):
+  return [
+      SingleTilingExpert(
+          fun_name=fun_name,
+          op_name=op_name,
+          # Little trick avoids tiling small dimensions and otherwise tile by 128.
+          sizes=[4, 128] if problem_sizes[1] > 256 else [4],
+          interchange=[],
+          peel=[],
+          pad=False,
+          pack_padding=[],
+          hoist_padding=[],
+          # kwargs passed down to LowerVectors.
+          # TODO: better composition of experts.
+          multi_reduction_lowering='innerreduction',
+          print_ir_after_all=False),
+      # experimental_tile_and_fuse_expert
+  ]
 
 ################################################################################
 ### Problem instantiations.
@@ -63,11 +72,11 @@ keys = ['M', 'K']
 def main():
   n_iters = 100
   problem_size_list = [
-      [128, 192],
-      [104, 96],
+      [128, 256],
+      [104, 128],
       [256, 256],
-      [1000, 1000],
-      [8000, 6000],
+      [1000, 1024],
+      [8000, 6144],
   ]
   for np_types in [[np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
@@ -81,7 +90,7 @@ def main():
             f'Runtime problem sizes {runtime_problem_sizes_dict}\n'
             f'Problem types {np_types}')
 
-      for expert in all_experts:
+      for expert in all_experts(problem_sizes):
         print(f'\nCompilation expert {expert}')
 
         problem = ProblemInstance(

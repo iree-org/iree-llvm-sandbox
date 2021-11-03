@@ -110,6 +110,19 @@ def LinalgTensorCodegenDriver
     // LLVM lowering options.
     Option<"llvmLowering", "lower-to-llvm", "bool", /*default=*/"false",
       "Run transformations and passes to produce LLVM IR.">,
+    Option<"reassociateFPReductions", "enable-fp-reassoc", "bool",
+      /*default=*/"true",
+      "Trigger FP reassociation when producing LLVM IR (needed for efficient horizontal reductions).">,
+    Option<"indexOptimizations", "enable-index-optimizations", "bool",
+      /*default=*/"false", "Triggers index optimizations when producing LLVM IR">,
+    Option<"armNeon", "enable-arm-neon", "bool", /*default=*/"false",
+      "Enables ARM Neon ops when producing LLVM IR.">,
+    Option<"armSVE", "enable-arm-sve", "bool", /*default=*/"false",
+      "Enables ARM SVE ops when producing LLVM IR.">,
+    Option<"amx", "enable-amx", "bool", /*default=*/"false",
+      "Enables AMX ops when producing LLVM IR.">,
+    Option<"x86Vector", "enable-x86-ector", "bool", /*default=*/"false",
+      "Enables X86 vector ops when producing LLVM IR.">,
   ];
 
   // TODO: cannot use let dependentDialects for this because we insert more

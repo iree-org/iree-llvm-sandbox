@@ -71,7 +71,16 @@ void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
   dynamicPM.addPass(createLowerAffinePass());
   dynamicPM.addPass(createLowerToCFGPass());
   dynamicPM.addPass(createConvertLinalgToLLVMPass());
-  dynamicPM.addPass(createConvertVectorToLLVMPass());
+  dynamicPM.addPass(createConvertVectorToLLVMPass(
+      // clang-format off
+      LowerVectorToLLVMOptions()
+        .enableReassociateFPReductions(reassociateFPReductions)
+        .enableIndexOptimizations(indexOptimizations)
+        .enableArmNeon(armNeon)
+        .enableArmSVE(armSVE)
+        .enableAMX(amx)
+        .enableX86Vector(x86Vector)));
+  // clang-format on
   dynamicPM.addPass(createMemRefToLLVMPass());
   dynamicPM.addPass(createLowerToLLVMPass());
   dynamicPM.addPass(createCanonicalizerPass());
