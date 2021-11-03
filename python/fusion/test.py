@@ -28,7 +28,8 @@ class FusionTestExpert(TransformationList):
     ]
     for vectorize_op_name in vectorize_op_list:
       t += [Vectorize(fn_name, vectorize_op_name)]
-    t += [Bufferize(), Print(), LowerVectors(stage=0), LowerToLLVM()]
+    t += [Bufferize(), Print()
+         ] + StagedLowerVectorsTransformationList() + [LowerToLLVM()]
     d = {'transforms': t}
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)

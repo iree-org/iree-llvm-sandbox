@@ -111,15 +111,9 @@ def LinalgTensorCodegenDriver
     Option<"llvmLowering", "lower-to-llvm", "bool", /*default=*/"false",
       "Run transformations and passes to produce LLVM IR.">,
   ];
-  let dependentDialects = [
-    "AffineDialect",
-    "linalg::LinalgDialect",
-    "memref::MemRefDialect",
-    "scf::SCFDialect",
-    "StandardOpsDialect",
-    "tensor::TensorDialect",
-    "vector::VectorDialect"
-  ];
+
+  // TODO: cannot use let dependentDialects for this because we insert more
+  // than just dialects here.
 }
 
 #endif // RUNNERS_PASSES

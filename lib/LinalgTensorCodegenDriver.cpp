@@ -15,9 +15,11 @@
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
+#include "mlir/Dialect/Linalg/Transforms/ComprehensiveBufferize.h"
 #include "mlir/Dialect/Linalg/Transforms/HoistPadding.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -53,6 +55,8 @@ struct LinalgTensorCodegenDriverPass
   void runComprehensiveBufferization();
   void runVectorLowering();
   void runLowerToLLVM();
+
+  void getDependentDialects(DialectRegistry &registry) const override;
 };
 }  // namespace
 
@@ -268,8 +272,23 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
       if (!hoistPadding.empty()) {
         SmallVector<PadTensorOp> ops;
         funcOp.walk([&](PadTensorOp op) { ops.push_back(op); });
-        for (auto it : llvm::reverse(llvm::zip(ops, hoistPadding)))
-          (void)hoistPaddingOnTensors(std::get<0>(it), std::get<1>(it));
+        for (auto it : llvm::reverse(llvm::zip(ops, hoistPadding))) {
+          PadTensorOp hoistedOp;
+          FailureOr<Value> newResult = hoistPaddingOnTensors(
+              std::get<0>(it), std::get<1>(it), hoistedOp);
+          if (succeeded(newResult)) {
+            std::get<0>(it).getResult().replaceAllUsesWith(
+                newResult.getValue());
+            std::get<0>(it)->erase();
+          }
+          // Cleanup the loop nest after hoisting.
+          OwningRewritePatternList canonicalizationPatterns(
+              funcOp.getContext());
+          populateLinalgTilingCanonicalizationPatterns(
+              canonicalizationPatterns);
+          (void)applyPatternsAndFoldGreedily(
+              funcOp, std::move(canonicalizationPatterns));
+        }
       }
       if (vectorizePadding) {
         OwningRewritePatternList extraVectorizationPatterns(
@@ -291,6 +310,21 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
   if (vectorLowering) runVectorLowering();
 
   if (llvmLowering) runLowerToLLVM();
+}
+
+/// Return the dialect that must be loaded in the context before this pass.
+void LinalgTensorCodegenDriverPass::getDependentDialects(
+    DialectRegistry &registry) const {
+  registry.insert<arith::ArithmeticDialect>();
+  registry.insert<AffineDialect>();
+  registry.insert<linalg::LinalgDialect>();
+  registry.insert<memref::MemRefDialect>();
+  registry.insert<scf::SCFDialect>();
+  registry.insert<StandardOpsDialect>();
+  registry.insert<tensor::TensorDialect>();
+  registry.insert<vector::VectorDialect>();
+
+  registerBufferiableOpInterfaceExternalModels(registry);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>

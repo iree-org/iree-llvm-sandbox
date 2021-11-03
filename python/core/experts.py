@@ -143,14 +143,8 @@ class DoubleTilingExpert(TransformationList):
             fun_name,
             op_name,
         ),
-        Bufferize(),
-        LowerVectors(stage=0),
-        LowerVectors(stage=1),
-        LowerVectors(stage=2),
-        LowerVectors(stage=3),
-        LowerVectors(stage=4),
-        LowerVectors(stage=5),
-        LowerVectors(stage=6),
+        Bufferize()
+    ] + StagedLowerVectorsTransformationList() + [
         LowerToLLVM(),
     ]
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
