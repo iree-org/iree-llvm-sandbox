@@ -42,6 +42,18 @@ class MatmulProblem(ProblemDefinition):
     """
     return float(2.0 * M * N * K) / float(1e9)
 
+  def gbyte_count_builder(self, M: int, N: int, K: int, lhs_np_type: np.dtype,
+                          rhs_np_type: np.dtype,
+                          acc_np_type: np.dtype) -> float:
+    """GByte builder function.
+
+       Given a list of integer dimensions, return the number of GBytes read or
+       written.
+    """
+    return float(M * N * np.dtype(lhs_np_type).itemsize +
+                 M * K * np.dtype(rhs_np_type).itemsize +
+                 K * N * np.dtype(acc_np_type).itemsize) / float(1e9)
+
   def tensors_np_builder(self, M: int, N: int, K: int, lhs_np_type: np.dtype,
                          rhs_np_type: np.dtype,
                          acc_np_type: np.dtype) -> List[np.dtype]:

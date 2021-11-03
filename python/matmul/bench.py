@@ -22,7 +22,8 @@ all_experts = [
         peel=False,
         pad=True,
         pack_padding=[0, 1, 2],
-        hoist_padding=[2, 3, 0]),
+        hoist_padding=[2, 3, 0],
+        print_ir_after_all=False),
     DoubleTilingExpert(
         'matmul_on_tensors',
         'linalg.matmul',
@@ -38,7 +39,7 @@ all_experts = [
         pad2=True,
         pack_padding2=[1, 1, 0],
         hoist_padding2=[4, 3, 0],
-        print_ir_after_all=True)
+        print_ir_after_all=False)
 ]
 
 ################################################################################

@@ -52,6 +52,16 @@ class Reduction2dProblem(ProblemDefinition):
     """
     return float(M * N) / float(1e9)
 
+  def gbyte_count_builder(self, M: int, N: int, inp_np_type: np.dtype,
+                          out_np_type: np.dtype) -> float:
+    """GByte builder function.
+
+       Given a list of integer dimensions, return the number of GBytes read or
+       written.
+    """
+    return float(M * N * np.dtype(inp_np_type).itemsize +
+                 M * np.dtype(out_np_type).itemsize) / float(1e9)
+
   def tensors_np_builder(self, M: int, K: int, input_np_type: np.dtype,
                          res_np_type: np.dtype) -> List[np.dtype]:
     shapes = self.shapes_builder(M, K)

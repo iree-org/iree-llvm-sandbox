@@ -22,15 +22,18 @@ def log(*args):
   sys.stderr.flush()
 
 
-def timed_invoke(run_n_iters: Callable, gflop_count: float, n_iters: int):
+def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
+                 n_iters: int):
   start = time.time()
   run_n_iters(n_iters)
   elapsed_s = time.time() - start
   elapsed_s_per_iter = elapsed_s / n_iters
   gflop_per_s_per_iter = gflop_count / (elapsed_s_per_iter)
+  gbyte_per_s_per_iter = gbyte_count / (elapsed_s_per_iter)
   print(f"xxxxxxxxxx : {n_iters} iters time on {1} threads "
         f"in {elapsed_s_per_iter:.{4}}s per iter "
-        f"sec ({gflop_per_s_per_iter:.{4}} GFlop/s) "
+        f"sec ({gflop_per_s_per_iter:.{4}} GFlop/s, "
+        f"{gbyte_per_s_per_iter:.{4}} GB/s) "
         f"total time {elapsed_s:.{4}}s ")
 
 
@@ -161,6 +164,8 @@ class ProblemInstance:
     timed_invoke(
         run_n_iters=run_n_iters,
         gflop_count=self.problem_definition.gflop_count_builder(*list_of_sizes),
+        gbyte_count=self.problem_definition.gbyte_count_builder(
+            *list_of_sizes, *self.np_types),
         n_iters=n_iters)
 
     return

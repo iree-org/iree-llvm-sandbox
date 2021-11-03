@@ -45,15 +45,22 @@ class Transpose2dProblem(ProblemDefinition):
     """
     return [[N, M], [M, N]]
 
-  # TODO: Add a GB/s count builder and report that properly.
-  # TODO: Take into account the data type, for now we assume 4B / element.
   def gflop_count_builder(self, M: int, N: int) -> float:
     """GFlop builder function.
 
        Given a list of integer dimensions, return the number of GFlops computed.
     """
-    # 1 array read, 1 array written with data type 4B
-    return float(2. * 4. * M * N) / float(1e9)
+    return float(0.)
+
+  def gbyte_count_builder(self, M: int, N: int, inp_np_type: np.dtype,
+                          out_np_type: np.dtype) -> float:
+    """GByte builder function.
+
+       Given a list of integer dimensions, return the number of GBytes read or
+       written.
+    """
+    return float(M * N * np.dtype(inp_np_type).itemsize +
+                 M * N * np.dtype(out_np_type).itemsize) / float(1e9)
 
   def tensors_np_builder(self, M: int, N: int, input_np_type: np.dtype,
                          res_np_type: np.dtype) -> List[np.dtype]:

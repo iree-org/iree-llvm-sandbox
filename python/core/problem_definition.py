@@ -23,6 +23,14 @@ class ProblemDefinition:
     """
     pass
 
+  def gbyte_count_builder(self, *args: int) -> float:
+    """GByte builder function.
+
+       Given a list of integer dimensions, return the number of GBytes read or
+       written.
+    """
+    pass
+
   def tensors_np_builder(self, *args: Union[int, np.dtype]) -> List[np.dtype]:
     """NP tensors building function.
 
