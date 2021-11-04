@@ -52,8 +52,8 @@ def all_experts(problem_sizes: List[int]):
           interchange=[],
           peel=[],
           pad=False,
-          pack_padding=[],
-          hoist_padding=[],
+          pack_paddings=[],
+          hoist_paddings=[],
           # kwargs passed down to LowerVectors.
           # TODO: better composition of experts.
           multi_reduction_lowering='innerreduction',

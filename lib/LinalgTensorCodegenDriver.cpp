@@ -20,7 +20,6 @@
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
 #include "mlir/Dialect/Linalg/Transforms/ComprehensiveBufferize.h"
-#include "mlir/Dialect/Linalg/Transforms/HoistPadding.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
@@ -166,20 +165,32 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
   if (scalarizeDynamicDims)
     tilingOptions = tilingOptions.scalarizeDynamicDims();
   tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
-  if (pad) {
-    auto nofoldFunc = [&](OpOperand &opOperand) {
-      return llvm::count(nofoldOperands, opOperand.getOperandNumber()) != 0;
-    };
-    tilingOptions =
-        tilingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
-    tilingOptions =
-        tilingOptions.setPaddingNoFoldComputationFunction(nofoldFunc);
-  }
+
+  // Set up padding options.
+  // TODO: Replace the lambdas by either functions defined in MLIR core or even
+  // adapt the LinalgPaddingOptions to take the `hoistPaddings` and
+  // `packPaddings` arrays directly.
+  auto packFunc = [&](OpOperand &opOperand) {
+    return opOperand.getOperandNumber() < packPaddings.size()
+               ? packPaddings[opOperand.getOperandNumber()]
+               : false;
+  };
+  auto hoistingFunc = [&](OpOperand &opOperand) {
+    return opOperand.getOperandNumber() < hoistPaddings.size()
+               ? hoistPaddings[opOperand.getOperandNumber()]
+               : 0;
+  };
+  LinalgPaddingOptions paddingOptions;
+  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
+  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
+  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
+
   CodegenStrategy strategy;
   StringRef genericOpName = GenericOp::getOperationName();
   strategy
       .tileIf(!tileSizes.empty() || scalarizeDynamicDims, anchorOpName,
               tilingOptions)
+      .padIf(pad, anchorOpName, paddingOptions)
       .generalizeIf(generalize, anchorOpName)
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
       .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName);
@@ -278,29 +289,6 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
       // applies if !anchorOpName.empty().
       runOpAnchoredStrategy(funcOp);
 
-      // Run other transforms that do not require a named linalg op.
-      // TODO: Move to codegen strategy as late transformations.
-      if (!hoistPadding.empty()) {
-        SmallVector<PadTensorOp> ops;
-        funcOp.walk([&](PadTensorOp op) { ops.push_back(op); });
-        for (auto it : llvm::reverse(llvm::zip(ops, hoistPadding))) {
-          PadTensorOp hoistedOp;
-          FailureOr<Value> newResult = hoistPaddingOnTensors(
-              std::get<0>(it), std::get<1>(it), hoistedOp);
-          if (succeeded(newResult)) {
-            std::get<0>(it).getResult().replaceAllUsesWith(
-                newResult.getValue());
-            std::get<0>(it)->erase();
-          }
-          // Cleanup the loop nest after hoisting.
-          OwningRewritePatternList canonicalizationPatterns(
-              funcOp.getContext());
-          populateLinalgTilingCanonicalizationPatterns(
-              canonicalizationPatterns);
-          (void)applyPatternsAndFoldGreedily(
-              funcOp, std::move(canonicalizationPatterns));
-        }
-      }
       if (vectorizePadding) {
         OwningRewritePatternList extraVectorizationPatterns(
             funcOp.getContext());

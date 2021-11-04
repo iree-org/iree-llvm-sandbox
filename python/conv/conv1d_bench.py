@@ -24,8 +24,8 @@ all_experts = [
         interchange=[],
         peel=[],
         pad=False,
-        pack_padding=[],
-        hoist_padding=[],
+        pack_paddings=[],
+        hoist_paddings=[],
         print_ir_after_all=False)
 ]
 
@@ -39,9 +39,8 @@ keys = ['N', 'W', 'C', 'KW', 'F', 'stride', 'dilation']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1000
-  problem_size_list = [\
   #   N   W   C  KW   F  st  dil
-
+  problem_size_list = [\
      [8, 16, 32,  3, 64,  1,  1], \
      [8, 16, 32,  3, 64,  1,  2], \
      [8, 16, 32,  3, 64,  2,  1], \

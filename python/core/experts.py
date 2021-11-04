@@ -65,13 +65,13 @@ class SingleTilingExpert(TransformationList):
       'interchange': InterchangeVariable,
       'peel': PeelingVariable,
       'pad': BoolVariable,
-      'pack_padding': PackPaddingVariable,
-      'hoist_padding': HoistPaddingVariable,
+      'pack_paddings': PackPaddingVariable,
+      'hoist_paddings': HoistPaddingVariable,
   }
 
   def __init__(self, fun_name: str, op_name: str, sizes: Sequence[int],
                interchange: Sequence[int], peel: Sequence[int], pad: bool,
-               pack_padding: Sequence[int], hoist_padding: Sequence[int],
+               pack_paddings: Sequence[int], hoist_paddings: Sequence[int],
                **kwargs):
     extra_transforms = [
         Tile(
@@ -81,8 +81,8 @@ class SingleTilingExpert(TransformationList):
             tile_interchange=interchange,
             peel=peel,
             pad=pad,
-            pack_padding=pack_padding,
-            hoist_padding=hoist_padding, **kwargs),
+            pack_paddings=pack_paddings,
+            hoist_paddings=hoist_paddings, **kwargs),
         Vectorize(fun_name, op_name, **kwargs),
         Bufferize(**kwargs)
     ] + \
@@ -106,22 +106,22 @@ class DoubleTilingExpert(TransformationList):
       'interchange1': InterchangeVariable,
       'peel1': PeelingVariable,
       'pad1': BoolVariable,
-      'pack_padding1': PackPaddingVariable,
-      'hoist_padding1': HoistPaddingVariable,
+      'pack_paddings1': PackPaddingVariable,
+      'hoist_paddings1': HoistPaddingVariable,
       'sizes2': TilingSizesVariable,
       'interchange2': InterchangeVariable,
       'peel2': PeelingVariable,
       'pad2': BoolVariable,
-      'pack_padding2': PackPaddingVariable,
-      'hoist_padding2': HoistPaddingVariable,
+      'pack_paddings2': PackPaddingVariable,
+      'hoist_paddings2': HoistPaddingVariable,
   }
 
   def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
                interchange1: Sequence[int], peel1: bool, pad1: bool,
-               pack_padding1: Sequence[int], hoist_padding1: Sequence[int],
+               pack_paddings1: Sequence[int], hoist_paddings1: Sequence[int],
                sizes2: Sequence[int], interchange2: Sequence[int], peel2: bool,
-               pad2: bool, pack_padding2: Sequence[int],
-               hoist_padding2: Sequence[int], **kwargs):
+               pad2: bool, pack_paddings2: Sequence[int],
+               hoist_paddings2: Sequence[int], **kwargs):
     extra_transforms = [
         Tile(
             fun_name,
@@ -130,8 +130,8 @@ class DoubleTilingExpert(TransformationList):
             tile_interchange=interchange1,
             peel=peel1,
             pad=pad1,
-            pack_padding=pack_padding1,
-            hoist_padding=hoist_padding1, **kwargs),
+            pack_paddings=pack_paddings1,
+            hoist_paddings=hoist_paddings1, **kwargs),
         Tile(
             fun_name,
             op_name,
@@ -139,8 +139,8 @@ class DoubleTilingExpert(TransformationList):
             tile_interchange=interchange2,
             peel=peel2,
             pad=pad2,
-            pack_padding=pack_padding2,
-            hoist_padding=hoist_padding2, **kwargs),
+            pack_paddings=pack_paddings2,
+            hoist_paddings=hoist_paddings2, **kwargs),
         Vectorize(fun_name, op_name, **kwargs),
         Bufferize(**kwargs)
     ] + \
@@ -164,30 +164,30 @@ class TripleTilingExpert(TransformationList):
       'interchange1': InterchangeVariable,
       'peel1': PeelingVariable,
       'pad1': BoolVariable,
-      'pack_padding1': PackPaddingVariable,
-      'hoist_padding1': HoistPaddingVariable,
+      'pack_paddings1': PackPaddingVariable,
+      'hoist_paddings1': HoistPaddingVariable,
       'sizes2': TilingSizesVariable,
       'interchange2': InterchangeVariable,
       'peel2': PeelingVariable,
       'pad2': BoolVariable,
-      'pack_padding2': PackPaddingVariable,
-      'hoist_padding2': HoistPaddingVariable,
+      'pack_paddings2': PackPaddingVariable,
+      'hoist_paddings2': HoistPaddingVariable,
       'sizes3': TilingSizesVariable,
       'interchange3': InterchangeVariable,
       'peel3': PeelingVariable,
       'pad3': BoolVariable,
-      'pack_padding3': PackPaddingVariable,
-      'hoist_padding3': HoistPaddingVariable,
+      'pack_paddings3': PackPaddingVariable,
+      'hoist_paddings3': HoistPaddingVariable,
   }
 
   def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
                interchange1: Sequence[int], peel1: bool, pad1: bool,
-               pack_padding1: Sequence[int], hoist_padding1: Sequence[int],
+               pack_paddings1: Sequence[int], hoist_paddings1: Sequence[int],
                sizes2: Sequence[int], interchange2: Sequence[int], peel2: bool,
-               pad2: bool, pack_padding2: Sequence[int],
-               hoist_padding2: Sequence[int], sizes3: Sequence[int],
+               pad2: bool, pack_paddings2: Sequence[int],
+               hoist_paddings2: Sequence[int], sizes3: Sequence[int],
                interchange3: Sequence[int], peel3: bool, pad3: bool,
-               pack_padding3: Sequence[int], hoist_padding3: Sequence[int],
+               pack_paddings3: Sequence[int], hoist_paddings3: Sequence[int],
                **kwargs):
     extra_transforms = [
         Tile(
@@ -197,8 +197,8 @@ class TripleTilingExpert(TransformationList):
             tile_interchange=interchange1,
             peel=peel1,
             pad=pad1,
-            pack_padding=pack_padding1,
-            hoist_padding=hoist_padding1),
+            pack_paddings=pack_paddings1,
+            hoist_paddings=hoist_paddings1),
         Tile(
             fun_name,
             op_name,
@@ -206,8 +206,8 @@ class TripleTilingExpert(TransformationList):
             tile_interchange=interchange2,
             peel=peel2,
             pad=pad2,
-            pack_padding=pack_padding2,
-            hoist_padding=hoist_padding2),
+            pack_paddings=pack_paddings2,
+            hoist_paddings=hoist_paddings2),
         Tile(
             fun_name,
             op_name,
@@ -215,8 +215,8 @@ class TripleTilingExpert(TransformationList):
             tile_interchange=interchange3,
             peel=peel3,
             pad=pad3,
-            pack_padding=pack_padding3,
-            hoist_padding=hoist_padding3),
+            pack_paddings=pack_paddings3,
+            hoist_paddings=hoist_paddings3),
         Vectorize(
             fun_name,
             op_name,

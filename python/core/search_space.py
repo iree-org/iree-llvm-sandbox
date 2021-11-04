@@ -52,24 +52,24 @@ def extend_argument_parser(parser):
   parser.add_argument(
       '--ppad_length_range',
       type=str,
-      default='default=3,4,1',
+      default='default=2,3,1',
       help='Ranges of potential operand indices to pack either specified for '
-      'all tiling hierarchies =\"default=3,4,1\" or for all of '
-      'them =\"pack_padding0=0,3,4 pack_padding1=0,1,1\"')
+      'all tiling hierarchies =\"default=2,3,1\" or for all of '
+      'them =\"pack_paddings1=0,1,1 pack_paddings2=2,3,1\"')
   parser.add_argument(
       '--hpad_length_range',
       type=str,
       default='default=2,3,1',
       help='Ranges of potential lengths for hoist padding depths specified for '
-      'all hoist padding variables =\"default==0,3,1\" or for all of '
-      'them =\"hoist_padding0=0,3,1 hoist_padding1=0,3,1\"')
+      'all hoist padding variables =\"default=2,3,1\" or for all of '
+      'them =\"hoist_paddings1=0,1,1 hoist_paddings2=2,3,1\"')
   parser.add_argument(
       '--hpad_value_range',
       type=str,
       default='default=0,4,1',
       help='Ranges of potential values for hoist padding depths specified for '
       'all hoist padding variables =\"default=0,513,32\" or for all of '
-      'them =\"hoist_padding0=0,4,1 hoist_padding1=0,7,1\"')
+      'them =\"hoist_paddings1=0,4,1 hoist_paddings2=0,7,1\"')
   parser.add_argument(
       '--experts',
       type=str,

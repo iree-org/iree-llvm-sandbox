@@ -149,9 +149,10 @@ class PackPaddingVariable(Variable):
     return f'PackPaddingVariable({self.name}, {self.length_range})'
 
   def random_value(self):
-    options = list(range(rand_in_range(self.length_range)))
-    k = random.randint(0, len(options))
-    return sorted(random.sample(options, k))
+    result = []
+    for x in range(rand_in_range(self.length_range)):
+      result.append(random.randint(0, 1))
+    return result
 
 
 class HoistPaddingVariable(IntVariable):

@@ -21,8 +21,8 @@ all_experts = [
         interchange=[0, 1, 2],
         peel=False,
         pad=True,
-        pack_padding=[0, 1, 2],
-        hoist_padding=[2, 3, 0],
+        pack_paddings=[0, 1, 2],
+        hoist_paddings=[2, 3, 0],
         print_ir_after_all=False),
     DoubleTilingExpert(
         'matmul_on_tensors',
@@ -31,14 +31,14 @@ all_experts = [
         interchange1=[0, 2, 1],
         peel1=False,
         pad1=False,
-        pack_padding1=[],
-        hoist_padding1=[],
+        pack_paddings1=[],
+        hoist_paddings1=[],
         sizes2=[12, 32, 8],
         interchange2=[0, 1, 2],
         peel2=False,
         pad2=True,
-        pack_padding2=[1, 1, 0],
-        hoist_padding2=[4, 3, 0],
+        pack_paddings2=[1, 1, 0],
+        hoist_paddings2=[4, 3, 0],
         print_ir_after_all=False)
 ]
 
