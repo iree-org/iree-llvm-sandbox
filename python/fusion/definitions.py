@@ -6,7 +6,8 @@ from typing import Any, List, Optional, Sequence, Type
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, scf, std
+from mlir.dialects import arith, builtin, linalg, tensor, scf, std
+from mlir.dialects.linalg.opdsl.lang import *
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *
@@ -123,5 +124,91 @@ class MatmulProblem(ProblemDefinition):
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       std.ReturnOp([matmul])
+
+    return func
+
+
+# TODO: fold OpDSL definition and inferences into ProblemDefinition.
+@linalg_structured_op
+def add_bias_to_2d(
+    I=TensorDef(T, S.M, S.N),
+    Bias=TensorDef(T, S.N),
+    O=TensorDef(T, S.M, S.N, output=True)):
+  domain(D.m, D.n)
+  O[D.m, D.n] = I[D.m, D.n] + Bias[D.n]
+
+
+class MatmulBiasAddProblem(ProblemDefinition):
+  """ Problem definition for a fill + matmul + generic op."""
+
+  def shapes_builder(self, M: int, N: int, K: int) -> List[List[int]]:
+    """Shape builder function.
+
+       Given a list of integer dimensions, return the list of lists of shapes
+       of the FuncOp operands. The FuncOp is responsible for distinguishing
+       between input operands and results.
+    """
+    return [
+        [M, K],
+        [K, N],
+        [N],
+        [M, N],
+        [M, N],
+    ]
+
+  # TODO: tensors_np_builder and check_np.
+
+  def types_mlir_builder(self, M: int, N: int, K: int, lhs_mlir_type: Type,
+                         rhs_mlir_type: Type, bias_mlir_type: Type,
+                         acc_mlir_type: Type) -> List[Type]:
+    """ MLIR types builder.
+
+        Given a list of NP values, check the precomputed results matches those
+        of the expected reference implementation.
+    """
+    compiled_function_element_types = [
+        lhs_mlir_type, rhs_mlir_type, bias_mlir_type, acc_mlir_type,
+        acc_mlir_type
+    ]
+    shapes = self.shapes_builder(M, N, K)
+    return [RankedTensorType.get(s, t) for s, t in \
+            zip(shapes, compiled_function_element_types)]
+
+  def build_problem_under_context_manager(self, name: str, lhs_mlir_type: Type,
+                                          rhs_mlir_type: Type,
+                                          bias_mlir_type: Type,
+                                          acc_mlir_type: Type,
+                                          res_mlir_type: Type):
+    # TODO: -> FuncOp
+    """MLIR problem builder.
+
+       Given a flat list of MLIR types, build and return the MLIR FuncOp that
+       implements the desired computation on those types.
+    """
+    global avx512
+
+    types = [
+        lhs_mlir_type, rhs_mlir_type, bias_mlir_type, acc_mlir_type,
+        res_mlir_type
+    ]
+
+    # Actual benchmarked function called under entry_point_name.
+    func = builtin.FuncOp(name, (types, [acc_mlir_type]))
+    # TODO: need something much more flexible to add func argument attributes.
+    attach_inplaceable_attributes(
+        func, inplaceable=[False, False, False, True, True])
+    attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
+
+    acc_type = acc_mlir_type.element_type
+    with InsertionPoint(func.add_entry_block()):
+      zero = arith.ConstantOp(acc_type, 0.0)
+      tensor_zero = linalg.FillOp(output=func.arguments[3], value=zero)
+      matmul = linalg.matmul(
+          func.arguments[0], func.arguments[1], outs=[tensor_zero])
+      bias_add = add_bias_to_2d(
+          matmul, func.arguments[2], outs=[func.arguments[4]])
+      # linalg.matmul returns a Value instead of OpView, so we have to manually
+      # wrap it in a list here.
+      std.ReturnOp([bias_add])
 
     return func
