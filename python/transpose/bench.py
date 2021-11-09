@@ -8,6 +8,7 @@ from ..core.harness import *
 from ..core.transforms import *
 
 from .definitions import *
+from .ops import *
 
 fun_name = 'transpose_2d_on_tensors'
 op_name = 'linalg.generic'
@@ -87,6 +88,7 @@ def main():
       [4096, 4096],
       [6912, 4608],
   ]
+
   for np_types in [[np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
       compile_time_problem_sizes_dict = {
@@ -103,7 +105,8 @@ def main():
         print(f'\nCompilation expert {expert}')
 
         problem = ProblemInstance(
-            problem_definition=Transpose2dProblem(),
+            problem_definition=TransposeNDProblem(
+                permutation=[1, 0], op_builder=transpose_2d),
             problem_sizes_keys=keys,
             np_types=np_types)
 
