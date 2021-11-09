@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "./lib/CAPI.h"
+#include "include/LinalgExt/LinalgExtDialect.h"
+#include "include/LinalgExt/Passes.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
@@ -33,9 +35,11 @@ int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   ireeLlvmSandboxRegisterPasses();
+  linalg_ext::registerLinalgExtPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registry.insert<linalg_ext::LinalgExtDialect>();
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
                             registry,
