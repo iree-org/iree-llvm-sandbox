@@ -55,6 +55,22 @@ def StagedLowerVectorsTransformationList(**kwargs) -> List[LowerVectors]:
   ]
 
 
+class LoweringOnlyExpert(TransformationList):
+  """Expert compiler that only bufferizes and lowers to LLVM."""
+
+  def __init__(self, transforms: List[Transform] = [], **kwargs):
+    post_bufferization_transforms = [] if 'post_bufferization_transforms' \
+      not in kwargs else kwargs['post_bufferization_transforms']
+    t = transforms + \
+        [ Bufferize(**kwargs) ] + \
+        post_bufferization_transforms + \
+        StagedLowerVectorsTransformationList(**kwargs) + \
+        [ LowerToLLVM(**kwargs) ]
+    d = {'transforms': t}
+    kwargs.update(d)
+    TransformationList.__init__(self, **kwargs)
+
+
 class SingleTilingExpert(TransformationList):
   """Expert compiler that applies a single level of tiling."""
 
@@ -82,16 +98,24 @@ class SingleTilingExpert(TransformationList):
             peel=peel,
             pad=pad,
             pack_paddings=pack_paddings,
-            hoist_paddings=hoist_paddings, **kwargs),
-        Vectorize(fun_name, op_name, **kwargs),
-        Bufferize(**kwargs)
-    ] + \
-    StagedLowerVectorsTransformationList(**kwargs) + \
-    [ LowerToLLVM(**kwargs) ]
+            hoist_paddings=hoist_paddings,
+            **kwargs),
+    ]
+    if 'vectorize' not in kwargs or kwargs['vectorize']:
+      extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
+    extra_transforms.extend(LoweringOnlyExpert(**kwargs).transforms)
 
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
         'transforms'] + extra_transforms
-    d = {'transforms': t}
+    d = {
+        'sizes': sizes,
+        'interchange': interchange,
+        'peel': peel,
+        'pad': pad,
+        'pack_paddings': pack_paddings,
+        'hoist_paddings': hoist_paddings,
+        'transforms': t
+    }
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)
 
@@ -131,7 +155,8 @@ class DoubleTilingExpert(TransformationList):
             peel=peel1,
             pad=pad1,
             pack_paddings=pack_paddings1,
-            hoist_paddings=hoist_paddings1, **kwargs),
+            hoist_paddings=hoist_paddings1,
+            **kwargs),
         Tile(
             fun_name,
             op_name,
@@ -140,16 +165,30 @@ class DoubleTilingExpert(TransformationList):
             peel=peel2,
             pad=pad2,
             pack_paddings=pack_paddings2,
-            hoist_paddings=hoist_paddings2, **kwargs),
-        Vectorize(fun_name, op_name, **kwargs),
-        Bufferize(**kwargs)
-    ] + \
-    StagedLowerVectorsTransformationList(**kwargs) + \
-    [ LowerToLLVM(**kwargs) ]
+            hoist_paddings=hoist_paddings2,
+            **kwargs),
+    ]
+    if 'vectorize' not in kwargs or kwargs['vectorize']:
+      extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
+    extra_transforms.extend(LoweringOnlyExpert([], **kwargs).transforms)
 
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
         'transforms'] + extra_transforms
-    d = {'transforms': t}
+    d = {
+        'sizes1': sizes1,
+        'interchange1': interchange1,
+        'peel1': peel1,
+        'pad1': pad1,
+        'pack_paddings1': pack_paddings1,
+        'hoist_paddings1': hoist_paddings1,
+        'sizes2': sizes2,
+        'interchange2': interchange2,
+        'peel2': peel2,
+        'pad2': pad2,
+        'pack_paddings2': pack_paddings2,
+        'hoist_paddings2': hoist_paddings2,
+        'transforms': t
+    }
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)
 
@@ -217,28 +256,13 @@ class TripleTilingExpert(TransformationList):
             pad=pad3,
             pack_paddings=pack_paddings3,
             hoist_paddings=hoist_paddings3),
-        Vectorize(
-            fun_name,
-            op_name,
-        ),
-        Bufferize()
-    ] + StagedLowerVectorsTransformationList() + [
-        LowerToLLVM(),
     ]
+    if 'vectorize' not in kwargs or kwargs['vectorize']:
+      extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
+    extra_transforms.extend(LoweringOnlyExpert([], **kwargs).transforms)
+
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
         'transforms'] + extra_transforms
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
-
-
-class LoweringOnlyExpert(TransformationList):
-
-  def __init__(self, transforms, **kwargs):
-    t = transforms + \
-        [ Bufferize(**kwargs) ] + \
-        StagedLowerVectorsTransformationList(**kwargs) + \
-        [ LowerToLLVM(**kwargs) ]
     d = {'transforms': t}
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)

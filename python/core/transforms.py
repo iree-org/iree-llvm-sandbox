@@ -7,7 +7,11 @@ import mlir.all_passes_registration
 class Transform:
   """Base class for all parametrized transformations."""
 
+  module: Module
+  fun_name: str
   def __call__(self, module: Module, fun_name: str):
+    self.module = module
+    self.fun_name = fun_name
     PassManager.parse(self.pipeline).run(module)
     return module
 
