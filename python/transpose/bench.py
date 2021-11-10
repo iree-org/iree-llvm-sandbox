@@ -122,7 +122,10 @@ def main():
         problem.run(
             n_iters=n_iters,
             entry_point_name='main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
+            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
+            # Used to pipe through llvm-mca with the **actual JIT'ed object**.
+            # dump_obj_to_file='/tmp/abc.o'
+        )
 
 
 if __name__ == '__main__':

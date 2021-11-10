@@ -126,8 +126,11 @@ class ProblemInstance:
         f.write(str(transformed_module))
         f.close()
 
-  def run(self, n_iters: int, entry_point_name: str,
-          runtime_problem_sizes_dict: dict):
+  def run(self,
+          n_iters: int,
+          entry_point_name: str,
+          runtime_problem_sizes_dict: dict,
+          dump_obj_to_file: str = ""):
     assert_dict_entries_match_keys(runtime_problem_sizes_dict,
                                    self.problem_sizes_keys)
     assert_runtime_sizes_compatible_with_compile_time_sizes(
@@ -153,6 +156,10 @@ class ProblemInstance:
 
     # 3. Dry-run.
     run_n_iters(1)
+
+    # Now dump to obj file as the JIT compilation actually happened.
+    if (len(dump_obj_to_file) > 0):
+      self.mlir_execution_engine.dump_to_object_file(dump_obj_to_file)
 
     # 4. Check.
     if self.problem_definition.check_np is not None:

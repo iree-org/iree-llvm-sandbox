@@ -36,7 +36,7 @@ llvm_mca_flags = lambda args: [
 
 objdump_flags = lambda fn: [
     '-d',
-    f'--section=.text.{fn}',
+    f'--disassemble-symbols={fn}',
     '--no-leading-headers',
     '--no-show-raw-insn',
     '--no-leading-addr',
@@ -44,14 +44,11 @@ objdump_flags = lambda fn: [
     'att',
 ]
 
-
 def objdump_and_llvm_mca(args, obj_file):
   fn = args['f']
-  mlir_file = args['mlir_file']
-  assert is_valid_fn(fn, mlir_file), f'Invalid {fn} in file: {mlir_file}'
 
   # Run llvm-objdump to produce the interesting portion of asm.
-  asm_file = mlir_file + '.S'
+  asm_file = obj_file + '.S'
   f = open(asm_file, 'w')
   objdump = args['llvm_objdump']
   p = subprocess.Popen(
@@ -62,13 +59,13 @@ def objdump_and_llvm_mca(args, obj_file):
   f.close()
 
   # Run llvm-objdump to produce the full asm for debugging.
-  full_asm_file = mlir_file + '-full.S'
+  full_asm_file = obj_file + '-full.S'
   f = open(full_asm_file, 'w')
   subprocess.run([objdump] + ['-d', obj_file], stdout=f)
   f.close()
 
   # Run llvm-mca on asm
-  llvm_mca_out_file = mlir_file + '_llvm_mca.out'
+  llvm_mca_out_file = obj_file + '_llvm_mca.out'
   llvm_mca = args['llvm_mca']
   p = subprocess.run([llvm_mca] + llvm_mca_flags(args) + [asm_file] + ['-o'] +
                      [llvm_mca_out_file])
@@ -76,14 +73,6 @@ def objdump_and_llvm_mca(args, obj_file):
 
   # Dump 10 lines of llvm-mca to stdout.
   subprocess.run(['head', '-n', '10', llvm_mca_out_file])
-
-
-def is_valid_fn(fn: str, mlir_file: str):
-  if fn is None:
-    return False
-  with open(mlir_file, 'r') as f:
-    data = f.read()
-  return fn in data
 
 
 # Run opt and llc to produce a .o
@@ -118,12 +107,14 @@ def compile_to_object(args):
 def main():
   parser = argparse.ArgumentParser(description="""
     Utility to compile to obj and instrument with llvm-mca.
-    Given a /tmp/foo.mlir, this creates the intermediate files:
+    Given -mlir_file=/tmp/foo.mlir, this creates the intermediate files:
        /tmp/foo.mlir.ll
        /tmp/foo.mlir.o
-       /tmp/foo.mlir.S
-       /tmp/foo.mlir-full.S
-       /tmp/foo.mlir_llvm_mca.out
+
+    Given -obj-file=/tmp/foo.mlir.o, this creates the intermediate files
+       /tmp/foo.mlir.o.S
+       /tmp/foo.mlir-full.o.S
+       /tmp/foo.mlir.o_llvm_mca.out
 
     Usage:
     ======
@@ -135,7 +126,8 @@ def main():
       -llvm-opt=${LLVM_BUILD_DIR}/bin/opt \
       -llvm-mca=${LLVM_BUILD_DIR}/bin/llvm-mca \
       -f=fun_name_to_get_info_about \
-      -mlir-file=/tmp/foo.mlir
+      [-mlir-file=/tmp/foo.mlir] \
+      [-obj-file=/tmp/foo.o] \
   """)
   parser.add_argument('-llvm-llc', default='', help='full path to llc')
   parser.add_argument('-llvm-mca', default='', help='full path to llvm-mca')
@@ -148,7 +140,9 @@ def main():
   parser.add_argument(
       '-mlir-file',
       default='',
-      help='full path to mlir file in the llvm dialect')
+      help='(optional) full path to mlir file in the llvm dialect')
+  parser.add_argument(
+      '-obj-file', default='', help='(optional) full path to obj file')
 
   parser.add_argument(
       '-c',
@@ -166,7 +160,10 @@ def main():
       '-f', '-fn', help='name of the function to run through llvm_mca')
   args = vars(parser.parse_args())
 
-  objdump_and_llvm_mca(args, compile_to_object(args))
+  if 'obj_file' in args:
+    objdump_and_llvm_mca(args, args['obj_file'])
+  else:
+    objdump_and_llvm_mca(args, compile_to_object(args))
 
 
 main()
