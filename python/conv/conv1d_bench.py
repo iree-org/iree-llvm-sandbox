@@ -33,7 +33,7 @@ all_experts = [
 ### Problem instantiation
 ################################################################################
 
-keys = ['N', 'W', 'C', 'KW', 'F', 'stride', 'dilation']
+keys = ['N', 'W', 'C', 'KW', 'F', 'strides', 'dilations']
 
 
 # CHECK-NOT: FAILURE
@@ -41,10 +41,10 @@ def main():
   n_iters = 1000
   #   N   W   C  KW   F  st  dil
   problem_size_list = [\
-     [8, 16, 32,  3, 64,  1,  1], \
-     [8, 16, 32,  3, 64,  1,  2], \
-     [8, 16, 32,  3, 64,  2,  1], \
-     [8, 16, 32,  3, 64,  2,  2]  \
+     [8, 16, 32,  3, 64,  [1],  [1]], \
+     [8, 16, 32,  3, 64,  [1],  [2]], \
+     [8, 16, 32,  3, 64,  [2],  [1]], \
+     [8, 16, 32,  3, 64,  [2],  [2]]  \
   ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
@@ -59,11 +59,14 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
-            problem_definition=Conv1d_NWC_WCF_Problem(
-                stride=compile_time_problem_sizes_dict['stride'],
-                dilation=compile_time_problem_sizes_dict['dilation']),
+            problem_definition=ConvolutionProblem(
+                'NWC',
+                'WCF',
+                strides=compile_time_problem_sizes_dict['strides'],
+                dilations=compile_time_problem_sizes_dict['dilations']),
             problem_sizes_keys=keys,
             np_types=np_types)
+        assert problem.problem_definition.keys() == keys
 
         problem.compile(
             entry_point_name='main',

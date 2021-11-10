@@ -8,8 +8,8 @@ from ..core.transforms import *
 
 from .definitions import *
 
-fun_name = 'conv2d_nhwc_hwcf_main'
-op_name = 'linalg.conv_2d_nhwc_hwcf'
+fun_name = 'conv3d_ndhwc_dhwcf_main'
+op_name = 'linalg.conv_3d_ndhwc_dhwcf'
 
 ################################################################################
 ### Compilation strategies.
@@ -19,8 +19,8 @@ all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        #      N  H   W   C  KH  KW  F
-        sizes=[1, 1, 8, 32, 1, 1, 8],
+        #      N  D, H  W  C   KH KW F
+        sizes=[1, 2, 1, 8, 32, 1, 1, 8],
         interchange=[],
         peel=[],
         pad=False,
@@ -33,18 +33,18 @@ all_experts = [
 ### Problem instantiation
 ################################################################################
 
-keys = ['N', 'H', 'W', 'C', 'KH', 'KW', 'F', 'strides', 'dilations']
+keys = ['N', 'D', 'H', 'W', 'C', 'KD', 'KH', 'KW', 'F', 'strides', 'dilations']
 
 
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
-  #   N   H   W   C  KH  KW   F     st      dil
+  #   N  D   H   W   C  KD  KH  KW   F     st      dil
   problem_size_list = [\
-     [8, 16, 16, 32,  3,  3, 64, [1, 1], [1, 1]], \
-     [8, 16, 16, 32,  3,  3, 64, [1, 2], [1, 2]], \
-     [8, 16, 16, 32,  3,  3, 64, [2, 1], [1, 2]], \
-     [8, 16, 16, 32,  3,  3, 64, [2, 2], [2, 2]]  \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 1, 1], [1, 1, 1]], \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 1, 2], [1, 1, 2]], \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 1], [1, 1, 2]], \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 2], [1, 2, 2]]  \
   ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
@@ -60,8 +60,8 @@ def main():
       for expert in all_experts:
         problem = ProblemInstance(
             problem_definition=ConvolutionProblem(
-                'NHWC',
-                'HWCF',
+                'NDHWC',
+                'DHWCF',
                 strides=compile_time_problem_sizes_dict['strides'],
                 dilations=compile_time_problem_sizes_dict['dilations']),
             problem_sizes_keys=keys,
