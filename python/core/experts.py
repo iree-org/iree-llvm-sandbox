@@ -141,10 +141,10 @@ class DoubleTilingExpert(TransformationList):
   }
 
   def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
-               interchange1: Sequence[int], peel1: bool, pad1: bool,
+               interchange1: Sequence[int], peel1: Sequence[int], pad1: bool,
                pack_paddings1: Sequence[int], hoist_paddings1: Sequence[int],
-               sizes2: Sequence[int], interchange2: Sequence[int], peel2: bool,
-               pad2: bool, pack_paddings2: Sequence[int],
+               sizes2: Sequence[int], interchange2: Sequence[int],
+               peel2: Sequence[int], pad2: bool, pack_paddings2: Sequence[int],
                hoist_paddings2: Sequence[int], **kwargs):
     extra_transforms = [
         Tile(
@@ -220,12 +220,12 @@ class TripleTilingExpert(TransformationList):
   }
 
   def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
-               interchange1: Sequence[int], peel1: bool, pad1: bool,
+               interchange1: Sequence[int], peel1: Sequence[int], pad1: bool,
                pack_paddings1: Sequence[int], hoist_paddings1: Sequence[int],
-               sizes2: Sequence[int], interchange2: Sequence[int], peel2: bool,
-               pad2: bool, pack_paddings2: Sequence[int],
+               sizes2: Sequence[int], interchange2: Sequence[int],
+               peel2: Sequence[int], pad2: bool, pack_paddings2: Sequence[int],
                hoist_paddings2: Sequence[int], sizes3: Sequence[int],
-               interchange3: Sequence[int], peel3: bool, pad3: bool,
+               interchange3: Sequence[int], peel3: Sequence[int], pad3: bool,
                pack_paddings3: Sequence[int], hoist_paddings3: Sequence[int],
                **kwargs):
     extra_transforms = [
