@@ -26,7 +26,7 @@ def emit_func(name: str, operand_types: Sequence[Type],
   with InsertionPoint(func.add_entry_block()):
     A, B, C = func.arguments
     va, vb = memref.LoadOp(A, []), memref.LoadOp(B, [])
-    vc = add(vec_type, va, vb)
+    vc = add(va, vb)
     memref.StoreOp(vc, C, [])
     std.ReturnOp([])
 
@@ -44,7 +44,7 @@ def create_vector_add(module, name: str, sizes: Sequence[Type], element_type):
 class Transform(TransformationList):
 
   def __init__(self, **kwargs):
-    extra_transforms = [LowerVectors(), LowerToLLVM()]
+    extra_transforms = [LowerVectors(stage=0), LowerToLLVM()]
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
         'transforms'] + extra_transforms
     d = {'transforms': t}
