@@ -323,7 +323,8 @@ void LinalgTensorCodegenDriverPass::getDependentDialects(
   registry.insert<tensor::TensorDialect>();
   registry.insert<vector::VectorDialect>();
 
-  registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::comprehensive_bufferize::
+      registerBufferizableOpInterfaceExternalModels(registry);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
