@@ -20,6 +20,10 @@ namespace mlir {
 /// Creates a pass to drive transformations on Linalg on tensors.
 std::unique_ptr<OperationPass<ModuleOp>> createLinalgTensorCodegenDriverPass();
 
+
+/// Experimental pass for vector distribution.
+std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
+
 //===----------------------------------------------------------------------===//
 // Registration
 //===----------------------------------------------------------------------===//

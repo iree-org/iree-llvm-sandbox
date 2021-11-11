@@ -130,4 +130,11 @@ def LinalgTensorCodegenDriver
   // than just dialects here.
 }
 
+
+def VectorPropagateDistribution
+    : Pass<"vector-propagate-distribution", "FuncOp"> {
+  let summary = "Pass propagate insert_map/extract_map.";
+  let constructor = "mlir::createPropagateVectorDistribution()";
+}
+
 #endif // RUNNERS_PASSES
