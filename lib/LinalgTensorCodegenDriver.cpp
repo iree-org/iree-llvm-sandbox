@@ -17,6 +17,7 @@
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ComprehensiveBufferize.h"
+#include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
@@ -324,6 +325,8 @@ void LinalgTensorCodegenDriverPass::getDependentDialects(
   registry.insert<vector::VectorDialect>();
 
   linalg::comprehensive_bufferize::
+      registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::comprehensive_bufferize::linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
 }
 
