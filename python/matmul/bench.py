@@ -21,7 +21,7 @@ all_experts = [
         interchange=[0, 1, 2],
         peel=[],
         pad=True,
-        pack_paddings=[0, 1, 2],
+        pack_paddings=[1, 1, 0],
         hoist_paddings=[2, 3, 0],
         print_ir_after_all=False),
     DoubleTilingExpert(
