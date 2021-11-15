@@ -35,16 +35,17 @@ all_experts = [
 
 keys = ['N', 'D', 'H', 'W', 'C', 'KD', 'KH', 'KW', 'F', 'strides', 'dilations']
 
-
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 100
+  n_iters = 1
   #   N  D   H   W   C  KD  KH  KW   F     st      dil
   problem_size_list = [\
      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 1, 1], [1, 1, 1]], \
      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 1, 2], [1, 1, 2]], \
      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 1], [1, 1, 2]], \
-     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 2], [1, 2, 2]]  \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 2], [1, 2, 2]], \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 3], [3, 2, 2]], \
+     [8, 4, 16, 16, 32,  3,  3,  3, 64, [3, 2, 2], [1, 3, 2]], \
   ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:

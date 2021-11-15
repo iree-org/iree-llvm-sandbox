@@ -193,15 +193,25 @@ class ConvolutionProblem(ProblemDefinition):
 
     # The input size is computed by increasing its rank-related dimensions to
     # accommodate kernel sizes with eventual strides and dilations, e.g.:
-    #   dims(I) = [N, H * SH + KH * DH, W * SW + KW * DW, C].
+    #   dims(I) = [N,
+    #             (H - 1) * SH + 1 + (KH - 1) * DH + 1,
+    #             (W - 1) * SW + 1 + (KW - 1) * DW + 1,
+    #.             C]
+    #
+    # Shape relations on rank-related dimensions:
+    #      iw = [(ow - 1) * sw + 1] + [(kw - 1) * dw + 1] - 1
+    #   => iw = [(ow - 1) * sw] + [(kw - 1) * dw] + 1
+    #   => ow = [iw - (kw - 1) * dw - 1] / sw + 1
     input_shape = []
     for pos, char in enumerate(self.__input_format):
       if char in RANK_RELATED_DIMS[-rank:]:
         attribute_pos = RANK_RELATED_DIMS[-rank:].index(char)
         kernel_pos = self.__kernel_format.replace("C", "").index(char)
-        input_shape.append(sizes[pos] * strides[attribute_pos] +
-                           sizes[rank + 2 + kernel_pos] *
-                           dilations[attribute_pos])
+        ow = sizes[pos]
+        sw = strides[attribute_pos]
+        kw = sizes[rank + 2 + kernel_pos]
+        dw = dilations[attribute_pos]
+        input_shape.append(((ow - 1) * sw + 1) + ((kw - 1) * dw + 1) - 1)
       else:
         input_shape.append(sizes[pos])
 
@@ -225,13 +235,18 @@ class ConvolutionProblem(ProblemDefinition):
     sizes, attributes = self.__partition_argument_list(args)
     return (2.0 * np.prod(sizes)) / 1.e9
 
+  # Since we want this to be rank polymorphic, everything is packed in the args.
   def gbyte_count_builder(self, *args: Union[int, List[int]]) -> float:
-    """Supposed to return GByte count given problem parameters.
+    """Return the GByte count given problem parameters."""
+    sizes, other_args = self.__partition_argument_list(args)
+    strides, dilations = other_args[0:2]
+    np_types = other_args[2:]
+    shapes = self.shapes_builder(*sizes, strides, dilations)
 
-    Currently always returns null since we are not interested in memory behavior
-    of convolutions yet.
-    """
-    return 0.0
+    # Unpack the types from `args`.
+    lhs_np_type, rhs_np_type, res_np_type = args[-3:]
+    return 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
+        for s, t in zip(shapes, [lhs_np_type, rhs_np_type, res_np_type]))
 
   def tensors_np_builder(
       self, *args: Union[int, List[int], np.dtype]) -> List[np.dtype]:
@@ -241,6 +256,9 @@ class ConvolutionProblem(ProblemDefinition):
     np_types = other_args[2:]
     shapes = self.shapes_builder(*sizes, strides, dilations)
     tensors = [np.random.rand(*s).astype(t) for s, t in zip(shapes, np_types)]
+    # Uncomment to simplify debugging.
+    # tensors = [np.arange(1, np.prod(s) + 1).reshape(s).astype(t) \
+    #            for s, t in zip(shapes, np_types)]
     tensors[-1].fill(0.)
     return tensors
 
@@ -264,10 +282,16 @@ class ConvolutionProblem(ProblemDefinition):
     # from the shape of O but that requires knowing their position in the list.
     input_rank_dims = I.shape[input_rank_dims_start:input_rank_dims_end]
     kernel_rank_dims = K.shape[kernel_rank_dims_start:kernel_rank_dims_end]
-    output_rank_dims = tuple(
-        (np.array(input_rank_dims) -
-         np.array(kernel_rank_dims) * np.array(self.__dilations)) //
-        np.array(self.__strides))
+    # Shape relations on rank-related dimensions:
+    #      iw = [(ow - 1) * sw + 1] + [(kw - 1) * dw + 1] - 1
+    #   => iw = [(ow - 1) * sw] + [(kw - 1) * dw] + 1
+    #    => ow = [iw - (kw - 1) * dw - 1] / sw + 1
+    iw = np.array(input_rank_dims)
+    kw = np.array(kernel_rank_dims)
+    dw = np.array(self.__dilations)
+    sw = np.array(self.__strides)
+    ones = np.ones(iw.shape, dtype=int)
+    output_rank_dims = tuple((iw - (kw - ones) * dw - ones) // sw + 1)
     input_parallel_dim = self.__input_format[::-1].index("N")
     kernel_parallel_dim = self.__kernel_format[::-1].index("F")
 
@@ -299,8 +323,8 @@ class ConvolutionProblem(ProblemDefinition):
       ranked_pos = 0
       for i, char in enumerate(self.__input_format):
         if char in RANK_RELATED_DIMS:
-          input_strides.append(slice_input.strides[i] *
-                               self.__strides[ranked_pos])
+          input_strides.append( \
+              slice_input.strides[i] * self.__strides[ranked_pos])
           ranked_pos += 1
         else:
           input_strides.append(slice_input.strides[i])
