@@ -26,6 +26,9 @@ all_experts = [
         pad=False,
         pack_paddings=[],
         hoist_paddings=[],
+        # kwargs passed down to LowerVectors.
+        # TODO: better composition of experts.
+        transpose_lowering='shuffle',
         print_ir_after_all=False)
 ]
 

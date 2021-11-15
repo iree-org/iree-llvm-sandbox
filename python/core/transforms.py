@@ -210,6 +210,22 @@ class Generalize(Transform):
     self.pipeline = pipeline
 
 
+class DecomposeToLowerDimensionalNamedOp(Transform):
+  """Rewrite all known named ops to a lower-dimensional form suitable for
+
+     vectorization.
+
+    TODO: atm this is applied to all supported ops. If/when we need finer
+    control this should be exposed with an opName + filter and a proper
+    pattern.
+  """
+
+  def __init__(self, **kwargs):
+    pipeline = (f'linalg-tensor-codegen-driver{{'
+                f'     decompose-to-lower-dim }}')
+    self.pipeline = pipeline
+
+
 class Bufferize(Transform):
 
   def __init__(self, **kwargs):

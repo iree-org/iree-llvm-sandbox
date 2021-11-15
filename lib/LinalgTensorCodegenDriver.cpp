@@ -193,6 +193,7 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
               tilingOptions)
       .padIf(pad, anchorOpName, paddingOptions)
       .generalizeIf(generalize, anchorOpName)
+      // TODO: decomposeToLowerDimIf when the need arises.
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
       .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName);
 
@@ -298,6 +299,17 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
             funcOp, std::move(extraVectorizationPatterns));
       }
     });
+  }
+
+  // TODO: atm this is applied to all supported ops. If/when we need finer
+  // control this should be exposed with an opName + filter and a proper
+  // pattern.
+  if (decomposeToLowerDimOp) {
+    OpPassManager dynamicPM("builtin.module");
+    OpPassManager &nestedDynamicPM = dynamicPM.nest<FuncOp>();
+    nestedDynamicPM.addPass(createLinalgStrategyDecomposePass());
+    if (failed(runPipeline(dynamicPM, getOperation())))
+      return signalPassFailure();
   }
 
   if (bufferize) {

@@ -100,7 +100,10 @@ class SingleTilingExpert(TransformationList):
             pack_paddings=pack_paddings,
             hoist_paddings=hoist_paddings,
             **kwargs),
+        DecomposeToLowerDimensionalNamedOp()
     ]
+    # TODO: After DecomposeToLowerDimensionalNamedOp the op_name to anchor on
+    # changes: we need a better control mechanism.
     if 'vectorize' not in kwargs or kwargs['vectorize']:
       extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
     extra_transforms.extend(LoweringOnlyExpert(**kwargs).transforms)
@@ -167,6 +170,7 @@ class DoubleTilingExpert(TransformationList):
             pack_paddings=pack_paddings2,
             hoist_paddings=hoist_paddings2,
             **kwargs),
+        DecomposeToLowerDimensionalNamedOp()
     ]
     if 'vectorize' not in kwargs or kwargs['vectorize']:
       extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
@@ -256,6 +260,7 @@ class TripleTilingExpert(TransformationList):
             pad=pad3,
             pack_paddings=pack_paddings3,
             hoist_paddings=hoist_paddings3),
+        DecomposeToLowerDimensionalNamedOp()
     ]
     if 'vectorize' not in kwargs or kwargs['vectorize']:
       extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
