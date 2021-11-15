@@ -2,6 +2,7 @@
 # pytype: skip-file
 
 import sys, time
+import os
 from typing import List
 from collections import namedtuple
 from collections.abc import Callable
@@ -26,6 +27,8 @@ numpy_types = {f16: np.float16, f32: np.float32, f64: np.float64}
 
 scalar_types = list(numpy_types.keys())
 
+_MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
+_MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
 
 def numpy_type(scalar_type):
   numpy_types[scalar_type]
@@ -106,8 +109,14 @@ def emit_benchmarking_function(name: str,
   This function calls the given function `func` as many times as requested by
   its last argument.
   """
+  i64_type = IntegerType.get_signless(64)
+  nano_time = builtin.FuncOp(
+      "nano_time", ([], [i64_type]), visibility="private")
+  nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+
   wrapper = builtin.FuncOp(
-      name, (func.arguments.types + [IndexType.get()], func.type.results),
+      name, (func.arguments.types + [IndexType.get()],
+             func.type.results + [i64_type]),
       visibility="public")
   wrapper.attributes["llvm.emit_c_interface"] = UnitAttr.get()
   wrapper.arg_attrs = func.arg_attrs + [DictAttr.get()]
@@ -116,12 +125,20 @@ def emit_benchmarking_function(name: str,
   with InsertionPoint(wrapper.add_entry_block()):
     zero = arith.ConstantOp.create_index(0)
     one = arith.ConstantOp.create_index(1)
-    loop = scf.ForOp(zero, wrapper.arguments[-1], one,
-                     wrapper.arguments[-num_results - 1:-1])
+    total_time = arith.ConstantOp(i64_type, 0)
+    iter_args = list(wrapper.arguments[-num_results - 1:-1])
+    iter_args.append(total_time.result)
+    loop = scf.ForOp(zero, wrapper.arguments[-1], one, iter_args)
     with InsertionPoint(loop.body):
+      time_accumulator = loop.inner_iter_args[-1]
+      start = std.CallOp(nano_time, [])
       call = std.CallOp(
-          func, wrapper.arguments[:-num_results - 1] + loop.inner_iter_args)
-      scf.YieldOp(call)
+          func,
+          wrapper.arguments[:-num_results - 1] + loop.inner_iter_args[:-1])
+      end = std.CallOp(nano_time, [])
+      time = arith.SubIOp(end, start)
+      partial_time = arith.AddIOp(time_accumulator, time)
+      scf.YieldOp(list(call.results) + [partial_time.result])
     std.ReturnOp(loop)
 
   return wrapper
@@ -162,7 +179,12 @@ def build_op_under_context_manager(op,
   with InsertionPoint(module.body):
     emit_benchmarking_function("main", func)
   transformed_module = transform("matmul_on_tensors", module)
-  execution_engine = ExecutionEngine(transformed_module, opt_level)
+  execution_engine = ExecutionEngine(
+      transformed_module,
+      opt_level,
+      shared_libs=[
+          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT)
+      ])
   elapsed_compilation_s = time.time() - start
 
   return transformed_module, execution_engine
@@ -185,7 +207,12 @@ def compile_to_execution_engine(module,
                                 opt_level: int = 3):
   start = time.time()
   transformed_module = transform(module)
-  execution_engine = ExecutionEngine(transformed_module, opt_level)
+  execution_engine = ExecutionEngine(
+      transformed_module,
+      opt_level,
+      shared_libs=[
+          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT)
+      ])
   elapsed_compilation_s = time.time() - start
   print(f"compilation in {elapsed_compilation_s:.{4}}s")
   return transformed_module, execution_engine

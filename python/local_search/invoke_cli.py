@@ -113,15 +113,20 @@ def invoke(op, expert, assignments, iters, runs):
     index_ptr_t = ctypes.c_longlong * 1
 
     def invoke(iters):
-      execution_engine.invoke('main', *memref_inputs, index_ptr_t(iters))
+      timing_data = (index_ptr_t)()
+      execution_engine.invoke(
+          'main', *memref_inputs, index_ptr_t(iters),
+          ctypes.cast(timing_data, ctypes.POINTER(index_ptr_t)))
+      # Benchmarking function returns time in nanoseconds.
+      return timing_data[0] / 1.e9
 
     # Dry-run.
-    timed(invoke, 1)
+    invoke(iters=1)
 
     # Measure.
     times = []
     for _ in range(runs):
-      times.append(timed(invoke, iters))
+      times.append(invoke(iters=iters))
 
     # Report best of the runs.
     return min(times)

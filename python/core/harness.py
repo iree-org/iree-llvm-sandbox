@@ -1,4 +1,4 @@
-import sys, time
+import sys
 
 from collections.abc import Callable
 from typing import Any, List, Optional, Sequence, Type, Union
@@ -24,9 +24,8 @@ def log(*args):
 
 def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
                  n_iters: int):
-  start = time.time()
-  run_n_iters(n_iters)
-  elapsed_s = time.time() - start
+  elapsed_ns = run_n_iters(n_iters)
+  elapsed_s = elapsed_ns / 1.e9
   elapsed_s_per_iter = elapsed_s / n_iters
   gflop_per_s_per_iter = gflop_count / (elapsed_s_per_iter)
   gbyte_per_s_per_iter = gbyte_count / (elapsed_s_per_iter)
@@ -150,9 +149,12 @@ class ProblemInstance:
     # 2. Setup function to run, taking just an n_iters arg.
     def run_n_iters(n_iters: int):
       index_ptr_t = ctypes.c_longlong * 1
-      self.mlir_execution_engine.invoke(entry_point_name,
-                                        *mlir_input_and_outputs_pointers,
-                                        index_ptr_t(n_iters))
+      execution_time_data = index_ptr_t()
+      self.mlir_execution_engine.invoke(
+          entry_point_name, *mlir_input_and_outputs_pointers,
+          index_ptr_t(n_iters),
+          ctypes.cast(execution_time_data, ctypes.POINTER(index_ptr_t)))
+      return execution_time_data[0]
 
     # 3. Dry-run.
     run_n_iters(1)
