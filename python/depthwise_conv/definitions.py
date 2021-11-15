@@ -235,7 +235,7 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     sizes, attributes = self.__partition_argument_list(args)
     return (2.0 * np.prod(sizes)) / 1.e9
 
-  # Since we want this to be rank polymorphic, everything is packed in the args.
+  # Since we want this to be rank-polymorphic, everything is packed in the args.
   def gbyte_count_builder(self, *args: Union[int, List[int]]) -> float:
     """Return the GByte count given problem parameters."""
     sizes, other_args = self.__partition_argument_list(args)
@@ -245,8 +245,10 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
 
     # Unpack the types from `args`.
     lhs_np_type, rhs_np_type, res_np_type = args[-3:]
-    return 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
-        for s, t in zip(shapes, [lhs_np_type, rhs_np_type, res_np_type]))
+    ro_gbytes = 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
+        for s, t in zip(shapes[:2], [lhs_np_type, rhs_np_type]))
+    rw_gbytes = 2.e-9 * np.prod(shapes[-1:]) * np.dtype(res_np_type).itemsize
+    return ro_gbytes + rw_gbytes
 
   def tensors_np_builder(
       self, *args: Union[int, List[int], np.dtype]) -> List[np.dtype]:

@@ -50,9 +50,11 @@ class MatmulProblem(ProblemDefinition):
        Given a list of integer dimensions, return the number of GBytes read or
        written.
     """
-    return float(M * N * np.dtype(lhs_np_type).itemsize +
-                 M * K * np.dtype(rhs_np_type).itemsize +
-                 K * N * np.dtype(acc_np_type).itemsize) / float(1e9)
+    ro_gbytes = 1e-9 * (
+        M * K * np.dtype(rhs_np_type).itemsize +
+        K * N * np.dtype(acc_np_type).itemsize)
+    rw_gbytes = 2e-9 * (M * N * np.dtype(rhs_np_type).itemsize)
+    return ro_gbytes + rw_gbytes
 
   def tensors_np_builder(self, M: int, N: int, K: int, lhs_np_type: np.dtype,
                          rhs_np_type: np.dtype,

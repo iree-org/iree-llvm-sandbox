@@ -245,8 +245,10 @@ class ConvolutionProblem(ProblemDefinition):
 
     # Unpack the types from `args`.
     lhs_np_type, rhs_np_type, res_np_type = args[-3:]
-    return 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
-        for s, t in zip(shapes, [lhs_np_type, rhs_np_type, res_np_type]))
+    ro_gbytes = 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
+        for s, t in zip(shapes[:2], [lhs_np_type, rhs_np_type]))
+    rw_gbytes = 2.e-9 * np.prod(shapes[-1:]) * np.dtype(res_np_type).itemsize
+    return ro_gbytes + rw_gbytes
 
   def tensors_np_builder(
       self, *args: Union[int, List[int], np.dtype]) -> List[np.dtype]:
