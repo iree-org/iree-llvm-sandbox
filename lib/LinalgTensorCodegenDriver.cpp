@@ -11,6 +11,7 @@
 #include "Transforms.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
@@ -62,11 +63,10 @@ struct LinalgTensorCodegenDriverPass
 
 void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
   OpPassManager dynamicPM("builtin.module");
-  OpPassManager &nestedFuncOpPM = dynamicPM.nest<FuncOp>();
   // This is a failsafe catchall, if it does something performance opportunities
   // have been missed previously.
-  nestedFuncOpPM.addPass(createConvertVectorToSCFPass());
-  nestedFuncOpPM.addPass(createConvertLinalgToLoopsPass());
+  dynamicPM.addNestedPass<FuncOp>(createConvertVectorToSCFPass());
+  dynamicPM.addNestedPass<FuncOp>(createConvertLinalgToLoopsPass());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createLowerAffinePass());
   dynamicPM.addPass(createLowerToCFGPass());
@@ -81,6 +81,7 @@ void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
         .enableAMX(amx)
         .enableX86Vector(x86Vector)));
   // clang-format on
+  dynamicPM.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
   dynamicPM.addPass(createMemRefToLLVMPass());
   dynamicPM.addPass(createLowerToLLVMPass());
   dynamicPM.addPass(createCanonicalizerPass());
