@@ -17,6 +17,8 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ComprehensiveBufferize.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
@@ -31,6 +33,9 @@
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Vector/VectorTransforms.h"
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -88,6 +93,16 @@ void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
   dynamicPM.addPass(createCSEPass());
   if (failed(runPipeline(dynamicPM, getOperation())))
     return signalPassFailure();
+
+  // Make all arguments noalias for now.
+  getOperation().walk([](LLVM::LLVMFuncOp funcOp) {
+    for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
+      if (!funcOp.getArgumentTypes()[i]
+               .isa<LLVM::PointerElementTypeInterface>())
+        continue;
+      funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
+    }
+  });
 }
 
 /// Return the neutral element as a new Value.
