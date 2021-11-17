@@ -33,7 +33,7 @@ def emit_func(name: str, operand_types: Sequence[Type],
   return func
 
 
-def create_vector_add(module, name: str, sizes: Sequence[Type], element_type):
+def create_vector_add(module, name: str, sizes: List[int], element_type):
   with InsertionPoint(module.body):
     memref_type = MemRefType.get([], VectorType.get(sizes, element_type))
     func = emit_func(name, [memref_type, memref_type, memref_type], [])
@@ -56,8 +56,8 @@ def main():
   with Context() as ctx, Location.unknown():
     module = Module.create()
     i8, f32 = IntegerType.get_signless(8), F32Type.get()
-    create_vector_add(module, 'add2d_f32', [8, 128], f32)
-    create_vector_add(module, 'add3d_i8', [8, 128, 4], i8)
+    create_vector_add(module, 'add_2d_f32', [8, 128], f32)
+    create_vector_add(module, 'add_3d_i8', [8, 128, 4], i8)
 
     transform = Transform(
         # print_ir_after_all=True,
@@ -65,7 +65,7 @@ def main():
     )
 
     def apply_transform_to_entry_point_name(module):
-      return transform('add2d_f32', module)
+      return transform('add_2d_f32', module)
 
     transformed_module, execution_engine = compile_to_execution_engine(
         module, apply_transform_to_entry_point_name)

@@ -48,7 +48,7 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
-            problem_definition=Reduction2dProblem(),
+            problem_definition=Reduction2DProblem(),
             problem_sizes_keys=keys,
             np_types=np_types)
 

@@ -11,7 +11,7 @@ from .definitions import *
 
 from typing import List
 
-base_fun_name = 'copy2d_on_tensors'
+base_fun_name = 'copy_2d_on_tensors'
 op_name = 'linalg.generic'
 
 ################################################################################
@@ -124,7 +124,7 @@ def main():
           print(f'\t sizes = {expert.__dict__["sizes"]}')
 
         problem = ProblemInstance(
-            problem_definition=Copy2dProblem(),
+            problem_definition=Copy2DProblem(),
             problem_sizes_keys=keys,
             np_types=np_types)
 

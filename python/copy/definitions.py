@@ -32,7 +32,7 @@ def copy_2d(I=TensorDef(T, S.M, S.N), O=TensorDef(T, S.M, S.N, output=True)):
   O[D.m, D.n] = I[D.m, D.n]
 
 
-class Copy2dProblem(ProblemDefinition):
+class Copy2DProblem(ProblemDefinition):
   """ Problem definition for a single copy_2d problem."""
 
   def shapes_builder(self, M: int, N: int) -> List[List[int]]:

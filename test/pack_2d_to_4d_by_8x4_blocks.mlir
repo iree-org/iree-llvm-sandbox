@@ -45,15 +45,15 @@ func @main() {
       %f = arith.sitofp %k : i32 to f32
       linalg.yield %f : f32
   } -> tensor<32x32xf32>
-  // Perform the packing of the above 2d tensor %a into a 4d tensor %a4d
+  // Perform the packing of the above 2d tensor %a into a 4d tensor %a_4d
   // packed by 8x4 blocks.
-  %dst4d_init = linalg.init_tensor [4, 8, 8, 4] : tensor<4x8x8x4xf32>
-  %a4d = linalg.generic #pack_2d_to_4d_by_8x4_blocks_trait ins(%a : tensor<32x32xf32>) outs(%dst4d_init : tensor<4x8x8x4xf32>) {
+  %dst_4d_init = linalg.init_tensor [4, 8, 8, 4] : tensor<4x8x8x4xf32>
+  %a_4d = linalg.generic #pack_2d_to_4d_by_8x4_blocks_trait ins(%a : tensor<32x32xf32>) outs(%dst_4d_init : tensor<4x8x8x4xf32>) {
     ^bb0(%x : f32, %y : f32):
       linalg.yield %x : f32
   } -> tensor<4x8x8x4xf32>
   // Read and print out the 4d tensor.
-  %val = vector.transfer_read %a4d[%c0, %c0, %c0, %c0], %v0: tensor<4x8x8x4xf32>, vector<4x8x8x4xf32>
+  %val = vector.transfer_read %a_4d[%c0, %c0, %c0, %c0], %v0: tensor<4x8x8x4xf32>, vector<4x8x8x4xf32>
   vector.print %val: vector<4x8x8x4xf32>
 
   return

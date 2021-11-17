@@ -33,7 +33,7 @@ def column_reduction_2d(
   B[D.m] += A[D.m, D.n]
 
 
-class Reduction2dProblem(ProblemDefinition):
+class Reduction2DProblem(ProblemDefinition):
   """ Problem definition for a single fill + reduction_2d problem."""
 
   def shapes_builder(self, M: int, K: int) -> List[List[int]]:
