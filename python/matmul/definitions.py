@@ -13,7 +13,7 @@ from ..core.problem_definition import *
 from ..core.utils import *
 
 # TODO: Orthogonal configuration object.
-avx512 = True
+avx512 = False
 
 
 ################################################################################
