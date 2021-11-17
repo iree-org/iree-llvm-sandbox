@@ -245,7 +245,8 @@ class LowerVectors(Transform):
         not in kwargs else kwargs['multi_reduction_lowering']
     transpose_lowering = 'eltwise' if 'transpose_lowering' not in \
         kwargs else kwargs['transpose_lowering']
-
+    transpose_avx2_lowering = False if ('transpose_avx2_lowering' not in \
+        kwargs or not kwargs['transpose_lowering']) else True
     pipeline = (
         f'linalg-tensor-codegen-driver{{'
         f'    lower-vector '
@@ -253,6 +254,7 @@ class LowerVectors(Transform):
         f'    max-transfer-rank=1 '
         f'    split-transfers=linalg-copy '
         f'    lower-vector-transpose-to={transpose_lowering} '
+        f'    lower-vector-transpose-to-avx2={transpose_avx2_lowering} '
         f'    lower-vector-multi-reduction-to={multi_reduction_lowering} '
         f'    lower-vector-contraction-to={contraction_lowering} '
         f'    unroll-vector-transfers=true}},'

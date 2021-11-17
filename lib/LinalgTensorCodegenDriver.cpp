@@ -32,7 +32,9 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Vector/VectorRewritePatterns.h"
 #include "mlir/Dialect/Vector/VectorTransforms.h"
+#include "mlir/Dialect/X86Vector/Transforms.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -260,8 +262,18 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
 
   // Per-function lowering pipeline.
   getOperation().walk([&](FuncOp funcOp) {
-    CodegenStrategy strategy;
-    strategy.vectorLowering(
+    vector::VectorTransformsOptions vectorTransformOptions =
+        vector::VectorTransformsOptions()
+            .setVectorTransposeLowering(vectorTransposeLowering)
+            .setVectorTransformsOptions(vectorContractLowering)
+            .setVectorMultiReductionLowering(vectorMultiReductionLowering)
+            .setVectorTransferSplit(vectorTransferSplit);
+    VectorTransferToSCFOptions vectorTransferToSCFOptions =
+        VectorTransferToSCFOptions()
+            .enableFullUnroll(unrollVectorTransfers)
+            .enableLowerPermutationMaps();
+
+    LinalgVectorLoweringOptions vectorLoweringOptions =
         LinalgVectorLoweringOptions()
             // Lowering of vector contractions.
             .enableContractionLowering(vectorLoweringStage >= 0)
@@ -277,21 +289,21 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
             .enableTransferLowering(vectorLoweringStage >= 3)
             // Conversion to scf.
             .enableTransferToSCFConversion(vectorLoweringStage >= 4)
-            .setVectorTransferToSCFOptions(
-                VectorTransferToSCFOptions()
-                    .enableFullUnroll(unrollVectorTransfers)
-                    .enableLowerPermutationMaps())
+            .setVectorTransferToSCFOptions(vectorTransferToSCFOptions)
             // Lowering of vector.shape_cast.
             .enableShapeCastLowering(vectorLoweringStage >= 5)
             // Lowering of vector.transpose.
             .enableVectorTransposeLowering(vectorLoweringStage >= 6)
-            .setVectorTransformsOptions(
-                vector::VectorTransformsOptions()
-                    .setVectorTransposeLowering(vectorTransposeLowering)
-                    .setVectorTransformsOptions(vectorContractLowering)
-                    .setVectorMultiReductionLowering(
-                        vectorMultiReductionLowering)
-                    .setVectorTransferSplit(vectorTransferSplit)));
+            .setVectorTransformsOptions(vectorTransformOptions)
+            .enableAVX2Lowering(lowerVectorTransposeToAVX2)
+            .setAVX2LoweringOptions(
+                x86vector::avx2::LoweringOptions().setTransposeOptions(
+                    x86vector::avx2::TransposeLoweringOptions()
+                        .lower4x8xf32(lowerVectorTransposeToAVX2)
+                        .lower8x8xf32(lowerVectorTransposeToAVX2)));
+
+    CodegenStrategy strategy;
+    strategy.vectorLowering(vectorLoweringOptions);
     // Created a nested OpPassManager and run.
     OpPassManager dynamicPM("builtin.func");
     strategy.configurePassPipeline(dynamicPM, funcOp.getContext());

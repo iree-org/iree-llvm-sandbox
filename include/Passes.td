@@ -99,6 +99,9 @@ def LinalgTensorCodegenDriver
           "\teltwise [default]\n"
           "\tflat_transpose (requires LLVM matrix intrinsics support)\n"
           "\tshuffle (lower 2-D transposes to shape_cast + shuffle)\n}]>,
+    Option<"lowerVectorTransposeToAVX2", "lower-vector-transpose-to-avx2", "bool",
+      /*default=*/"false",
+      "Add specific transpose to avx2 lowering patterns.">,
     Option<"lowerVectorMultiReductionTo", "lower-vector-multi-reduction-to",
        "std::string", /*default=*/[{"innerparallel"}],
       [{Lower vector.multi_reduction to finer-grained vector ops, options are:\n"
