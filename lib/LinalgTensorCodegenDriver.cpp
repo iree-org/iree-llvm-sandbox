@@ -99,7 +99,7 @@ void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
     for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
       if (!funcOp.getType()
                .getParamType(i)
-               .isa<LLVM::PointerElementTypeInterface>())
+               .isa<LLVM::LLVMPointerType>())
         continue;
       funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
     }
