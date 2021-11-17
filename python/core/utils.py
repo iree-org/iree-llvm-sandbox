@@ -46,3 +46,17 @@ def np_type_to_mlir_type(np_type: np.dtype):
     return F64Type.get()
   else:
     raise Exception(f'unknown scalar type: {np_type}')
+
+
+def realign(allocated_unaligned: np.ndarray, byte_alignment: int = 64):
+  shape = allocated_unaligned.shape
+  dt = allocated_unaligned.dtype
+  effective_size_in_bytes = np.prod(shape) * np.dtype(dt).itemsize
+  total_size_in_bytes = effective_size_in_bytes + byte_alignment
+  buf = np.empty(total_size_in_bytes, dtype=np.byte)
+  off = (-buf.ctypes.data % byte_alignment)
+  allocated_aligned = buf[off:off +
+                          effective_size_in_bytes].view(dt).reshape(shape)
+  np.copyto(allocated_aligned, allocated_unaligned)
+  assert allocated_aligned.ctypes.data % byte_alignment == 0
+  return allocated_aligned

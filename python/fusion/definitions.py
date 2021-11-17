@@ -66,7 +66,16 @@ class MatmulProblem(ProblemDefinition):
     """
     shapes = self.shapes_builder(M, N, K)
     np_types = [lhs_np_type, rhs_np_type, acc_np_type]
-    tensors = [np.random.rand(*s).astype(t) for s, t in zip(shapes, np_types)]
+    tensors = [
+        realign(np.random.rand(*s).astype(t), byte_alignment=64)
+        for s, t in zip(shapes, np_types)
+    ]
+    # Uncomment to simplify debugging.
+    # tensors = [
+    #     realign(np.arange(1, np.prod(s) + 1).reshape(s).astype(t), \
+    #             byte_alignment=64) \
+    #     for s, t in zip(shapes, np_types)
+    # ]
     tensors[len(tensors) - 1].fill(0.)
     return tensors
 

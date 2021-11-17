@@ -67,7 +67,7 @@ class Copy2dProblem(ProblemDefinition):
     np_types = [input_np_type, res_np_type]
     # For transpose it is better to use integer matrices and see what happens.
     tensors = [
-        np.arange(0, M * N).reshape(s).astype(t)
+        realign(np.arange(0, M * N).reshape(s).astype(t), byte_alignment=64)
         for s, t in zip(shapes, np_types)
     ]
     tensors[len(tensors) - 1].fill(0.)

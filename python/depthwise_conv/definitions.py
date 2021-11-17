@@ -257,10 +257,16 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     strides, dilations = other_args[0:2]
     np_types = other_args[2:]
     shapes = self.shapes_builder(*sizes, strides, dilations)
-    tensors = [np.random.rand(*s).astype(t) for s, t in zip(shapes, np_types)]
+    tensors = [
+        realign(np.random.rand(*s).astype(t), byte_alignment=64)
+        for s, t in zip(shapes, np_types)
+    ]
     # Uncomment to simplify debugging.
-    # tensors = [np.arange(1, np.prod(s) + 1).reshape(s).astype(t) \
-    #            for s, t in zip(shapes, np_types)]
+    # tensors = [
+    #     realign(np.arange(1, np.prod(s) + 1).reshape(s).astype(t), \
+    #             byte_alignment=64) \
+    #     for s, t in zip(shapes, np_types)
+    # ]
     tensors[-1].fill(0.)
     return tensors
 

@@ -76,9 +76,15 @@ class TransposeNDProblem(ProblemDefinition):
     sizes, np_types = self.__partition_argument_list(args)
     shapes = self.shapes_builder(*sizes)
     tensors = [
-        np.random.rand(*shape).astype(ty)
-        for shape, ty in zip(shapes, np_types)
+        realign(np.random.rand(*s).astype(t), byte_alignment=64)
+        for s, t in zip(shapes, np_types)
     ]
+    # Uncomment to simplify debugging.
+    # tensors = [
+    #     realign(np.arange(1, np.prod(s) + 1).reshape(s).astype(t), \
+    #             byte_alignment=64) \
+    #     for s, t in zip(shapes, np_types)
+    # ]
     tensors[-1].fill(0.)
     return tensors
 
