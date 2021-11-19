@@ -16,13 +16,17 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.9
+
     - name: Checkout project
       uses: actions/checkout@v2
-      path: sandbox
+      with:
+        path: sandbox
     - name: Checkout IREE
       uses: actions/checkout@v2
-      path: iree
-      repository: google/iree
+      with:
+        path: iree
+        repository: google/iree
+
     - name: Checkout LLVM submodule
       run: |
         cd ${GITHUB_WORKSPACE}/iree
