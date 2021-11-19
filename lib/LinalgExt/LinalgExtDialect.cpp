@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "include/LinalgExt/LinalgExtDialect.h"
+#include "LinalgExt/LinalgExtDialect.h"
 
-#include "include/LinalgExt/LinalgExtDialect.cpp.inc"
-#include "include/LinalgExt/LinalgExtOps.h"
+#include "LinalgExt/LinalgExtOps.h"
+#include "LinalgExt/LinalgExtOpsDialect.cpp.inc"
 
 namespace mlir {
 namespace linalg_ext {
@@ -17,7 +17,7 @@ namespace linalg_ext {
 void LinalgExtDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
-#include "include/LinalgExt/LinalgExtOps.cpp.inc"
+#include "LinalgExt/LinalgExtOps.cpp.inc"
       >();
 }
 

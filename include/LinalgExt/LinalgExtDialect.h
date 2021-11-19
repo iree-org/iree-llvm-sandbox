@@ -13,7 +13,7 @@
 #include "mlir/IR/OpDefinition.h"
 
 // clang-format off: must be included after all LLVM/MLIR headers
-#include "include/LinalgExt/LinalgExtDialect.h.inc"  // IWYU pragma: keep
+#include "LinalgExt/LinalgExtOpsDialect.h.inc"  // IWYU pragma: keep
 // clang-format on
 
 #endif  // RUNNERS_LINALGEXT_LINALGEXTBASE_H

@@ -18,7 +18,7 @@ std::unique_ptr<OperationPass<FuncOp>> createLinalgExtTilingPass(
     ArrayRef<int64_t> tileSizes = {});
 
 #define GEN_PASS_REGISTRATION
-#include "include/LinalgExt/Passes.h.inc"
+#include "LinalgExt/Passes.h.inc"
 
 }  // namespace linalg_ext
 }  // namespace mlir

@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "include/LinalgExt/LinalgExtOps.h"
+#include "LinalgExt/LinalgExtOps.h"
 
-#include "include/LinalgExt/LinalgExtInterfaces.h"
+#include "LinalgExt/LinalgExtInterfaces.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
@@ -225,4 +225,4 @@ static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
 }
 
 #define GET_OP_CLASSES
-#include "include/LinalgExt/LinalgExtOps.cpp.inc"
+#include "LinalgExt/LinalgExtOps.cpp.inc"

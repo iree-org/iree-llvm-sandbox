@@ -9,8 +9,8 @@
 #ifndef RUNNERS_LINALGEXT_LINALGEXTOPS_H
 #define RUNNERS_LINALGEXT_LINALGEXTOPS_H
 
-#include "include/LinalgExt/LinalgExtDialect.h"
-#include "include/LinalgExt/LinalgExtInterfaces.h"
+#include "LinalgExt/LinalgExtDialect.h"
+#include "LinalgExt/LinalgExtInterfaces.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
@@ -18,6 +18,6 @@
 #include "mlir/Interfaces/TilingInterface.h"
 
 #define GET_OP_CLASSES
-#include "include/LinalgExt/LinalgExtOps.h.inc"
+#include "LinalgExt/LinalgExtOps.h.inc"
 
 #endif  // RUNNERS_LINALGEXT_LINALGEXTOPS_H

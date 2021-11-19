@@ -1,4 +1,4 @@
-include(AddMLIR)
+add_subdirectory(LinalgExt)
 
 add_mlir_library(IREELinalgTensorSandbox
   ConvertToAsyncDialect.cpp
@@ -6,6 +6,7 @@ add_mlir_library(IREELinalgTensorSandbox
   FuseFillIntoReduction.cpp
   LinalgTensorCodegenDriver.cpp
   LinalgTileAndFuse.cpp
+  VectorDistribution.cpp
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
@@ -15,6 +16,9 @@ add_mlir_library(IREELinalgTensorSandbox
 
   DEPENDS
   RunnersPassIncGen
+  MLIRLinalgExtInterfacesIncGen
+  MLIRLinalgExtOpsIncGen
+  MLIRLinalgExtPassIncGen
 )
 
 add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
