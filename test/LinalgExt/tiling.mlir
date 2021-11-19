@@ -1,5 +1,6 @@
 // RUN: mlir-proto-opt -linalg-ext-tiling="tile-sizes=2,4" %s | FileCheck %s
 
+// CHECK: func @reverse_1d_tensor
 func @reverse_1d_tensor(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index

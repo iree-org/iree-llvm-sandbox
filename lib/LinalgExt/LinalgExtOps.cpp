@@ -9,6 +9,7 @@
 #include "include/LinalgExt/LinalgExtOps.h"
 
 #include "include/LinalgExt/LinalgExtInterfaces.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -17,10 +18,8 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/FunctionImplementation.h"
 #include "mlir/IR/OpImplementation.h"
-
-#define GET_OP_CLASSES
-#include "include/LinalgExt/LinalgExtOps.cpp.inc"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -155,3 +154,75 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
   }
   return tiledRevOp;
 }
+
+//===----------------------------------------------------------------------===//
+// TileOp
+//===----------------------------------------------------------------------===//
+
+using BodyBuilderFn =
+    function_ref<void(OpBuilder &, Location, Value /*offset*/, Value /*size*/)>;
+
+static LogicalResult verify(TileOp op) { return success(); }
+
+static void print(OpAsmPrinter &p, TileOp op) {
+  p << ' ' << op.tile_sizes() << ' ';
+  if (!op.outs().empty()) {
+    p << "outs(";
+    llvm::interleaveComma(op.outs(), p,
+                          [&p](Value v) { p << v << ": " << v.getType(); });
+    p << ')';
+  }
+  p << " -> (" << op.getResultTypes() << ')';
+  p.printRegion(op.region(),
+                /*printEntryBlockArgs=*/true,
+                /*printBlockTerminators=*/true);
+  p.printOptionalAttrDict(op->getAttrs());
+}
+
+static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
+  auto &builder = parser.getBuilder();
+
+  OpAsmParser::OperandType tileSizes;
+  // TODO: also allow tensor<..xindex> and figure out a good syntax.
+  // Type tensorOfIndexType =
+  //     RankedTensorType::get({ShapedType::kDynamicSize}, indexType);
+  Type tileSizesType = builder.getIndexType();
+  SmallVector<Type> outsTypes;
+  SmallVector<OpAsmParser::OperandType, 4> outsOperands;
+
+  llvm::SMLoc outputsOperandsLoc;
+  if (parser.parseOperand(tileSizes) ||
+      parser.resolveOperand(tileSizes, tileSizesType, result.operands))
+    return failure();
+
+  if (succeeded(parser.parseOptionalKeyword("outs"))) {
+    bool _1;
+    SmallVector<NamedAttrList> _2;
+    outputsOperandsLoc = parser.getCurrentLocation();
+    if (mlir::function_like_impl::parseFunctionArgumentList(
+            parser,
+            /*allowAttributes=*/false, /*allowVariadic=*/false, outsOperands,
+            outsTypes, /*argAttrs=*/_2, /*isVariadic=*/_1) ||
+        parser.resolveOperands(outsOperands, outsTypes, outputsOperandsLoc,
+                               result.operands))
+      return failure();
+  }
+  if (parser.parseArrowTypeList(result.types)) return failure();
+
+  SmallVector<OpAsmParser::OperandType, 8> regionOperands;
+  std::unique_ptr<Region> region = std::make_unique<Region>();
+  SmallVector<Type, 8> operandTypes, regionTypes;
+  if (parser.parseRegion(*region, regionOperands, regionTypes))
+    return failure();
+
+  // Parse the optional attribute list.
+  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+
+  TileOp::ensureTerminator(*region, builder, result.location);
+  result.addRegion(std::move(region));
+
+  return success();
+}
+
+#define GET_OP_CLASSES
+#include "include/LinalgExt/LinalgExtOps.cpp.inc"
