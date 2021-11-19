@@ -8,6 +8,7 @@ add_mlir_library(IREELinalgTensorSandbox
   LINK_LIBS PRIVATE
   MLIRAsync
   MLIRGPUOps
+  MLIRLinalg
   MLIRLinalgTransforms
 
   DEPENDS

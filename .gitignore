@@ -4,6 +4,7 @@
 # Visual Studio files
 .vs/
 .vscode/
+.env
 *.sdf
 *.opensdf
 *.VC.opendb

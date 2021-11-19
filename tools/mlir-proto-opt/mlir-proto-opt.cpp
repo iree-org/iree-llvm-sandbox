@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "./lib/CAPI.h"
+#include "CAPI.h"
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
@@ -32,14 +32,29 @@ using namespace llvm;
 using namespace mlir;
 using namespace mlir::linalg;
 
+#ifdef SANDBOX_ENABLE_IREE_DIALECTS
+#include "iree-dialects/Dialect/Input/InputDialect.h"
+#include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
+#include "iree-dialects/Dialect/LinalgExt/Transforms/Passes.h"
+
+static void registerIreeDialects(DialectRegistry &registry) {
+  registry.insert<mlir::iree_compiler::IREE::Input::IREEInputDialect>();
+  registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect>();
+  mlir::iree_compiler::IREE::LinalgExt::registerPasses();
+}
+#else
+static void registerIreeDialects(DialectRegistry &registry) {}
+#endif
+
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   ireeLlvmSandboxRegisterPasses();
-  linalg_ext::registerLinalgExtPasses();
+  //linalg_ext::registerLinalgExtPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registerIreeDialects(registry);
   registry.insert<linalg_ext::LinalgExtDialect, vector_ext::VectorExtDialect>();
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
