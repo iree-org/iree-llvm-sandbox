@@ -60,7 +60,7 @@ def main(args):
 
   # Detect LLVM.
   if args.llvm_path:
-    llvm_path = args.llvm_path
+    llvm_path = os.path.abspath(args.llvm_path)
     print(f"-- Using explicit llvm-project path: {llvm_path}")
   elif llvm_path:
     print(f"-- Using inferred llvm-project path: {llvm_path}")
