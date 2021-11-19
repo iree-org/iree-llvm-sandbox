@@ -7,7 +7,7 @@ from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
 
-from .definitions import *
+from ..contraction.definitions import EinsumProblem
 
 ################################################################################
 ### Compilation strategies.
@@ -16,7 +16,7 @@ from .definitions import *
 all_experts = [
     SingleTilingExpert(
         'matmul_on_tensors',
-        'linalg.matmul',
+        'linalg.generic',
         sizes=[12, 32, 8],
         interchange=[0, 1, 2],
         peel=[],
@@ -26,7 +26,7 @@ all_experts = [
         print_ir_after_all=False),
     DoubleTilingExpert(
         'matmul_on_tensors',
-        'linalg.matmul',
+        'linalg.generic',
         sizes1=[288, 128, 512],
         interchange1=[0, 2, 1],
         peel1=[],
@@ -72,13 +72,16 @@ def main():
       runtime_problem_sizes_dict = {k: v for k, v in zip(keys, problem_sizes)}
       for compile_time_problem_sizes_dict in [                      \
           # case 1: static at compile time
+
           runtime_problem_sizes_dict,                               \
           {                                                         \
            # case 2: partially dynamic at compile time
+
             k: v for k, v in zip(keys, [-1, problem_sizes[1], -1])  \
           },                                                        \
           {                                                         \
            # case 3: fully dynamic at compile time
+
             k: v for k, v in zip(keys, [-1, -1, -1])                \
           }]:
         # Init printing.
@@ -89,7 +92,7 @@ def main():
             f'Problem types {np_types}')
         for expert in all_experts:
           problem = ProblemInstance(
-              problem_definition=MatmulProblem(),
+              problem_definition=EinsumProblem('mk,kn'),
               problem_sizes_keys=keys,
               np_types=np_types)
 
@@ -113,8 +116,8 @@ def main():
         import os
         if os.environ.get('BENCHMARK_NUMPY'):
           print('Numpy')
-          A, B, C = MatmulProblem().tensors_np_builder(*problem_sizes,
-                                                       *np_types)
+          A, B, C = EinsumProblem('mk,kn').tensors_np_builder(
+              *problem_sizes, *np_types)
 
           def run_n_iters(n_iters: int):
             for _ in range(n_iters):
@@ -123,8 +126,8 @@ def main():
 
           timed_invoke(
               run_n_iters,
-              MatmulProblem().gflop_count_builder(*problem_sizes),
-              MatmulProblem().gbyte_count_builder(*problem_sizes),
+              EinsumProblem('mk,kn').gflop_count_builder(*problem_sizes),
+              EinsumProblem('mk,kn').gbyte_count_builder(*problem_sizes),
               n_iters=n_iters)
 
         # For single-threaded apples-to-apples comparisons, run with:
@@ -134,7 +137,8 @@ def main():
           import torch
           torch.set_num_threads(1)
           A, B, C = [
-              torch.from_numpy(t) for t in MatmulProblem().tensors_np_builder(
+              torch.from_numpy(t)
+              for t in EinsumProblem('mk,kn').tensors_np_builder(
                   *problem_sizes, *np_types)
           ]
 
@@ -145,8 +149,8 @@ def main():
 
           timed_invoke(
               run_n_iters,
-              MatmulProblem().gflop_count_builder(*problem_sizes),
-              MatmulProblem().gbyte_count_builder(*problem_sizes),
+              EinsumProblem('mk,kn').gflop_count_builder(*problem_sizes),
+              EinsumProblem('mk,kn').gbyte_count_builder(*problem_sizes),
               n_iters=n_iters)
 
 

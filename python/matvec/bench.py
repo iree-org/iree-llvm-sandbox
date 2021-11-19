@@ -7,7 +7,7 @@ from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
 
-from .definitions import *
+from ..contraction.definitions import *
 
 ################################################################################
 ### Compilation strategies.
@@ -16,7 +16,7 @@ from .definitions import *
 all_experts = [
     SingleTilingExpert(
         'matvec_on_tensors',
-        'linalg.matvec',
+        'linalg.generic',
         sizes=[12, 32],
         interchange=[0, 1],
         peel=[],
@@ -26,7 +26,7 @@ all_experts = [
         print_ir_after_all=False),
     DoubleTilingExpert(
         'matvec_on_tensors',
-        'linalg.matvec',
+        'linalg.generic',
         sizes1=[128, 128],
         interchange1=[0, 1],
         peel1=[],
@@ -73,7 +73,7 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
-            problem_definition=MatVecProblem(),
+            problem_definition=EinsumProblem('mn,n'),
             problem_sizes_keys=keys,
             np_types=np_types)
 
@@ -93,7 +93,8 @@ def main():
       import os
       if os.environ.get('BENCHMARK_NUMPY'):
         print('Numpy')
-        A, y, x = MatVecProblem().tensors_np_builder(*problem_sizes, *np_types)
+        A, y, x = EinsumProblem('mn,n').tensors_np_builder(
+            *problem_sizes, *np_types)
 
         def run_n_iters(n_iters: int):
           for _ in range(n_iters):
@@ -102,7 +103,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            MatVecProblem().gflop_count_builder(*problem_sizes),
+            EinsumProblem('mn,n').gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
       # For single-threaded apples-to-apples comparisons, run with:
@@ -112,7 +113,8 @@ def main():
         import torch
         torch.set_num_threads(1)
         A, y, x = [
-            torch.from_numpy(t) for t in MatVecProblem().tensors_np_builder(
+            torch.from_numpy(t)
+            for t in EinsumProblem('mn,n').tensors_np_builder(
                 *problem_sizes, *np_types)
         ]
 
@@ -123,7 +125,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            MatVecProblem().gflop_count_builder(*problem_sizes),
+            EinsumProblem('mn,n').gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
 
