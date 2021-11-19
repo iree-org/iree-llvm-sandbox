@@ -15,6 +15,31 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 
 class VectorExt_Op<string mnemonic, list<OpTrait> traits = []> :
     Op<VectorExt_Dialect, mnemonic, traits> {
+  let printer = [{ return ::print(p, *this); }];
+  let parser = [{ return ::parse$cppClass(parser, result); }];
+}
+
+def VectorExt_PredicateOp : VectorExt_Op<"predicate",
+      [DeclareOpInterfaceMethods<RegionBranchOpInterface>,
+       SingleBlockImplicitTerminator<"vector_ext::YieldOp">, RecursiveSideEffects,
+       NoRegionArguments]> {
+  let summary = "vector.predicate operation";
+  let description = [{ TODO }];
+
+  let arguments = (ins VectorOf<[I1]>:$predicate);
+  let results = (outs Variadic<AnyType>:$results);
+  let regions = (region SizedRegion<1>:$truePredicateRegion);
+
+// TODO(diegocaballero): Add falsePredicateRegion.
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$predicate)>,
+    //OpBuilder<(ins "TypeRange":$resultTypes, "Value":$predicate)>,
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$predicate,
+     CArg<"function_ref<void(OpBuilder &, Location)>",
+          "buildTerminatedBody">:$truePredicateBuilder)>
+  ];
 }
 
 def VectorExt_YieldOp : VectorExt_Op<"yield", [

@@ -15,6 +15,14 @@
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
+namespace mlir {
+namespace vector_ext {
+
+void buildTerminatedBody(OpBuilder &builder, Location loc);
+
+}  // namespace vector_ext
+}  // namespace mlir
+
 #define GET_OP_CLASSES
 #include "VectorExt/VectorExtOps.h.inc"
 

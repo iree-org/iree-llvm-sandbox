@@ -13,6 +13,7 @@
 #include "./lib/CAPI.h"
 #include "LinalgExt/LinalgExtDialect.h"
 #include "LinalgExt/Passes.h"
+#include "VectorExt/VectorExtDialect.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
@@ -39,7 +40,7 @@ int main(int argc, char **argv) {
 
   DialectRegistry registry;
   registerAllDialects(registry);
-  registry.insert<linalg_ext::LinalgExtDialect>();
+  registry.insert<linalg_ext::LinalgExtDialect, vector_ext::VectorExtDialect>();
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
                             registry,
