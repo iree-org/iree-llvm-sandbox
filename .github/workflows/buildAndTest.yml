@@ -27,11 +27,23 @@ jobs:
         path: iree
         repository: google/iree
 
-    - name: Checkout LLVM submodule
+    # Note that actions/checkout is faster than a general purpose submodule
+    # fetch (by a lot), so we get the commit hash and check it out ourselves.
+    - name: Get LLVM Commit Hash
+      id: get_llvm_commit_hash
       run: |
         cd ${GITHUB_WORKSPACE}/iree
-        git submodule update --init -- third_party/llvm-project
-    - name: Install MLIR Python depends
+        LLVM_COMMIT="$(git ls-tree HEAD third_party/llvm-project | awk '{print $3}')"
+        echo "::set-output name=LLVM_COMMIT::${LLVM_COMMIT}"
+        echo "Using LLVM commit: $LLVM_COMMIT"
+    - name: Checkout llvm-project
+      uses: actions/checkout@v2
+      with:
+        path: llvm-project
+        repository: llvm/llvm-project
+        ref: ${{ steps.get_llvm_commit_hash.outputs.LLVM_COMMIT }}
+
+    - name: Install Python depends
       run: |
         python -m pip install -r $GITHUB_WORKSPACE/sandbox/requirements.txt
     - name: Install Ninja
@@ -40,7 +52,8 @@ jobs:
       uses: hendrikmuhs/ccache-action@4687d037e4d7cf725512d9b819137a3af34d39b3
       with:
         key: ${{ runner.os }}-buildtestasserts
+
     - name: Build
       run: |
         cd $GITHUB_WORKSPACE/sandbox
-        python configure.py --iree-path=../iree
+        python configure.py --iree-path=../iree --llvm-path=../llvm-project
