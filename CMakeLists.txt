@@ -42,6 +42,7 @@ PRIVATE
   ${conversion_libs}
   MLIRLinalgExt
   MLIROptLib
+  MLIRVectorExt
   IREELinalgTensorSandbox
   IREELinalgTensorSandboxCAPI
 )

@@ -1,4 +1,5 @@
 add_subdirectory(LinalgExt)
+add_subdirectory(VectorExt)
 
 add_mlir_library(IREELinalgTensorSandbox
   ConvertToAsyncDialect.cpp

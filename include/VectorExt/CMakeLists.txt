@@ -1,0 +1,1 @@
+add_mlir_dialect(VectorExtOps vector_ext)
