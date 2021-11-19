@@ -26,6 +26,7 @@ all_experts = [
         pad=False,
         pack_paddings=[],
         hoist_paddings=[],
+        print_ir_at_begin=True,
         print_ir_after_all=False)
 ]
 
@@ -33,15 +34,15 @@ all_experts = [
 ### Problem instantiation
 ################################################################################
 
-keys = ['N', 'W', 'C', 'KW', 'F', 'stride', 'dilation']
+keys = ['N', 'W', 'C', 'KW', 'F', 'WpadL', 'WpadR', 'stride', 'dilation']
 
 
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
-  #   N   W   C  KW   F  st  dil
+  #   N   W   C  KW   F  WpadL WpadR stride dilation
   problem_size_list = [\
-     [8, 16, 32,  3, 64,  1,  1], \
+     [8, 16, 32,  3, 64,     0,    1,     1,       1], \
   ]
   for np_types in [[np.float32, np.float32, np.float32]]:
     for problem_sizes in problem_size_list:
@@ -57,6 +58,8 @@ def main():
       for expert in all_experts:
         problem = ProblemInstance(
             problem_definition=Padded_Conv1d_NWC_WCF_Problem(
+                WpadL=compile_time_problem_sizes_dict['WpadL'],
+                WpadR=compile_time_problem_sizes_dict['WpadR'],
                 stride=compile_time_problem_sizes_dict['stride'],
                 dilation=compile_time_problem_sizes_dict['dilation']),
             problem_sizes_keys=keys,

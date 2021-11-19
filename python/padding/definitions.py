@@ -29,7 +29,9 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
   stride: int
   dilation: int
 
-  def __init__(self, stride: int, dilation: int):
+  def __init__(self, WpadL: int, WpadR: int, stride: int, dilation: int):
+    self.WpadL = WpadL
+    self.WpadR = WpadR
     self.stride = stride
     self.dilation = dilation
 
@@ -49,12 +51,13 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
        between input operands and results.
     """
     self.ensure_stride_and_dilation(stride, dilation)
-    return [[N, stride * W + dilation * KW, C], \
+    return [[N, stride * W + dilation * KW - self.WpadL - self.WpadR, C], \
             [KW, C, F], \
             [N, W, F]]
 
   def gflop_count_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                          stride: int, dilation: int) -> float:
+                          WpadL: int, WpadR: int, stride: int,
+                          dilation: int) -> float:
     """GFlop builder function.
 
        Given a list of integer dimensions, return the number of GFlops computed.
@@ -63,8 +66,8 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     return (2.0 * N * W * C * KW * F) / 1.e9
 
   def gbyte_count_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                          stride: int, dilation: int, input_np_type: np.dtype,
-                          kernel_np_type: np.dtype,
+                          WpadL: int, WpadR: int, stride: int, dilation: int,
+                          input_np_type: np.dtype, kernel_np_type: np.dtype,
                           output_np_type: np.dtype) -> float:
     """GByte builder function.
 
@@ -79,8 +82,8 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     return ro_gbytes + rw_gbytes
 
   def tensors_np_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                         stride: int, dilation: int, input_np_type: np.dtype,
-                         kernel_np_type: np.dtype,
+                         WpadL: int, WpadR: int, stride: int, dilation: int,
+                         input_np_type: np.dtype, kernel_np_type: np.dtype,
                          output_np_type: np.dtype) -> List[np.dtype]:
     """NP tensors building function.
 
@@ -104,13 +107,15 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     # TODO: lift to __init__.
     N, W, F = np.shape(O)[0], np.shape(O)[1], np.shape(O)[2]
     KW, C = np.shape(K)[0], np.shape(K)[1]
+    I2 = np.pad(I, ((0, 0), (self.WpadL, self.WpadR), (0, 0)), 'constant')
+
     O2 = np.copy(O)
     O2.fill(0.)
 
     for kw in range(KW):
       # N, in(W), C => N, in(W), C red
       # Only take a W slice, we'll scale the stride separately.
-      slice_input = I[ \
+      slice_input = I2[ \
           :, \
           self.dilation * kw : self.dilation * kw + W, \
           :  \
@@ -130,8 +135,8 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
       raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 
   def types_mlir_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                         stride: int, dilation: int, input_mlir_type: Type,
-                         kernel_mlir_type: Type,
+                         WpadL: int, WpadR: int, stride: int, dilation: int,
+                         input_mlir_type: Type, kernel_mlir_type: Type,
                          output_mlir_type: Type) -> List[Type]:
     """ MLIR types builder.
 
@@ -142,14 +147,22 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     compiled_function_element_types = [
         input_mlir_type, kernel_mlir_type, output_mlir_type
     ]
-    shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
-    return [RankedTensorType.get(s, t) for s, t in \
-         zip(shapes, compiled_function_element_types)]
+
+    func_shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
+    func_types = [RankedTensorType.get(s, t) for s, t in \
+         zip(func_shapes, compiled_function_element_types)]
+
+    padded_input_shape = [N, stride * W + dilation * KW, C]
+    padded_input_type = RankedTensorType.get(padded_input_shape,
+                                             input_mlir_type)
+
+    return func_types + [padded_input_type]
 
   def build_problem_under_context_manager(self, name: str,
                                           input_mlir_type: Type,
                                           kernel_mlir_type: Type,
-                                          output_mlir_type: Type):
+                                          output_mlir_type: Type,
+                                          padded_input_mlir_type: Type):
     # TODO: -> FuncOp
     """MLIR problem builder.
 
@@ -166,12 +179,32 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     attach_inplaceable_attributes(func, inplaceable=[False, False, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
-    output_type = output_mlir_type.element_type
+    output_element_type = output_mlir_type.element_type
+
+    index_type = IndexType.get()
+    i64_type = IntegerType.get_signless(64)
+    zero_attr = IntegerAttr.get(i64_type, 0)
+    wpadl_attr = IntegerAttr.get(i64_type, self.WpadL)
+    wpadr_attr = IntegerAttr.get(i64_type, self.WpadR)
+
     with InsertionPoint(func.add_entry_block()):
-      zero = arith.ConstantOp(output_type, 0.0)
+      zero = arith.ConstantOp(output_element_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
+
+      padded_input = linalg.PadTensorOp(
+          result=padded_input_mlir_type,
+          source=func.arguments[0],
+          low=[],
+          high=[],
+          static_low=ArrayAttr.get([zero_attr, wpadl_attr, zero_attr]),
+          static_high=ArrayAttr.get([zero_attr, wpadr_attr, zero_attr]),
+          nofold=False)
+      block = Block.create_at_start(padded_input.region, [index_type] * 3)
+      with InsertionPoint(block):
+        linalg.YieldOp(zero)
+
       conv = linalg.conv_1d_nwc_wcf(
-          func.arguments[0],
+          padded_input,
           func.arguments[1],
           outs=[tensor_zero],
           strides=[self.stride],

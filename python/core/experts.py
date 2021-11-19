@@ -21,16 +21,20 @@ class TransformationList:
     - `print_llvmir` (`bool`) - dummy description for print LLVMIR in particular
   """
   transforms: List
+  print_ir_at_begin: bool
   print_ir_after_all: bool
   print_llvmir: bool
 
   def __init__(self, **kwargs):
     self.transforms = []
+    self.print_ir_at_begin = False
     self.print_ir_after_all = False
     self.print_llvmir = False
     self.__dict__.update(kwargs)
 
   def __call__(self, entry_point_name: str, module: Module):
+    if self.print_ir_at_begin:
+      print(module)
     for transform in self.transforms:
       is_llvmir = str(transform).find('LowerToLLVM') >= 0
       print_ir = self.print_llvmir if is_llvmir else self.print_ir_after_all
