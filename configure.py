@@ -38,6 +38,9 @@ def main(args):
       f"-DLLVM_EXTERNAL_SANDBOX_SOURCE_DIR={args.repo_root}",
   ]
 
+  # TODO: Make configurable.
+  llvm_builtin_projects = ["mlir", "clang", "clang-tools-extra"]
+
   # Detect IREE (defaults LLVM path as well).
   iree_path = args.iree_path
   if iree_path:
@@ -106,7 +109,7 @@ def main(args):
       f"-B{build_dir}",
       f"-S{os.path.join(llvm_path, 'llvm')}",
       "-DLLVM_ENABLE_LLD=ON",
-      "-DLLVM_ENABLE_PROJECTS=mlir",
+      f"-DLLVM_ENABLE_PROJECTS={';'.join(llvm_builtin_projects)}",
       "-DLLVM_TARGETS_TO_BUILD=X86;NVPTX",
       "-DMLIR_INCLUDE_INTEGRATION_TESTS=ON",
       "-DLLVM_ENABLE_ASSERTIONS=ON",
