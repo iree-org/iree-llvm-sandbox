@@ -26,4 +26,14 @@ def LinalgExtTiling : Pass<"linalg-ext-tiling", "FuncOp"> {
   ];
 }
 
+def LinalgExtToSCF : Pass<"lower-linalg-ext-to-scf", "FuncOp"> {
+  let summary = "Pass to lower linalg_ext.tile to scf.for.";
+  let constructor = "mlir::linalg_ext::createLinalgExtToSCFPass()";
+  let dependentDialects = [
+    "AffineDialect",
+    "tensor::TensorDialect",
+    "scf::SCFDialect"
+  ];
+}
+
 #endif // RUNNERS_LINALGEXT_PASSES

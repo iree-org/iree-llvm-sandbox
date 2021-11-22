@@ -1,0 +1,163 @@
+//===- LowerToSCF.cpp.cpp - Lower to SCF ----------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#include "LinalgExt/LinalgExtOps.h"
+#include "LinalgExt/PassDetail.h"
+#include "LinalgExt/Passes.h"
+#include "llvm/ADT/STLExtras.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/Identifier.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+
+using namespace mlir;
+using namespace mlir::linalg_ext;
+
+namespace {
+
+struct Tie {
+  AffineExpr e;
+  Value v;
+  operator AffineExpr() const { return e; }
+  operator Value() const { return v; }
+};
+
+/// Helper struct to build simple arithmetic quantities with minimal type
+/// inference support.
+// TODO: move into ArithBuilder once ops have been moved into arith.
+struct AffineBuilder {
+  AffineBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
+
+  Value add(Tie lhs, Tie rhs) {
+    return b.createOrFold<AffineApplyOp>(
+        loc, ArrayRef<AffineExpr>{lhs.e + rhs.e}, ValueRange{lhs, rhs});
+  }
+  Value sub(Tie lhs, Tie rhs) {
+    return b.createOrFold<AffineApplyOp>(
+        loc, ArrayRef<AffineExpr>{lhs.e - rhs.e}, ValueRange{lhs, rhs});
+  }
+  Value mul(Tie lhs, Tie rhs) {
+    return b.createOrFold<AffineApplyOp>(
+        loc, ArrayRef<AffineExpr>{lhs.e * rhs.e}, ValueRange{lhs, rhs});
+  }
+  Value min(ValueRange vals) {
+    return b.createOrFold<AffineMinOp>(
+        loc, AffineMap::getMultiDimIdentityMap(vals.size(), b.getContext()),
+        vals);
+  }
+  Value max(ValueRange vals) {
+    return b.createOrFold<AffineMinOp>(
+        loc, AffineMap::getMultiDimIdentityMap(vals.size(), b.getContext()),
+        vals);
+  }
+
+ private:
+  OpBuilder &b;
+  Location loc;
+};
+
+struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(linalg_ext::TileOp tileOp,
+                                PatternRewriter &rewriter) const override {
+    // TODO: verifier.
+    assert(tileOp.getNumResults() > 0 &&
+           tileOp.outs().size() == tileOp.getNumResults());
+
+    // TODO: when supported, iterate over the tensor of sizes. This will be
+    // iterating through a level of indirection.
+
+    // Construct the loop bounds based on the canonical arithmetic progression.
+    Location loc = tileOp.getLoc();
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    Value totalSize =
+        rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(), zero);
+    Value step = tileOp.tile_sizes();
+    assert(step.getType().isa<IndexType>() && "NYI: not an index type");
+
+    // Construct the op without a body builder: we need to clone the ops in the
+    // body explicitly after having access to the new bbArgs.
+    // As a consequence, `ensureTerminator` is not called and the body has no
+    // terminator.
+    scf::ForOp forOp =
+        rewriter.create<scf::ForOp>(loc, zero, totalSize, step, tileOp.outs());
+
+    rewriter.setInsertionPointToStart(forOp.getBody());
+
+    // TODO: when supported, also compute from the tensor of sizes.
+    AffineBuilder ab(rewriter, loc);
+    AffineExpr i, j, M;
+    bindDims(rewriter.getContext(), i, j);
+    bindSymbols(rewriter.getContext(), M);
+
+    // Materialize the implicit subtensors as explicit subset_extract.
+    // TODO: geenralize to multiple offset/chunk_size bbargs if needed.
+    // TODO: generalize the subset op.
+    Value offset = ab.mul(Tie{i, forOp.getInductionVar()}, Tie{M, step});
+    Value size = ab.min({ab.sub(Tie{i, totalSize}, Tie{j, offset}), step});
+    SmallVector<Value> implicitSubtensorExtracts;
+    for (Value tensor : forOp.getRegionIterArgs()) {
+      implicitSubtensorExtracts.push_back(
+          rewriter.createOrFold<tensor::ExtractSliceOp>(loc, tensor, offset,
+                                                        size, one));
+    }
+
+    // Regroup the values that replace the tileOp's bbArg and move the body.
+    SmallVector<Value> bbArgsTranslated{offset, size};
+    llvm::append_range(bbArgsTranslated, implicitSubtensorExtracts);
+    rewriter.mergeBlocks(&tileOp.region().front(), forOp.getBody(),
+                         bbArgsTranslated);
+    // tileOp's terminator is not the terminator, insert explicit subset_insert
+    // ops and feed them to a new scf.yield terminator that we can now add.
+    auto tileYieldOp = cast<TileYieldOp>(&forOp.getBody()->back());
+    SmallVector<Value> implicitSubtensorInserts;
+    for (auto it :
+         llvm::zip(tileYieldOp.getOperands(), forOp.getRegionIterArgs())) {
+      // TODO: helper/interface to create matching insert/extract given
+      // extract/insert.
+      implicitSubtensorInserts.push_back(
+          rewriter.createOrFold<tensor::InsertSliceOp>(
+              loc, std::get<0>(it), std::get<1>(it), offset, size, one));
+    }
+    // Insert terminator.
+    rewriter.setInsertionPointToEnd(forOp.getBody());
+    rewriter.create<scf::YieldOp>(loc, implicitSubtensorInserts);
+
+    // Cleanup and replace.
+    rewriter.eraseOp(tileYieldOp);
+    rewriter.replaceOp(tileOp, forOp.getResults());
+
+    return success();
+  }
+};
+
+struct LinalgExtToSCFPass : public LinalgExtToSCFBase<LinalgExtToSCFPass> {
+  void runOnOperation() override;
+};
+}  // namespace
+
+void LinalgExtToSCFPass::runOnOperation() {
+  FuncOp funcOp = getOperation();
+  MLIRContext *context = funcOp.getContext();
+  RewritePatternSet patterns(context);
+  patterns.insert<TileOpToSCFRewriter>(context);
+  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+}
+
+std::unique_ptr<OperationPass<FuncOp>>
+mlir::linalg_ext::createLinalgExtToSCFPass() {
+  return std::make_unique<LinalgExtToSCFPass>();
+}
