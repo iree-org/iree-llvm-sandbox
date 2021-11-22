@@ -5,8 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#ifndef RUNNERS_LINALGEXT_PASSDETAIL_H_
-#define RUNNERS_LINALGEXT_PASSDETAIL_H_
+
+#ifndef DIALECTS_LINALGEXT_PASSDETAIL_H_
+#define DIALECTS_LINALGEXT_PASSDETAIL_H_
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
@@ -24,4 +25,4 @@ namespace linalg_ext {
 }  // namespace linalg_ext
 }  // namespace mlir
 
-#endif  //  RUNNERS_LINALGEXT_PASSDETAIL_H_
+#endif // DIALECTS_LINALGEXT_PASSDETAIL_H_

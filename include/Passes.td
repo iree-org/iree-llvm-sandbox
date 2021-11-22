@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_PASSES
-#define RUNNERS_PASSES
+#ifndef IREE_LLVM_SANDBOX_PASSES
+#define IREE_LLVM_SANDBOX_PASSES
 
 include "mlir/Pass/PassBase.td"
 
@@ -148,4 +148,4 @@ def VectorPropagateDistribution
   let constructor = "mlir::createPropagateVectorDistribution()";
 }
 
-#endif // RUNNERS_PASSES
+#endif // IREE_LLVM_SANDBOX_PASSES

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTBASE_H
-#define RUNNERS_LINALGEXT_LINALGEXTBASE_H
+#ifndef DIALECTS_LINALGEXT_LINALGEXTBASE_H
+#define DIALECTS_LINALGEXT_LINALGEXTBASE_H
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
@@ -16,4 +16,4 @@
 #include "Dialects/LinalgExt/LinalgExtOpsDialect.h.inc"  // IWYU pragma: keep
 // clang-format on
 
-#endif  // RUNNERS_LINALGEXT_LINALGEXTBASE_H
+#endif // DIALECTS_LINALGEXT_LINALGEXTBASE_H

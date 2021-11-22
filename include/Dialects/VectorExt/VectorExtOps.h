@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_VECTOREXT_VECTOREXTOPS_H
-#define RUNNERS_VECTOREXT_VECTOREXTOPS_H
+#ifndef DIALECTS_VECTOREXT_VECTOREXTOPS_H
+#define DIALECTS_VECTOREXT_VECTOREXTOPS_H
 
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "mlir/IR/OpDefinition.h"
@@ -26,4 +26,4 @@ void buildTerminatedBody(OpBuilder &builder, Location loc);
 #define GET_OP_CLASSES
 #include "Dialects/VectorExt/VectorExtOps.h.inc"
 
-#endif  // RUNNERS_VECTOREXT_VECTOREXTOPS_H
+#endif // DIALECTS_VECTOREXT_VECTOREXTOPS_H

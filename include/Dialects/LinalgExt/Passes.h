@@ -5,8 +5,8 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#ifndef RUNNERS_LINALGEXT_PASSES_H_
-#define RUNNERS_LINALGEXT_PASSES_H_
+#ifndef DIALECTS_LINALGEXT_PASSES_H_
+#define DIALECTS_LINALGEXT_PASSES_H_
 
 #include "mlir/Pass/Pass.h"
 
@@ -25,4 +25,4 @@ std::unique_ptr<OperationPass<FuncOp>> createLinalgExtToSCFPass();
 }  // namespace linalg_ext
 }  // namespace mlir
 
-#endif  // RUNNERS_LINALGEXT_PASSES_H_
+#endif // DIALECTS_LINALGEXT_PASSES_H_

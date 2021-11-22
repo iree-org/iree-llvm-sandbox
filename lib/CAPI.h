@@ -27,4 +27,4 @@ MLIR_CAPI_EXPORTED void ireeLlvmSandboxRegisterPasses();
 }
 #endif
 
-#endif  // IREE_LLVM_SANDBOX_LIB_CAPI_H
+#endif // IREE_LLVM_SANDBOX_LIB_CAPI_H

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_PASSDETAIL_H_
-#define RUNNERS_PASSDETAIL_H_
+#ifndef IREE_LLVM_SANDBOX_PASSDETAIL_H_
+#define IREE_LLVM_SANDBOX_PASSDETAIL_H_
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/IR/Dialect.h"
@@ -43,4 +43,4 @@ class VectorDialect;
 
 }  // end namespace mlir
 
-#endif  // RUNNERS_PASSDETAIL_H_
+#endif  // IREE_LLVM_SANDBOX_PASSDETAIL_H_

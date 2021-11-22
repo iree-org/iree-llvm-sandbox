@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTOPS
-#define RUNNERS_LINALGEXT_LINALGEXTOPS
+#ifndef DIALECTS_LINALGEXT_LINALGEXTOPS
+#define DIALECTS_LINALGEXT_LINALGEXTOPS
 
 include "Dialects/LinalgExt/LinalgExtBase.td"
 include "Dialects/LinalgExt/LinalgExtInterfaces.td"
@@ -184,4 +184,4 @@ def LinalgExt_TileYieldOp : LinalgExt_PureOp<"tile_yield", [
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
-#endif // RUNNERS_LINALGEXT_LINALGEXTOPS
+#endif // DIALECTS_LINALGEXT_LINALGEXTOPS

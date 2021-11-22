@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXTINTERFACE_H
-#define RUNNERS_LINALGEXTINTERFACE_H
+#ifndef DIALECTS_LINALGEXT_LINALGEXTINTERFACE_H
+#define DIALECTS_LINALGEXT_LINALGEXTINTERFACE_H
 
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
@@ -25,4 +25,4 @@ struct OpOperandVector : public SmallVector<OpOperand *> {
 }  // namespace linalg_ext
 }  // namespace mlir
 
-#endif  // RUNNERS_LINALGEXTINTERFACE_H
+#endif // DIALECTS_LINALGEXT_LINALGEXTINTERFACE_H

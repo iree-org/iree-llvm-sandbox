@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTINTERFACE
-#define RUNNERS_LINALGEXT_LINALGEXTINTERFACE
+#ifndef DIALECTS_LINALGEXT_LINALGEXTINTERFACE
+#define DIALECTS_LINALGEXT_LINALGEXTINTERFACE
 
 include "Dialects/LinalgExt/LinalgExtBase.td"
 
@@ -210,4 +210,4 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
     >
   ];
 }
-#endif // RUNNERS_LINALGEXT_LINALGEXTINTERFACE
+#endif // DIALECTS_LINALGEXT_LINALGEXTINTERFACE

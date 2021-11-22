@@ -5,8 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#ifndef RUNNERS_LINALGEXT_PASSES
-#define  RUNNERS_LINALGEXT_PASSES
+
+#ifndef DIALECTS_LINALGEXT_PASSES
+#define DIALECTS_LINALGEXT_PASSES
 
 include "mlir/Pass/PassBase.td"
 
@@ -36,4 +37,4 @@ def LinalgExtToSCF : Pass<"lower-linalg-ext-to-scf", "FuncOp"> {
   ];
 }
 
-#endif // RUNNERS_LINALGEXT_PASSES
+#endif // DIALECTS_LINALGEXT_PASSES

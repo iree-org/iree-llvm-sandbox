@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_VECTOREXT_VECTOREXTBASE
-#define RUNNERS_VECTOREXT_VECTOREXTBASE
+#ifndef DIALECTS_VECTOREXT_VECTOREXTBASE
+#define DIALECTS_VECTOREXT_VECTOREXTBASE
 
 include "mlir/IR/OpBase.td"
 
@@ -24,4 +24,4 @@ def VectorExt_Dialect : Dialect {
   }];
 }
 
-#endif // RUNNERS_VECTOREXT_VECTOREXTBASE
+#endif // DIALECTS_VECTOREXT_VECTOREXTBASE

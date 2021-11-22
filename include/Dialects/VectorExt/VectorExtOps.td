@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_VECTOREXT_VECTOREXTOPS
-#define RUNNERS_VECTOREXT_VECTOREXTOPS
+#ifndef DIALECTS_VECTOREXT_VECTOREXTOPS
+#define DIALECTS_VECTOREXT_VECTOREXTOPS
 
 include "Dialects/VectorExt/VectorExtBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
@@ -59,4 +59,4 @@ def VectorExt_YieldOp : VectorExt_Op<"yield", [
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
-#endif // RUNNERS_VECTOREXT_VECTOREXTOPS
+#endif // DIALECTS_VECTOREXT_VECTOREXTOPS

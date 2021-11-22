@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_PASSES_H
-#define RUNNERS_PASSES_H
+#ifndef IREE_LLVM_SANDBOX_PASSES_H
+#define IREE_LLVM_SANDBOX_PASSES_H
 
 #include "mlir/Pass/Pass.h"
 
@@ -34,4 +34,4 @@ std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
 
 }  // namespace mlir
 
-#endif  // RUNNERS_PASSES_H
+#endif // IREE_LLVM_SANDBOX_PASSES_H

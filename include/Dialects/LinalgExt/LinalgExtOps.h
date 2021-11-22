@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTOPS_H
-#define RUNNERS_LINALGEXT_LINALGEXTOPS_H
+#ifndef DIALECTS_LINALGEXT_LINALGEXTOPS_H
+#define DIALECTS_LINALGEXT_LINALGEXTOPS_H
 
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
 #include "Dialects/LinalgExt/LinalgExtInterfaces.h"
@@ -20,4 +20,4 @@
 #define GET_OP_CLASSES
 #include "Dialects/LinalgExt/LinalgExtOps.h.inc"
 
-#endif  // RUNNERS_LINALGEXT_LINALGEXTOPS_H
+#endif // DIALECTS_LINALGEXT_LINALGEXTOPS_H

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTBASE
-#define RUNNERS_LINALGEXT_LINALGEXTBASE
+#ifndef DIALECTS_LINALGEXT_LINALGEXTBASE
+#define DIALECTS_LINALGEXT_LINALGEXTBASE
 
 include "mlir/IR/OpBase.td"
 
@@ -25,4 +25,4 @@ def LinalgExt_Dialect : Dialect {
 }
 
 
-#endif // RUNNERS_LINALGEXT_LINALGEXTBASE
+#endif // DIALECTS_LINALGEXT_LINALGEXTBASE

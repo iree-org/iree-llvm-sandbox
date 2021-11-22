@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_VECTOREXT_VECTOREXTBASE_H
-#define RUNNERS_VECTOREXT_VECTOREXTBASE_H
+#ifndef DIALECTS_VECTOREXT_VECTOREXTBASE_H
+#define DIALECTS_VECTOREXT_VECTOREXTBASE_H
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
@@ -16,4 +16,4 @@
 #include "Dialects/VectorExt/VectorExtOpsDialect.h.inc"  // IWYU pragma: keep
 // clang-format on
 
-#endif  // RUNNERS_VECTOREXT_VECTOREXTBASE_H
+#endif // DIALECTS_VECTOREXT_VECTOREXTBASE_H
