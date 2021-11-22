@@ -1,14 +1,6 @@
 add_subdirectory(Dialects)
 add_subdirectory(Transforms)
 
-add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
-  CAPI.cpp
-
-  PARTIAL_SOURCES_INTENDED
-  LINK_LIBS PRIVATE
-  IREELinalgTensorSandbox
-)
-
 add_mlir_library(IREELinalgTensorSandbox
   LinalgTensorCodegenDriver.cpp
 
@@ -24,4 +16,12 @@ add_mlir_library(IREELinalgTensorSandbox
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
   MLIRLinalgExtPassIncGen
+)
+
+add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
+  CAPI.cpp
+
+  PARTIAL_SOURCES_INTENDED
+  LINK_LIBS PRIVATE
+  IREELinalgTensorSandbox
 )
