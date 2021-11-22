@@ -7,9 +7,9 @@
 //===----------------------------------------------------------------------===//
 #include <string>
 
-#include "ModelBuilder/ModelBuilder.h"
-#include "ModelBuilder/ModelRunner.h"
-#include "ModelBuilder/VulkanWrapperPass.h"
+#include "experimental/ModelBuilder/ModelBuilder.h"
+#include "experimental/ModelBuilder/ModelRunner.h"
+#include "experimental/ModelBuilder/VulkanWrapperPass.h"
 #include "iree/compiler/Conversion/CodegenUtils/ForOpCanonicalization.h"
 #include "iree/compiler/Conversion/CodegenUtils/TransformUtils.h"
 #include "iree/compiler/Conversion/LinalgToSPIRV/MemorySpace.h"

@@ -8,8 +8,8 @@
 
 // RUN: test-mnist-jit 2>&1 | IreeFileCheck %s
 
-#include "ModelBuilder/ModelBuilder.h"
-#include "ModelBuilder/ModelRunner.h"
+#include "experimental/ModelBuilder/ModelBuilder.h"
+#include "experimental/ModelBuilder/ModelRunner.h"
 // RunnerUtils.h with iostream needed for printMemRef atm
 #include "mlir/ExecutionEngine/RunnerUtils.h"
 

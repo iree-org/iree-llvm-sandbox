@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ModelBuilder/MemRefUtils.h"
-#include "ModelBuilder/ModelBuilder.h"
-#include "ModelBuilder/ModelRunner.h"
 #include "benchmark/benchmark.h"
+#include "experimental/ModelBuilder/MemRefUtils.h"
+#include "experimental/ModelBuilder/ModelBuilder.h"
+#include "experimental/ModelBuilder/ModelRunner.h"
 
 using namespace mlir;  // NOLINT
 

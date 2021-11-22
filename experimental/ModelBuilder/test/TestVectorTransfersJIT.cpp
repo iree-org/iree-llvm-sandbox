@@ -13,9 +13,9 @@
 
 // clang-format on
 
-#include "ModelBuilder/MemRefUtils.h"
-#include "ModelBuilder/ModelBuilder.h"
-#include "ModelBuilder/ModelRunner.h"
+#include "experimental/ModelBuilder/MemRefUtils.h"
+#include "experimental/ModelBuilder/ModelBuilder.h"
+#include "experimental/ModelBuilder/ModelRunner.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 

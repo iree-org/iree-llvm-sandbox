@@ -11,7 +11,7 @@
 // wrapper for GPU module. This allows re-using linalg to Spirv conversion
 // without having to deal with host code.
 //===----------------------------------------------------------------------===//
-#include "ModelBuilder/VulkanWrapperPass.h"
+#include "experimental/ModelBuilder/VulkanWrapperPass.h"
 
 #include <cstdint>
 

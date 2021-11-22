@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ModelBuilder/ModelRunner.h"
+#include "experimental/ModelBuilder/ModelRunner.h"
 
 #include "llvm/Support/TargetSelect.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
