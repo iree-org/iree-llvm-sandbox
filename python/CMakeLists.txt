@@ -1,7 +1,4 @@
 include(AddMLIRPython)
-include(MLIRDetectPythonEnv)
-
-mlir_configure_python_dev_packages()
 
 set(_addl_sources)
 if(SANDBOX_ENABLE_IREE_DIALECTS)

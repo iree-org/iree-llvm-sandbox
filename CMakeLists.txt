@@ -30,7 +30,9 @@ set(MLIR_TABLEGEN_EXE mlir-tblgen)
 include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
+include(MLIRDetectPythonEnv)
 
+mlir_configure_python_dev_packages()
 
 include_directories(include)
 include_directories(${IREE_LLVM_SANDBOX_BINARY_DIR}/include)

@@ -14,6 +14,7 @@ add_mlir_library(IREELinalgTensorSandboxTransforms
 
   DEPENDS
   RunnersPassIncGen
+  MLIRLinalg
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
   MLIRLinalgExtPassIncGen
