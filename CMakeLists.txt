@@ -10,11 +10,13 @@ message(STATUS "iree_llvm_sandbox build directory: ${IREE_LLVM_SANDBOX_BINARY_DI
 
 # Compile in IREE dialects.
 set(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR "" CACHE PATH "Path to iree-dialects project")
+set(SANDBOX_ENABLE_IREE_DIALECTS OFF)
 if(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR)
   message(STATUS "Enabling iree-dialects in sandbox")
   add_compile_definitions("SANDBOX_ENABLE_IREE_DIALECTS")
   # TODO: For finding iree-dialects-c. Should not be necessary.
   include_directories(SYSTEM ${LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR}/include)
+  set(SANDBOX_ENABLE_IREE_DIALECTS ON)
 endif()
 
 set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)

@@ -56,4 +56,4 @@ jobs:
     - name: Build
       run: |
         cd $GITHUB_WORKSPACE/sandbox
-        python configure.py --llvm-path=../llvm-project
+        python configure.py --iree-path=../iree --llvm-path=../llvm-project
