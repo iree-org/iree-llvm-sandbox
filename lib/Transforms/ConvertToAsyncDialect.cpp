@@ -13,6 +13,8 @@
 // limitations under the License.
 #include <cstdint>
 
+#include "Transforms/PassDetail.h"
+#include "Transforms/Passes.h"
 #include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"

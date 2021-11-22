@@ -1,8 +1,2 @@
 add_subdirectory(LinalgExt)
 add_subdirectory(VectorExt)
-
-set(LLVM_TARGET_DEFINITIONS Passes.td)
-mlir_tablegen(Passes.h.inc -gen-pass-decls -name Runners)
-mlir_tablegen(Passes.capi.h.inc -gen-pass-capi-header --prefix Runners)
-mlir_tablegen(Passes.capi.cpp.inc -gen-pass-capi-impl --prefix Runners)
-add_public_tablegen_target(RunnersPassIncGen)

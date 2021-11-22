@@ -16,9 +16,12 @@ target_link_libraries(mlir-proto-opt
 PRIVATE
   ${dialect_libs}
   ${conversion_libs}
-  MLIRLinalgExt
-  MLIROptLib
   IREELinalgTensorSandbox
+  IREELinalgTensorSandboxTransforms
   IREELinalgTensorSandboxCAPI
+  MLIRLinalgExt
+  MLIRLinalgExtTransforms
+  MLIROptLib
+  MLIRVectorExt
 )
 mlir_check_all_link_libraries(mlir-proto-opt)

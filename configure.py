@@ -66,7 +66,7 @@ def main(args):
     print(f"-- Using inferred llvm-project path: {llvm_path}")
   else:
     llvm_path = os.path.join(args.repo_root, "..", "llvm-project")
-    print("-- Using default llvm-project path: {llvm_path}")
+    print(f"-- Using default llvm-project path: {llvm_path}")
   if not os.path.exists(llvm_path):
     print(f"ERROR: Could not find llvm-project at {llvm_path}")
     return 1
@@ -85,18 +85,17 @@ def main(args):
 
   # Detect lld.
   lld_path = shutil.which("ld.lld")
-  if lld_path:
-    if has_clang:
-      print(f"-- Using LLD: {lld_path}")
-      llvm_configure_args.append(f"-DLLVM_USE_LINKER={lld_path}")
-    else:
-      print("WARNING: Can only use lld with clang")
+  if not lld_path:
+    print("WARNING: LLD (ld.lld) not found on path. Configure may fail.")
 
   # Detect ccache.
   ccache_path = shutil.which("ccache")
-  if ccache_path and args.enable_ccache:
-    print(f"-- Using ccache")
-    llvm_configure_args.append("-DLLVM_CCACHE_BUILD=ON")
+  if args.enable_ccache:
+    if ccache_path:
+      print(f"-- Using ccache")
+      llvm_configure_args.append("-DLLVM_CCACHE_BUILD=ON")
+    else:
+      print("WARNING: Project developers use ccache which is not installed")
 
   # CMake configure.
   build_dir = os.path.abspath(args.build_dir)
@@ -106,6 +105,7 @@ def main(args):
       "-GNinja",
       f"-B{build_dir}",
       f"-S{os.path.join(llvm_path, 'llvm')}",
+      "-DLLVM_ENABLE_LLD=ON",
       "-DLLVM_ENABLE_PROJECTS=mlir",
       "-DLLVM_TARGETS_TO_BUILD=X86;NVPTX",
       "-DMLIR_INCLUDE_INTEGRATION_TESTS=ON",

@@ -20,7 +20,7 @@ declare_mlir_python_extension(IREELLVMSandboxSources.API
   MODULE_NAME _ireeSandbox
   ADD_TO_PARENT IREELLVMSandboxSources
   SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/PythonAPI.cpp
+    PythonAPI.cpp
   EMBED_CAPI_LINK_LIBS
     IREELinalgTensorSandboxCAPI
 )

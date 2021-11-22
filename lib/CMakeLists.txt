@@ -25,4 +25,5 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
   IREELinalgTensorSandbox
+  IREELinalgTensorSandboxTransforms
 )

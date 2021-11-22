@@ -10,7 +10,7 @@
 
 #include "CAPI.h"
 
-#include "Passes.h"
+#include "Transforms/Passes.h"
 
 using namespace mlir;
 
