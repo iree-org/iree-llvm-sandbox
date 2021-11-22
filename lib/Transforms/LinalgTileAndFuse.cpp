@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Transforms.h"
+#include "Transforms/Transforms.h"
 
 #define DEBUG_TYPE "tile-fuse"
 

@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LinalgExt/LinalgExtOps.h"
-#include "LinalgExt/PassDetail.h"
-#include "LinalgExt/Passes.h"
+#include "Dialects/LinalgExt/LinalgExtOps.h"
+#include "Dialects/LinalgExt/PassDetail.h"
+#include "Dialects/LinalgExt/Passes.h"
 #include "llvm/ADT/STLExtras.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"

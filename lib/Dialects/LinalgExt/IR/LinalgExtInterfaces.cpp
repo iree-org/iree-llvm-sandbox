@@ -6,11 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LinalgExt/LinalgExtInterfaces.h"
+#include "Dialects/LinalgExt/LinalgExtInterfaces.h"
 
 #include "mlir/IR/Operation.h"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
 
-#include "LinalgExt/LinalgExtInterfaces.cpp.inc"  // IWYU pragma: export
+#include "Dialects/LinalgExt/LinalgExtInterfaces.cpp.inc"  // IWYU pragma: export

@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "VectorExt/VectorExtOps.h"
+#include "Dialects/VectorExt/VectorExtOps.h"
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -120,7 +120,7 @@ void PredicateOp::getSuccessorRegions(
 }
 
 #define GET_OP_CLASSES
-#include "VectorExt/VectorExtOps.cpp.inc"
+#include "Dialects/VectorExt/VectorExtOps.cpp.inc"
 
 using namespace mlir;
 using namespace mlir::vector_ext;

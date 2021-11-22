@@ -20,7 +20,7 @@ std::unique_ptr<OperationPass<FuncOp>> createLinalgExtTilingPass(
 std::unique_ptr<OperationPass<FuncOp>> createLinalgExtToSCFPass();
 
 #define GEN_PASS_REGISTRATION
-#include "LinalgExt/Passes.h.inc"
+#include "Dialects/LinalgExt/Passes.h.inc"
 
 }  // namespace linalg_ext
 }  // namespace mlir

@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Transforms.h"
+#include "Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/SCF.h"
 
 namespace mlir {

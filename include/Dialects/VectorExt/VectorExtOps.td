@@ -9,7 +9,7 @@
 #ifndef RUNNERS_VECTOREXT_VECTOREXTOPS
 #define RUNNERS_VECTOREXT_VECTOREXTOPS
 
-include "VectorExt/VectorExtBase.td"
+include "Dialects/VectorExt/VectorExtBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 

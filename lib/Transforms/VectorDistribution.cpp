@@ -8,7 +8,7 @@
 
 #include "PassDetail.h"
 #include "Passes.h"
-#include "Transforms.h"
+#include "Transforms/Transforms.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/PatternMatch.h"

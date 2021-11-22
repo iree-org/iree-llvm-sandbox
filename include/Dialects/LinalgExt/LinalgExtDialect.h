@@ -6,20 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LinalgExt/LinalgExtDialect.h"
+#ifndef RUNNERS_LINALGEXT_LINALGEXTBASE_H
+#define RUNNERS_LINALGEXT_LINALGEXTBASE_H
 
-#include "LinalgExt/LinalgExtOps.h"
-#include "LinalgExt/LinalgExtOpsDialect.cpp.inc"
+#include "mlir/IR/Dialect.h"
+#include "mlir/IR/OpDefinition.h"
 
-namespace mlir {
-namespace linalg_ext {
+// clang-format off: must be included after all LLVM/MLIR headers
+#include "Dialects/LinalgExt/LinalgExtOpsDialect.h.inc"  // IWYU pragma: keep
+// clang-format on
 
-void LinalgExtDialect::initialize() {
-#define GET_OP_LIST
-  addOperations<
-#include "LinalgExt/LinalgExtOps.cpp.inc"
-      >();
-}
-
-}  // namespace linalg_ext
-}  // namespace mlir
+#endif  // RUNNERS_LINALGEXT_LINALGEXTBASE_H

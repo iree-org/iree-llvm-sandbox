@@ -21,7 +21,7 @@ struct OpOperandVector : public SmallVector<OpOperand *> {
   operator SmallVector<Value>();
 };
 
-#include "LinalgExt/LinalgExtInterfaces.h.inc"  // IWYU pragma: export
+#include "Dialects/LinalgExt/LinalgExtInterfaces.h.inc"  // IWYU pragma: export
 }  // namespace linalg_ext
 }  // namespace mlir
 

@@ -9,7 +9,7 @@
 #ifndef RUNNERS_LINALGEXT_LINALGEXTINTERFACE
 #define RUNNERS_LINALGEXT_LINALGEXTINTERFACE
 
-include "LinalgExt/LinalgExtBase.td"
+include "Dialects/LinalgExt/LinalgExtBase.td"
 
 def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
   let methods = [

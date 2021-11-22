@@ -8,7 +8,7 @@
 
 #include "PassDetail.h"
 #include "Passes.h"
-#include "Transforms.h"
+#include "Transforms/Transforms.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"

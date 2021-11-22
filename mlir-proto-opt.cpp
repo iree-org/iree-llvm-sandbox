@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "./lib/CAPI.h"
-#include "LinalgExt/LinalgExtDialect.h"
-#include "LinalgExt/Passes.h"
-#include "VectorExt/VectorExtDialect.h"
+#include "Dialects/LinalgExt/LinalgExtDialect.h"
+#include "Dialects/LinalgExt/Passes.h"
+#include "Dialects/VectorExt/VectorExtDialect.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"

@@ -1,4 +1,4 @@
-//===-- LinalgExtOps.h - Linalg Extension dialect ops ------*- tablegen -*-===//
+//===-- VectorExtOps.h - Vector Extension dialect ops ------*- tablegen -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,18 +6,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTOPS_H
-#define RUNNERS_LINALGEXT_LINALGEXTOPS_H
+#ifndef RUNNERS_VECTOREXT_VECTOREXTOPS_H
+#define RUNNERS_VECTOREXT_VECTOREXTOPS_H
 
-#include "LinalgExt/LinalgExtDialect.h"
-#include "LinalgExt/LinalgExtInterfaces.h"
+#include "Dialects/VectorExt/VectorExtDialect.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "mlir/Interfaces/TilingInterface.h"
+
+namespace mlir {
+namespace vector_ext {
+
+void buildTerminatedBody(OpBuilder &builder, Location loc);
+
+}  // namespace vector_ext
+}  // namespace mlir
 
 #define GET_OP_CLASSES
-#include "LinalgExt/LinalgExtOps.h.inc"
+#include "Dialects/VectorExt/VectorExtOps.h.inc"
 
-#endif  // RUNNERS_LINALGEXT_LINALGEXTOPS_H
+#endif  // RUNNERS_VECTOREXT_VECTOREXTOPS_H

@@ -19,7 +19,7 @@ namespace mlir {
 namespace linalg_ext {
 
 #define GEN_PASS_CLASSES
-#include "LinalgExt/Passes.h.inc"  // IWYU pragma: keep
+#include "Dialects/LinalgExt/Passes.h.inc"  // IWYU pragma: keep
 
 }  // namespace linalg_ext
 }  // namespace mlir

@@ -9,8 +9,8 @@
 #ifndef RUNNERS_LINALGEXT_LINALGEXTOPS
 #define RUNNERS_LINALGEXT_LINALGEXTOPS
 
-include "LinalgExt/LinalgExtBase.td"
-include "LinalgExt/LinalgExtInterfaces.td"
+include "Dialects/LinalgExt/LinalgExtBase.td"
+include "Dialects/LinalgExt/LinalgExtInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/TilingInterface.td"

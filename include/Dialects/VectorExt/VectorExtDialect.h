@@ -1,4 +1,4 @@
-//===-- LinalgExtDialect.h - Linalg Extension dialect ------*- tablegen -*-===//
+//===-- VectorExtDialect.h - Vector Extension dialect ------*- tablegen -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,14 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef RUNNERS_LINALGEXT_LINALGEXTBASE_H
-#define RUNNERS_LINALGEXT_LINALGEXTBASE_H
+#ifndef RUNNERS_VECTOREXT_VECTOREXTBASE_H
+#define RUNNERS_VECTOREXT_VECTOREXTBASE_H
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
 
 // clang-format off: must be included after all LLVM/MLIR headers
-#include "LinalgExt/LinalgExtOpsDialect.h.inc"  // IWYU pragma: keep
+#include "Dialects/VectorExt/VectorExtOpsDialect.h.inc"  // IWYU pragma: keep
 // clang-format on
 
-#endif  // RUNNERS_LINALGEXT_LINALGEXTBASE_H
+#endif  // RUNNERS_VECTOREXT_VECTOREXTBASE_H
