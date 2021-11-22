@@ -18,7 +18,7 @@ expert_no_tiling = LoweringOnlyExpert([], print_ir_after_all=False)
 
 expert_fuse_output = LoweringOnlyExpert([
     ExperimentalSplitAndFuseFillOp(
-        'reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16])
+        'row_reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16])
 ],
                                         print_ir_after_all=False)
 
@@ -48,19 +48,19 @@ def main():
           f'Problem types {np_types}')
       for expert in all_experts:
         problem = ProblemInstance(
-            problem_definition=Reduction2DProblem(),
+            problem_definition=RowReduction2DProblem(),
             problem_sizes_keys=keys,
             np_types=np_types)
 
         problem.compile(
-            entry_point_name='reduction_2d_main',
-            fun_to_benchmark_name='reduction_2d_on_tensors',
+            entry_point_name='row_reduction_2d_main',
+            fun_to_benchmark_name='row_reduction_2d_on_tensors',
             compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
             transform=expert)
 
         problem.run(
             n_iters=n_iters,
-            entry_point_name='reduction_2d_main',
+            entry_point_name='row_reduction_2d_main',
             runtime_problem_sizes_dict=runtime_problem_sizes_dict)
 
 

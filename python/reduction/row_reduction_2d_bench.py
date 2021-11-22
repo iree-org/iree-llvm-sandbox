@@ -9,7 +9,7 @@ from ..core.transforms import *
 
 from .definitions import *
 
-fun_name = 'reduction_2d_on_tensors'
+fun_name = 'row_reduction_2d_on_tensors'
 op_name = 'linalg.generic'
 
 ################################################################################
@@ -94,7 +94,7 @@ def main():
         print(f'\nCompilation expert {expert}')
 
         problem = ProblemInstance(
-            problem_definition=Reduction2DProblem(),
+            problem_definition=RowReduction2DProblem(),
             problem_sizes_keys=keys,
             np_types=np_types)
 
@@ -117,8 +117,8 @@ def main():
       import os
       if os.environ.get('BENCHMARK_NUMPY'):
         print('Numpy')
-        A, B = Reduction2DProblem().tensors_np_builder(*problem_sizes,
-                                                       *np_types)
+        A, B = RowReduction2DProblem().tensors_np_builder(
+            *problem_sizes, *np_types)
 
         def run_n_iters(n_iters: int):
           for _ in range(n_iters):
@@ -127,7 +127,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            Reduction2DProblem().gflop_count_builder(*problem_sizes),
+            RowReduction2DProblem().gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
       # For single-threaded apples-to-apples comparisons, run with:
@@ -138,7 +138,7 @@ def main():
         torch.set_num_threads(1)
         A, B = [
             torch.from_numpy(t)
-            for t in Reduction2DProblem().tensors_np_builder(
+            for t in RowReduction2DProblem().tensors_np_builder(
                 *problem_sizes, *np_types)
         ]
 
@@ -149,7 +149,7 @@ def main():
 
         timed_invoke(
             run_n_iters,
-            Reduction2DProblem().gflop_count_builder(*problem_sizes),
+            RowReduction2DProblem().gflop_count_builder(*problem_sizes),
             n_iters=n_iters)
 
 

@@ -17,7 +17,7 @@ from ..core.utils import *
 avx512 = True
 
 ################################################################################
-### Reduction
+### Row Reduction 2D
 ################################################################################
 #   Op def: (     m,     k )
 #    Iters: ({Par(), Red()})
@@ -27,14 +27,14 @@ avx512 = True
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
 @linalg_structured_op
-def column_reduction_2d(
+def row_reduction_2d(
     A=TensorDef(T, S.M, S.N), B=TensorDef(T, S.M, output=True)):
   domain(D.m, D.n)
   B[D.m] += A[D.m, D.n]
 
 
-class Reduction2DProblem(ProblemDefinition):
-  """ Problem definition for a single fill + reduction_2d problem."""
+class RowReduction2DProblem(ProblemDefinition):
+  """ Problem definition for a single fill + row_reduction_2d problem."""
 
   def shapes_builder(self, M: int, K: int) -> List[List[int]]:
     """Shape builder function.
@@ -124,7 +124,7 @@ class Reduction2DProblem(ProblemDefinition):
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(output_elem_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[1], value=zero)
-      result = column_reduction_2d(func.arguments[0], outs=[tensor_zero])
+      result = row_reduction_2d(func.arguments[0], outs=[tensor_zero])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       std.ReturnOp([result])
