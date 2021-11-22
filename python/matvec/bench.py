@@ -46,7 +46,7 @@ all_experts = [
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M', 'N']
+keys = ['m', 'n']
 
 
 # CHECK-NOT: FAILURE

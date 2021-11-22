@@ -1,7 +1,6 @@
 import sys, time
 
-from collections.abc import Callable
-from typing import Any, List, Optional, Sequence, Type
+from typing import Any, List, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -42,67 +41,67 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
         They are attributes and must be fixed at problem creation time
         """
 
-  def shapes_builder(self, N: int, W: int, C: int, KW: int, F: int, stride: int,
-                     dilation: int) -> List[List[int]]:
+  def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Shape builder function.
 
-       Given a list of integer dimensions, return the list of lists of shapes
-       of the FuncOp operands. The FuncOp is responsible for distinguishing
-       between input operands and results.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, return the list of lists of shapes of the FuncOp operands. The
+    FuncOp is responsible for distinguishing between input operands and results.
     """
+    stride, dilation = sizes["stride"], sizes["dilation"]
+    N, W, C, KW, F = sizes["N"], sizes["W"], sizes["C"], sizes["KW"], sizes["F"]
     self.ensure_stride_and_dilation(stride, dilation)
     return [[N, stride * W + dilation * KW - self.WpadL - self.WpadR, C], \
             [KW, C, F], \
             [N, W, F]]
 
-  def gflop_count_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                          WpadL: int, WpadR: int, stride: int,
-                          dilation: int) -> float:
+  def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """GFlop builder function.
 
-       Given a list of integer dimensions, return the number of GFlops computed.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, return the number of GFlops computed.
     """
+    stride, dilation = sizes["stride"], sizes["dilation"]
     self.ensure_stride_and_dilation(stride, dilation)
-    return (2.0 * N * W * C * KW * F) / 1.e9
+    return 2.0 * np.prod(
+        [sizes[k] for k in sizes.keys() - set(["strides", "dilations"])]) / 1.e9
 
-  def gbyte_count_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                          WpadL: int, WpadR: int, stride: int, dilation: int,
-                          input_np_type: np.dtype, kernel_np_type: np.dtype,
-                          output_np_type: np.dtype) -> float:
+  def gbyte_count_builder(self, sizes: Mapping[str, Any],
+                          types: Sequence[np.dtype]) -> float:
     """GByte builder function.
 
-       Given a list of integer dimensions, return the number of GBytes read or
-       written.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of data types, return the number of GBytes read or
+    written.
     """
-    shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
+    shapes = self.shapes_builder(sizes)
+    input_np_type, kernel_np_type, output_np_type = types
     ro_gbytes = 1e-9 * (
         np.prod(shapes[0]) * np.dtype(input_np_type).itemsize +
         np.prod(shapes[1]) * np.dtype(kernel_np_type).itemsize)
     rw_gbytes = 2e-9 * (np.prod(shapes[2]) * np.dtype(output_np_type).itemsize)
     return ro_gbytes + rw_gbytes
 
-  def tensors_np_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                         WpadL: int, WpadR: int, stride: int, dilation: int,
-                         input_np_type: np.dtype, kernel_np_type: np.dtype,
-                         output_np_type: np.dtype) -> List[np.dtype]:
-    """NP tensors building function.
+  def tensors_np_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[np.dtype]) -> List[np.dtype]:
+    """NumPy tensors building function.
 
-       Given a list of integer dimensions followed by per-operand NP elemental
-       types, return constructed NP values of shapes given by `shaped_builder`
-       and specified elemental types.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of NumPy elemental types, return constructed NP values of
+    shapes given by `shape_builder` and specified elemental types.
     """
+    stride, dilation = sizes["stride"], sizes["dilation"]
     self.ensure_stride_and_dilation(stride, dilation)
-    shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
-    np_types = [input_np_type, kernel_np_type, output_np_type]
-    tensors = [np.random.rand(*s).astype(t) for s, t in zip(shapes, np_types)]
+    shapes = self.shapes_builder(sizes)
+    tensors = [np.random.rand(*s).astype(t) for s, t in zip(shapes, types)]
     tensors[len(tensors) - 1].fill(0.)
     return tensors
 
   def check_np(self, I: np.dtype, K: np.dtype, O: np.dtype) -> None:
-    """NP checking function.
+    """NumPy checking function.
 
-       Given a list of NP values, check the precomputed results matches those
-       of the expected reference implementation.
+    Given a list of NumPy values, check the precomputed results matches those of
+    the expected reference implementation.
     """
     # TODO: lift to __init__.
     N, W, F = np.shape(O)[0], np.shape(O)[1], np.shape(O)[2]
@@ -134,52 +133,42 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 
-  def types_mlir_builder(self, N: int, W: int, C: int, KW: int, F: int,
-                         WpadL: int, WpadR: int, stride: int, dilation: int,
-                         input_mlir_type: Type, kernel_mlir_type: Type,
-                         output_mlir_type: Type) -> List[Type]:
-    """ MLIR types builder.
+  def types_mlir_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[Type]) -> List[Type]:
+    """MLIR types builder.
 
-        Given a list of NP values, check the precomputed results matches those
-        of the expected reference implementation.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of elemental MLIR types, return MLIR tensor types of the
+    shape expected by the function.
     """
+    stride, dilation = sizes["stride"], sizes["dilation"]
     self.ensure_stride_and_dilation(stride, dilation)
-    compiled_function_element_types = [
-        input_mlir_type, kernel_mlir_type, output_mlir_type
-    ]
 
-    func_shapes = self.shapes_builder(N, W, C, KW, F, stride, dilation)
-    func_types = [RankedTensorType.get(s, t) for s, t in \
-         zip(func_shapes, compiled_function_element_types)]
+    shapes = self.shapes_builder(sizes)
+    func_types = [RankedTensorType.get(s, t) for s, t in zip(shapes, types)]
 
+    N, W, KW, C = sizes["N"], sizes["W"], sizes["KW"], sizes["C"]
     padded_input_shape = [N, stride * W + dilation * KW, C]
-    padded_input_type = RankedTensorType.get(padded_input_shape,
-                                             input_mlir_type)
+    padded_input_type = RankedTensorType.get(padded_input_shape, types[0])
 
     return func_types + [padded_input_type]
 
-  def build_problem_under_context_manager(self, name: str,
-                                          input_mlir_type: Type,
-                                          kernel_mlir_type: Type,
-                                          output_mlir_type: Type,
-                                          padded_input_mlir_type: Type):
-    # TODO: -> FuncOp
+  def build_problem_under_context_manager(
+      self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
     """MLIR problem builder.
 
-       Given a flat list of MLIR types, build and return the MLIR FuncOp that
-       implements the desired computation on those types.
+    Given a list of MLIR shaped types, build and return the MLIR FuncOp that
+    implements the desired computation on those types.
     """
     global avx512
 
-    types = [input_mlir_type, kernel_mlir_type, output_mlir_type]
-
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [output_mlir_type]))
+    func = builtin.FuncOp(name, (types[:-1], [types[-2]]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=[False, False, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
-    output_element_type = output_mlir_type.element_type
+    output_element_type = types[-2].element_type
 
     index_type = IndexType.get()
     i64_type = IntegerType.get_signless(64)
@@ -192,7 +181,7 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
 
       padded_input = linalg.PadTensorOp(
-          result=padded_input_mlir_type,
+          result=types[-1],
           source=func.arguments[0],
           low=[],
           high=[],

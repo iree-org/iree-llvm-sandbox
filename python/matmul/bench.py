@@ -51,7 +51,7 @@ all_experts = [
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M', 'N', 'K']
+keys = ['m', 'n', 'k']
 
 
 # CHECK-NOT: FAILURE
@@ -73,14 +73,17 @@ def main():
       for compile_time_problem_sizes_dict in [                      \
           # case 1: static at compile time
 
+
           runtime_problem_sizes_dict,                               \
           {                                                         \
            # case 2: partially dynamic at compile time
+
 
             k: v for k, v in zip(keys, [-1, problem_sizes[1], -1])  \
           },                                                        \
           {                                                         \
            # case 3: fully dynamic at compile time
+
 
             k: v for k, v in zip(keys, [-1, -1, -1])                \
           }]:

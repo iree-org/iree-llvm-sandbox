@@ -1,7 +1,6 @@
 import sys, time
 
-from collections.abc import Callable
-from typing import Any, List, Optional, Sequence, Type
+from typing import Any, List, Mapping, Optional, Sequence
 
 import numpy as np
 
@@ -27,48 +26,51 @@ avx512 = True
 class MatmulProblem(ProblemDefinition):
   """ Problem definition for a single fill + matmul problem."""
 
-  def shapes_builder(self, M: int, N: int, K: int) -> List[List[int]]:
+  def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Shape builder function.
 
-       Given a list of integer dimensions, return the list of lists of shapes
-       of the FuncOp operands. The FuncOp is responsible for distinguishing
-       between input operands and results.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, return the list of lists of shapes of the FuncOp operands. The
+    FuncOp is responsible for distinguishing between input operands and results.
     """
+    M, N, K = sizes["M"], sizes["N"], sizes["K"]
     return [[M, K], [K, N], [M, N]]
 
-  def gflop_count_builder(self, M: int, N: int, K: int) -> float:
+  def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """GFlop builder function.
 
-       Given a list of integer dimensions, return the number of GFlops computed.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, return the number of GFlops computed.
     """
+    M, N, K = sizes["M"], sizes["N"], sizes["K"]
     return float(2.0 * M * N * K) / float(1e9)
 
-  def gbyte_count_builder(self, M: int, N: int, K: int, lhs_np_type: np.dtype,
-                          rhs_np_type: np.dtype,
-                          acc_np_type: np.dtype) -> float:
+  def gbyte_count_builder(self, sizes: Mapping[str, Any],
+                          types: Sequence[np.dtype]) -> float:
     """GByte builder function.
 
-       Given a list of integer dimensions, return the number of GBytes read or
-       written.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of data types, return the number of GBytes read or
+    written.
     """
+    M, N, K = sizes["M"], sizes["N"], sizes["K"]
+    lhs_np_type, rhs_np_type, acc_np_type = types
     return float(M * N * np.dtype(lhs_np_type).itemsize +
                  M * K * np.dtype(rhs_np_type).itemsize +
                  K * N * np.dtype(acc_np_type).itemsize) / float(1e9)
 
-  def tensors_np_builder(self, M: int, N: int, K: int, lhs_np_type: np.dtype,
-                         rhs_np_type: np.dtype,
-                         acc_np_type: np.dtype) -> List[np.dtype]:
-    """NP tensors building function.
+  def tensors_np_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[np.dtype]) -> List[np.dtype]:
+    """NumPy tensors building function.
 
-       Given a list of integer dimensions followed by per-operand NP elemental
-       types, return constructed NP values of shapes given by `shaped_builder`
-       and specified elemental types.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of NumPy elemental types, return constructed NP values of
+    shapes given by `shape_builder` and specified elemental types.
     """
-    shapes = self.shapes_builder(M, N, K)
-    np_types = [lhs_np_type, rhs_np_type, acc_np_type]
+    shapes = self.shapes_builder(sizes)
     tensors = [
         realign(np.random.rand(*s).astype(t), byte_alignment=64)
-        for s, t in zip(shapes, np_types)
+        for s, t in zip(shapes, types)
     ]
     # Uncomment to simplify debugging.
     # tensors = [
@@ -80,51 +82,43 @@ class MatmulProblem(ProblemDefinition):
     return tensors
 
   def check_np(self, A: np.dtype, B: np.dtype, C: np.dtype) -> None:
-    """NP checking function.
+    """NumPy checking function.
 
-       Given a list of NP values, check the precomputed results matches those
-       of the expected reference implementation.
+    Given a list of NumPy values, check the precomputed results matches those of
+    the expected reference implementation.
     """
     if not np.allclose(C, np.dot(A, B)):
       delta = C - np.dot(A, B)
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
-      raise Exception(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
+      raise Exception(f"max_abs_delta: {max_abs_delta} -> FAILURE ")
 
-  def types_mlir_builder(self, M: int, N: int, K: int, lhs_mlir_type: Type,
-                         rhs_mlir_type: Type,
-                         acc_mlir_type: Type) -> List[Type]:
-    """ MLIR types builder.
+  def types_mlir_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[Type]) -> List[Type]:
+    """MLIR types builder.
 
-        Given a list of NP values, check the precomputed results matches those
-        of the expected reference implementation.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of elemental MLIR types, return MLIR tensor types of the
+    shape expected by the function.
     """
-    compiled_function_element_types = [
-        lhs_mlir_type, rhs_mlir_type, acc_mlir_type
-    ]
-    shapes = self.shapes_builder(M, N, K)
-    return [RankedTensorType.get(s, t) for s, t in \
-         zip(shapes, compiled_function_element_types)]
+    shapes = self.shapes_builder(sizes)
+    return [RankedTensorType.get(s, t) for s, t in zip(shapes, types)]
 
-  def build_problem_under_context_manager(self, name: str, lhs_mlir_type: Type,
-                                          rhs_mlir_type: Type,
-                                          acc_mlir_type: Type):
-    # TODO: -> FuncOp
+  def build_problem_under_context_manager(
+      self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
     """MLIR problem builder.
 
-       Given a flat list of MLIR types, build and return the MLIR FuncOp that
-       implements the desired computation on those types.
+    Given a list of MLIR shaped types, build and return the MLIR FuncOp that
+    implements the desired computation on those types.
     """
     global avx512
 
-    types = [lhs_mlir_type, rhs_mlir_type, acc_mlir_type]
-
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [acc_mlir_type]))
+    func = builtin.FuncOp(name, (types, [types[-1]]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=[False, False, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
-    acc_type = acc_mlir_type.element_type
+    acc_type = types[-1].element_type
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(acc_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
@@ -150,13 +144,14 @@ def add_bias_to_2d(
 class MatmulBiasAddProblem(ProblemDefinition):
   """ Problem definition for a fill + matmul + generic op."""
 
-  def shapes_builder(self, M: int, N: int, K: int) -> List[List[int]]:
+  def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Shape builder function.
 
-       Given a list of integer dimensions, return the list of lists of shapes
-       of the FuncOp operands. The FuncOp is responsible for distinguishing
-       between input operands and results.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, return the list of lists of shapes of the FuncOp operands. The
+    FuncOp is responsible for distinguishing between input operands and results.
     """
+    M, N, K = sizes["M"], sizes["N"], sizes["K"]
     return [
         [M, K],
         [K, N],
@@ -167,48 +162,35 @@ class MatmulBiasAddProblem(ProblemDefinition):
 
   # TODO: tensors_np_builder and check_np.
 
-  def types_mlir_builder(self, M: int, N: int, K: int, lhs_mlir_type: Type,
-                         rhs_mlir_type: Type, bias_mlir_type: Type,
-                         acc_mlir_type: Type) -> List[Type]:
-    """ MLIR types builder.
+  def types_mlir_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[Type]) -> List[Type]:
+    """MLIR types builder.
 
-        Given a list of NP values, check the precomputed results matches those
-        of the expected reference implementation.
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of elemental MLIR types, return MLIR tensor types of the
+    shape expected by the function.
     """
-    compiled_function_element_types = [
-        lhs_mlir_type, rhs_mlir_type, bias_mlir_type, acc_mlir_type,
-        acc_mlir_type
-    ]
-    shapes = self.shapes_builder(M, N, K)
+    shapes = self.shapes_builder(sizes)
     return [RankedTensorType.get(s, t) for s, t in \
-            zip(shapes, compiled_function_element_types)]
+            zip(shapes, list(types) + [types[-1]])]
 
-  def build_problem_under_context_manager(self, name: str, lhs_mlir_type: Type,
-                                          rhs_mlir_type: Type,
-                                          bias_mlir_type: Type,
-                                          acc_mlir_type: Type,
-                                          res_mlir_type: Type):
-    # TODO: -> FuncOp
+  def build_problem_under_context_manager(
+      self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
     """MLIR problem builder.
 
-       Given a flat list of MLIR types, build and return the MLIR FuncOp that
-       implements the desired computation on those types.
+    Given a list of MLIR shaped types, build and return the MLIR FuncOp that
+    implements the desired computation on those types.
     """
     global avx512
 
-    types = [
-        lhs_mlir_type, rhs_mlir_type, bias_mlir_type, acc_mlir_type,
-        res_mlir_type
-    ]
-
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [acc_mlir_type]))
+    func = builtin.FuncOp(name, (types, [types[-2]]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(
         func, inplaceable=[False, False, False, True, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
-    acc_type = acc_mlir_type.element_type
+    acc_type = types[-2].element_type
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(acc_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[3], value=zero)

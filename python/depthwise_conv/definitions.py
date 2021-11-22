@@ -1,6 +1,6 @@
 import itertools
 
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -133,17 +133,7 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     result += ["strides", "dilations"]
     return result
 
-  def __partition_argument_list(self, items: Sequence):
-    """Splits items into parts containing integers and non-integers.
-
-    The integers are expected to be the leading arguments in the item list.
-    """
-    for (i, arg) in enumerate(items):
-      if not isinstance(arg, int):
-        break
-    return items[:i], items[i:]
-
-  def __infer_output_shape(self, sizes: Sequence[int]) -> List[int]:
+  def __infer_output_shape(self, sizes: Mapping[str, Any]) -> List[int]:
     """Compute the output shape given the list of problem parameters."""
     input_rank_dims_start, input_rank_dims_end = find_contiguous_rank_dims(
         self.__input_format)
@@ -152,43 +142,34 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
 
     # 1. Non-DHW leading input dimensions.
     output_dims = [
-        sizes[i]
-        for i, d in enumerate(self.__input_format[:input_rank_dims_start])
+        sizes[d] for d in self.__input_format[:input_rank_dims_start]
     ]
 
     # 2. Non-DHW leading kernel dimensions except C.
-    kernel_pos = 0
     for d in self.__kernel_format[:kernel_rank_dims_start]:
       if d == "C":
         continue
-      output_dims.append(sizes[len(self.__input_format) + kernel_pos])
-      kernel_pos += 1
+      output_dims.append(sizes[d])
 
     # 3. DHW dimensions.
     output_dims += [
-        sizes[i] for i in range(input_rank_dims_start, input_rank_dims_end)
+        sizes[d]
+        for d in self.__input_format[input_rank_dims_start:input_rank_dims_end]
     ]
 
     # 4. Non-DHW trailing input dimensions.
-    output_dims += [
-        sizes[input_rank_dims_end + i]
-        for i, d in enumerate(self.__input_format[input_rank_dims_end:])
-    ]
+    output_dims += [sizes[d] for d in self.__input_format[input_rank_dims_end:]]
 
     # 5. Non-DHW trailing kernel dimensions except C.
-    kernel_pos = 0
     for d in self.__kernel_format[kernel_rank_dims_end:]:
       if d == "C":
         continue
-      output_dims.append(sizes[len(self.__input_format) + kernel_rank_dims_end +
-                               kernel_pos])
-      kernel_pos += 1
+      output_dims.append(sizes[d])
     return output_dims
 
-  def shapes_builder(self, *args: Union[int, List[int]]) -> List[List[int]]:
+  def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Constructs the tensor shapes given problem parameters."""
-    sizes, attributes = self.__partition_argument_list(args)
-    strides, dilations = attributes
+    strides, dilations = sizes["strides"], sizes["dilations"]
     rank = len(self.__input_format) - 2
 
     # The input size is computed by increasing its rank-related dimensions to
@@ -203,69 +184,60 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     #   => iw = [(ow - 1) * sw] + [(kw - 1) * dw] + 1
     #    => ow = [iw - (kw - 1) * dw - 1] / sw + 1
     input_shape = []
-    for pos, char in enumerate(self.__input_format):
+    for char in self.__input_format:
       if char in RANK_RELATED_DIMS[-rank:]:
         attribute_pos = RANK_RELATED_DIMS[-rank:].index(char)
-        kernel_pos = self.__kernel_format.replace("C", "").index(char)
-        ow = sizes[pos]
+        ow = sizes[char]
         sw = strides[attribute_pos]
-        kw = sizes[rank + 2 + kernel_pos]
+        kw = sizes["K" + char]
         dw = dilations[attribute_pos]
         input_shape.append(((ow - 1) * sw + 1) + ((kw - 1) * dw + 1) - 1)
       else:
-        input_shape.append(sizes[pos])
+        input_shape.append(sizes[char])
 
     # The kernel size is derived directly from the corresponding parameters,
     # e.g.:
     #  dims(K) = [KH, KW, C].
     # C is provided for the input, take it there.
     kernel_shape = []
-    kernel_pos = 0
     for char in self.__kernel_format:
-      if char == "C":
-        kernel_shape.append(sizes[self.__input_format.index("C")])
+      if char not in RANK_RELATED_DIMS[-rank:]:
+        kernel_shape.append(sizes[char])
       else:
-        kernel_shape.append(sizes[rank + 2 + kernel_pos])
-        kernel_pos += 1
+        kernel_shape.append(sizes["K" + char])
 
     return [input_shape, kernel_shape, self.__infer_output_shape(sizes)]
 
-  def gflop_count_builder(self, *args: Union[int, List[int]]) -> float:
+  def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """Returns the GFLOp count given problem parameters."""
-    sizes, attributes = self.__partition_argument_list(args)
-    return (2.0 * np.prod(sizes)) / 1.e9
+    return 2.0 * np.prod([
+        sizes[k] for k in set(sizes.keys()) - set(["strides", "dilations"])
+    ]) / 1.e9
 
-  # Since we want this to be rank-polymorphic, everything is packed in the args.
-  def gbyte_count_builder(self, *args: Union[int, List[int]]) -> float:
+  def gbyte_count_builder(self, sizes: Mapping[str, Any],
+                          types: Sequence[np.dtype]) -> float:
     """Return the GByte count given problem parameters."""
-    sizes, other_args = self.__partition_argument_list(args)
-    strides, dilations = other_args[0:2]
-    np_types = other_args[2:]
-    shapes = self.shapes_builder(*sizes, strides, dilations)
+    shapes = self.shapes_builder(sizes)
 
-    # Unpack the types from `args`.
-    lhs_np_type, rhs_np_type, res_np_type = args[-3:]
+    lhs_np_type, rhs_np_type, res_np_type = types
     ro_gbytes = 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
         for s, t in zip(shapes[:2], [lhs_np_type, rhs_np_type]))
     rw_gbytes = 2.e-9 * np.prod(shapes[-1:]) * np.dtype(res_np_type).itemsize
     return ro_gbytes + rw_gbytes
 
-  def tensors_np_builder(
-      self, *args: Union[int, List[int], np.dtype]) -> List[np.dtype]:
+  def tensors_np_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[np.dtype]) -> List[np.dtype]:
     """Returns random NumPy suitable for calling the kernel."""
-    sizes, other_args = self.__partition_argument_list(args)
-    strides, dilations = other_args[0:2]
-    np_types = other_args[2:]
-    shapes = self.shapes_builder(*sizes, strides, dilations)
+    shapes = self.shapes_builder(sizes)
     tensors = [
         realign(np.random.rand(*s).astype(t), byte_alignment=64)
-        for s, t in zip(shapes, np_types)
+        for s, t in zip(shapes, types)
     ]
     # Uncomment to simplify debugging.
     # tensors = [
     #     realign(np.arange(1, np.prod(s) + 1).reshape(s).astype(t), \
     #             byte_alignment=64) \
-    #     for s, t in zip(shapes, np_types)
+    #     for s, t in zip(shapes, types)
     # ]
     tensors[-1].fill(0.)
     return tensors
@@ -357,17 +329,14 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       raise ValueError(f"max_abs_delta: {max_abs_delta} -> FAILURE ")
 
-  def types_mlir_builder(self, *args: Union[int, List[int],
-                                            Type]) -> List[Type]:
+  def types_mlir_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[Type]) -> List[Type]:
     """Returns the list of MLIR types for arguments of this computation."""
-    sizes, other_args = self.__partition_argument_list(args)
-    strides, dilations = other_args[0:2]
-    element_types = other_args[2:]
-    shapes = self.shapes_builder(*sizes, strides, dilations)
-    return [RankedTensorType.get(s, t) for s, t in zip(shapes, element_types)]
+    shapes = self.shapes_builder(sizes)
+    return [RankedTensorType.get(s, t) for s, t in zip(shapes, types)]
 
-  def build_problem_under_context_manager(self, name: str,
-                                          *mlir_types: Type) -> builtin.FuncOp:
+  def build_problem_under_context_manager(
+      self, name: str, mlir_types: Sequence[Type]) -> builtin.FuncOp:
     """Constructs MLIR that implements the current convolution.
 
     Expects to operate under MLIR's context manager.

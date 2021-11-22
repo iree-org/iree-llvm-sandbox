@@ -1,7 +1,7 @@
 import sys
 
 from collections.abc import Callable
-from typing import Any, List, Optional, Sequence, Type, Union
+from typing import Any, List, Optional, Sequence, Union
 
 import numpy
 
@@ -75,7 +75,8 @@ def get_mlir_abi_compatible_types(input_and_outputs: Sequence[Any]):
 
 
 # Return the list of mlir types matching np_types 1-to-1.
-def compiled_function_element_types_mlir_builder(np_types: Sequence[np.dtype]):
+def compiled_function_element_types_mlir_builder(
+    np_types: Sequence[np.dtype]) -> List[Type]:
   return [np_type_to_mlir_type(t) for t in np_types]
 
 
@@ -126,16 +127,12 @@ class ProblemInstance:
       self.mlir_context = ctx
       self.mlir_module = Module.create()
       with InsertionPoint(self.mlir_module.body):
-        list_of_sizes = [
-            self.compile_time_problem_sizes_dict[t]
-            for t in self.problem_sizes_keys
-        ]
         types = self.problem_definition.types_mlir_builder(
-            *list_of_sizes,
-            *compiled_function_element_types_mlir_builder(self.np_types))
+            self.compile_time_problem_sizes_dict,
+            compiled_function_element_types_mlir_builder(self.np_types))
 
         func = self.problem_definition.build_problem_under_context_manager(
-            fun_to_benchmark_name, *types)
+            fun_to_benchmark_name, types)
         wrapper = emit_benchmarking_function(entry_point_name, func)
 
       def apply_transform_to_entry_point_name(module):
@@ -160,11 +157,8 @@ class ProblemInstance:
         runtime_problem_sizes_dict, self.compile_time_problem_sizes_dict)
 
     # 1. Setup NP inputs and outputs
-    list_of_sizes = [
-        runtime_problem_sizes_dict[t] for t in self.problem_sizes_keys
-    ]
     np_input_and_outputs = self.problem_definition.tensors_np_builder(
-        *list_of_sizes, *self.np_types)
+        runtime_problem_sizes_dict, self.np_types)
     # np_input_and_outputs needs to remain live as long as
     # np_input_and_outputs_pointers is used
     np_input_and_outputs_pointers = get_mlir_abi_compatible_types(
@@ -187,6 +181,9 @@ class ProblemInstance:
       self.mlir_execution_engine.dump_to_object_file(dump_obj_to_file)
 
     # 4. Check.
+    # TODO: this checks seems to be always true as `check_np` is a function
+    # defined to be just `pass` at the base class level, nobody overrides it as
+    # attribute to be None.
     if self.problem_definition.check_np is not None:
       self.problem_definition.check_np(*np_input_and_outputs)
       # If we checked, do another dry run to warm back up.
@@ -195,9 +192,8 @@ class ProblemInstance:
     # 5. Showtime.
     timed_invoke(
         run_n_iters=run_n_iters,
-        gflop_count=self.problem_definition.gflop_count_builder(*list_of_sizes),
+        gflop_count=self.problem_definition.gflop_count_builder(
+            runtime_problem_sizes_dict),
         gbyte_count=self.problem_definition.gbyte_count_builder(
-            *list_of_sizes, *self.np_types),
+            runtime_problem_sizes_dict, self.np_types),
         n_iters=n_iters)
-
-    return

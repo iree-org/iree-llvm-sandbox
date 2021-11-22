@@ -1,6 +1,6 @@
 import numpy as np
 
-from typing import List, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Sequence, Tuple, Union
 
 from mlir.ir import *
 from mlir.dialects import arith, builtin, linalg, std
@@ -42,53 +42,35 @@ class EinsumProblem(ProblemDefinition):
     return list(self.specification.output_dims +
                 self.specification.reduction_dims)
 
-  def __partition_argument_list(self,
-                                items: Sequence) -> Tuple[Sequence, Sequence]:
-    """Splits items into parts containing integers and non-integers.
-
-    The integers are expected to be the leading arguments in the item list.
-    """
-    for (i, arg) in enumerate(items):
-      if not isinstance(arg, int):
-        break
-    else:
-      return items, ()
-    return items[:i], items[i:]
-
-  def shapes_builder(self, *args: Union[int]) -> List[List[int]]:
+  def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Constructs the tensor shapes given problem parameters."""
-    all_keys = self.keys()
-
     def shape_of_tensor(name: str):
-      return [
-          args[all_keys.index(d)] for d in getattr(self.specification, name)
-      ]
+      return [sizes[d] for d in getattr(self.specification, name)]
 
     return [
         shape_of_tensor(name)
         for name in ['lhs_dims', 'rhs_dims', 'output_dims']
     ]
 
-  def gflop_count_builder(self, *args: Union[int]) -> float:
+  def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """Returns the GFLOp count given problem parameters."""
-    sizes, types = self.__partition_argument_list(args)
-    return 2.0 * np.prod(sizes) / 1.e9
+    return 2.0 * np.prod(list(sizes.values())) / 1.e9
 
-  def gbyte_count_builder(self, *args: Union[int, np.dtype]) -> float:
+  def gbyte_count_builder(self, sizes: Mapping[str, Any],
+                          types: Sequence[np.dtype]) -> float:
     """Return the GByte count given problem parameters."""
-    sizes, types = self.__partition_argument_list(args)
     lhs_type, rhs_type, output_type = types
-    lhs_shape, rhs_shape, output_shape = self.shapes_builder(*sizes)
+    lhs_shape, rhs_shape, output_shape = self.shapes_builder(sizes)
     ro_gbytes = 1.e-9 * (
         np.prod(lhs_shape) * np.dtype(lhs_type).itemsize +
         np.prod(rhs_shape) * np.dtype(rhs_type).itemsize)
     rw_gbytes = 2.e-9 * np.prod(output_shape) * np.dtype(output_type).itemsize
     return ro_gbytes + rw_gbytes
 
-  def tensors_np_builder(self, *args: Union[int, np.dtype]) -> List[np.dtype]:
+  def tensors_np_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[np.dtype]) -> List[np.dtype]:
     """Returns random NumPy suitable for calling the kernel."""
-    sizes, types = self.__partition_argument_list(args)
-    shapes = self.shapes_builder(*sizes)
+    shapes = self.shapes_builder(sizes)
     tensors = [
         np.random.rand(*s).astype(t) for s, t in zip(shapes[:-1], types[:-1])
     ]
@@ -109,14 +91,15 @@ class EinsumProblem(ProblemDefinition):
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       raise ValueError(f'max_abs_delta: {max_abs_delta} -> FAILURE ')
 
-  def types_mlir_builder(self, *args: Union[int, Type]) -> List[Type]:
+  def types_mlir_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[Type]) -> List[Type]:
     """Returns the list of MLIR types for arguments of this computation."""
-    sizes, types = self.__partition_argument_list(args)
-    shapes = self.shapes_builder(*sizes)
+    shapes = self.shapes_builder(sizes)
     return [RankedTensorType.get(s, t) for s, t in \
             zip(shapes, types)]
 
-  def build_problem_under_context_manager(self, name: str, *types: Type):
+  def build_problem_under_context_manager(self, name: str,
+                                          types: Sequence[Type]):
     """Constructs MLIR that implements the current convolution.
 
     Expects to operate under MLIR's context manager.

@@ -197,7 +197,7 @@ all_experts = [
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M', 'N', 'K']
+keys = ['m', 'n', 'k']
 
 
 # CHECK-NOT: FAILURE
