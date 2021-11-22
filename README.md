@@ -20,9 +20,10 @@ for more information.
 
 This project builds as part of the LLVM External Projects facility (see
 documentation for the `LLVM_EXTERNAL_PROJECTS` config setting). There are many
-ways to set this up but the following is recommended. It is left to the reader
-to adapt paths if deviating. We assume below that projects are checked out to
-`$HOME/src`.
+ways to set this up. We recommend using our `configure.py` script below.
+
+It is left to the reader to adapt paths if deviating. We assume below that
+projects are checked out to `$HOME/src`.
 
 ## Check out projects
 
@@ -30,16 +31,13 @@ In your `$HOME/src` directory, check out each project:
 
 Required:
 
-*   `git clone https://github.com/llvm/llvm-project.git`
 *   `git clone https://github.com/google/iree-llvm-sandbox`
-
-Optional: * `git clone https://github.com/llvm/mlir-npcomp.git`
 
 We use the following environment variables in these instructions:
 
 *   `LLVM_SOURCE_DIR`: $HOME/src/llvm-project
 *   `IREE_LLVM_SANDBOX_SOURCE_DIR`: $HOME/src/iree-llvm-sandbox
-*   `IREE_LLVM_SANDBOX_BUILD_DIR`: $HOME/src/sandbox_build
+*   `IREE_LLVM_SANDBOX_BUILD_DIR`: $HOME/src/iree-llvm-sandbox/build
 
 ## Python prerequisites (if using Python)
 
@@ -51,53 +49,50 @@ which python
 python -m venv ~/.venv/mlirdev
 source ~/.venv/mlirdev/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -r ${LLVM_SOURCE_DIR}/mlir/python/requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-Optionally, install pytorch nightly:
+## Configure and build.
+
+The sandbox can be optionally built with or without IREE integration (for
+accessing IREE specific IR and evaluating on IREE compatible targets):
+
+### Building with IREE.
+
+Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
+directory and initialize submodules:
 
 ```
-pip3 install --pre torch torchvision torchaudio -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+(cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project)
 ```
 
-## CMake configure and build
-
-The following assumes that you will be building into `$HOME/src/sandbox_build`:
+And configure/build the project:
 
 ```
-cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}/..
-cmake -GNinja -B${IREE_LLVM_SANDBOX_BUILD_DIR} llvm-project/llvm \
-  -DLLVM_ENABLE_PROJECTS=mlir \
-  -DLLVM_EXTERNAL_PROJECTS=iree_llvm_sandbox \
-  -DLLVM_EXTERNAL_IREE_LLVM_SANDBOX_SOURCE_DIR=$PWD/iree-llvm-sandbox \
-  -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
-  -DMLIR_INCLUDE_INTEGRATION_TESTS=ON \
-  -DLLVM_ENABLE_ASSERTIONS=ON \
-  -DLLVM_INCLUDE_UTILS=ON \
-  -DLLVM_INSTALL_UTILS=ON \
-  -DLLVM_BUILD_EXAMPLES=ON \
-  -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-  -DPython3_EXECUTABLE=$(which python) \
-  -DCMAKE_BUILD_TYPE=Release
+python configure.py --iree-path=../iree
 ```
 
-The following CMake options are recommended for efficiency, if you have the
-corresponding tools installed:
+Note that the `third_party/llvm-project` bundled with IREE will be used.
 
-*   `-DLLVM_ENABLE_LLD=ON`
-*   `-DLLVM_CCACHE_BUILD=ON`
+### Building without IREE.
 
-Useful build commands (from the `${IREE_LLVM_SANDBOX_BUILD_DIR}` directory):
+You must checkout [llvm-project](https://github.com/llvm/llvm-project) at a
+compatible commit next to this directory.
 
-*   `ninja check-mlir`: Run MLIR tests.
-*   `ninja all`: Build everything.
-*   `ninja IREELLVMSandboxPythonModules`: Just build the python packages
-    (smaller/faster than everything).
+```
+(cd .. && git clone https://github.com/llvm/llvm-project.git)
+```
+
+And configure/build the project:
+
+```
+python configure.py
+```
 
 ## Using the Python API
 
 ```
-export PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/iree_llvm_sandbox/python_package
+source .env && export PYTHONPATH
 
 # Sanity check (should not error).
 python -c "import mlir.iree_sandbox"

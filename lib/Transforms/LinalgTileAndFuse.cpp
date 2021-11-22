@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Transforms/PassDetail.h"
+#include "Transforms/Passes.h"
 #include "Transforms/Transforms.h"
 
 #define DEBUG_TYPE "tile-fuse"

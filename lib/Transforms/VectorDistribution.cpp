@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PassDetail.h"
-#include "Passes.h"
+#include "Transforms/PassDetail.h"
+#include "Transforms/Passes.h"
 #include "Transforms/Transforms.h"
 #include "mlir/Conversion/Passes.h"
 #include "mlir/Dialect/Vector/VectorOps.h"

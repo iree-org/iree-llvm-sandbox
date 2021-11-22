@@ -39,7 +39,7 @@ class VectorDialect;
 }  // end namespace vector
 
 #define GEN_PASS_CLASSES
-#include "Passes.h.inc"
+#include "Transforms/Passes.h.inc"
 
 }  // end namespace mlir
 

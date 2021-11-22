@@ -3,6 +3,14 @@ include(MLIRDetectPythonEnv)
 
 mlir_configure_python_dev_packages()
 
+set(_addl_sources)
+if(SANDBOX_ENABLE_IREE_DIALECTS)
+  list(APPEND _addl_sources
+    IREEDialectsPythonSources
+    IREEDialectsPythonExtensions
+  )
+endif()
+
 declare_mlir_python_sources(IREELLVMSandboxSources
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir"
   SOURCES iree_sandbox.py
@@ -12,7 +20,7 @@ declare_mlir_python_extension(IREELLVMSandboxSources.API
   MODULE_NAME _ireeSandbox
   ADD_TO_PARENT IREELLVMSandboxSources
   SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/../lib/PythonAPI.cpp
+    PythonAPI.cpp
   EMBED_CAPI_LINK_LIBS
     IREELinalgTensorSandboxCAPI
 )
@@ -27,6 +35,7 @@ add_mlir_python_common_capi_library(IREELLVMSandboxCAPI
     MLIRPythonSources
     MLIRPythonExtension.AllPassesRegistration
     IREELLVMSandboxSources
+    ${_addl_sources}
 )
 
 # Include the main MLIR API in our python package, linking against our CAPI
@@ -38,6 +47,7 @@ add_mlir_python_modules(IREELLVMSandboxPythonModules
     MLIRPythonSources
     MLIRPythonExtension.AllPassesRegistration
     IREELLVMSandboxSources
+    ${_addl_sources}
   COMMON_CAPI_LINK_LIBS
     IREELLVMSandboxCAPI
   )

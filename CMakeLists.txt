@@ -8,6 +8,15 @@ endif()
 set(IREE_LLVM_SANDBOX_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 message(STATUS "iree_llvm_sandbox build directory: ${IREE_LLVM_SANDBOX_BINARY_DIR}")
 
+# Compile in IREE dialects.
+set(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR "" CACHE PATH "Path to iree-dialects project")
+if(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR)
+  message(STATUS "Enabling iree-dialects in sandbox")
+  add_compile_definitions("SANDBOX_ENABLE_IREE_DIALECTS")
+  # TODO: For finding iree-dialects-c. Should not be necessary.
+  include_directories(SYSTEM ${LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR}/include)
+endif()
+
 set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
 set(MLIR_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/../mlir/include)
 set(MLIR_TABLEGEN_OUTPUT_DIR ${CMAKE_BINARY_DIR}/tools/mlir/include)
@@ -29,21 +38,4 @@ include_directories(${IREE_LLVM_SANDBOX_BINARY_DIR}/include)
 add_subdirectory(include)
 add_subdirectory(lib)
 add_subdirectory(python)
-
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
-
-add_llvm_executable(mlir-proto-opt
-  mlir-proto-opt.cpp
-)
-target_link_libraries(mlir-proto-opt
-PRIVATE
-  ${dialect_libs}
-  ${conversion_libs}
-  MLIRLinalgExt
-  MLIROptLib
-  MLIRVectorExt
-  IREELinalgTensorSandbox
-  IREELinalgTensorSandboxCAPI
-)
-mlir_check_all_link_libraries(mlir-proto-opt)
+add_subdirectory(tools)
