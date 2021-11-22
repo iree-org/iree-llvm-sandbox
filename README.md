@@ -27,6 +27,8 @@ projects are checked out to `$HOME/src`.
 
 ## Check out projects
 
+TODO: Simplify instructions.
+
 In your `$HOME/src` directory, check out each project:
 
 Required:
