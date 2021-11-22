@@ -1,13 +1,8 @@
-add_subdirectory(LinalgExt)
-add_subdirectory(VectorExt)
+add_subdirectory(Dialects)
+add_subdirectory(Transforms)
 
 add_mlir_library(IREELinalgTensorSandbox
-  ConvertToAsyncDialect.cpp
-  ConvertToGPUDialect.cpp
-  FuseFillIntoReduction.cpp
   LinalgTensorCodegenDriver.cpp
-  LinalgTileAndFuse.cpp
-  VectorDistribution.cpp
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
@@ -16,6 +11,7 @@ add_mlir_library(IREELinalgTensorSandbox
   MLIRLinalgTransforms
 
   DEPENDS
+  IREELinalgTensorSandboxTransforms
   RunnersPassIncGen
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
