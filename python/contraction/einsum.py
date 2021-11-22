@@ -115,8 +115,7 @@ def make_einsum(specification: str):
   # Create and return the contraction structured op.
   op_name = "_".join(["contraction", lhs_dims, rhs_dims, output_dims])
 
-  # TODO: add op_name=op_name when upstream MLIR is fixed.
-  @linalg_structured_op
+  @linalg_structured_op(op_name=op_name)
   def einsum_contraction(
       LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
       RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
