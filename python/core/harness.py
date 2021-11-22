@@ -25,15 +25,39 @@ def log(*args):
 def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
                  n_iters: int):
   elapsed_ns = run_n_iters(n_iters)
-  elapsed_s = elapsed_ns / 1.e9
-  elapsed_s_per_iter = elapsed_s / n_iters
-  gflop_per_s_per_iter = gflop_count / (elapsed_s_per_iter)
-  gbyte_per_s_per_iter = gbyte_count / (elapsed_s_per_iter)
-  print(f"xxxxxxxxxx : {n_iters} iters time on {1} threads "
-        f"in {elapsed_s_per_iter:.{4}}s per iter "
-        f"sec ({gflop_per_s_per_iter:.{4}} GFlop/s, "
-        f"{gbyte_per_s_per_iter:.{4}} GB/s) "
-        f"total time {elapsed_s:.{4}}s ")
+  elapsed_s = np.flip(np.sort(elapsed_ns / 1.e9))
+  elapsed_s_per_iter = [                  \
+      elapsed_s[0],                       \
+      elapsed_s[((n_iters *  1) // 100)], \
+      elapsed_s[((n_iters * 10) // 100)], \
+      elapsed_s[((n_iters * 25) // 100)], \
+      elapsed_s[((n_iters * 50) // 100)], \
+      elapsed_s[((n_iters * 75) // 100)], \
+      elapsed_s[((n_iters * 90) // 100)], \
+      elapsed_s[((n_iters * 99) // 100)], \
+      elapsed_s[-1]                       \
+  ]
+  gbyte_per_s_per_iter = [(gbyte_count / sec) for sec in elapsed_s_per_iter]
+  gflop_per_s_per_iter = [(gflop_count / sec) for sec in elapsed_s_per_iter]
+  print(f'xxxxxxxxxx : {n_iters} iters time on {1} threads')
+  line = '-' * 120
+  header_data = \
+      ['slowest', 'p1', 'p10', 'p25', 'p50', 'p75', 'p90', 'p99', 'fastest']
+  data = [ \
+      header_data +              ['unit'], \
+      elapsed_s_per_iter +    ['seconds'], \
+      gflop_per_s_per_iter + ['GFlops/s'], \
+      gbyte_per_s_per_iter +    ['GBs/s']  \
+  ]
+  print(line)
+  format_str = '{:>12s}' * len(data[0])
+  print(format_str.format(*data[0]))
+  print(line)
+  format_str = '{:>12.1e}' * (len(data[0]) - 1) + '{:>12s}'
+  print(format_str.format(*data[1]))
+  for i in range(2, len(data)):
+    format_str = '{:>12.2f}' * (len(data[0]) - 1) + '{:>12s}'
+    print(format_str.format(*data[i]))
 
 
 # TODO: support more than just RankedTensorType.
@@ -90,9 +114,9 @@ class ProblemInstance:
       compile_time_problem_sizes_dict: dict,
       # TODO: Better type than Callable.
       transform: Callable,
-      dump_ir_to_file: str = ""):
+      dump_ir_to_file: str = ''):
     assert self.compile_time_problem_sizes_dict is None, \
-        f"Problem already compiled, please instantiate a new problem"
+        f'Problem already compiled, please instantiate a new problem'
     assert_dict_entries_match_keys(compile_time_problem_sizes_dict,
                                    self.problem_sizes_keys)
 
@@ -121,7 +145,7 @@ class ProblemInstance:
           self.mlir_module, apply_transform_to_entry_point_name)
 
       if (len(dump_ir_to_file) > 0):
-        f = open(dump_ir_to_file, "w")
+        f = open(dump_ir_to_file, 'w')
         f.write(str(transformed_module))
         f.close()
 
@@ -129,7 +153,7 @@ class ProblemInstance:
           n_iters: int,
           entry_point_name: str,
           runtime_problem_sizes_dict: dict,
-          dump_obj_to_file: str = ""):
+          dump_obj_to_file: str = ''):
     assert_dict_entries_match_keys(runtime_problem_sizes_dict,
                                    self.problem_sizes_keys)
     assert_runtime_sizes_compatible_with_compile_time_sizes(
@@ -142,19 +166,18 @@ class ProblemInstance:
     np_input_and_outputs = self.problem_definition.tensors_np_builder(
         *list_of_sizes, *self.np_types)
     # np_input_and_outputs needs to remain live as long as
-    # mlir_input_and_outputs_pointers is used
-    mlir_input_and_outputs_pointers = get_mlir_abi_compatible_types(
+    # np_input_and_outputs_pointers is used
+    np_input_and_outputs_pointers = get_mlir_abi_compatible_types(
         np_input_and_outputs)
 
-    # 2. Setup function to run, taking just an n_iters arg.
+    # 2. Setup function to run, taking a np array of .
     def run_n_iters(n_iters: int):
-      index_ptr_t = ctypes.c_longlong * 1
-      execution_time_data = index_ptr_t()
-      self.mlir_execution_engine.invoke(
-          entry_point_name, *mlir_input_and_outputs_pointers,
-          index_ptr_t(n_iters),
-          ctypes.cast(execution_time_data, ctypes.POINTER(index_ptr_t)))
-      return execution_time_data[0]
+      np_timers = np.zeros([n_iters], dtype=np.int64)
+      np_timers_pointer = get_mlir_abi_compatible_types([np_timers]).pop()
+      self.mlir_execution_engine.invoke(entry_point_name,
+                                        *np_input_and_outputs_pointers,
+                                        np_timers_pointer)
+      return np_timers
 
     # 3. Dry-run.
     run_n_iters(1)

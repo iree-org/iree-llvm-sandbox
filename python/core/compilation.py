@@ -12,7 +12,7 @@ from typing import Sequence, Optional
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, scf, std
+from mlir.dialects import arith, builtin, linalg, memref, scf, std
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.execution_engine import *
 from mlir.runtime import *
@@ -114,90 +114,34 @@ def emit_benchmarking_function(name: str,
       "nano_time", ([], [i64_type]), visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
+  memref_of_i64_type = MemRefType.get([-1], i64_type)
   wrapper = builtin.FuncOp(
-      name, (func.arguments.types + [IndexType.get()],
-             func.type.results + [i64_type]),
+      # Same signature and an extra buffer of indices to save timings.
+      name,
+      (func.arguments.types + [memref_of_i64_type], func.type.results),
       visibility="public")
   wrapper.attributes["llvm.emit_c_interface"] = UnitAttr.get()
   wrapper.arg_attrs = func.arg_attrs + [DictAttr.get()]
 
   num_results = len(func.type.results)
   with InsertionPoint(wrapper.add_entry_block()):
+    timer_buffer = wrapper.arguments[-1]
     zero = arith.ConstantOp.create_index(0)
+    n_iterations = memref.DimOp(IndexType.get(), timer_buffer, zero)
     one = arith.ConstantOp.create_index(1)
-    total_time = arith.ConstantOp(i64_type, 0)
     iter_args = list(wrapper.arguments[-num_results - 1:-1])
-    iter_args.append(total_time.result)
-    loop = scf.ForOp(zero, wrapper.arguments[-1], one, iter_args)
+    loop = scf.ForOp(zero, n_iterations, one, iter_args)
     with InsertionPoint(loop.body):
-      time_accumulator = loop.inner_iter_args[-1]
       start = std.CallOp(nano_time, [])
       call = std.CallOp(
-          func,
-          wrapper.arguments[:-num_results - 1] + loop.inner_iter_args[:-1])
+          func, wrapper.arguments[:-num_results - 1] + loop.inner_iter_args)
       end = std.CallOp(nano_time, [])
       time = arith.SubIOp(end, start)
-      partial_time = arith.AddIOp(time_accumulator, time)
-      scf.YieldOp(list(call.results) + [partial_time.result])
+      memref.StoreOp(time, timer_buffer, [loop.induction_variable])
+      scf.YieldOp(list(call.results))
     std.ReturnOp(loop)
 
   return wrapper
-
-
-# TODO: retire this because it has internal  assumptions about number of
-# arguments and what is input/output
-def build_op_under_context_manager(op,
-                                   transform: Callable,
-                                   opt_level: int = 3,
-                                   **assignments):
-  # Build module and function to benchmark.
-  operand_defs = sorted(
-      op.model.registered_operands.values(),
-      key=lambda odef: odef.registered_index)
-
-  ranked_tensor_types = [
-      operand_type(odef, **assignments) for odef in operand_defs
-  ]
-  return_elem_type = scalar_type(operand_defs[-1], **assignments)
-  module = Module.create()
-  with InsertionPoint(module.body):
-
-    @builtin.FuncOp.from_py_func(*ranked_tensor_types)
-    def matmul_on_tensors(*outer_args):
-      zero = arith.ConstantOp(return_elem_type, 0.0)
-      tensor_zero = linalg.FillOp(output=outer_args[-1], value=zero)
-      args = outer_args[:-1]
-      return op(*args, outs=tensor_zero)
-
-  # Set the bufferization and optimization attributes.
-  func = module.operation.regions[0].blocks[0].operations[0]
-  attach_inplaceable_attributes(func, [False, False, True])
-  attach_passthrough(func, avx512=True)
-
-  # JIT compile.
-  start = time.time()
-  with InsertionPoint(module.body):
-    emit_benchmarking_function("main", func)
-  transformed_module = transform("matmul_on_tensors", module)
-  execution_engine = ExecutionEngine(
-      transformed_module,
-      opt_level,
-      shared_libs=[
-          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT)
-      ])
-  elapsed_compilation_s = time.time() - start
-
-  return transformed_module, execution_engine
-
-
-# TODO: retire this because build_op_under_context_manager has internal
-# assumptions about number of arguments and what is input/output
-def compile_and_callback(op, transform: Callable, callback: Callable,
-                         **assignments):
-  with Context() as ctx, Location.unknown():
-    module, execution_engine = build_op_under_context_manager(
-        op, transform, **assignments)
-    return callback(module, execution_engine)
 
 
 # JIT compile and return an execution engine that can be invoked.

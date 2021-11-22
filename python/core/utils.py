@@ -38,14 +38,21 @@ def assert_runtime_sizes_compatible_with_compile_time_sizes(
 # NumPy utils.
 ################################################################################
 def np_type_to_mlir_type(np_type: np.dtype):
-  if np_type == np.float16:
-    return F16Type.get()
-  elif np_type == np.float32:
-    return F32Type.get()
-  elif np_type == np.float64:
-    return F64Type.get()
-  else:
-    raise Exception(f'unknown scalar type: {np_type}')
+  np_mlir_types = [                           \
+    [np.float16, F16Type.get()],              \
+    [np.float32, F32Type.get()],              \
+    [np.float64, F64Type.get()],              \
+    [np.int8, IntegerType.get_signless(8)],   \
+    [np.int16, IntegerType.get_signless(16)], \
+    [np.int32, IntegerType.get_signless(32)], \
+    [np.int64, IntegerType.get_signless(64)]  \
+  ]
+
+  for np_mlir_type in np_mlir_types:
+    if np_type == np_mlir_type[0]:
+      return np_mlir_type[1]
+
+  raise Exception(f'unknown scalar type: {np_type}')
 
 
 def realign(allocated_unaligned: np.ndarray, byte_alignment: int = 64):
