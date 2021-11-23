@@ -137,11 +137,11 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
   SmallVector<Type, 4> resultTypes;
   if (hasTensorSemantics()) {
     tiledOperands.emplace_back(
-        getSlice(builder, loc, output(), mirrorOffsets, sizes, strides));
+        getSlice(builder, loc, outputs[0], mirrorOffsets, sizes, strides));
     resultTypes.push_back(tiledOperands[1].getType());
   } else {
     tiledOperands.emplace_back(
-        getSlice(builder, loc, output(), mirrorOffsets, sizes, strides));
+        getSlice(builder, loc, outputs[0], mirrorOffsets, sizes, strides));
   }
 
   Operation *tiledRevOp = cast<LinalgExtOp>(getOperation())
