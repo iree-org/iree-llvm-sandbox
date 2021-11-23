@@ -38,7 +38,14 @@ def LinalgExt_ReverseOp : LinalgExt_Op<"reverse", [
         "getLoopBounds",
         "getTiledImplementation"]>]> {
   let summary = "Reverse operator";
-  let description = [{TODO}];
+  let description = [{
+    Operation to reverse the values along specified dimension(s).
+
+    Reverse operations cannot be represented as `LinalgOp` since the
+    indexing maps are not handled by the tiling algorithm in
+    Linalg. Defining this as a separate operation to use the
+    `TilingInterface` to tile the operation.
+  }];
 
   let arguments = (ins Variadic<AnyShaped>:$inputs,
                        Variadic<AnyShaped>:$outputs,

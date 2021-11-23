@@ -28,26 +28,6 @@ using namespace mlir::linalg_ext;
 // Utils.
 //===----------------------------------------------------------------------===//
 
-static void getEffectsImpl(
-    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
-        &effects,
-    ValueRange results, ValueRange inputBuffers, ValueRange outputBuffers) {
-  for (Value value : results) {
-    effects.emplace_back(MemoryEffects::Allocate::get(), value,
-                         SideEffects::DefaultResource::get());
-  }
-  for (Value value : inputBuffers) {
-    effects.emplace_back(MemoryEffects::Read::get(), value,
-                         SideEffects::DefaultResource::get());
-  }
-  for (Value value : outputBuffers) {
-    effects.emplace_back(MemoryEffects::Read::get(), value,
-                         SideEffects::DefaultResource::get());
-    effects.emplace_back(MemoryEffects::Write::get(), value,
-                         SideEffects::DefaultResource::get());
-  }
-}
-
 /// Returns a memref.subview or a tensor.extract_slice based on the type of the
 /// `source`.
 static Value getSlice(OpBuilder &b, Location loc, Value source,
@@ -111,6 +91,10 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
                                              ValueRange outputs,
                                              ArrayRef<OpFoldResult> offsets,
                                              ArrayRef<OpFoldResult> sizes) {
+  if (outputs.size() != 1) {
+    this->emitOpError("expected single destination while tiling operation");
+    return nullptr;
+  }
   int64_t rank = getOperandRank();
   SmallVector<OpFoldResult> strides(rank, builder.getI64IntegerAttr(1));
   Location loc = getLoc();
@@ -137,11 +121,11 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
   SmallVector<Type, 4> resultTypes;
   if (hasTensorSemantics()) {
     tiledOperands.emplace_back(
-        getSlice(builder, loc, output(), mirrorOffsets, sizes, strides));
+        getSlice(builder, loc, outputs[0], mirrorOffsets, sizes, strides));
     resultTypes.push_back(tiledOperands[1].getType());
   } else {
     tiledOperands.emplace_back(
-        getSlice(builder, loc, output(), mirrorOffsets, sizes, strides));
+        getSlice(builder, loc, outputs[0], mirrorOffsets, sizes, strides));
   }
 
   Operation *tiledRevOp = cast<LinalgExtOp>(getOperation())
