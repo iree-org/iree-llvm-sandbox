@@ -47,7 +47,7 @@ namespace {
 ///   ... <use_op> ... %1 ...
 /// ```
 ///
-/// is rewritten as
+/// is rewritten using a "noop" subtensor extract/insert pair
 ///
 /// ```mlir
 ///   %1 = <tiling interface op> ins(...) outs(%0 : ...)
@@ -116,7 +116,8 @@ struct OpTilingPattern : public OpInterfaceRewritePattern<TilingInterface> {
         options.tileSizeComputationFunction(rewriter, op);
     // Compute lower and upper bounds of the loop nest.
     SmallVector<Range> ranges = clonedOp.getLoopBounds(rewriter);
-    assert(static_cast<int64_t>(tileSizes.size()) == ranges.size());
+    assert(tileSizes.size() == ranges.size() &&
+           "expected tile sizes to match the number of loops");
     SmallVector<Value> lbs, dims, allDims, steps;
     for (auto it : llvm::enumerate(ranges)) {
       allDims.push_back(it.value().size);
