@@ -54,6 +54,9 @@ all_experts = [
 keys = ['m', 'n', 'k']
 
 
+def make_size_list(sizes: Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 10
@@ -67,93 +70,33 @@ def main():
       [2048, 2048, 2048],
       [4000, 4000, 4000],
   ]
-  for np_types in [[np.float32, np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      runtime_problem_sizes_dict = {k: v for k, v in zip(keys, problem_sizes)}
-      for compile_time_problem_sizes_dict in [                      \
-          # case 1: static at compile time
 
+  def numpy_kernel(args, sizes, types):
+    A, B, C = args
+    C.fill(0.)
+    np.dot(A, B, out=C)
 
-          runtime_problem_sizes_dict,                               \
-          {                                                         \
-           # case 2: partially dynamic at compile time
+  def pytorch_kernel(args, sizes, types):
+    A, B, C = args
+    C.fill_(0.)
+    torch.mm(A, B, out=C)
 
-
-            k: v for k, v in zip(keys, [-1, problem_sizes[1], -1])  \
-          },                                                        \
-          {                                                         \
-           # case 3: fully dynamic at compile time
-
-
-            k: v for k, v in zip(keys, [-1, -1, -1])                \
-          }]:
-        # Init printing.
-        print(
-            f'\n###############################################################\n'
-            f'Runtime problem size {runtime_problem_sizes_dict}\n'
-            f'Compile-time problem size {compile_time_problem_sizes_dict}\n'
-            f'Problem types {np_types}')
-        for expert in all_experts:
-          problem = ProblemInstance(
-              problem_definition=EinsumProblem('mk,kn'),
-              np_types=np_types)
-
-          problem.compile(
-              entry_point_name='matmul_main',
-              fun_to_benchmark_name='matmul_on_tensors',
-              compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-              transform=expert,
-              # Used to pipe through llvm-mca
-              dump_ir_to_file='/tmp/abc.mlir')
-
-          problem.run(
-              n_iters=n_iters,
-              entry_point_name='matmul_main',
-              runtime_problem_sizes_dict=runtime_problem_sizes_dict,
-              # Used to pipe through llvm-mca with the **actual JIT'ed object**.
-              dump_obj_to_file='/tmp/abc.o')
-
-        # For single-threaded apples-to-apples comparisons, run with:
-        # MKL_NUM_THREADS=1
-        import os
-        if os.environ.get('BENCHMARK_NUMPY'):
-          print('Numpy')
-          A, B, C = EinsumProblem('mk,kn').tensors_np_builder(
-              *problem_sizes, *np_types)
-
-          def run_n_iters(n_iters: int):
-            for _ in range(n_iters):
-              C.fill(0.)
-              np.dot(A, B, out=C)
-
-          timed_invoke(
-              run_n_iters,
-              EinsumProblem('mk,kn').gflop_count_builder(*problem_sizes),
-              EinsumProblem('mk,kn').gbyte_count_builder(*problem_sizes),
-              n_iters=n_iters)
-
-        # For single-threaded apples-to-apples comparisons, run with:
-        # ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
-        if os.environ.get('BENCHMARK_TORCH'):
-          print('Torch')
-          import torch
-          torch.set_num_threads(1)
-          A, B, C = [
-              torch.from_numpy(t)
-              for t in EinsumProblem('mk,kn').tensors_np_builder(
-                  *problem_sizes, *np_types)
-          ]
-
-          def run_n_iters(n_iters: int):
-            for _ in range(n_iters):
-              C.fill_(0.)
-              torch.mm(A, B, out=C)
-
-          timed_invoke(
-              run_n_iters,
-              EinsumProblem('mk,kn').gflop_count_builder(*problem_sizes),
-              EinsumProblem('mk,kn').gbyte_count_builder(*problem_sizes),
-              n_iters=n_iters)
+  for runtime_only in [
+      [],  # case 1: static at compile time
+      ['m', 'k'],  # case 2: partially dynamic at compile time
+      keys
+  ]:  # case 3: fully dynamic at compile time
+    test_harness(
+        lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
+        map(make_size_list, problem_size_list),
+        all_experts,
+        n_iters=n_iters,
+        runtime_only_sizes=set(runtime_only),
+        function_name='matmul_on_tensors',
+        dump_ir_to_file='/tmp/abc.mlir',
+        dump_obj_to_file='/tmp/abc.o',
+        numpy_benchmark=numpy_kernel,
+        pytorch_benchmark=pytorch_kernel)
 
 
 if __name__ == '__main__':

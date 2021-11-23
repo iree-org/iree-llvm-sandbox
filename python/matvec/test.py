@@ -200,37 +200,19 @@ all_experts = [
 keys = ['m', 'n']
 
 
+def make_size_list(sizes: Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
   problem_size_list = [[24, 32], [27, 37]]
-  for np_types in [[np.float32, np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(
-          f'\n###############################################################\n'
-          f'Problem size {compile_time_problem_sizes_dict}\n'
-          f'Problem types {np_types}')
-      for expert in all_experts:
-        problem = ProblemInstance(
-            problem_definition=EinsumProblem('mn,n'),
-            np_types=np_types)
-
-        problem.compile(
-            entry_point_name='matvec_main',
-            fun_to_benchmark_name='matvec_on_tensors',
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert)
-
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='matvec_main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
-
+  test_harness(
+      lambda s, t: EinsumProblem('mn,n'), [[np.float32] * 3],
+      map(make_size_list, problem_size_list),
+      all_experts,
+      n_iters=n_iters,
+      function_name='matvec_on_tensors')
 
 if __name__ == '__main__':
   main()

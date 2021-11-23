@@ -8,6 +8,8 @@ from ..core.transforms import *
 
 from .definitions import *
 
+import typing as tp
+
 fun_name = 'conv_3d_ndhwc_dhwcf_main'
 op_name = 'linalg.conv_3d_ndhwc_dhwcf'
 
@@ -35,6 +37,10 @@ all_experts = [
 
 keys = ['N', 'D', 'H', 'W', 'C', 'KD', 'KH', 'KW', 'F', 'strides', 'dilations']
 
+
+def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
@@ -47,38 +53,17 @@ def main():
      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 3], [3, 2, 2]], \
      [8, 4, 16, 16, 32,  3,  3,  3, 64, [3, 2, 2], [1, 3, 2]], \
   ]
-  for np_types in [[np.float32, np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(
-          f'\n###############################################################\n'
-          f'Problem size {compile_time_problem_sizes_dict}\n'
-          f'Problem types {np_types}')
-      for expert in all_experts:
-        problem = ProblemInstance(
-            problem_definition=ConvolutionProblem(
-                'NDHWC',
-                'DHWCF',
-                strides=compile_time_problem_sizes_dict['strides'],
-                dilations=compile_time_problem_sizes_dict['dilations']),
-            np_types=np_types)
-        assert problem.problem_definition.keys == keys
 
-        problem.compile(
-            entry_point_name='main',
-            fun_to_benchmark_name=fun_name,
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert)
-
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
-
+  test_harness(
+      lambda sizes, types: ConvolutionProblem(
+          'NDHWC',
+          'DHWCF',
+          strides=sizes['strides'],
+          dilations=sizes['dilations']), [[np.float32] * 3],
+      [make_size_list(keys, sizes) for sizes in problem_size_list],
+      all_experts,
+      n_iters=n_iters,
+      function_name=fun_name)
 
 if __name__ == '__main__':
   main()

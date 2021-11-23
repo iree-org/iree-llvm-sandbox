@@ -7,6 +7,8 @@ from ..core.transforms import *
 from .definitions import *
 from .ops import *
 
+import typing as tp
+
 fun_name = 'transpose_4d_on_tensors'
 op_name = 'linalg.generic'
 
@@ -64,32 +66,17 @@ def main():
                           2], transpose_4d_1302, expert_transpose_4d_1302),
   ]
 
+  def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
+    return {k: v for k, v in zip(keys, sizes)}
+
   for problem in problem_list:
-    compile_time_problem_sizes_dict = {k: v for k, v in zip(keys, problem[0])}
-    runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-    # Init printing.
-    print(f'\n#############################################################\n'
-          f'Compile-time problem sizes {compile_time_problem_sizes_dict}\n'
-          f'Runtime problem sizes {runtime_problem_sizes_dict}')
-
-    expert = problem[3]
-    print(f'Compilation expert {expert}')
-
-    instance = ProblemInstance(
-        problem_definition=TransposeNDProblem(
-            permutation=problem[1], op_builder=problem[2]),
-        np_types=[np.float32, np.float32])
-
-    instance.compile(
-        entry_point_name='main',
-        fun_to_benchmark_name='transpose_4d_on_tensors',
-        compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-        transform=expert)
-
-    instance.run(
+    test_harness(
+        lambda s, t: TransposeNDProblem(
+            permutation=problem[1], op_builder=problem[2]), [[np.float32] * 2],
+        [make_size_list(keys, problem[0])],
+        experts=[problem[3]],
         n_iters=n_iters,
-        entry_point_name='main',
-        runtime_problem_sizes_dict=runtime_problem_sizes_dict)
+        function_name=fun_name)
 
 
 if __name__ == '__main__':

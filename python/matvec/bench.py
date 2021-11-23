@@ -49,6 +49,9 @@ all_experts = [
 keys = ['m', 'n']
 
 
+def make_size_list(sizes: Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
@@ -60,73 +63,25 @@ def main():
       [2040, 2040],
       [4000, 4000],
   ]
-  for np_types in [[np.float32, np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(
-          f'\n###############################################################\n'
-          f'Problem size {compile_time_problem_sizes_dict}\n'
-          f'Problem types {np_types}')
-      for expert in all_experts:
-        problem = ProblemInstance(
-            problem_definition=EinsumProblem('mn,n'),
-            np_types=np_types)
 
-        problem.compile(
-            entry_point_name='matvec_main',
-            fun_to_benchmark_name='matvec_on_tensors',
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert)
+  def numpy_kernel(args, sizes, types):
+    A, y, x = args
+    x.fill(0.)
+    np.dot(A, y, out=x)
 
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='matvec_main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
+  def pytorch_kernel(args, sizes, types):
+    A, y, x = args
+    x.fill_(0.)
+    torch.mv(A, y, out=x)
 
-      # For single-threaded apples-to-apples comparisons, run with:
-      # MKL_NUM_THREADS=1
-      import os
-      if os.environ.get('BENCHMARK_NUMPY'):
-        print('Numpy')
-        A, y, x = EinsumProblem('mn,n').tensors_np_builder(
-            *problem_sizes, *np_types)
-
-        def run_n_iters(n_iters: int):
-          for _ in range(n_iters):
-            x.fill(0.)
-            np.dot(A, y, out=x)
-
-        timed_invoke(
-            run_n_iters,
-            EinsumProblem('mn,n').gflop_count_builder(*problem_sizes),
-            n_iters=n_iters)
-
-      # For single-threaded apples-to-apples comparisons, run with:
-      # ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
-      if os.environ.get('BENCHMARK_TORCH'):
-        print('Torch')
-        import torch
-        torch.set_num_threads(1)
-        A, y, x = [
-            torch.from_numpy(t)
-            for t in EinsumProblem('mn,n').tensors_np_builder(
-                *problem_sizes, *np_types)
-        ]
-
-        def run_n_iters(n_iters: int):
-          for _ in range(n_iters):
-            x.fill_(0.)
-            torch.mv(A, y, out=x)
-
-        timed_invoke(
-            run_n_iters,
-            EinsumProblem('mn,n').gflop_count_builder(*problem_sizes),
-            n_iters=n_iters)
-
+  test_harness(
+      lambda s, t: EinsumProblem('mn,n'), [[np.float32] * 3],
+      map(make_size_list, problem_size_list),
+      all_experts,
+      n_iters=n_iters,
+      function_name='matvec_on_tensors',
+      numpy_benchmark=numpy_kernel,
+      pytorch_benchmark=pytorch_kernel)
 
 if __name__ == '__main__':
   main()

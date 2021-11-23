@@ -38,6 +38,7 @@ class TransposeNDProblem(ProblemDefinition):
   def rank(self) -> int:
     return len(self.__permutation)
 
+  @property
   def keys(self) -> List[str]:
     return list(DIMNAMES[:self.rank])
 
@@ -52,7 +53,7 @@ class TransposeNDProblem(ProblemDefinition):
     values, return the list of lists of shapes of the FuncOp operands. The
     FuncOp is responsible for distinguishing between input operands and results.
     """
-    linear = [sizes[d] for d in self.keys()]
+    linear = [sizes[d] for d in self.keys]
     return [linear, self.__transpose(linear)]
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]):

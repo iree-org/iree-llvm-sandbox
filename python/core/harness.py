@@ -1,7 +1,8 @@
 import sys
+import os
+import time
 
-from collections.abc import Callable
-from typing import Any, List, Optional, Sequence, Union
+from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence, Union
 
 import numpy
 
@@ -11,6 +12,7 @@ from mlir.runtime import *
 
 from ..core.compilation import compile_to_execution_engine, \
     emit_benchmarking_function
+from ..core.experts import TransformationList
 from ..core.problem_definition import *
 from ..core.utils import *
 
@@ -198,3 +200,108 @@ class ProblemInstance:
         gbyte_count=self.problem_definition.gbyte_count_builder(
             runtime_problem_sizes_dict, self.np_types),
         n_iters=n_iters)
+
+
+def test_harness(
+    problem_factory: Callable[[Mapping[str, Any], Sequence[np.dtype]],
+                              ProblemDefinition],
+    np_types_list: Sequence[Sequence[np.dtype]],
+    problem_sizes_list: Sequence[Mapping[str, Any]],
+    experts: Sequence[TransformationList],
+    n_iters: int = 1,
+    function_name: str = 'tested_function',
+    runtime_only_sizes: AbstractSet[str] = set(),
+    **kwargs):
+  """Test runner facility.
+
+  Compiles and runs the a test or a benchmark for a cross-product of possible
+  argument types, problem sizes and compilation experts. Collects and prints the
+  results to the standard output.
+
+  Arguments:
+  problem_factory: A callable to construct a ProblemDefinition given the size
+    mapping and the argument type choice. May be called multiple times.
+  np_type_list: A list of elemental type lists to try (each inner list must have
+    as many entries as the problem has arguments).
+  problem_sizes_list: A list of size mappings to try.
+  experts: A list of compilation experts to try.
+  n_iters: Number of times to run the test.
+  function_name: Name of the function in which the IR is emitted, this name can
+   be used by compilation experts to target the transformation.
+  runtime_only_sizes: A set of size keys that should be treated as unknown (-1)
+    at compilation time and only set at runtime.
+
+  Keyword arguments:
+  numpy_benchmark: A callable accepting a list of NumPy tensors, the current
+    size mapping and the type selection that performs the computation using
+    Numpy. If the `BENCHMARK_NUMPY` environment variable is set and the argument
+    is provided, it will be called `n_iters` times for the purpose of measuring
+    baseline performance.
+  pytorch_benchmark: A callable accepting a list of PyTorch tensors, the current
+    size mapping and the type selection that performs the computation using
+    PyTorch. If the `BENCHMARK_TORCH` environment variable is set and the
+    argument is provided, it will be called `n_iters` times for the purpose of
+    measuring baseline performance.
+  """
+
+  for np_types in np_types_list:
+    for problem_sizes_dict in problem_sizes_list:
+      compile_time_problem_sizes_dict = {
+          key: (value if key not in runtime_only_sizes else -1)
+          for key, value in problem_sizes_dict.items()
+      }
+      runtime_problem_sizes_dict = problem_sizes_dict
+
+      # Init printing.
+      print(
+          f'\n###############################################################\n'
+          f'Compile-time problem size {compile_time_problem_sizes_dict}\n'
+          f'Runtime problem size {runtime_problem_sizes_dict}\n'
+          f'Problem types {np_types}')
+      for expert in experts:
+        print(f'\nCompilation expert {expert}')
+        problem_definition = problem_factory(problem_sizes_dict, np_types)
+        problem = ProblemInstance(problem_definition, np_types)
+
+        problem.compile(
+            entry_point_name='main',
+            fun_to_benchmark_name=function_name,
+            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
+            transform=expert,
+            dump_ir_to_file=kwargs.get('dump_ir_to_file', ''))
+
+        problem.run(
+            n_iters=n_iters,
+            entry_point_name='main',
+            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
+            dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
+
+      problem_definition = problem_factory(problem_sizes_dict, np_types)
+      gflops = problem_definition.gflop_count_builder(problem_sizes_dict)
+      gbytes = problem_definition.gbyte_count_builder(problem_sizes_dict,
+                                                      np_types)
+
+      if 'numpy_benchmark' in kwargs and os.environ.get('BENCHMARK_NUMPY'):
+        print('\nNumPy reference\n')
+        args = problem_definition.tensors_np_builder(problem_sizes_dict,
+                                                     np_types)
+
+        def run_n_iters(n_iters: int):
+          for _ in range(n_iters):
+            kwargs['numpy_benchmark'](args, problem_sizes_dict, np_types)
+
+        timed_invoke(run_n_iters, gflops, gbytes, n_iters)
+
+      if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
+        print('\nPyTorch reference\n')
+        import torch
+        torch.set_num_threads(1)
+        numpy_args = problem_definition.tensors_np_builder(
+            problem_sizes_dict, np_types)
+        args = list(map(torch.from_numpy, numpy_args))
+
+        def run_n_iters(n_iters: int):
+          for _ in range(n_iters):
+            kwargs['pytorch_benchmark'](problem_sizes_dict, np_types)
+
+        timed_invoke(run_n_iters, gflops, gbytes, n_iters)
