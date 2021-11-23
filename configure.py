@@ -16,6 +16,13 @@ def parse_arguments():
                       default=os.path.abspath(os.path.dirname(__file__)))
   parser.add_argument("--llvm-path", help="Path to llvm-project sources")
   parser.add_argument("--iree-path", help="Path to IREE (used if enabled)")
+  parser.add_argument("--target",
+                      help="Semicolumn-separated list of targets to build with LLVM",
+                      default = "X86")
+  parser.add_argument("--lld", 
+                      help="Build with ENABLE_LLD=ON (optional)",
+                      dest="enable_lld",
+                      default = False)
   parser.add_argument("--no-ccache",
                       help="Disables ccache (if available)",
                       dest="enable_ccache",
@@ -87,15 +94,19 @@ def main(args):
         "WARNING: Could not find clang. Building with default system compiler")
 
   # Detect lld.
-  lld_path = shutil.which("ld.lld")
-  if not lld_path:
-    print("WARNING: LLD (ld.lld) not found on path. Configure may fail.")
+  if args.enable_lld:
+    lld_path = shutil.which("ld.lld")
+    if lld_path:
+      print(f"-- Using lld: {lld_path}")
+      llvm_configure_args.append("-DLLVM_ENABLE_LLD=ON")
+    else:
+      print("WARNING: LLD (ld.lld) not found on path. Configure may fail.")
 
   # Detect ccache.
-  ccache_path = shutil.which("ccache")
   if args.enable_ccache:
+    ccache_path = shutil.which("ccache")
     if ccache_path:
-      print(f"-- Using ccache")
+      print(f"-- Using ccache: {ccache_path}")
       llvm_configure_args.append("-DLLVM_CCACHE_BUILD=ON")
     else:
       print("WARNING: Project developers use ccache which is not installed")
@@ -110,7 +121,7 @@ def main(args):
       f"-S{os.path.join(llvm_path, 'llvm')}",
       "-DLLVM_ENABLE_LLD=ON",
       f"-DLLVM_ENABLE_PROJECTS={';'.join(llvm_builtin_projects)}",
-      "-DLLVM_TARGETS_TO_BUILD=X86;NVPTX",
+      f"-DLLVM_TARGETS_TO_BUILD={args.target}",
       "-DMLIR_INCLUDE_INTEGRATION_TESTS=ON",
       "-DLLVM_ENABLE_ASSERTIONS=ON",
       "-DLLVM_INCLUDE_UTILS=ON",
@@ -129,7 +140,11 @@ def main(args):
     f.write(f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_package')}")
 
   # Do initial build.
-  cmake_args = ["cmake", "--build", build_dir, "--target", "tools/sandbox/all"]
+  # Also build all the relevant tools to disassemble and run analyses.
+  cmake_args = ["cmake", "--build", build_dir, "--target", \
+                "tools/sandbox/all", "mlir-opt", "mlir-translate", \
+                "mlir_runner_utils", "mlir_c_runner_utils", \
+                "llvm-mca", "llvm-objdump", "llc", "opt"]
   print(f"-- Performing initial build: {' '.join(cmake_args)}")
   subprocess.check_call(cmake_args, cwd=build_dir)
 
