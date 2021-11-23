@@ -78,7 +78,6 @@ def main():
     instance = ProblemInstance(
         problem_definition=TransposeNDProblem(
             permutation=problem[1], op_builder=problem[2]),
-        problem_sizes_keys=keys,
         np_types=[np.float32, np.float32])
 
     instance.compile(

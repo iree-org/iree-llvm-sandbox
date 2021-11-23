@@ -87,7 +87,6 @@ class ProblemInstance:
   np_types: Sequence[np.dtype]
 
   # Information about the problem to enable compilation.
-  problem_sizes_keys: Sequence[str]
   compile_time_problem_sizes_dict: dict
 
   # Result of compilation.
@@ -96,17 +95,21 @@ class ProblemInstance:
   mlir_execution_engine: Any  # TODO: better type
 
   def __init__(self, problem_definition: ProblemDefinition,
-               problem_sizes_keys: Sequence[str], np_types: Sequence[np.dtype]):
+               np_types: Sequence[np.dtype]):
     self.problem_definition = problem_definition
     # Helpers for both compile-time and runtime.
     self.np_types = np_types
     # Information about the problem to enable compilation.
-    self.problem_sizes_keys = problem_sizes_keys
     self.compile_time_problem_sizes_dict = None
     # Result of compilation.
     self.mlir_context = None
     self.mlir_module = None
     self.mlir_execution_engine = None
+
+  def __assert_matching_mapping_keys(self, mapping: Mapping[str, Any]):
+    if not hasattr(self.problem_definition, 'keys'):
+      return
+    assert_dict_entries_match_keys(mapping, self.problem_definition.keys)
 
   def compile(
       self,
@@ -118,8 +121,7 @@ class ProblemInstance:
       dump_ir_to_file: str = ''):
     assert self.compile_time_problem_sizes_dict is None, \
         f'Problem already compiled, please instantiate a new problem'
-    assert_dict_entries_match_keys(compile_time_problem_sizes_dict,
-                                   self.problem_sizes_keys)
+    self.__assert_matching_mapping_keys(compile_time_problem_sizes_dict)
 
     self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict
 
@@ -151,8 +153,7 @@ class ProblemInstance:
           entry_point_name: str,
           runtime_problem_sizes_dict: dict,
           dump_obj_to_file: str = ''):
-    assert_dict_entries_match_keys(runtime_problem_sizes_dict,
-                                   self.problem_sizes_keys)
+    self.__assert_matching_mapping_keys(runtime_problem_sizes_dict)
     assert_runtime_sizes_compatible_with_compile_time_sizes(
         runtime_problem_sizes_dict, self.compile_time_problem_sizes_dict)
 

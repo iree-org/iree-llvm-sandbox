@@ -37,6 +37,7 @@ class EinsumProblem(ProblemDefinition):
     """
     self.specification = EinsumSpecification(specification)
 
+  @property
   def keys(self) -> List[str]:
     """Returns the list of parameter keys for the current problem definition."""
     return list(self.specification.output_dims +

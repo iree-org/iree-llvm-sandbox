@@ -1,5 +1,4 @@
-from collections.abc import Callable
-from typing import Any, Optional, Sequence, Type
+from typing import Any, Mapping, Optional, Sequence, Type
 
 import numpy as np
 
@@ -19,7 +18,7 @@ def inspect_all(obj):
   print([name for name in dir(obj) if name.startswith('__')])
 
 
-def assert_dict_entries_match_keys(dictionary: dict,
+def assert_dict_entries_match_keys(dictionary: Mapping[str, Any],
                                    required_keys: Sequence[str]):
   assert len(
       set(required_keys).symmetric_difference(set(dictionary.keys()))

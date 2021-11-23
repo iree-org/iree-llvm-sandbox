@@ -67,7 +67,6 @@ def main():
                 'WC',
                 strides=compile_time_problem_sizes_dict['strides'],
                 dilations=compile_time_problem_sizes_dict['dilations']),
-            problem_sizes_keys=keys,
             np_types=np_types)
         assert problem.problem_definition.keys() == keys
 

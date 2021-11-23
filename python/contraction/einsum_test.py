@@ -17,9 +17,8 @@ dummy_expert = TransformationList(transforms=[Bufferize()] +
 
 def main():
   problem_definition = EinsumProblem("klnp,nk->pl")
-  problem = ProblemInstance(problem_definition, problem_definition.keys(),
-                            [np.float32] * 3)
-  sizes = {k: v for k, v in zip(problem_definition.keys(), [10, 12, 14, 16])}
+  problem = ProblemInstance(problem_definition, [np.float32] * 3)
+  sizes = {k: v for k, v in zip(problem_definition.keys, [10, 12, 14, 16])}
   problem.compile(
       entry_point_name="einsum_main",
       fun_to_benchmark_name="einsum_on_tensors",
