@@ -55,9 +55,11 @@ jobs:
 
     - name: Build
       run: |
+        ls -al ${GITHUB_WORKSPACE}/
+        ls -al ${GITHUB_WORKSPACE}/sandbox
         export IREE_LLVM_SANDBOX_SOURCE_DIR=${GITHUB_WORKSPACE}/sandbox
         export IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build
-        cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
-        python configure.py
+        # cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+        # python configure.py
         # TODO: activate me once fixed
         # python configure.py --use-iree=True
