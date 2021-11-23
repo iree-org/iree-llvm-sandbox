@@ -12,6 +12,9 @@ def parse_arguments():
   parser.add_argument("--use-iree", 
                       help="Build with IREE support and IREE's LLVM (optional)",
                       default = False)
+  parser.add_argument("--target",
+                      help="Semicolumn-separated list of targets to build with LLVM",
+                      default = "X86")
   parser.add_argument("--lld", 
                       help="Build with ENABLE_LLD=ON (optional)",
                       dest="enable_lld",
@@ -119,7 +122,7 @@ def main(args):
       f"-B{build_dir}",
       f"-S{os.path.join(llvm_path, 'llvm')}",
       f"-DLLVM_ENABLE_PROJECTS={';'.join(llvm_builtin_projects)}",
-      "-DLLVM_TARGETS_TO_BUILD=X86;NVPTX",
+      f"-DLLVM_TARGETS_TO_BUILD={args.target}",
       "-DMLIR_INCLUDE_INTEGRATION_TESTS=ON",
       "-DLLVM_ENABLE_ASSERTIONS=ON",
       "-DLLVM_INCLUDE_UTILS=ON",
