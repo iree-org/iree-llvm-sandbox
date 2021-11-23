@@ -57,7 +57,7 @@ struct OpTilingPattern : public OpRewritePattern<TiledOp> {
         options.tileSizeComputationFunction(rewriter, op);
     // Compute lower and upper bounds of the loop nest.
     SmallVector<Range> ranges = op.getLoopBounds(rewriter);
-    assert(static_cast<int64_t>(tileSizes.size()) == ranges.size());
+    assert(tileSizes.size() == ranges.size());
     SmallVector<Value> lbs, dims, allDims, steps;
     for (auto it : llvm::enumerate(ranges)) {
       allDims.push_back(it.value().size);

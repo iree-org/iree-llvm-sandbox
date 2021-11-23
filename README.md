@@ -35,9 +35,13 @@ Required:
 
 *   `git clone https://github.com/google/iree-llvm-sandbox`
 
-We use the following environment variables in these instructions:
+The following environment variables must be set:
 
-*   `LLVM_SOURCE_DIR`: $HOME/src/llvm-project
+*   `IREE_LLVM_SANDBOX_SOURCE_DIR`: path to the root of the sandbox source directory
+*   `IREE_LLVM_SANDBOX_BUILD_DIR`: path to the directory where all binaries and libraries are built (under the `bin` and `lib` subdirectories respectively)
+
+In these instructions, we chose:
+
 *   `IREE_LLVM_SANDBOX_SOURCE_DIR`: $HOME/src/iree-llvm-sandbox
 *   `IREE_LLVM_SANDBOX_BUILD_DIR`: $HOME/src/iree-llvm-sandbox/build
 
@@ -61,8 +65,8 @@ accessing IREE specific IR and evaluating on IREE compatible targets):
 
 ### Building with IREE.
 
-Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
-directory and initialize submodules:
+You **must** checkout the [IREE](https://github.com/google/iree) GitHub repo next 
+to this directory and initialize submodules:
 
 ```
 (cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project)
@@ -71,14 +75,14 @@ directory and initialize submodules:
 And configure/build the project:
 
 ```
-python configure.py --iree-path=../iree
+python configure.py --use-iree=True
 ```
 
 Note that the `third_party/llvm-project` bundled with IREE will be used.
 
 ### Building without IREE.
 
-You must checkout [llvm-project](https://github.com/llvm/llvm-project) at a
+You **must** checkout [llvm-project](https://github.com/llvm/llvm-project) at a
 compatible commit next to this directory.
 
 ```
@@ -100,16 +104,15 @@ source .env && export PYTHONPATH
 python -c "import mlir.iree_sandbox"
 
 # Run a matmul.
+export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so; \
 cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}; \
-python -m python.matmul.bench
+python -m python.matmul.test
 ```
 
 ## Using mlir-proto-opt
 
 ```
-cd "${IREE_LLVM_SANDBOX_BUILD_DIR}"
-
-./bin/mlir-proto-opt \
+"${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/mlir-proto-opt \
   ../iree-llvm-sandbox/test/test_constant.mlir \
   -linalg-comprehensive-module-bufferize
 ```
