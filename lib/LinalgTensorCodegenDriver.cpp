@@ -99,9 +99,7 @@ void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
   // Make all arguments noalias for now.
   getOperation().walk([](LLVM::LLVMFuncOp funcOp) {
     for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
-      if (!funcOp.getType()
-               .getParamType(i)
-               .isa<LLVM::LLVMPointerType>())
+      if (!funcOp.getType().getParamType(i).isa<LLVM::LLVMPointerType>())
         continue;
       funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
     }
@@ -214,7 +212,8 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
       .generalizeIf(generalize, anchorOpName)
       // TODO: decomposeToLowerDimIf when the need arises.
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
-      .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName);
+      .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName,
+                   nullptr, vectorizePadding);
 
   // Created a nested OpPassManager and run.
   OpPassManager dynamicPM("builtin.func");
@@ -319,14 +318,6 @@ void LinalgTensorCodegenDriverPass::runOnOperation() {
       // Run transforms that require anchoring on a particular op. This only
       // applies if !anchorOpName.empty().
       runOpAnchoredStrategy(funcOp);
-
-      if (vectorizePadding) {
-        OwningRewritePatternList extraVectorizationPatterns(
-            funcOp.getContext());
-        populatePadTensorOpVectorizationPatterns(extraVectorizationPatterns);
-        (void)applyPatternsAndFoldGreedily(
-            funcOp, std::move(extraVectorizationPatterns));
-      }
     });
   }
 
