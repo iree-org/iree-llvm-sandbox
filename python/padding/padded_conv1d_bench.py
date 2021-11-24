@@ -62,7 +62,6 @@ def main():
                 WpadR=compile_time_problem_sizes_dict['WpadR'],
                 stride=compile_time_problem_sizes_dict['stride'],
                 dilation=compile_time_problem_sizes_dict['dilation']),
-            problem_sizes_keys=keys,
             np_types=np_types)
 
         problem.compile(

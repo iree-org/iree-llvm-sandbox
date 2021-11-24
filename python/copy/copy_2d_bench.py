@@ -125,7 +125,6 @@ def main():
 
         problem = ProblemInstance(
             problem_definition=Copy2DProblem(),
-            problem_sizes_keys=keys,
             np_types=np_types)
 
         problem.compile(

@@ -197,7 +197,6 @@ def main():
         problem = ProblemInstance(
             problem_definition=TransposeNDProblem(
                 permutation=[1, 0], op_builder=transpose_2d),
-            problem_sizes_keys=keys,
             np_types=np_types)
 
         problem.compile(

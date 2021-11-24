@@ -49,7 +49,6 @@ def main():
       for expert in all_experts:
         problem = ProblemInstance(
             problem_definition=RowReduction2DProblem(),
-            problem_sizes_keys=keys,
             np_types=np_types)
 
         problem.compile(

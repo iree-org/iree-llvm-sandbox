@@ -47,7 +47,6 @@ def fill_matmul_fusion():
   problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
   problem = ProblemInstance(
       problem_definition=MatmulProblem(),
-      problem_sizes_keys=problem_sizes_dict,
       np_types=[np.float32, np.float32, np.float32])
 
   ## These lit tests are not actually run, but can be checked locally using
@@ -86,7 +85,6 @@ def fill_matmul_bias_add_fusion():
   problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
   problem = ProblemInstance(
       problem_definition=MatmulBiasAddProblem(),
-      problem_sizes_keys=problem_sizes_dict,
       np_types=[np.float32, np.float32, np.float32, np.float32])
 
   ## These lit tests are not actually run, but can be checked locally using

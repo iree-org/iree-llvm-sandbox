@@ -122,6 +122,7 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     self.__kernel_format = kernel_format
     self.__op_builder = ops.__dict__[name]
 
+  @property
   def keys(self) -> List[str]:
     """Returns the list of parameter keys for the current problem definition."""
     result = list(self.__input_format)
