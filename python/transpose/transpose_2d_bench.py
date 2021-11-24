@@ -171,49 +171,21 @@ def main():
       # [6912, 4608],
   ]
 
-  for np_types in [[np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(f'\n#############################################################\n'
-            f'Compile-time problem sizes {compile_time_problem_sizes_dict}\n'
-            f'Runtime problem sizes {runtime_problem_sizes_dict}\n'
-            f'Problem types {np_types}')
+  def make_size_list(keys: Sequence[str], sizes: Sequence):
+    return {k: v for k, v in zip(keys, sizes)}
 
-      for expert in \
-          all_experts(problem_sizes, transpose_avx2_lowering=False) + \
-          all_experts(problem_sizes, transpose_avx2_lowering=True):
-        print(f'\nCompilation expert {expert}')
-        if 'sizes1' in expert.__dict__.keys():
-          print(
-              f'\t sizes1 = {expert.__dict__["sizes1"]} sizes2 = {expert.__dict__["sizes2"]} '
-          )
-        if 'sizes' in expert.__dict__.keys():
-          print(f'\t sizes = {expert.__dict__["sizes"]}')
-
-        problem = ProblemInstance(
-            problem_definition=TransposeNDProblem(
-                permutation=[1, 0], op_builder=transpose_2d),
-            np_types=np_types)
-
-        problem.compile(
-            entry_point_name='main',
-            fun_to_benchmark_name=fun_name,
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert,
-            # Used to pipe through llvm-mca
-            dump_ir_to_file='/tmp/abc.mlir')
-
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
-            # Used to pipe through llvm-mca with the **actual JIT'ed object**.
-            dump_obj_to_file='/tmp/abc.o')
-
+  for problem_sizes in problem_size_list:
+    experts = all_experts(problem_sizes, transpose_avx2_lowering=False) + \
+              all_experts(problem_sizes, transpose_avx2_lowering=True)
+    test_harness(
+        lambda s, t: TransposeNDProblem(
+            permutation=[1, 0], op_builder=transpose_2d), [[np.float32] * 2],
+        [make_size_list(keys, problem_sizes)],
+        experts,
+        n_iters=n_iters,
+        function_name=fun_name,
+        dump_ir_to_file='/tmp/abc.mlir',
+        dump_obj_to_file='/tmp/abc.o')
 
 if __name__ == '__main__':
   main()

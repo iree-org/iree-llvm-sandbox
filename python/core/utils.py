@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Optional, Sequence, Type
+from typing import Any, Callable, Mapping, Optional, Sequence, Type
 
 import numpy as np
 

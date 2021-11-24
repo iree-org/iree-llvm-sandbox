@@ -63,8 +63,10 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     """
     stride, dilation = sizes["stride"], sizes["dilation"]
     self.ensure_stride_and_dilation(stride, dilation)
-    return 2.0 * np.prod(
-        [sizes[k] for k in sizes.keys() - set(["strides", "dilations"])]) / 1.e9
+    return 2.0 * np.prod([
+        sizes[k]
+        for k in sizes.keys() - set(["strides", "dilations", "WpadL", "WpadR"])
+    ]) / 1.e9
 
   def gbyte_count_builder(self, sizes: Mapping[str, Any],
                           types: Sequence[np.dtype]) -> float:

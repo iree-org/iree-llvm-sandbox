@@ -68,6 +68,9 @@ def all_experts(problem_sizes: List[int]):
 keys = ['M', 'K']
 
 
+def make_size_list(sizes: Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
@@ -78,78 +81,24 @@ def main():
       [1000, 1024],
       [8000, 6144],
   ]
-  for np_types in [[np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(f'\n#############################################################\n'
-            f'Compile-time problem sizes {compile_time_problem_sizes_dict}\n'
-            f'Runtime problem sizes {runtime_problem_sizes_dict}\n'
-            f'Problem types {np_types}')
 
-      for expert in all_experts(problem_sizes):
-        print(f'\nCompilation expert {expert}')
+  def numpy_kernel(args, sizes, types):
+    A, B = args
+    B.fill(0.)
+    np.sum(A, axis=1, out=B)
 
-        problem = ProblemInstance(
-            problem_definition=RowReduction2DProblem(),
-            np_types=np_types)
+  def pytorch_kernel(args, sizes, types):
+    A, B = args
+    B.fill_(0.)
+    torch.sum(A, dim=1, out=B)
 
-        problem.compile(
-            entry_point_name='main',
-            fun_to_benchmark_name=fun_name,
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert,
-            # Used to pipe through llvm-mca
-            # dump_ir_to_file='/tmp/abc.mlir'
-        )
-
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
-
-      # For single-threaded apples-to-apples comparisons, run with:
-      # MKL_NUM_THREADS=1
-      import os
-      if os.environ.get('BENCHMARK_NUMPY'):
-        print('Numpy')
-        A, B = RowReduction2DProblem().tensors_np_builder(
-            *problem_sizes, *np_types)
-
-        def run_n_iters(n_iters: int):
-          for _ in range(n_iters):
-            B.fill(0.)
-            np.sum(A, axis=1, out=B)
-
-        timed_invoke(
-            run_n_iters,
-            RowReduction2DProblem().gflop_count_builder(*problem_sizes),
-            n_iters=n_iters)
-
-      # For single-threaded apples-to-apples comparisons, run with:
-      # ATEN_NUM_THREADS=1 OMP_NUM_THREADS=1 TBB_NUM_THREADS=1
-      if os.environ.get('BENCHMARK_TORCH'):
-        print('Torch')
-        import torch
-        torch.set_num_threads(1)
-        A, B = [
-            torch.from_numpy(t)
-            for t in RowReduction2DProblem().tensors_np_builder(
-                *problem_sizes, *np_types)
-        ]
-
-        def run_n_iters(n_iters: int):
-          for _ in range(n_iters):
-            B.fill_(0.)
-            torch.sum(A, dim=1, out=B)
-
-        timed_invoke(
-            run_n_iters,
-            RowReduction2DProblem().gflop_count_builder(*problem_sizes),
-            n_iters=n_iters)
+  for problem_sizes in problem_size_list:
+    test_harness(
+        lambda s, t: RowReduction2DProblem(), [[np.float32] * 2],
+        map(make_size_list, [problem_sizes]),
+        all_experts(problem_sizes),
+        n_iters=n_iters,
+        function_name=fun_name)
 
 
 if __name__ == '__main__':

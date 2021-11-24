@@ -31,36 +31,20 @@ all_experts = [expert_no_tiling, expert_fuse_output]
 keys = ['M', 'K']
 
 
+def make_size_list(sizes: Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
   problem_size_list = [[48, 16], [49, 17]]
-  for np_types in [[np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(
-          f'\n###############################################################\n'
-          f'Problem size {compile_time_problem_sizes_dict}\n'
-          f'Problem types {np_types}')
-      for expert in all_experts:
-        problem = ProblemInstance(
-            problem_definition=RowReduction2DProblem(),
-            np_types=np_types)
 
-        problem.compile(
-            entry_point_name='row_reduction_2d_main',
-            fun_to_benchmark_name='row_reduction_2d_on_tensors',
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert)
-
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='row_reduction_2d_main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict)
+  test_harness(
+      lambda s, t: RowReduction2DProblem(), [[np.float32] * 3],
+      map(make_size_list, problem_size_list),
+      all_experts,
+      n_iters=n_iters,
+      function_name='row_reduction_2d_on_tensors')
 
 
 if __name__ == '__main__':
