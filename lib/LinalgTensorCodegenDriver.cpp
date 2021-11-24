@@ -48,6 +48,21 @@ using namespace mlir;
 using namespace mlir::linalg;
 
 namespace {
+struct LinalgFusePass : public LinalgFuseBase<LinalgFusePass> {
+  LinalgFusePass() = default;
+  LinalgFusePass(const LinalgFusePass &pass) {}
+  void runOnOperation() override;
+};
+
+struct LinalgFuseOutputIntoReductionPass
+    : public LinalgFuseOutputIntoReductionBase<
+          LinalgFuseOutputIntoReductionPass> {
+  LinalgFuseOutputIntoReductionPass() = default;
+  LinalgFuseOutputIntoReductionPass(
+      const LinalgFuseOutputIntoReductionPass &pass) {}
+  void runOnOperation() override;
+};
+
 struct LinalgTensorCodegenDriverPass
     : public LinalgTensorCodegenDriverBase<LinalgTensorCodegenDriverPass> {
   LinalgTensorCodegenDriverPass() = default;
@@ -55,21 +70,38 @@ struct LinalgTensorCodegenDriverPass
 
   /// Function pass entry point.
   void runOnOperation() override;
+};
+
+struct LinalgBufferizationDriverPass
+    : public LinalgBufferizationDriverBase<LinalgBufferizationDriverPass> {
+  LinalgBufferizationDriverPass() = default;
+  LinalgBufferizationDriverPass(const LinalgBufferizationDriverPass &pass) {}
+
+  void runOnOperation() override;
 
  private:
-  void fuseOutputIntoReduction(FuncOp funcOp);
-  void fuseAll(FuncOp funcOp);
-  void runOpAnchoredStrategy(FuncOp funcOp);
-  void runComprehensiveBufferization();
-  void runVectorLowering();
-  void runLowerToLLVM();
-
   void getDependentDialects(DialectRegistry &registry) const override;
 };
+
+struct LinalgVectorLoweringPass
+    : public LinalgVectorLoweringBase<LinalgVectorLoweringPass> {
+  LinalgVectorLoweringPass() = default;
+  LinalgVectorLoweringPass(const LinalgVectorLoweringPass &pass) {}
+
+  void runOnOperation() override;
+};
+
+struct LLVMLoweringPass : public LLVMLoweringBase<LLVMLoweringPass> {
+  LLVMLoweringPass() = default;
+  LLVMLoweringPass(const LLVMLoweringPass &pass) {}
+
+  void runOnOperation() override;
+};
+
 }  // namespace
 
-void LinalgTensorCodegenDriverPass::runLowerToLLVM() {
-  OpPassManager dynamicPM("builtin.module");
+void LLVMLoweringPass::runOnOperation() {
+  OpPassManager dynamicPM(ModuleOp::getOperationName());
   // This is a failsafe catchall, if it does something performance opportunities
   // have been missed previously.
   dynamicPM.addNestedPass<FuncOp>(createConvertVectorToSCFPass());
@@ -117,7 +149,9 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
 /// Collect all Linalg ops, they must all have tensor semantics.
 /// For now this just fuses everything.
 // TODO: finer control.
-void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
+void LinalgFusePass::runOnOperation() {
+  FuncOp funcOp = getOperation();
+
   SmallVector<LinalgOp> linalgOps;
   auto walkResult = funcOp.walk([&](LinalgOp op) {
     if (!op.hasTensorSemantics()) return WalkResult::interrupt();
@@ -125,6 +159,7 @@ void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
     return WalkResult::advance();
   });
   if (walkResult.wasInterrupted()) return signalPassFailure();
+  if (linalgOps.empty()) return;
 
   // Compute the tile sizes and the interchange.
   LinalgOp rootOp = linalgOps.back();
@@ -150,7 +185,10 @@ void LinalgTensorCodegenDriverPass::fuseAll(FuncOp funcOp) {
   rootOp->replaceAllUsesWith(tileLoopNest->getRootOpReplacementResults());
 }
 
-void LinalgTensorCodegenDriverPass::fuseOutputIntoReduction(FuncOp funcOp) {
+void LinalgFuseOutputIntoReductionPass::runOnOperation() {
+  FuncOp funcOp = getOperation();
+  if (funcOp.getName() != anchorFuncOpName) return;
+
   LinalgTilingOptions tiling_options;
   tiling_options.setTileSizes(tileSizes);
 
@@ -168,11 +206,9 @@ void LinalgTensorCodegenDriverPass::fuseOutputIntoReduction(FuncOp funcOp) {
   });
 }
 
-void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
+void LinalgTensorCodegenDriverPass::runOnOperation() {
+  FuncOp funcOp = getOperation();
   if (anchorOpName.empty()) return;
-
-  if (fuse) return fuseAll(funcOp);
-  if (fuseFillIntoReduction) return fuseOutputIntoReduction(funcOp);
 
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;
@@ -216,21 +252,29 @@ void LinalgTensorCodegenDriverPass::runOpAnchoredStrategy(FuncOp funcOp) {
                    nullptr, vectorizePadding);
 
   // Created a nested OpPassManager and run.
-  OpPassManager dynamicPM("builtin.func");
+  OpPassManager dynamicPM(FuncOp::getOperationName());
   strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
+
+  if (decomposeToLowerDimOp) {
+    dynamicPM.addPass(createLinalgStrategyDecomposePass());
+  }
+
   if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
 }
 
-void LinalgTensorCodegenDriverPass::runComprehensiveBufferization() {
-  OpPassManager dynamicPM("builtin.module");
+void LinalgBufferizationDriverPass::runOnOperation() {
+  OpPassManager dynamicPM(ModuleOp::getOperationName());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
   dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass());
   if (failed(runPipeline(dynamicPM, getOperation())))
     return signalPassFailure();
+  // Perform buffer-level hoistings.
+  getOperation().walk(
+      [&](FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
 }
 
-void LinalgTensorCodegenDriverPass::runVectorLowering() {
+void LinalgVectorLoweringPass::runOnOperation() {
   vector::VectorTransposeLowering vectorTransposeLowering =
       llvm::StringSwitch<vector::VectorTransposeLowering>(
           lowerVectorTransposeTo.getValue())
@@ -260,92 +304,57 @@ void LinalgTensorCodegenDriverPass::runVectorLowering() {
           .Default(vector::VectorTransferSplit::None);
 
   // Per-function lowering pipeline.
-  getOperation().walk([&](FuncOp funcOp) {
-    vector::VectorTransformsOptions vectorTransformOptions =
-        vector::VectorTransformsOptions()
-            .setVectorTransposeLowering(vectorTransposeLowering)
-            .setVectorTransformsOptions(vectorContractLowering)
-            .setVectorMultiReductionLowering(vectorMultiReductionLowering)
-            .setVectorTransferSplit(vectorTransferSplit);
-    VectorTransferToSCFOptions vectorTransferToSCFOptions =
-        VectorTransferToSCFOptions()
-            .enableFullUnroll(unrollVectorTransfers)
-            .enableLowerPermutationMaps();
+  vector::VectorTransformsOptions vectorTransformOptions =
+      vector::VectorTransformsOptions()
+          .setVectorTransposeLowering(vectorTransposeLowering)
+          .setVectorTransformsOptions(vectorContractLowering)
+          .setVectorMultiReductionLowering(vectorMultiReductionLowering)
+          .setVectorTransferSplit(vectorTransferSplit);
+  VectorTransferToSCFOptions vectorTransferToSCFOptions =
+      VectorTransferToSCFOptions()
+          .enableFullUnroll(unrollVectorTransfers)
+          .enableLowerPermutationMaps();
 
-    LinalgVectorLoweringOptions vectorLoweringOptions =
-        LinalgVectorLoweringOptions()
-            // Lowering of vector contractions.
-            .enableContractionLowering(vectorLoweringStage >= 0)
-            // Lowering of vector multi_reduction.
-            .enableMultiReductionLowering(vectorLoweringStage >= 1)
-            // Whether to split full/partial vector.transfer ops.
-            .enableTransferPartialRewrite(vectorLoweringStage >= 2 &&
-                                          vectorTransferSplit !=
-                                              vector::VectorTransferSplit::None)
-            // Set the maximum vector load / store rank.
-            .setMaxTransferRank(maxTransferRank)
-            // Lower vector.transfer to vector.transfer of max rank.
-            .enableTransferLowering(vectorLoweringStage >= 3)
-            // Conversion to scf.
-            .enableTransferToSCFConversion(vectorLoweringStage >= 4)
-            .setVectorTransferToSCFOptions(vectorTransferToSCFOptions)
-            // Lowering of vector.shape_cast.
-            .enableShapeCastLowering(vectorLoweringStage >= 5)
-            // Lowering of vector.transpose.
-            .enableVectorTransposeLowering(vectorLoweringStage >= 6)
-            .setVectorTransformsOptions(vectorTransformOptions)
-            .enableAVX2Lowering(lowerVectorTransposeToAVX2)
-            .setAVX2LoweringOptions(
-                x86vector::avx2::LoweringOptions().setTransposeOptions(
-                    x86vector::avx2::TransposeLoweringOptions()
-                        .lower4x8xf32(lowerVectorTransposeToAVX2)
-                        .lower8x8xf32(lowerVectorTransposeToAVX2)));
+  LinalgVectorLoweringOptions vectorLoweringOptions =
+      LinalgVectorLoweringOptions()
+          // Lowering of vector contractions.
+          .enableContractionLowering(vectorLoweringStage >= 0)
+          // Lowering of vector multi_reduction.
+          .enableMultiReductionLowering(vectorLoweringStage >= 1)
+          // Whether to split full/partial vector.transfer ops.
+          .enableTransferPartialRewrite(vectorLoweringStage >= 2 &&
+                                        vectorTransferSplit !=
+                                            vector::VectorTransferSplit::None)
+          // Set the maximum vector load / store rank.
+          .setMaxTransferRank(maxTransferRank)
+          // Lower vector.transfer to vector.transfer of max rank.
+          .enableTransferLowering(vectorLoweringStage >= 3)
+          // Conversion to scf.
+          .enableTransferToSCFConversion(vectorLoweringStage >= 4)
+          .setVectorTransferToSCFOptions(vectorTransferToSCFOptions)
+          // Lowering of vector.shape_cast.
+          .enableShapeCastLowering(vectorLoweringStage >= 5)
+          // Lowering of vector.transpose.
+          .enableVectorTransposeLowering(vectorLoweringStage >= 6)
+          .setVectorTransformsOptions(vectorTransformOptions)
+          .enableAVX2Lowering(lowerVectorTransposeToAVX2)
+          .setAVX2LoweringOptions(
+              x86vector::avx2::LoweringOptions().setTransposeOptions(
+                  x86vector::avx2::TransposeLoweringOptions()
+                      .lower4x8xf32(lowerVectorTransposeToAVX2)
+                      .lower8x8xf32(lowerVectorTransposeToAVX2)));
 
-    CodegenStrategy strategy;
-    strategy.vectorLowering(vectorLoweringOptions);
-    // Created a nested OpPassManager and run.
-    OpPassManager dynamicPM("builtin.func");
-    strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-    if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
-  });
-}
-
-void LinalgTensorCodegenDriverPass::runOnOperation() {
-  if (!anchorFuncOpName.empty()) {
-    getOperation().walk([&](FuncOp funcOp) {
-      if (funcOp.getName() != anchorFuncOpName) return;
-
-      // Run transforms that require anchoring on a particular op. This only
-      // applies if !anchorOpName.empty().
-      runOpAnchoredStrategy(funcOp);
-    });
-  }
-
-  // TODO: atm this is applied to all supported ops. If/when we need finer
-  // control this should be exposed with an opName + filter and a proper
-  // pattern.
-  if (decomposeToLowerDimOp) {
-    OpPassManager dynamicPM("builtin.module");
-    OpPassManager &nestedDynamicPM = dynamicPM.nest<FuncOp>();
-    nestedDynamicPM.addPass(createLinalgStrategyDecomposePass());
-    if (failed(runPipeline(dynamicPM, getOperation())))
-      return signalPassFailure();
-  }
-
-  if (bufferize) {
-    runComprehensiveBufferization();
-    // Perform buffer-level hoistings.
-    getOperation().walk(
-        [&](FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
-  }
-
-  if (vectorLowering) runVectorLowering();
-
-  if (llvmLowering) runLowerToLLVM();
+  CodegenStrategy strategy;
+  strategy.vectorLowering(vectorLoweringOptions);
+  // Created a nested OpPassManager and run.
+  OpPassManager dynamicPM(FuncOp::getOperationName());
+  FuncOp funcOp = getOperation();
+  strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
+  if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
 }
 
 /// Return the dialect that must be loaded in the context before this pass.
-void LinalgTensorCodegenDriverPass::getDependentDialects(
+void LinalgBufferizationDriverPass::getDependentDialects(
     DialectRegistry &registry) const {
   registry.insert<arith::ArithmeticDialect>();
   registry.insert<AffineDialect>();
@@ -362,7 +371,29 @@ void LinalgTensorCodegenDriverPass::getDependentDialects(
       registerBufferizableOpInterfaceExternalModels(registry);
 }
 
-std::unique_ptr<OperationPass<ModuleOp>>
+std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgFusePass() {
+  return std::make_unique<LinalgFusePass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>>
+mlir::createLinalgFuseOutputIntoReductionPass() {
+  return std::make_unique<LinalgFuseOutputIntoReductionPass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>>
 mlir::createLinalgTensorCodegenDriverPass() {
   return std::make_unique<LinalgTensorCodegenDriverPass>();
+}
+
+std::unique_ptr<OperationPass<ModuleOp>>
+mlir::createLinalgBufferizationDriverPass() {
+  return std::make_unique<LinalgBufferizationDriverPass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgVectorLoweringPass() {
+  return std::make_unique<LinalgVectorLoweringPass>();
+}
+
+std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
+  return std::make_unique<LLVMLoweringPass>();
 }

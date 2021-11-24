@@ -11,8 +11,51 @@
 
 include "mlir/Pass/PassBase.td"
 
+def LinalgFuse : Pass<"linalg-fuse", "FuncOp"> {
+  let summary = "Pass to tile and fuse linalg operations.";
+  let constructor = "mlir::createLinalgFusePass()";
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
+      "Which func op is the anchor to latch on.">,
+    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
+      "Which linalg op within the func is the anchor to latch on.">,
+
+    ListOption<"tileSizes", "tile-sizes", "int64_t", "Tile sizes",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"tileInterchange", "tile-interchange", "int64_t",
+                "Tile loop interchange",
+                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+  ];
+  let dependentDialects = [
+    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
+    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
+    "::mlir::StandardOpsDialect", "::mlir::tensor::TensorDialect"
+  ];
+}
+
+def LinalgFuseOutputIntoReduction
+    : Pass<"linalg-fuse-fill-into-reduction", "FuncOp"> {
+  let summary = "Pass to fuse output into tiled reductions.";
+  let constructor = "mlir::createLinalgFuseOutputIntoReductionPass()";
+  let dependentDialects = [
+    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
+    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
+    "::mlir::StandardOpsDialect", "::mlir::tensor::TensorDialect"
+  ];
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
+      "Which func op is the anchor to latch on.">,
+    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
+      "Which linalg op within the func is the anchor to latch on.">,
+
+    // Tiling options.
+    ListOption<"tileSizes", "tile-sizes", "int64_t", "Tile sizes",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">
+  ];
+}
+
 def LinalgTensorCodegenDriver
-    : Pass<"linalg-tensor-codegen-driver", "ModuleOp"> {
+    : Pass<"linalg-tensor-codegen-driver", "FuncOp"> {
   let summary = "Pass to drive transformations on Linalg on tensors.";
   let constructor = "mlir::createLinalgTensorCodegenDriverPass()";
   let options = [
@@ -41,13 +84,6 @@ def LinalgTensorCodegenDriver
     Option<"scalarizeDynamicDims", "scalarize-dynamic-dims", "bool",
       /*default=*/"false", "Tile dynamic dimensions by 1.">,
 
-    // Fusion options.
-    Option<"fuse", "fuse", "bool", /*default=*/"false",
-      "Rewrite the linalg op as a vector operation.">,
-    Option<"fuseFillIntoReduction", "fuse-fill-into-reduction",
-           "bool", /*default=*/"false",
-           "Fuse FillOp producer into a tiled reduction.">,
-
     // Generalization options.
     Option<"generalize", "generalize", "bool", /*default=*/"false",
       "Convert named operations to their generic form.">,
@@ -67,15 +103,25 @@ def LinalgTensorCodegenDriver
     Option<"vectorize", "vectorize", "bool", /*default=*/"false",
       "Rewrite the linalg op as a vector operation.">,
     Option<"vectorizePadding", "vectorize-padding", "bool", /*default=*/"false",
-      "Rewrite all linalg.pad_tensor ops in the function to vector form.">,
+      "Rewrite all linalg.pad_tensor ops in the function to vector form.">
+  ];
+  let dependentDialects = [
+    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
+    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
+    "::mlir::StandardOpsDialect", "::mlir::tensor::TensorDialect",
+    "::mlir::vector::VectorDialect"
+  ];
+}
 
-    // Bufferization options.
-    Option<"bufferize", "bufferize", "bool", /*default=*/"false",
-      "Run module-level comprehensive inplace bufferization.">,
+def LinalgBufferizationDriver : Pass<"linalg-bufferization-driver", "ModuleOp"> {
+  let summary = "Run module-level comprehensive inplace bufferization.";
+  let constructor = "mlir::createLinalgBufferizationDriverPass()";
+}
 
-    // Vector lowering options.
-    Option<"vectorLowering", "lower-vector", "bool", /*default=*/"false",
-      "Run transformations that lower high-level vectors.">,
+def LinalgVectorLowering : Pass<"linalg-vector-lowering", "FuncOp"> {
+  let summary = "Run transformations that lower high-level vectors.";
+  let constructor = "mlir::createLinalgVectorLoweringPass()";
+  let options = [
     Option<"vectorLoweringStage", "lower-vector-stage", "int", /*default=*/"0",
       [{Which stage of vector lowering to run:\n"
           "\t0 [default] only lower vector.contract\n"
@@ -117,11 +163,19 @@ def LinalgTensorCodegenDriver
       /*default=*/"true",
       "Run transformations that lower high-level vectors.">,
     Option<"maxTransferRank", "max-transfer-rank", "int64_t", /*default=*/"1",
-      "Set the maximum vector load/store rank.">,
+      "Set the maximum vector load/store rank.">
+  ];
+  let dependentDialects = [
+    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
+    "::mlir::memref::MemRefDialect", "::mlir::scf::SCFDialect",
+    "::mlir::StandardOpsDialect", "::mlir::vector::VectorDialect"
+  ];
+}
 
-    // LLVM lowering options.
-    Option<"llvmLowering", "lower-to-llvm", "bool", /*default=*/"false",
-      "Run transformations and passes to produce LLVM IR.">,
+def LLVMLowering : Pass<"llvm-lowering", "ModuleOp"> {
+  let summary = "Pass Run transformations and passes to produce LLVM IR.";
+  let constructor = "mlir::createLLVMLoweringPass()";
+  let options = [
     Option<"reassociateFPReductions", "enable-fp-reassoc", "bool",
       /*default=*/"true",
       "Trigger FP reassociation when producing LLVM IR (needed for efficient horizontal reductions).">,
@@ -136,9 +190,11 @@ def LinalgTensorCodegenDriver
     Option<"x86Vector", "enable-x86-ector", "bool", /*default=*/"false",
       "Enables X86 vector ops when producing LLVM IR.">,
   ];
-
-  // TODO: cannot use let dependentDialects for this because we insert more
-  // than just dialects here.
+  let dependentDialects = [
+    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
+    "::mlir::memref::MemRefDialect", "::mlir::scf::SCFDialect",
+    "::mlir::StandardOpsDialect", "::mlir::vector::VectorDialect"
+  ];
 }
 
 
