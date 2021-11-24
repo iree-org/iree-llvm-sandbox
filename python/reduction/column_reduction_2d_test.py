@@ -16,13 +16,7 @@ from .definitions import *
 # No tiling.
 expert_no_tiling = LoweringOnlyExpert([], print_ir_after_all=False)
 
-expert_fuse_output = LoweringOnlyExpert([
-    ExperimentalSplitAndFuseFillOp(
-        'row_reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16])
-],
-                                        print_ir_after_all=False)
-
-all_experts = [expert_no_tiling, expert_fuse_output]
+all_experts = [expert_no_tiling]
 
 ################################################################################
 ### Problem instantiations.
@@ -40,11 +34,11 @@ def main():
   problem_size_list = [[48, 16], [49, 17]]
 
   test_harness(
-      lambda s, t: RowReduction2DProblem(), [[np.float32] * 2],
+      lambda s, t: ColumnReduction2DProblem(), [[np.float32] * 2],
       map(make_size_list, problem_size_list),
       all_experts,
       n_iters=n_iters,
-      function_name='row_reduction_2d_on_tensors')
+      function_name='column_reduction_2d_on_tensors')
 
 
 if __name__ == '__main__':
