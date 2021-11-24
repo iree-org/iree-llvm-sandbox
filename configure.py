@@ -119,7 +119,6 @@ def main(args):
       "-GNinja",
       f"-B{build_dir}",
       f"-S{os.path.join(llvm_path, 'llvm')}",
-      "-DLLVM_ENABLE_LLD=ON",
       f"-DLLVM_ENABLE_PROJECTS={';'.join(llvm_builtin_projects)}",
       f"-DLLVM_TARGETS_TO_BUILD={args.target}",
       "-DMLIR_INCLUDE_INTEGRATION_TESTS=ON",
