@@ -63,10 +63,10 @@ struct LinalgFuseOutputIntoReductionPass
   void runOnOperation() override;
 };
 
-struct LinalgTensorCodegenDriverPass
-    : public LinalgTensorCodegenDriverBase<LinalgTensorCodegenDriverPass> {
-  LinalgTensorCodegenDriverPass() = default;
-  LinalgTensorCodegenDriverPass(const LinalgTensorCodegenDriverPass &pass) {}
+struct LinalgSingleTilingExpertPass
+    : public LinalgSingleTilingExpertBase<LinalgSingleTilingExpertPass> {
+  LinalgSingleTilingExpertPass() = default;
+  LinalgSingleTilingExpertPass(const LinalgSingleTilingExpertPass &pass) {}
 
   /// Function pass entry point.
   void runOnOperation() override;
@@ -206,7 +206,7 @@ void LinalgFuseOutputIntoReductionPass::runOnOperation() {
   });
 }
 
-void LinalgTensorCodegenDriverPass::runOnOperation() {
+void LinalgSingleTilingExpertPass::runOnOperation() {
   FuncOp funcOp = getOperation();
   if (anchorOpName.empty()) return;
 
@@ -381,8 +381,8 @@ mlir::createLinalgFuseOutputIntoReductionPass() {
 }
 
 std::unique_ptr<OperationPass<FuncOp>>
-mlir::createLinalgTensorCodegenDriverPass() {
-  return std::make_unique<LinalgTensorCodegenDriverPass>();
+mlir::createLinalgSingleTilingExpertPass() {
+  return std::make_unique<LinalgSingleTilingExpertPass>();
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>

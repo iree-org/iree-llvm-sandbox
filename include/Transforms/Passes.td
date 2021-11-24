@@ -54,10 +54,10 @@ def LinalgFuseOutputIntoReduction
   ];
 }
 
-def LinalgTensorCodegenDriver
+def LinalgSingleTilingExpert
     : Pass<"linalg-tensor-codegen-driver", "FuncOp"> {
   let summary = "Pass to drive transformations on Linalg on tensors.";
-  let constructor = "mlir::createLinalgTensorCodegenDriverPass()";
+  let constructor = "mlir::createLinalgSingleTilingExpertPass()";
   let options = [
     // Func / op targeting options.
     Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",

@@ -28,7 +28,7 @@ std::unique_ptr<OperationPass<FuncOp>>
 createLinalgFuseOutputIntoReductionPass();
 
 /// Creates a pass to drive transformations on Linalg on tensors.
-std::unique_ptr<OperationPass<FuncOp>> createLinalgTensorCodegenDriverPass();
+std::unique_ptr<OperationPass<FuncOp>> createLinalgSingleTilingExpertPass();
 
 /// Creates a pass to driver the lowering of vector operations.
 std::unique_ptr<OperationPass<FuncOp>> createLinalgVectorLoweringPass();
