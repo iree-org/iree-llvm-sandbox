@@ -85,7 +85,7 @@ compatible commit.
 ```
 
 And configure/build the project. By default the `configure.py` script will look in `${IREE_LLVM_SANDBOX_SOURCE_DIR}/../llvm-project` (this can also
-be overridden with `--llvm_path`):
+be overridden with `--llvm-path`):
 
 ```
 python configure.py
