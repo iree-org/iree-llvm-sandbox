@@ -201,6 +201,20 @@ class ProblemInstance:
             runtime_problem_sizes_dict, self.np_types),
         n_iters=n_iters)
 
+def _pytimed(callback: Callable[..., None], *args: Any, **kwargs: Any):
+  """Call the given callback and return time in seconds as result."""
+  start_time = time.monotonic_ns()
+  results = callback(*args, **kwargs)
+  end_time = time.monotonic_ns()
+  duration = 1.e-9 * (end_time - start_time)
+  return duration
+
+
+def _run_benchmark_n_iters(callback: Callable[int, None], n_iters: int,
+                           *args: Any):
+  """Call the given callback `n_iters` times and return the list of times."""
+  return [_pytimed(callback, *args) for _ in n_iters]
+
 
 def test_harness(
     problem_factory: Callable[[Mapping[str, Any], Sequence[np.dtype]],
@@ -285,12 +299,10 @@ def test_harness(
         print('\nNumPy reference\n')
         args = problem_definition.tensors_np_builder(problem_sizes_dict,
                                                      np_types)
-
-        def run_n_iters(n_iters: int):
-          for _ in range(n_iters):
-            kwargs['numpy_benchmark'](args, problem_sizes_dict, np_types)
-
-        timed_invoke(run_n_iters, gflops, gbytes, n_iters)
+        timed_invoke(
+            lambda n: _run_benchmark_n_iters(kwargs['numpy_benchmark'], n, args,
+                                             problem_sizes_dict, np_types),
+            gflops, gbytes, n_iters)
 
       if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
         print('\nPyTorch reference\n')
@@ -299,9 +311,7 @@ def test_harness(
         numpy_args = problem_definition.tensors_np_builder(
             problem_sizes_dict, np_types)
         args = list(map(torch.from_numpy, numpy_args))
-
-        def run_n_iters(n_iters: int):
-          for _ in range(n_iters):
-            kwargs['pytorch_benchmark'](problem_sizes_dict, np_types)
-
-        timed_invoke(run_n_iters, gflops, gbytes, n_iters)
+        timed_invoke(
+            lambda n: _run_benchmark_n_iters(kwargs[
+                'pytorch_benchmark'], n, args, problem_sizes_dict, np_types),
+            gflops, gbytes, n_iters)
