@@ -10,9 +10,16 @@ add_mlir_library(IREELinalgTensorSandbox
   MLIRGPUOps
   MLIRLinalg
   MLIRLinalgTransforms
+  MLIRAffineToStandard
+  MLIRMemRefTransforms
+  IREELinalgTensorSandboxTransforms
+  MLIRSCFToStandard
+  MLIRLinalgToLLVM
+  MLIRVectorToLLVM
+  MLIRMathToLLVM
+  MLIRMemRefToLLVM
 
   DEPENDS
-  IREELinalgTensorSandboxTransforms
   RunnersPassIncGen
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
@@ -24,6 +31,7 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
+  MLIRPass
   IREELinalgTensorSandbox
   IREELinalgTensorSandboxTransforms
 )

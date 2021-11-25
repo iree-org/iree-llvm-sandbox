@@ -7,4 +7,5 @@ add_mlir_library(MLIRVectorExt
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRControlFlowInterfaces
 )
