@@ -96,51 +96,27 @@ copy_2D_perf_search_list = [
 ]
 
 
+def make_size_list(sizes: Sequence):
+  return {k: v for k, v in zip(keys, sizes)}
+
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 10000
-  problem_size_list = copy_2D_perf_search_list
-  for np_types in [[np.float32, np.float32]]:
-    for problem_sizes in problem_size_list:
-      compile_time_problem_sizes_dict = {
-          k: v for k, v in zip(keys, problem_sizes)
-      }
-      runtime_problem_sizes_dict = compile_time_problem_sizes_dict
-      # Init printing.
-      print(f'\n#############################################################\n'
-            f'Compile-time problem sizes {compile_time_problem_sizes_dict}\n'
-            f'Runtime problem sizes {runtime_problem_sizes_dict}\n'
-            f'Problem types {np_types}')
-
-      fun_name = base_fun_name + '_offset_0' + \
+  for problem_sizes in copy_2D_perf_search_list:
+    fun_name = base_fun_name + '_offset_0' + \
           '_sizes' + ''.join('_' + str(sz) for sz in problem_sizes) + \
           '_strides_' + str(problem_sizes[1]) + '_1'
-      for expert in all_experts(fun_name, problem_sizes):
-        print(f'\nCompilation expert {expert}')
-        if 'sizes1' in expert.__dict__.keys():
-          print(f'\t sizes1 = {expert.__dict__["sizes1"]} '
-                f'\t sizes2 = {expert.__dict__["sizes2"]} ')
-        if 'sizes' in expert.__dict__.keys():
-          print(f'\t sizes = {expert.__dict__["sizes"]}')
-
-        problem = ProblemInstance(
-            problem_definition=Copy2DProblem(),
-            np_types=np_types)
-
-        problem.compile(
-            entry_point_name='main',
-            fun_to_benchmark_name=fun_name,
-            compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-            transform=expert,
-            # Used to pipe through llvm-mca
-            dump_ir_to_file='/tmp/abc.mlir')
-
-        problem.run(
-            n_iters=n_iters,
-            entry_point_name='main',
-            runtime_problem_sizes_dict=runtime_problem_sizes_dict,
-            # Used to pipe through llvm-mca with the **actual JIT'ed object**.
-            dump_obj_to_file='/tmp/abc.o')
+    test_harness(
+        lambda s, t: Copy2DProblem(),
+        [[np.float32] * 2],
+        [make_size_list(problem_sizes)],
+        all_experts(fun_name, problem_sizes),
+        n_iters=n_iters,
+        function_name=fun_name,
+        dump_ir_to_file='/tmp/abc.mlir',
+        dump_obj_to_file='/tmp/abc.o',
+    )
 
 
 if __name__ == '__main__':
