@@ -191,4 +191,129 @@ def LinalgExt_TileYieldOp : LinalgExt_PureOp<"tile_yield", [
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
+def LinalgExt_InParallelOp : LinalgExt_PureOp<"in_parallel", [
+       SingleBlockImplicitTerminator<"linalg_ext::PerformConcurrentlyOp">,
+       RecursiveSideEffects
+      ]> {
+  let summary = "evaluate a block multiple times in parallel";
+  let description = [{
+    `linalg_ext.in_parallel` is a target-independent parallel function application
+    operation. It has exactly one block that represents the parallel function body
+    and it takes a single index operand that indicates how many parallel instances
+    of that function should get instantiated.
+
+    The parallel function body is expected to be pure (i.e. have no side effects).
+    The only allowed terminator is `linalg_ext.perform_concurrently`, which dictates
+    how the results of all parallel invocations should be reconciled into a full
+    value that will be returned from `in_parallel`. Multi-value returns are encoded
+    by including multiple operations inside the `perform_concurrently` block.
+  }];
+  let arguments = (ins Index:$num_threads);
+
+  let results = (outs Variadic<AnyType>:$results);
+  let regions = (region SizedRegion<1>:$region);
+
+  let printer = [{ return ::print(p, *this); }];
+  let parser = [{ return ::parse$cppClass(parser, result); }];
+  let verifier = [{ return ::verify(*this); }];
+
+  let builders = [
+    OpBuilder<(ins "Value":$num_threads,
+      CArg<"function_ref<void(OpBuilder &, Location, Value)>", "nullptr">)>
+  ];
+  let extraClassDeclaration = [{
+    Value getThreadIndex() { return getBody()->getArgument(0); }
+    static void ensureTerminator(Region &region, Builder &builder, Location loc);
+  }];
+}
+
+def LinalgExt_PerformConcurrentlyOp : LinalgExt_PureOp<"perform_concurrently", [
+       NoSideEffect,
+       Terminator,
+       SingleBlockImplicitTerminator<"linalg_ext::EndPerformConcurrentlyOp">,
+      ]> {
+  let summary = "terminates a `in_parallel` block";
+  let description = [{
+    `linalg_ext.perform_concurrently` is a designated terminator for the blocks
+    of `linalg_ext.in_parallel` operations. The terminator contains a single block
+    itself, which describes how the results of each parallel invocation are to be
+    reconciled into a single value to be returned from the parallel invocation.
+    One operation in this terminator's block corresponds to a single return of
+    `in_parallel`.
+  }];
+
+  let regions = (region SizedRegion<1>:$region);
+
+  let printer = [{ return ::print(p, *this); }];
+  let parser = [{ return ::parse$cppClass(parser, result); }];
+  let verifier = [{ return ::verify(*this); }];
+
+  // TODO(apaszke, ntv): Add an interface for ops that can appear inside
+  // perform_concurrently.
+  let extraClassDeclaration = [{
+    SmallVector<Type> resultTypes() {
+      SmallVector<Type> ret;
+      for (Operation& op : *getBody()) {
+        if (auto sliceOp = llvm::dyn_cast<ParallelInsertSliceOp>(op)) {
+          ret.push_back(sliceOp.resultType());
+          continue;
+        }
+        if (auto endPerformOp = llvm::dyn_cast<EndPerformConcurrentlyOp>(op)) {
+          continue;
+        }
+        llvm_unreachable("Unexpected operation in perform_concurrently");
+      }
+      return ret;
+    };
+  }];
+}
+
+def LinalgExt_EndPerformConcurrentlyOp : LinalgExt_PureOp<"end_perform_concurrently", [
+       NoSideEffect, Terminator]> {
+  let summary = "terminates a `perform_concurrently` block";
+  let description = [{
+    A designated terminator for `perform_concurrently`. It's not expected to appear
+    in the textual form of the IR.
+  }];
+}
+
+// Note that we cannot mark this operation as pure (NoSideEffects), even
+// though it has no side effects, because it will get DCEd during
+// canonincalization. Ideally we would use attributes instead of those funny
+// terminating ops, but attributes cannot refer to SSA values at the moment, so
+// it's the best we can do for now.
+def LinalgExt_ParallelInsertSliceOp : LinalgExt_PureOp<"parallel_insert_slice", [
+       AttrSizedOperandSegments]> {
+  let summary = "updates slices of a tensor concurrently";
+  let description = [{
+    Updates slices of a full tensor with multiple sub-slices concurrently.
+
+    Conflicting writes result in undefined semantics, in that the indices written
+    to by multiple parallel updates might contain data from any of the updates, or
+    even a malformed bit pattern (in reality the semantics might end up depending
+    on the memory model of the parallel hardware that `in_parallel` will be lowered to).
+
+    If an index is updated by exactly one updates, the value contained at that index
+    in the resulting tensor will be equal to the value at a corresponding index of a
+    slice that was used for the updated. If an index is not updated at all, its value
+    will be equal to the one in the original tensor.
+  }];
+
+  let arguments = (ins
+    AnyRankedTensor:$source,
+    AnyRankedTensor:$dest,
+    Variadic<Index>:$offsets,
+    Variadic<Index>:$sizes,
+    Variadic<Index>:$strides
+  );
+  let assemblyFormat = [{
+    $source `into` $dest `[` $offsets `]` `[` $sizes `]` `[` $strides `]`
+    attr-dict `:` type($source) `into` type($dest)
+  }];
+
+  let extraClassDeclaration = [{
+    Type resultType() { return dest().getType(); }
+  }];
+}
+
 #endif // DIALECTS_LINALGEXT_LINALGEXTOPS
