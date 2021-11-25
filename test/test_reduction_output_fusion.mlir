@@ -1,5 +1,5 @@
 // RUN: mlir-proto-opt %s\
-// RUN: -linalg-tensor-codegen-driver="anchor-func=reduce anchor-op=linalg.generic fuse-fill-into-reduction tile-sizes=24,16" \
+// RUN: -linalg-fuse-fill-into-reduction="anchor-func=reduce anchor-op=linalg.generic tile-sizes=24,16" \
 // RUN: -canonicalize -cse |\
 // RUN: FileCheck %s
 

@@ -43,14 +43,13 @@ class ExperimentalSplitAndFuseFillOp(Transform):
   def __init__(self, fun_name: str, op_name: str, tile_sizes=[], **kwargs):
     if tile_sizes:
       tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
-    pipeline = (f'linalg-tensor-codegen-driver{{'
+    pipeline = (f'linalg-fuse-fill-into-reduction{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
-                f'     fuse-fill-into-reduction '
                 f'     {tile_str}}},'
                 f'canonicalize,'
                 f'cse')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class Inject(Transform):
@@ -90,15 +89,14 @@ class Fuse(Transform):
     if tile_interchange:
       dims = [str(ic) for ic in tile_interchange]
       interchange_str = f'tile-interchange={",".join(dims)}'
-    pipeline = (f'linalg-tensor-codegen-driver{{'
+    pipeline = (f'linalg-fuse{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
-                f'     fuse '
                 f'     {tile_str} '
                 f'     {interchange_str}}},'
                 f'canonicalize,'
                 f'cse')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class Tile(Transform):
@@ -166,7 +164,7 @@ class Tile(Transform):
                 f'     {pad_str}}},'
                 f'canonicalize,'
                 f'cse')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class Vectorize(Transform):
@@ -179,7 +177,7 @@ class Vectorize(Transform):
                 f'     vectorize-padding}},'
                 f'canonicalize,'
                 f'cse')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class Generalize(Transform):
@@ -207,7 +205,7 @@ class Generalize(Transform):
                 f'     anchor-op={op_name} '
                 f'     generalize '
                 f'     {interchange_str}}}')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class DecomposeToLowerDimensionalNamedOp(Transform):
@@ -223,16 +221,13 @@ class DecomposeToLowerDimensionalNamedOp(Transform):
   def __init__(self, **kwargs):
     pipeline = (f'linalg-tensor-codegen-driver{{'
                 f'     decompose-to-lower-dim }}')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class Bufferize(Transform):
 
   def __init__(self, **kwargs):
-    pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'     bufferize=true}},'
-                f'canonicalize,'
-                f'cse')
+    pipeline = (f'linalg-bufferization-driver,' f'canonicalize,' f'cse')
     self.pipeline = pipeline
 
 
@@ -248,8 +243,7 @@ class LowerVectors(Transform):
     transpose_avx2_lowering = False if ('transpose_avx2_lowering' not in \
         kwargs or not kwargs['transpose_lowering']) else True
     pipeline = (
-        f'linalg-tensor-codegen-driver{{'
-        f'    lower-vector '
+        f'linalg-vector-lowering{{'
         f'    lower-vector-stage={stage}'
         f'    max-transfer-rank=1 '
         f'    split-transfers=linalg-copy '
@@ -260,16 +254,13 @@ class LowerVectors(Transform):
         f'    unroll-vector-transfers=true}},'
         f'canonicalize,'
         f'cse')
-    self.pipeline = pipeline
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class LowerToLLVM(Transform):
 
   def __init__(self, **kwargs):
-    pipeline = (f'linalg-tensor-codegen-driver{{'
-                f'    lower-to-llvm}},'
-                f'canonicalize,'
-                f'cse')
+    pipeline = (f'llvm-lowering,' f'canonicalize,' f'cse')
     self.pipeline = pipeline
 
 

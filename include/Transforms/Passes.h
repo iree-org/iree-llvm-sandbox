@@ -17,8 +17,24 @@
 
 namespace mlir {
 
+/// Creates a pass to drive bufferization.
+std::unique_ptr<OperationPass<ModuleOp>> createLinalgBufferizationDriverPass();
+
+/// Creates a pass to drive tile + fuse transformations.
+std::unique_ptr<OperationPass<FuncOp>> createLinalgFusePass();
+
+/// Creates a pass to driver fuse output into reduction transformations.
+std::unique_ptr<OperationPass<FuncOp>>
+createLinalgFuseOutputIntoReductionPass();
+
 /// Creates a pass to drive transformations on Linalg on tensors.
-std::unique_ptr<OperationPass<ModuleOp>> createLinalgTensorCodegenDriverPass();
+std::unique_ptr<OperationPass<FuncOp>> createLinalgSingleTilingExpertPass();
+
+/// Creates a pass to driver the lowering of vector operations.
+std::unique_ptr<OperationPass<FuncOp>> createLinalgVectorLoweringPass();
+
+/// Creates a pass to driver lowering to LLVM.
+std::unique_ptr<OperationPass<ModuleOp>> createLLVMLoweringPass();
 
 /// Experimental pass for vector distribution.
 std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
