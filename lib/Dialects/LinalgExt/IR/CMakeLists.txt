@@ -9,5 +9,8 @@ add_mlir_library(MLIRLinalgExt
   MLIRLinalgExtPassIncGen
 
   LINK_LIBS PUBLIC
+  MLIRAffine
   MLIRIR
+  MLIRMemRef
+  MLIRTensor
 )
