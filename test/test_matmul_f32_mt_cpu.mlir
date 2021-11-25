@@ -20,3 +20,4 @@
 // R-UN:   -shared-libs=%iree_runners_test_dir/libruntime-support%shlibext | FileCheck %s
 
 // C-HECK: ( ( 2048 ) )
+
