@@ -23,5 +23,7 @@ PRIVATE
   MLIRLinalgExtTransforms
   MLIROptLib
   MLIRVectorExt
+  MLIRVectorExtTestPasses
+  MLIRVectorExtTransform
 )
 mlir_check_all_link_libraries(mlir-proto-opt)

@@ -71,7 +71,8 @@ static ParseResult parsePredicateOp(OpAsmParser &parser,
     return failure();
 
   // Parse optional results type list.
-  if (parser.parseOptionalArrowTypeList(result.types)) return failure();
+  if (parser.parseOptionalArrowTypeList(result.types))
+    return failure();
   // Parse the 'truePredicate' region.
   if (parser.parseRegion(*truePredicateRegion, /*arguments=*/{},
                          /*argTypes=*/{}))
@@ -79,7 +80,8 @@ static ParseResult parsePredicateOp(OpAsmParser &parser,
   PredicateOp::ensureTerminator(*truePredicateRegion, builder, result.location);
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
   return success();
 }
 
