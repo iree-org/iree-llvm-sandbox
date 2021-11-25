@@ -37,4 +37,14 @@ def LinalgExtToSCF : Pass<"lower-linalg-ext-to-scf", "FuncOp"> {
   ];
 }
 
+def TileToInParallel : Pass<"linalg-tile-to-in-parallel", "FuncOp"> {
+  let summary = "Pass to lower linalg_ext.tile to linalg_ext.in_parallel.";
+  let constructor = "mlir::linalg_ext::createTileToInParallelPass()";
+  let dependentDialects = [
+    "AffineDialect",
+    "tensor::TensorDialect",
+    "scf::SCFDialect"
+  ];
+}
+
 #endif // DIALECTS_LINALGEXT_PASSES

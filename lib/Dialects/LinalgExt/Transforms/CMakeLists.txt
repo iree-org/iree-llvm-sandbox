@@ -1,4 +1,5 @@
 add_mlir_library(MLIRLinalgExtTransforms
+  TileToInParallel.cpp
   LowerToSCF.cpp
   Tiling.cpp
 
