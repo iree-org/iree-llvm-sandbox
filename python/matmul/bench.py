@@ -17,8 +17,8 @@ all_experts = [
     SingleTilingExpert(
         'matmul_on_tensors',
         'linalg.generic',
-        sizes=[12, 32, 8],
-        interchange=[0, 1, 2],
+        tile_sizes=[12, 32, 8],
+        tile_interchange=[0, 1, 2],
         peel=[],
         pad=True,
         pack_paddings=[1, 1, 0],
@@ -27,14 +27,14 @@ all_experts = [
     DoubleTilingExpert(
         'matmul_on_tensors',
         'linalg.generic',
-        sizes1=[288, 128, 512],
-        interchange1=[0, 2, 1],
+        tile_sizes1=[288, 128, 512],
+        tile_interchange1=[0, 2, 1],
         peel1=[],
         pad1=False,
         pack_paddings1=[],
         hoist_paddings1=[],
-        sizes2=[9, 32, 16],
-        interchange2=[0, 1, 2],
+        tile_sizes2=[9, 32, 16],
+        tile_interchange2=[0, 1, 2],
         peel2=[],
         pad2=True,
         pack_paddings2=[1, 1, 0],
@@ -44,7 +44,7 @@ all_experts = [
         # TODO: better composition of experts.
         transpose_lowering='eltwise',
         # Set to True to see the IR.
-        print_ir_after_all=False)
+        print_ir_after_all=False),
 ]
 
 ################################################################################

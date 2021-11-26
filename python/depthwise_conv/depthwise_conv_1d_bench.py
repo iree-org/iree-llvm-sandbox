@@ -20,9 +20,9 @@ all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
-        #      N  W   C  KW
-        sizes=[1, 4, 16, 3],
-        interchange=[],
+        #           N  W   C  KW
+        tile_sizes=[1, 4, 16, 3],
+        tile_interchange=[],
         peel=[],
         pad=False,
         pack_paddings=[],

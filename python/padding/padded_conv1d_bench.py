@@ -20,8 +20,8 @@ all_experts = [
         fun_name=fun_name,
         op_name=op_name,
         #      N  W   C  KW  F
-        sizes=[1, 8, 32, 1, 8],
-        interchange=[],
+        tile_sizes=[1, 8, 32, 1, 8],
+        tile_interchange=[],
         peel=[],
         pad=False,
         pack_paddings=[],

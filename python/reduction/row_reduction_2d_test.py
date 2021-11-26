@@ -14,13 +14,13 @@ from .definitions import *
 ################################################################################
 
 # No tiling.
-expert_no_tiling = LoweringOnlyExpert([], print_ir_after_all=False)
+expert_no_tiling = LoweringOnlyExpert('row_reduction_2d_on_tensors', 'linalg.generic', print_ir_after_all=False)
 
-expert_fuse_output = LoweringOnlyExpert([
-    ExperimentalSplitAndFuseFillOp(
-        'row_reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16])
-],
-                                        print_ir_after_all=False)
+expert_fuse_output = TransformationList(transforms=[ExperimentalSplitAndFuseFillOp(
+        'row_reduction_2d_on_tensors', 'linalg.generic', tile_sizes=[24, 16])]
+        +
+        LoweringOnlyExpert(
+        'row_reduction_2d_on_tensors', 'linalg.generic').transforms)
 
 all_experts = [expert_no_tiling, expert_fuse_output]
 
