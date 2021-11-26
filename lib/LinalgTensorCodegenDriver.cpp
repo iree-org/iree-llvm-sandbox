@@ -19,8 +19,11 @@
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/ComprehensiveBufferize/ArithInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ComprehensiveBufferize.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/TensorInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/VectorInterfaceImpl.h"
@@ -368,11 +371,15 @@ void LinalgBufferizationDriverPass::getDependentDialects(
   registry.insert<tensor::TensorDialect>();
   registry.insert<vector::VectorDialect>();
 
-  linalg::comprehensive_bufferize::
+  linalg::comprehensive_bufferize::affine_ext::
+      registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::comprehensive_bufferize::arith_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::scf_ext::
+      registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::comprehensive_bufferize::std_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::tensor_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
