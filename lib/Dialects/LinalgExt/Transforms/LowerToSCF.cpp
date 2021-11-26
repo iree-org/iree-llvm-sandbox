@@ -1,15 +1,15 @@
-//===- LowerToSCF.cpp.cpp - Lower to SCF ----------------------------------===//
+//===- LowerToSCF.cpp.cpp - Lower to SCF ---------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-//===----------------------------------------------------------------------===//
+//===---------------------------------------------------------------------===//
 
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
-#include "llvm/ADT/STLExtras.h"
+#include "Transforms/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
@@ -20,52 +20,12 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
 
 namespace {
-
-struct Tie {
-  AffineExpr e;
-  Value v;
-  operator AffineExpr() const { return e; }
-  operator Value() const { return v; }
-};
-
-/// Helper struct to build simple arithmetic quantities with minimal type
-/// inference support.
-// TODO: move into ArithBuilder once ops have been moved into arith.
-struct AffineBuilder {
-  AffineBuilder(OpBuilder &b, Location loc) : b(b), loc(loc) {}
-
-  Value add(Tie lhs, Tie rhs) {
-    return b.createOrFold<AffineApplyOp>(
-        loc, ArrayRef<AffineExpr>{lhs.e + rhs.e}, ValueRange{lhs, rhs});
-  }
-  Value sub(Tie lhs, Tie rhs) {
-    return b.createOrFold<AffineApplyOp>(
-        loc, ArrayRef<AffineExpr>{lhs.e - rhs.e}, ValueRange{lhs, rhs});
-  }
-  Value mul(Tie lhs, Tie rhs) {
-    return b.createOrFold<AffineApplyOp>(
-        loc, ArrayRef<AffineExpr>{lhs.e * rhs.e}, ValueRange{lhs, rhs});
-  }
-  Value min(ValueRange vals) {
-    return b.createOrFold<AffineMinOp>(
-        loc, AffineMap::getMultiDimIdentityMap(vals.size(), b.getContext()),
-        vals);
-  }
-  Value max(ValueRange vals) {
-    return b.createOrFold<AffineMinOp>(
-        loc, AffineMap::getMultiDimIdentityMap(vals.size(), b.getContext()),
-        vals);
-  }
-
- private:
-  OpBuilder &b;
-  Location loc;
-};
 
 struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
   using OpRewritePattern::OpRewritePattern;
@@ -98,6 +58,7 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     rewriter.setInsertionPointToStart(forOp.getBody());
 
     // TODO: when supported, also compute from the tensor of sizes.
+    using AV = AffineValueExpr;
     AffineBuilder ab(rewriter, loc);
     AffineExpr i, j, M;
     bindDims(rewriter.getContext(), i, j);
@@ -106,8 +67,13 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     // Materialize the implicit subtensors as explicit subset_extract.
     // TODO: geenralize to multiple offset/chunk_size bbargs if needed.
     // TODO: generalize the subset op.
-    Value offset = ab.mul(Tie{i, forOp.getInductionVar()}, Tie{M, step});
-    Value size = ab.min({ab.sub(Tie{i, totalSize}, Tie{j, offset}), step});
+    Value offset =
+        ab.mul(AV(i).bind(forOp.getInductionVar()), AV(M).bind(step));
+    // clang-format off
+    Value size = ab.min(
+      ValueRange{ab.sub(AV(i).bind(totalSize), AV(j).bind(offset)), 
+      step});
+    // clang-format on
     SmallVector<Value> implicitSubtensorExtracts;
     for (Value tensor : forOp.getRegionIterArgs()) {
       implicitSubtensorExtracts.push_back(
@@ -147,7 +113,7 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
 struct LinalgExtToSCFPass : public LinalgExtToSCFBase<LinalgExtToSCFPass> {
   void runOnOperation() override;
 };
-}  // namespace
+} // namespace
 
 void LinalgExtToSCFPass::runOnOperation() {
   FuncOp funcOp = getOperation();
