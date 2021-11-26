@@ -1,6 +1,6 @@
 add_mlir_library(MLIRLinalgExtTransforms
   TileToInParallel.cpp
-  LowerToSCF.cpp
+  TileToSequentialFor.cpp
   Tiling.cpp
 
   DEPENDS

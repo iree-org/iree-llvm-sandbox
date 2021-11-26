@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -lower-linalg-ext-to-scf | FileCheck %s
+// RUN: mlir-proto-opt %s -linalg-tile-to-sequential-for | FileCheck %s
 
 // CHECK-DAG: #[[$MUL_MAP:.*]] = affine_map<(d0)[s0] -> (d0 * s0)>
 // CHECK-DAG: #[[$SUB_MAP:.*]] = affine_map<(d0, d1) -> (d0 - d1)>

@@ -110,12 +110,12 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
   }
 };
 
-struct LinalgExtToSCFPass : public LinalgExtToSCFBase<LinalgExtToSCFPass> {
+struct TileToSequentialForPass : public TileToSequentialForBase<TileToSequentialForPass> {
   void runOnOperation() override;
 };
 } // namespace
 
-void LinalgExtToSCFPass::runOnOperation() {
+void TileToSequentialForPass::runOnOperation() {
   FuncOp funcOp = getOperation();
   MLIRContext *context = funcOp.getContext();
   RewritePatternSet patterns(context);
@@ -124,6 +124,6 @@ void LinalgExtToSCFPass::runOnOperation() {
 }
 
 std::unique_ptr<OperationPass<FuncOp>>
-mlir::linalg_ext::createLinalgExtToSCFPass() {
-  return std::make_unique<LinalgExtToSCFPass>();
+mlir::linalg_ext::createTileToSequentialForPass() {
+  return std::make_unique<TileToSequentialForPass>();
 }
