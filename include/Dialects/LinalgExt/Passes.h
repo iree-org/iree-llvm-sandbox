@@ -17,7 +17,7 @@ namespace linalg_ext {
 std::unique_ptr<OperationPass<FuncOp>> createLinalgExtTilingPass(
     ArrayRef<int64_t> tileSizes = {});
 
-std::unique_ptr<OperationPass<FuncOp>> createLinalgExtToSCFPass();
+std::unique_ptr<OperationPass<FuncOp>> createTileToSequentialForPass();
 std::unique_ptr<OperationPass<FuncOp>> createTileToInParallelPass();
 
 #define GEN_PASS_REGISTRATION
