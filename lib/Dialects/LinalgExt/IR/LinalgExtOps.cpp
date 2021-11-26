@@ -225,8 +225,7 @@ static LogicalResult verify(InParallelOp op) {
         "the thread index");
 
   // Verify consistency between the result types and the terminator.
-  auto terminatorTypes =
-      llvm::cast<PerformConcurrentlyOp>(body->getTerminator()).yieldedTypes();
+  auto terminatorTypes = op.getTerminator().yieldedTypes();
   auto opResults = op.getResults();
   if (opResults.size() != terminatorTypes.size())
     return op.emitOpError("produces ")
@@ -328,6 +327,10 @@ void InParallelOp::ensureTerminator(Region &region, Builder &builder,
   auto terminator =
       llvm::dyn_cast<PerformConcurrentlyOp>(region.front().getTerminator());
   PerformConcurrentlyOp::ensureTerminator(terminator.getRegion(), builder, loc);
+}
+
+PerformConcurrentlyOp InParallelOp::getTerminator() {
+  return cast<PerformConcurrentlyOp>(getBody()->getTerminator());
 }
 
 //===----------------------------------------------------------------------===//

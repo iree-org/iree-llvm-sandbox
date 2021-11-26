@@ -18,7 +18,7 @@ func @static_tile(%chunk_size: index, %in: tensor<?xf32>, %out: tensor<?xf32>) -
   // CHECK: linalg_ext.in_parallel %[[CEIL]] -> (tensor<?xf32>) {
   %0 = linalg_ext.tile %chunk_size outs(%out: tensor<?xf32>) -> (tensor<?xf32>) {
 
-  // CHECK: ^bb0(%[[TIDX:.*]]: index
+  // CHECK: ^bb0(%[[TIDX:.*]]: index):
   // CHECK:    %[[OFFSET:.*]] = affine.apply #[[$MUL_MAP]](%[[TIDX]])[%[[CHUNK_SIZE]]]
   // CHECK:    %[[REST:.*]] = affine.apply #[[$SUB_MAP]](%[[M]], %[[OFFSET]])
   // CHECK:    %[[SIZE:.*]] = affine.min #[[$ID2_MAP]](%[[REST]], %[[CHUNK_SIZE]])

@@ -99,7 +99,7 @@ struct TileOpToInParallelRewriter
     AffineExpr i, j, M;
     bindDims(rewriter.getContext(), i, j);
     bindSymbols(rewriter.getContext(), M);
-    Value sizePerThread = ab.ceil(Tie{i, totalSize}, Tie{M, step});
+    Value numThreads = ab.ceil(Tie{i, totalSize}, Tie{M, step});
 
     // Construct the op without a body builder: we need to clone the ops in the
     // body explicitly after having access to the new bbArgs.
@@ -107,8 +107,7 @@ struct TileOpToInParallelRewriter
     // terminator.
     linalg_ext::InParallelOp inParallelOp =
         rewriter.create<linalg_ext::InParallelOp>(loc, tileOp->getResultTypes(),
-                                                  sizePerThread);
-    inParallelOp.ensureTerminator(inParallelOp.region(), rewriter, loc);
+                                                  numThreads);
 
     // At the beginning of the InParallelOp, compute offset and sizes.
     rewriter.setInsertionPointToStart(inParallelOp.getBody());
@@ -139,12 +138,9 @@ struct TileOpToInParallelRewriter
 
     // tileOp's terminator is not the terminator, insert explicit subset_insert
     // ops and feed them to a new scf.yield terminator that we can now add.
-    auto performConcurrentlyOp =
-        cast<PerformConcurrentlyOp>(&inParallelOp.getBody()->back());
+    PerformConcurrentlyOp performConcurrentlyOp = inParallelOp.getTerminator();
 
-    // TODO: getBody() -> Block*
-    rewriter.setInsertionPointToStart(
-        &(performConcurrentlyOp.region().front()));
+    rewriter.setInsertionPointToStart(performConcurrentlyOp.getBody());
     for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outs())) {
       rewriter.createOrFold<ParallelInsertSliceOp>(
           loc, std::get<0>(it), std::get<1>(it), offset, size, one);
