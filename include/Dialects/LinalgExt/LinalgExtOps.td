@@ -202,11 +202,14 @@ def LinalgExt_InParallelOp : LinalgExt_PureOp<"in_parallel", [
     and it takes a single index operand that indicates how many parallel instances
     of that function should get instantiated.
 
-    The parallel function body is expected to be pure (i.e. have no side effects).
-    The only allowed terminator is `linalg_ext.perform_concurrently`, which dictates
+    When the parallel function body is pure (i.e. has no side effects) then the only
+    allowed terminator is `linalg_ext.perform_concurrently`, which dictates
     how the results of all parallel invocations should be reconciled into a full
     value that will be returned from `in_parallel`. Multi-value returns are encoded
     by including multiple operations inside the `perform_concurrently` block.
+
+    When the parallel function body has side effects, the order of reads and writes
+    to memory is unspecified across iterations.    
 
     This op resembles `scf.for` to a large degree, but crucially differs in that it
     (1) doesn't have `iter_args` and (2) has a special terminator, both of which
@@ -264,20 +267,8 @@ def LinalgExt_PerformConcurrentlyOp : LinalgExt_PureOp<"perform_concurrently", [
   // TODO(apaszke, ntv): Add an interface for ops that can appear inside
   // perform_concurrently.
   let extraClassDeclaration = [{
-    SmallVector<Type> yieldedTypes() {
-      SmallVector<Type> ret;
-      for (Operation& op : *getBody()) {
-        if (auto sliceOp = llvm::dyn_cast<ParallelInsertSliceOp>(op)) {
-          ret.push_back(sliceOp.yieldedType());
-          continue;
-        }
-        if (auto endPerformOp = llvm::dyn_cast<EndPerformConcurrentlyOp>(op)) {
-          continue;
-        }
-        llvm_unreachable("Unexpected operation in perform_concurrently");
-      }
-      return ret;
-    };
+    SmallVector<Type> yieldedTypes();
+    SmallVector<ParallelInsertSliceOp> yieldingOps();
   }];
 }
 
@@ -307,8 +298,8 @@ def LinalgExt_ParallelInsertSliceOp : LinalgExt_PureOp<"parallel_insert_slice", 
     will be equal to the one in the original tensor.
 
     Note that we cannot mark this operation as pure (NoSideEffects), even
-    though it has no side effects, because it will get DCEd during
-    canonincalization. Ideally we would use attributes instead of those funny
+    though it has no side effects, because it will get DCEd during 
+    canonicalization. Ideally we would use attributes instead of those funny
     terminating ops, but attributes cannot refer to SSA values at the moment, so
     it's the best we can do for now.
   }];
