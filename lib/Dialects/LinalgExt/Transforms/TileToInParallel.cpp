@@ -53,6 +53,10 @@ struct AffineBuilder {
     return b.createOrFold<AffineApplyOp>(
         loc, ArrayRef<AffineExpr>{lhs.e * rhs.e}, ValueRange{lhs, rhs});
   }
+  Value ceil(Tie lhs, Tie rhs) {
+    return b.createOrFold<AffineApplyOp>(
+        loc, ArrayRef<AffineExpr>{lhs.e.ceilDiv(rhs.e)}, ValueRange{lhs, rhs});
+  }
   Value min(ValueRange vals) {
     return b.createOrFold<AffineMinOp>(
         loc, AffineMap::getMultiDimIdentityMap(vals.size(), b.getContext()),
@@ -91,28 +95,28 @@ struct TileOpToInParallelRewriter
     Value step = tileOp.tile_sizes();
     assert(step.getType().isa<IndexType>() && "NYI: not an index type");
 
+    AffineBuilder ab(rewriter, loc);
+    AffineExpr i, j, M;
+    bindDims(rewriter.getContext(), i, j);
+    bindSymbols(rewriter.getContext(), M);
+    Value sizePerThread = ab.ceil(Tie{i, totalSize}, Tie{M, step});
+
     // Construct the op without a body builder: we need to clone the ops in the
     // body explicitly after having access to the new bbArgs.
     // As a consequence, `ensureTerminator` is not called and the body has no
     // terminator.
     linalg_ext::InParallelOp inParallelOp =
         rewriter.create<linalg_ext::InParallelOp>(loc, tileOp->getResultTypes(),
-                                                  totalSize);
+                                                  sizePerThread);
     inParallelOp.ensureTerminator(inParallelOp.region(), rewriter, loc);
 
     // At the beginning of the InParallelOp, compute offset and sizes.
     rewriter.setInsertionPointToStart(inParallelOp.getBody());
 
-    AffineBuilder ab(rewriter, loc);
-    AffineExpr i, j, M;
-    bindDims(rewriter.getContext(), i, j);
-    bindSymbols(rewriter.getContext(), M);
-
     // Materialize the implicit subtensors as explicit subset_extract.
     // TODO: generalize to multiple offset/chunk_size bbargs if needed.
     // TODO: generalize the subset op.
-    // TODO: step is assumed one ...
-    Value offset = ab.mul(Tie{i, inParallelOp.num_threads()}, Tie{M, step});
+    Value offset = ab.mul(Tie{i, inParallelOp.getThreadIndex()}, Tie{M, step});
     Value size = ab.min({ab.sub(Tie{i, totalSize}, Tie{j, offset}), step});
 
     SmallVector<Value> implicitSubtensorExtracts;

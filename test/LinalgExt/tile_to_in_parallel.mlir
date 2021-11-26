@@ -1,5 +1,6 @@
 // RUN: mlir-proto-opt %s -linalg-tile-to-in-parallel| FileCheck %s
 
+// CHECK-DAG: #[[$CEIL_MAP:.*]] = affine_map<(d0)[s0] -> (d0 ceildiv s0)>
 // CHECK-DAG: #[[$MUL_MAP:.*]] = affine_map<(d0)[s0] -> (d0 * s0)>
 // CHECK-DAG: #[[$SUB_MAP:.*]] = affine_map<(d0, d1) -> (d0 - d1)>
 // CHECK-DAG: #[[$ID1_MAP:.*]] = affine_map<(d0) -> (d0)>
@@ -13,11 +14,12 @@ func @static_tile(%chunk_size: index, %in: tensor<?xf32>, %out: tensor<?xf32>) -
   %c0 = arith.constant 0: index
 
   // CHECK: %[[M:.*]] = tensor.dim %{{.*}}, %{{.*}} : tensor<?xf32>
-  // CHECK: linalg_ext.in_parallel %[[M]] -> (tensor<?xf32>) {
+  // CHECK: %[[CEIL:.*]] = affine.apply #[[$CEIL_MAP]](%[[M]])[%[[CHUNK_SIZE]]]
+  // CHECK: linalg_ext.in_parallel %[[CEIL]] -> (tensor<?xf32>) {
   %0 = linalg_ext.tile %chunk_size outs(%out: tensor<?xf32>) -> (tensor<?xf32>) {
 
-  //                                                  TODO:   v--- in_parallel bbarg.
-  // CHECK:    %[[OFFSET:.*]] = affine.apply #[[$MUL_MAP]](%{{.*}})[%[[CHUNK_SIZE]]]
+  // CHECK: ^bb0(%[[TIDX:.*]]: index
+  // CHECK:    %[[OFFSET:.*]] = affine.apply #[[$MUL_MAP]](%[[TIDX]])[%[[CHUNK_SIZE]]]
   // CHECK:    %[[REST:.*]] = affine.apply #[[$SUB_MAP]](%[[M]], %[[OFFSET]])
   // CHECK:    %[[SIZE:.*]] = affine.min #[[$ID2_MAP]](%[[REST]], %[[CHUNK_SIZE]])
   // CHECK:    %[[O:.*]] = tensor.extract_slice %[[OUT]][%[[OFFSET]]] [%[[SIZE]]] [{{.*}}] : tensor<?xf32> to tensor<?xf32>

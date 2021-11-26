@@ -223,9 +223,15 @@ def LinalgExt_InParallelOp : LinalgExt_PureOp<"in_parallel", [
   let parser = [{ return ::parse$cppClass(parser, result); }];
   let verifier = [{ return ::verify(*this); }];
 
+  // The efault builder does not add the proper body BBargs, roll our own.
+  let skipDefaultBuilders = 1;
   let builders = [
+    // Bodyless builder, result types must be specified.
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$num_threads)>,
+    // Builder that takes a bodyBuilder lambda, result types are inferred from 
+    // the terminator.
     OpBuilder<(ins "Value":$num_threads,
-      CArg<"function_ref<void(OpBuilder &, Location, Value)>", "nullptr">)>
+              "function_ref<void(OpBuilder &, Location, Value)>":$bodyBuilder)>
   ];
   let extraClassDeclaration = [{
     Value getThreadIndex() { return getBody()->getArgument(0); }
