@@ -42,14 +42,15 @@ expert_tile_and_interchange_1 = SingleTilingExpert('matmul_on_tensors',
                                                    peel=[])
 
 # 1 level of tiling and then generalize and interchange.
-expert_tile_1_and_generalize_interchange = Tiling.then(Generalization).then(
-    Vectorization).then(LoweringOnlyExpert)('matmul_on_tensors',
-                                            'linalg.generic',
-                                            tile_sizes=[8, 8, 24],
-                                            tile_interchange=[2, 0, 1],
-                                            pad=False,
-                                            peel=[],
-                                            iterator_interchange=[0, 2, 1])
+expert_tile_1_and_generalize_interchange = \
+    Tile.then(Generalize).then(Vectorize).then(LoweringOnlyExpert)(\
+      'matmul_on_tensors',                                         \
+      'linalg.generic',                                            \
+      tile_sizes=[8, 8, 24],                                       \
+      tile_interchange=[2, 0, 1],                                  \
+      pad=False,                                                   \
+      peel=[],                                                     \
+      iterator_interchange=[0, 2, 1])
 
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
 # TODO: scalarize_dyn_dims should be exposed as a variable in Tile transformation
@@ -62,7 +63,7 @@ expert_tile_1_peel_scalarize = TransformationList(
              pad=False,
              peel=[0]),
         Tile('matmul_on_tensors', 'linalg.generic', scalarize_dyn_dims=True),
-    ] + Vectorization.then(LoweringOnlyExpert)
+    ] + Vectorize.then(LoweringOnlyExpert)
     ('matmul_on_tensors', 'linalg.generic').transforms)
 
 # 1 level of tiling, with padding.

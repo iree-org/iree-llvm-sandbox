@@ -1,45 +1,9 @@
 from mlir.ir import *
-from mlir.passmanager import *
 
-from typing import Any, Mapping
 from .search_vars import *
+from .transform import Transform
 
 import mlir.all_passes_registration
-
-
-class Transform:
-  """Base class for all parametrized transformations.
-  
-  Searchable transformation parameters must be listed in the `variables` field.
-  """
-
-  variables = dict()
-
-  module: Module
-  fun_name: str
-
-  def __call__(self, module: Module, fun_name: str):
-    self.module = module
-    self.fun_name = fun_name
-    PassManager.parse(self.pipeline).run(module)
-    return module
-
-  def _parse_variables_in_kwargs(self,
-                                 kwargs: Mapping[str, Any],
-                                 defaults: Mapping[str, Any] = dict()):
-    """Set up instance fields that correspond to known variables from kwargs.
-    
-    Use the values if `defaults` if `kwargs` does not have one for the given
-    variable. Either `kwargs` or `defaults` must contain a value for all known
-    variables. 
-    """
-    cls = self.__class__
-    for name in cls.variables:
-      if name not in kwargs and name not in defaults:
-        raise ValueError(f"Missing {name} keyword argument when constructing "
-                         f"{cls} with no default provided.")
-      value = kwargs[name] if name in kwargs else defaults[name]
-      self.__dict__[name] = value
 
 
 class Print(Transform):
