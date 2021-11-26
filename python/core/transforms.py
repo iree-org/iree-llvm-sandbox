@@ -63,32 +63,63 @@ class Fuse(Transform):
   This transform can be configured as follows:
   * `tile_sizes`: Tile sizes used for tiling.
   * `tile_interchange`: Interchange used for tiling.
+  * `pad`: Pad the operands.
+  * `pack_paddings`: Pack the padded operand if the packing flag is set. `pad`
+     must also be specified.
+  * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
+     pad` must also be specified.
+  * `vectorize`: Vectorize the fused operations.
+  * `vectorize_padding`: Vectorize the pad tensor operations.
   """
 
   variables = {
       'tile_sizes': TilingSizesVariable,
       'tile_interchange': InterchangeVariable,
       'pad': BoolVariable,
+      'pack_paddings': PackPaddingVariable,
+      'hoist_paddings': HoistPaddingVariable,
+      'vectorize': BoolVariable,
+      'vectorize_paddings': BoolVariable,
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs, {
         'tile_sizes': [],
         'tile_interchange': [],
-        'pad': False
+        'pad': False,
+        'pack_paddings': [],
+        'hoist_paddings': [],
+        'vectorize': False,
+        'vectorize_paddings': False,
     })
     tile_str = ''
     interchange_str = ''
+    pad_str = ''
+    vectorize_str = ''
     if self.tile_sizes:
       tile_str = f'tile-sizes={",".join([str(ts) for ts in self.tile_sizes])}'
     if self.tile_interchange:
       dims = [str(ic) for ic in self.tile_interchange]
       interchange_str = f'tile-interchange={",".join(dims)}'
+    if self.pad:
+      packing_flags = [str(pp) for pp in self.pack_paddings]
+      hoisting_depths = [str(hd) for hd in self.hoist_paddings]
+      pad_str = f'pad'
+      if packing_flags:
+        pad_str = pad_str + f' pack-paddings={",".join(packing_flags)}'
+      if hoisting_depths:
+        pad_str = pad_str + f' hoist-paddings={",".join(hoisting_depths)}'
+    if self.vectorize:
+      vectorize_str = f'vectorize'
+      if self.vectorize_paddings:
+        vectorize_str = vectorize_str + f' vectorize-padding'
     pipeline = (f'linalg-fuse{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     {tile_str} '
-                f'     {interchange_str}}},'
+                f'     {interchange_str} '
+                f'     {pad_str} '
+                f'     {vectorize_str}}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
