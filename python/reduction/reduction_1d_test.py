@@ -14,7 +14,7 @@ from .definitions import *
 ################################################################################
 
 # No tiling.
-expert_no_tiling = LoweringOnlyExpert([], print_ir_after_all=False)
+expert_no_tiling = LoweringOnlyExpert('reduction_1d_on_tensors', 'linalg.generic', print_ir_after_all=False)
 
 all_experts = [expert_no_tiling]
 

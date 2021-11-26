@@ -17,28 +17,14 @@ op_name = 'linalg.generic'
 ################################################################################
 
 
-class ExperimentalSplitAndFuseFillOpExpert(TransformationList):
-
-  def __init__(self, transforms, **kwargs):
-    t = transforms + [
-        # TODO: bufferization before vectorization triggers
-        # a bufferization issue atm.
-        # This is inefficient wrt VTW/VTR forwarding.
-        #Bufferize()
-    ] + StagedLowerVectorsTransformationList() + [LowerToLLVM()]
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
-
-
 def all_experts(problem_sizes: List[int]):
   return [
       SingleTilingExpert(
           fun_name=fun_name,
           op_name=op_name,
           # Little trick avoids tiling small dimensions and otherwise tile by 128.
-          sizes=[4, 128] if problem_sizes[1] > 256 else [4],
-          interchange=[],
+          tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4],
+          tile_interchange=[],
           peel=[],
           pad=False,
           pack_paddings=[],

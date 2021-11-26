@@ -1,4 +1,7 @@
-from typing import Any, List, NewType, Optional, Sequence, Type
+from typing import Any, List, NewType, Optional, Sequence
+# Qualified import to disambiguate with mlir.ir.Type.
+__import__('typing', fromlist=['Type'])
+from copy import deepcopy
 
 from mlir.ir import *
 
@@ -13,7 +16,9 @@ class TransformationList:
   Derived classes that whish to expose their configuration to search need an
   extra `variables` dictionary, which serves as a hook for search. The labels of
   the dictionary need to correspond to the corresponding argument name in the
-  derived __init__ function.
+  derived __init__ function. Such derived classes that chain transformations on
+  a single function_name/op_name pair can be constructed using
+  `TransformationListMetaclass` that takes care of variables and init kwargs.
 
   :Parameters:
     - `transforms` (`List[Transform]`) - List of transforms to apply in sequence
@@ -47,234 +52,128 @@ class TransformationList:
     return module
 
 
-def StagedLowerVectorsTransformationList(**kwargs) -> List[LowerVectors]:
-  return [
-      LowerVectors(stage=0, **kwargs),  # vector.contract
-      LowerVectors(stage=1, **kwargs),  # vector.multi_reduction
-      LowerVectors(stage=2, **kwargs),  # vector.transfer split
-      LowerVectors(stage=3, **kwargs),  # vector.transfer to scf
-      LowerVectors(stage=4, **kwargs),  # vector.transfer lowering
-      LowerVectors(stage=5, **kwargs),  # vector.shape_cast lowering
-      LowerVectors(stage=6, **kwargs),  # vector.transpose lowering
-  ]
+def _get_name_remapping(transform_classes: Sequence[typing.Type[Transform]]):
+  """Given a list of Transform classes, create a list of mappings from unique
+  suffixed names back to per-transformation variable names."""
+  seen_names = dict()
+  for transform in transform_classes:
+    for name in transform.variables:
+      if name not in seen_names:
+        seen_names[name] = 0
+      seen_names[name] += 1
+  next_index = {name: 1 for name in seen_names}
+  remappings = []
+  for transform in transform_classes:
+    remapping = dict()
+    for name in transform.variables:
+      expert_name = name
+      if seen_names[name] > 1:
+        expert_name += str(next_index[name])
+        next_index[name] += 1
+      remapping[expert_name] = name
+    remappings.append(remapping)
+  return remappings
 
 
-class LoweringOnlyExpert(TransformationList):
-  """Expert compiler that only bufferizes and lowers to LLVM."""
+class TransformListMetaclass(type):
+  """Metaclass for TransformationList subclasses that chain transformations.
+  
+  Given the list of Transformation subclasses as `transforms` kwarg, creates a
+  new class that derives TransformationList and instantiates the transformations
+  in its constructor. The new subclass has the `variables` field suitable for
+  search defined by combining the `variables` fields of each transformation. If
+  transformations have identical variable names, they will be suffixed with
+  increasing integer numbers, e.g., two transformations having the "sizes"
+  variable will result in a list with "sizes1" and "sizes2" variables, regardless
+  of the position of these transformations in the list. The constructor of the
+  new class accepts kwargs with the same names as `variables`.
 
-  def __init__(self, transforms: List[Transform] = [], **kwargs):
-    post_bufferization_transforms = [] if 'post_bufferization_transforms' \
-      not in kwargs else kwargs['post_bufferization_transforms']
-    t = transforms + \
-        [ Bufferize(**kwargs) ] + \
-        post_bufferization_transforms + \
-        StagedLowerVectorsTransformationList(**kwargs) + \
-        [ LowerToLLVM(**kwargs) ]
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
+  Classes created with this metaclass can be in turn chained using the `then`
+  class method, which produces a new class following the same rules.
+  """
 
+  def __new__(cls, clsname, bases, attrs, transforms):
+    if 'variables' in attrs and transforms:
+      raise ValueError(
+          "TransformList metaclass would override the list of variables.")
 
-class SingleTilingExpert(TransformationList):
-  """Expert compiler that applies a single level of tiling."""
+    remappings = _get_name_remapping(transforms)
+    variables = dict()
+    for transform, remapping in zip(transforms, remappings):
+      variables.update(
+          {name: transform.variables[remapping[name]] for name in remapping})
+    attrs['variables'] = variables
 
-  # Entries in the `variables` dictionary are the hooks for search, their names
-  # must correspond to the __init__ function arguments.
-  variables = {
-      'sizes': TilingSizesVariable,
-      'interchange': InterchangeVariable,
-      'peel': PeelingVariable,
-      'pad': BoolVariable,
-      'pack_paddings': PackPaddingVariable,
-      'hoist_paddings': HoistPaddingVariable,
-  }
+    def init(self, fun_name: str, op_name: str, **kwargs):
+      self.transforms = []
+      kwargs['fun_name'] = fun_name
+      kwargs['op_name'] = op_name
+      if 'print_ir_at_begin' not in kwargs:
+        kwargs['print_ir_at_begin'] = False
+      if 'print_ir_after_all' not in kwargs:
+        kwargs['print_ir_after_all'] = False
+      if 'print_llvmir' not in kwargs:
+        kwargs['print_llvmir'] = False
+      for transform, remapping in zip(transforms, remappings):
+        transform_args = deepcopy(kwargs)
+        for name, transform_name in remapping.items():
+          if transform_name == name:
+            continue
+          transform_args[transform_name] = transform_args[name]
+          del transform_args[name]
+        self.transforms.append(transform(**transform_args))
+      self.__dict__.update(kwargs)
 
-  def __init__(self, fun_name: str, op_name: str, sizes: Sequence[int],
-               interchange: Sequence[int], peel: Sequence[int], pad: bool,
-               pack_paddings: Sequence[int], hoist_paddings: Sequence[int],
-               **kwargs):
-    extra_transforms = [
-        Tile(
-            fun_name,
-            op_name,
-            tile_sizes=sizes,
-            tile_interchange=interchange,
-            peel=peel,
-            pad=pad,
-            pack_paddings=pack_paddings,
-            hoist_paddings=hoist_paddings,
-            **kwargs),
-        DecomposeToLowerDimensionalNamedOp()
-    ]
-    # TODO: After DecomposeToLowerDimensionalNamedOp the op_name to anchor on
-    # changes: we need a better control mechanism.
-    if 'vectorize' not in kwargs or kwargs['vectorize']:
-      extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
-    extra_transforms.extend(LoweringOnlyExpert(**kwargs).transforms)
+    attrs['__init__'] = init
+    attrs['_transform_classes'] = transforms
 
-    t = extra_transforms if 'transforms' not in kwargs else kwargs[
-        'transforms'] + extra_transforms
-    d = {
-        'sizes': sizes,
-        'interchange': interchange,
-        'peel': peel,
-        'pad': pad,
-        'pack_paddings': pack_paddings,
-        'hoist_paddings': hoist_paddings,
-        'transforms': t
-    }
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
+    @classmethod
+    def then(cls, other_cls):
+      return TransformListMetaclass(
+          cls.__name__ + "Then" + other_cls.__name__, (TransformationList,), {},
+          transforms=cls._transform_classes + other_cls._transform_classes)
+
+    attrs['then'] = then
+
+    return super(TransformListMetaclass, cls).__new__(cls, clsname, bases,
+                                                      attrs)
 
 
-# Expert compiler that applies two levels of tiling.
-# TODO: less copy-pasta, more composing.
-class DoubleTilingExpert(TransformationList):
-  # Variables are the hooks for search, their names must correspond to the
-  # __init__
-  variables = {
-      'sizes1': TilingSizesVariable,
-      'interchange1': InterchangeVariable,
-      'peel1': PeelingVariable,
-      'pad1': BoolVariable,
-      'pack_paddings1': PackPaddingVariable,
-      'hoist_paddings1': HoistPaddingVariable,
-      'sizes2': TilingSizesVariable,
-      'interchange2': InterchangeVariable,
-      'peel2': PeelingVariable,
-      'pad2': BoolVariable,
-      'pack_paddings2': PackPaddingVariable,
-      'hoist_paddings2': HoistPaddingVariable,
-  }
+def LowerVectorFactory(stage):
+  """Create a new Transformation class that binds the lowering stage to the
+  given number at class construction time rather than at object construction."""
 
-  def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
-               interchange1: Sequence[int], peel1: Sequence[int], pad1: bool,
-               pack_paddings1: Sequence[int], hoist_paddings1: Sequence[int],
-               sizes2: Sequence[int], interchange2: Sequence[int],
-               peel2: Sequence[int], pad2: bool, pack_paddings2: Sequence[int],
-               hoist_paddings2: Sequence[int], **kwargs):
-    extra_transforms = [
-        Tile(
-            fun_name,
-            op_name,
-            tile_sizes=sizes1,
-            tile_interchange=interchange1,
-            peel=peel1,
-            pad=pad1,
-            pack_paddings=pack_paddings1,
-            hoist_paddings=hoist_paddings1,
-            **kwargs),
-        Tile(
-            fun_name,
-            op_name,
-            tile_sizes=sizes2,
-            tile_interchange=interchange2,
-            peel=peel2,
-            pad=pad2,
-            pack_paddings=pack_paddings2,
-            hoist_paddings=hoist_paddings2,
-            **kwargs),
-        DecomposeToLowerDimensionalNamedOp()
-    ]
-    if 'vectorize' not in kwargs or kwargs['vectorize']:
-      extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
-    extra_transforms.extend(LoweringOnlyExpert([], **kwargs).transforms)
+  def init(self, **kwargs):
+    LowerVectors.__init__(self, stage, **kwargs)
 
-    t = extra_transforms if 'transforms' not in kwargs else kwargs[
-        'transforms'] + extra_transforms
-    d = {
-        'sizes1': sizes1,
-        'interchange1': interchange1,
-        'peel1': peel1,
-        'pad1': pad1,
-        'pack_paddings1': pack_paddings1,
-        'hoist_paddings1': hoist_paddings1,
-        'sizes2': sizes2,
-        'interchange2': interchange2,
-        'peel2': peel2,
-        'pad2': pad2,
-        'pack_paddings2': pack_paddings2,
-        'hoist_paddings2': hoist_paddings2,
-        'transforms': t
-    }
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
+  return type('LowerVectors' + str(stage), (LowerVectors,), {'__init__': init})
 
 
-# Expert compiler that applies three levels of tiling.
-# TODO: less copy-pasta, more composing.
-class TripleTilingExpert(TransformationList):
-  # Variables are the hooks for search, their names must correspond to the
-  # __init__
-  variables = {
-      'sizes1': TilingSizesVariable,
-      'interchange1': InterchangeVariable,
-      'peel1': PeelingVariable,
-      'pad1': BoolVariable,
-      'pack_paddings1': PackPaddingVariable,
-      'hoist_paddings1': HoistPaddingVariable,
-      'sizes2': TilingSizesVariable,
-      'interchange2': InterchangeVariable,
-      'peel2': PeelingVariable,
-      'pad2': BoolVariable,
-      'pack_paddings2': PackPaddingVariable,
-      'hoist_paddings2': HoistPaddingVariable,
-      'sizes3': TilingSizesVariable,
-      'interchange3': InterchangeVariable,
-      'peel3': PeelingVariable,
-      'pad3': BoolVariable,
-      'pack_paddings3': PackPaddingVariable,
-      'hoist_paddings3': HoistPaddingVariable,
-  }
+def TransformListFactory(name: str, transforms: Sequence[Transform]):
+  """Create a new TransformationList subclss with the given name that performs
+  the specified transforms."""
+  return TransformListMetaclass(name, (TransformationList,), {},
+                                transforms=transforms)
 
-  def __init__(self, fun_name: str, op_name: str, sizes1: Sequence[int],
-               interchange1: Sequence[int], peel1: Sequence[int], pad1: bool,
-               pack_paddings1: Sequence[int], hoist_paddings1: Sequence[int],
-               sizes2: Sequence[int], interchange2: Sequence[int],
-               peel2: Sequence[int], pad2: bool, pack_paddings2: Sequence[int],
-               hoist_paddings2: Sequence[int], sizes3: Sequence[int],
-               interchange3: Sequence[int], peel3: Sequence[int], pad3: bool,
-               pack_paddings3: Sequence[int], hoist_paddings3: Sequence[int],
-               **kwargs):
-    extra_transforms = [
-        Tile(
-            fun_name,
-            op_name,
-            tile_sizes=sizes1,
-            tile_interchange=interchange1,
-            peel=peel1,
-            pad=pad1,
-            pack_paddings=pack_paddings1,
-            hoist_paddings=hoist_paddings1),
-        Tile(
-            fun_name,
-            op_name,
-            tile_sizes=sizes2,
-            tile_interchange=interchange2,
-            peel=peel2,
-            pad=pad2,
-            pack_paddings=pack_paddings2,
-            hoist_paddings=hoist_paddings2),
-        Tile(
-            fun_name,
-            op_name,
-            tile_sizes=sizes3,
-            tile_interchange=interchange3,
-            peel=peel3,
-            pad=pad3,
-            pack_paddings=pack_paddings3,
-            hoist_paddings=hoist_paddings3),
-        DecomposeToLowerDimensionalNamedOp()
-    ]
-    if 'vectorize' not in kwargs or kwargs['vectorize']:
-      extra_transforms.append(Vectorize(fun_name, op_name, **kwargs))
-    extra_transforms.extend(LoweringOnlyExpert([], **kwargs).transforms)
 
-    t = extra_transforms if 'transforms' not in kwargs else kwargs[
-        'transforms'] + extra_transforms
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
+# TODO: This is still boilerplaty, allow chaining transformations directly to form a list.
+Bufferization = TransformListFactory('Bufferization', [Bufferize])
+Decomposition = TransformListFactory('Decomposition',
+                                     [DecomposeToLowerDimensionalNamedOp])
+Generalization = TransformListFactory('Generalization', [Generalize])
+LLVMLowering = TransformListFactory('LLVMLowering', [LowerToLLVM])
+Tiling = TransformListFactory('Tiling', [Tile])
+Vectorization = TransformListFactory('Vectorization', [Vectorize])
+VectorLowering = TransformListFactory('VectorLowering',
+                                      [LowerVectorFactory(i) for i in range(7)])
+
+# TODO: After DecomposeToLowerDimensionalNamedOp the op_name to anchor on
+# changes: we need a better control mechanism.
+LoweringOnlyExpert = Bufferization.then(VectorLowering).then(LLVMLowering)
+SingleTilingExpert = Tiling.then(Decomposition).then(Vectorization).then(
+    LoweringOnlyExpert)
+DoubleTilingExpert = Tiling.then(SingleTilingExpert)
+TripleTilingExpert = Tiling.then(DoubleTilingExpert)
 
 
 # Expert compiler that applies the whole sparse compiler.

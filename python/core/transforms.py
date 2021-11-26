@@ -1,19 +1,45 @@
 from mlir.ir import *
 from mlir.passmanager import *
 
+from typing import Any, Mapping
+from .search_vars import *
+
 import mlir.all_passes_registration
 
 
 class Transform:
-  """Base class for all parametrized transformations."""
+  """Base class for all parametrized transformations.
+  
+  Searchable transformation parameters must be listed in the `variables` field.
+  """
+
+  variables = dict()
 
   module: Module
   fun_name: str
+
   def __call__(self, module: Module, fun_name: str):
     self.module = module
     self.fun_name = fun_name
     PassManager.parse(self.pipeline).run(module)
     return module
+
+  def _parse_variables_in_kwargs(self,
+                                 kwargs: Mapping[str, Any],
+                                 defaults: Mapping[str, Any] = dict()):
+    """Set up instance fields that correspond to known variables from kwargs.
+    
+    Use the values if `defaults` if `kwargs` does not have one for the given
+    variable. Either `kwargs` or `defaults` must contain a value for all known
+    variables. 
+    """
+    cls = self.__class__
+    for name in cls.variables:
+      if name not in kwargs and name not in defaults:
+        raise ValueError(f"Missing {name} keyword argument when constructing "
+                         f"{cls} with no default provided.")
+      value = kwargs[name] if name in kwargs else defaults[name]
+      self.__dict__[name] = value
 
 
 class Print(Transform):
@@ -75,19 +101,24 @@ class Fuse(Transform):
   * `tile_interchange`: Interchange used for tiling.
   """
 
-  def __init__(self,
-               fun_name: str,
-               op_name: str,
-               tile_sizes=[],
-               tile_interchange=[],
-               pad=False,
-               **kwargs):
+  variables = {
+      'tile_sizes': TilingSizesVariable,
+      'tile_interchange': InterchangeVariable,
+      'pad': BoolVariable,
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs, {
+        'tile_sizes': [],
+        'tile_interchange': [],
+        'pad': False
+    })
     tile_str = ''
     interchange_str = ''
-    if tile_sizes:
-      tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
-    if tile_interchange:
-      dims = [str(ic) for ic in tile_interchange]
+    if self.tile_sizes:
+      tile_str = f'tile-sizes={",".join([str(ts) for ts in self.tile_sizes])}'
+    if self.tile_interchange:
+      dims = [str(ic) for ic in self.tile_interchange]
       interchange_str = f'tile-interchange={",".join(dims)}'
     pipeline = (f'linalg-fuse{{'
                 f'     anchor-func={fun_name} '
@@ -118,38 +149,52 @@ class Tile(Transform):
     `peel`.
   """
 
-  def __init__(self,
-               fun_name: str,
-               op_name: str,
-               tile_sizes=[],
-               tile_interchange=[],
-               peel=[],
-               pad=False,
-               pack_paddings=[],
-               hoist_paddings=[],
-               scalarize_dyn_dims=False,
-               **kwargs):
+  variables = {
+      'tile_sizes': TilingSizesVariable,
+      'tile_interchange': InterchangeVariable,
+      'pad': BoolVariable,
+      'peel': PeelingVariable,
+      'pack_paddings': PackPaddingVariable,
+      'hoist_paddings': HoistPaddingVariable,
+  }
+
+  def __init__(
+      self,
+      fun_name: str,
+      op_name: str,
+      # TODO: move this to a tunable variable.
+      scalarize_dyn_dims=False,
+      **kwargs):
+    self._parse_variables_in_kwargs(
+        kwargs, {
+            'tile_sizes': [],
+            'tile_interchange': [],
+            'pad': False,
+            'peel': [],
+            'pack_paddings': [],
+            'hoist_paddings': []
+        })
     tile_str = ''
     interchange_str = ''
     pad_str = ''
     peeled_loops_str = ''
     scalarize_dyn_dims_str = ''
 
-    if tile_sizes:
-      tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
-    if tile_interchange:
-      dims = [str(ic) for ic in tile_interchange]
+    if self.tile_sizes:
+      tile_str = f'tile-sizes={",".join([str(ts) for ts in self.tile_sizes])}'
+    if self.tile_interchange:
+      dims = [str(ic) for ic in self.tile_interchange]
       interchange_str = f'tile-interchange={",".join(dims)}'
-    if pad:
-      packing_flags = [str(pp) for pp in pack_paddings]
-      hoisting_depths = [str(hd) for hd in hoist_paddings]
+    if self.pad:
+      packing_flags = [str(pp) for pp in self.pack_paddings]
+      hoisting_depths = [str(hd) for hd in self.hoist_paddings]
       pad_str = f'pad'
       if packing_flags:
         pad_str = pad_str + f' pack-paddings={",".join(packing_flags)}'
       if hoisting_depths:
         pad_str = pad_str + f' hoist-paddings={",".join(hoisting_depths)}'
-    if peel:
-      loop_indices = [str(l) for l in peel]
+    if self.peel:
+      loop_indices = [str(l) for l in self.peel]
       peeled_loops_str = f'peeled-loops={",".join(loop_indices)}'
     if scalarize_dyn_dims:
       scalarize_dyn_dims_str = 'scalarize-dynamic-dims'
@@ -189,15 +234,16 @@ class Generalize(Transform):
   Note: After generalization the anchor op name changes to 'linalg.generic'.
   """
 
-  def __init__(self,
-               fun_name: str,
-               op_name: str,
-               iterator_interchange=[],
-               **kwargs):
+  variables = {
+      'iterator_interchange': InterchangeVariable,
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs, {'iterator_interchange': []})
     interchange_str = ''
 
-    if iterator_interchange:
-      dims = [str(ic) for ic in iterator_interchange]
+    if self.iterator_interchange:
+      dims = [str(ic) for ic in self.iterator_interchange]
       interchange_str = f'iterator-interchange={",".join(dims)}'
 
     pipeline = (f'linalg-tensor-codegen-driver{{'

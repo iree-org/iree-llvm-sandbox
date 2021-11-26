@@ -22,8 +22,8 @@ def all_experts(problem_sizes: List[int]):
       SingleTilingExpert(
           fun_name=fun_name,
           op_name=op_name,
-          sizes=[32],
-          interchange=[],
+          tile_sizes=[32],
+          tile_interchange=[],
           peel=[],
           pad=False,
           pack_paddings=[],

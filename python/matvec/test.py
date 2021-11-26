@@ -18,7 +18,7 @@ class TestExpert(TransformationList):
   def __init__(self, tiling_transforms):
     t = tiling_transforms + [
         Bufferize()
-    ] + StagedLowerVectorsTransformationList() + [LowerToLLVM()]
+    ] + LoweringOnlyExpert('matvec_on_tensors', 'linalg.generic').transforms
     TransformationList.__init__(self, **{'transforms': t})
 
 
@@ -172,7 +172,7 @@ expert_fuse_2_tile_1 = TestExpert([
     Vectorize('matvec_on_tensors', 'linalg.fill')
 ])
 expert_fuse_and_pad = TestExpert([
-    Fuse('matvec_on_tensors', 'linalg.generic', [16, 16]),
+    Fuse('matvec_on_tensors', 'linalg.generic', tile_sizes=[16, 16]),
     Tile(
         'matvec_on_tensors',
         'linalg.generic',
