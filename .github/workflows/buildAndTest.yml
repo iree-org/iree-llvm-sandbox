@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -31,10 +33,7 @@ jobs:
     # fetch (by a lot), so we get the commit hash and check it out ourselves.
     - name: Get LLVM Commit Hash
       id: get_llvm_commit_hash
-      run:
-        LLVM_COMMIT="$(cat ${GITHUB_WORKSPACE}/sandbox/pinned-llvm-version)"
-        echo "::set-output name=LLVM_COMMIT::${LLVM_COMMIT}"
-        echo "Using LLVM commit: $LLVM_COMMIT"
+      run: echo "LLVM_COMMIT=$(cat ${GITHUB_WORKSPACE}/sandbox/pinned-llvm-version)" >> $GITHUB_ENV
     - name: Checkout llvm-project
       uses: actions/checkout@v2
       with:
@@ -51,10 +50,13 @@ jobs:
       uses: hendrikmuhs/ccache-action@4687d037e4d7cf725512d9b819137a3af34d39b3
       with:
         key: ${{ runner.os }}-buildtestasserts
+        # LLVM needs serious cache size
+        max-size: 6G
 
     - name: Build
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
         python configure.py --llvm-path=../llvm-project
+        ccache -s
 
     # TODO: Add a build for IREE but it will get stale as soon as we update core + sandbox
