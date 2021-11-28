@@ -11,14 +11,14 @@ class Print(Transform):
 
   Dump the module and do not change it. The transform can be configured as
   follows:
-  * `name`: Printer name.
+  * `print_header`: Print header.
   """
 
-  def __init__(self, name=''):
-    self.name = name
+  def __init__(self, print_header='', **kwargs):
+    self.print_header = print_header
 
   def __call__(self, module: Module, fun_name: str):
-    print('[[[ IR printer: ' + self.name + ' ]]]')
+    print('[[[ IR printer: ' + self.print_header + ' ]]]')
     module.dump()
     return module
 
@@ -47,14 +47,14 @@ class Inject(Transform):
 
   Replace the module by the provided IR. The transform can be configured as
   follows:
-  * `ir`: Textual IR to inject.
+  * `ir_to_inject`: Textual IR to inject.
   """
 
-  def __init__(self, ir: str):
-    self.ir = ir
+  def __init__(self, ir_to_inject: str, **kwargs):
+    self.ir_to_inject = ir_to_inject
 
   def __call__(self, module: Module, fun_name: str, **kwargs):
-    return Module.parse(self.ir)
+    return Module.parse(self.ir_to_inject)
 
 
 class Fuse(Transform):

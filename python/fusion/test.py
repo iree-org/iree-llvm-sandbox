@@ -13,37 +13,23 @@ from .definitions import *
 ################################################################################
 
 
-class FusionTestExpert(TransformationList):
-
-  def __init__(self, fn_name: str, root_op_name: str, tile_sizes: Sequence[int],
-               tile_interchange: Sequence[int],
-               vectorize_op_list: Sequence[str], **kwargs):
-    t = [
-        Fuse(
-            fn_name,
-            root_op_name,
-            tile_sizes=tile_sizes,
-            tile_interchange=tile_interchange,
-            pad=False)
-    ]
-    for vectorize_op_name in vectorize_op_list:
-      t += [Vectorize(fn_name, vectorize_op_name)]
-    t += [Bufferize(), Print()
-          ] + [LowerVectors(stage=i) for i in range(7)] + [LowerToLLVM()]
-    d = {'transforms': t}
-    kwargs.update(d)
-    TransformationList.__init__(self, **kwargs)
+fusion_test_expert = Fuse.then(Bufferize).then(Print).then(
+    VectorLowering).then(LowerToLLVM)
 
 
 # 1 linalg.fill -> linalg.matmul fusion.
 def fill_matmul_fusion():
 
-  expert = FusionTestExpert(
-      fn_name='matmul_on_tensors',
-      root_op_name='linalg.matmul',
+  expert = fusion_test_expert(
+      'matmul_on_tensors',
+      'linalg.matmul',
       tile_sizes=[4, 8, 6],
       tile_interchange=[0, 1, 2],
-      vectorize_op_list=['linalg.matmul', 'linalg.fill'])
+      pad=True,
+      pack_paddings=[1, 1, 0],
+      hoist_paddings=[0, 0, 0],
+      vectorize=True,
+      vectorize_paddings=True)
   problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
   problem = ProblemInstance(
       problem_definition=MatmulProblem(),
@@ -76,12 +62,16 @@ def fill_matmul_fusion():
 
 
 def fill_matmul_bias_add_fusion():
-  expert = FusionTestExpert(
-      fn_name='matmul_bias_add_on_tensors',
-      root_op_name='linalg.generic',
+  expert = fusion_test_expert(
+      'matmul_bias_add_on_tensors',
+      'linalg.generic',
       tile_sizes=[4, 8, 6],
       tile_interchange=[0, 1, 2],
-      vectorize_op_list=['linalg.matmul', 'linalg.fill', 'linalg.generic'])
+      pad=True,
+      pack_paddings=[1, 1, 0],
+      hoist_paddings=[0, 0, 0],
+      vectorize=True,
+      vectorize_paddings=True)
   problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
   problem = ProblemInstance(
       problem_definition=MatmulBiasAddProblem(),
@@ -117,5 +107,6 @@ def main():
   fill_matmul_fusion()
   fill_matmul_bias_add_fusion()
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
   main()
