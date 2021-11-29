@@ -18,20 +18,22 @@ op_name = 'linalg.conv_1d_nwc_wcf'
 ################################################################################
 
 all_experts = [
-    SingleTilingExpert(
-        fun_name=fun_name,
-        op_name=op_name,
-        #           N  W   C  KW  F
-        tile_sizes=[1, 8, 32, 1, 8],
-        tile_interchange=[],
-        peel=[],
-        pad=False,
-        pack_paddings=[],
-        hoist_paddings=[],
-        # kwargs passed down to LowerVectors.
-        # TODO: better composition of experts.
-        transpose_lowering='shuffle',
-        print_ir_after_all=False)
+    e.print_ir(after_all=False) for e in [
+        TileAndDecompose(
+            fun_name,
+            op_name,
+            #           N  W   C  KW  F
+            tile_sizes=[1, 8, 32, 1, 8],
+            tile_interchange=[],
+            peel=[],
+            pad=False,
+            pack_paddings=[],
+            hoist_paddings=[]) +\
+          Vectorize(fun_name, op_name) +\
+          Bufferize() +\
+          StagedVectorLowering(transpose_lowering='shuffle') +\
+          LowerToLLVM()
+    ]
 ]
 
 ################################################################################

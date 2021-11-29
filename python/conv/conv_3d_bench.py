@@ -17,7 +17,7 @@ op_name = 'linalg.conv_3d_ndhwc_dhwcf'
 ### Compilation strategies.
 ################################################################################
 
-all_experts = [
+all_experts = [ e.print_ir(after_all=False) for e in [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
@@ -27,9 +27,8 @@ all_experts = [
         peel=[],
         pad=False,
         pack_paddings=[],
-        hoist_paddings=[],
-        print_ir_after_all=False)
-]
+        hoist_paddings=[])
+]]
 
 ################################################################################
 ### Problem instantiation

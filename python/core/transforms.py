@@ -1,7 +1,7 @@
 from mlir.ir import *
 
 from .search_vars import *
-from .transform import Transform
+from .transform import Transform, TransformationList
 
 import mlir.all_passes_registration
 
@@ -33,23 +33,6 @@ def _get_pad_str(transform: Transform) -> str:
   if hoist_paddings:
     pad_str = pad_str + f' hoist-paddings={",".join(hoist_paddings)}'
   return pad_str
-
-
-class Print(Transform):
-  """Print intermediate IR.
-
-  Dump the module and do not change it. The transform can be configured as
-  follows:
-  * `print_header`: Print header.
-  """
-
-  def __init__(self, print_header='', **kwargs):
-    self.print_header = print_header
-
-  def __call__(self, module: Module, fun_name: str):
-    print('[[[ IR printer: ' + self.print_header + ' ]]]')
-    module.dump()
-    return module
 
 
 class ExperimentalSplitAndFuseFillOp(Transform):
@@ -298,6 +281,10 @@ class LowerVectors(Transform):
         f'canonicalize,'
         f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
+
+def StagedVectorLowering(**kwargs):
+  return TransformationList(
+      transforms=[LowerVectors(stage=i, **kwargs) for i in range(7)])
 
 
 class LowerToLLVM(Transform):

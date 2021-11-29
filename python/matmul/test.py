@@ -8,18 +8,17 @@ from ..core.transforms import *
 
 from ..contraction.definitions import *
 
+import typing as tp
+
 ################################################################################
 ### Compilation strategies.
 ################################################################################
 
 
-class TestExpert(TransformationList):
-
-  def __init__(self, tiling_transforms):
-    t = tiling_transforms + [Bufferize()] + LoweringOnlyExpert(
-        'matmul_on_tensors', 'linalg.generic').transforms
-    TransformationList.__init__(self, **{'transforms': t})
-
+def TestExpert(transforms: tp.Sequence[tp.Union[Transform,
+                                                TransformationList]]):
+  return (TransformationList(transforms=transforms) + Bufferize() +
+          LoweringOnlyExpert('matmul_on_tensors', 'linalg.generic'))
 
 # TODO: Check generate code for basic code quality, e.g., no linalg.copy.
 
@@ -67,15 +66,16 @@ expert_tile_1_peel_scalarize = TransformationList(
     ('matmul_on_tensors', 'linalg.generic').transforms)
 
 # 1 level of tiling, with padding.
-expert_tile_1_pad = TestExpert([
-    Tile('matmul_on_tensors',
-         'linalg.generic',
-         tile_sizes=[8, 8, 24],
-         pad=True,
-         pack_paddings=[1, 1, 1],
-         peel=[]),
-    Vectorize('matmul_on_tensors', 'linalg.generic')
-])
+expert_tile_1_pad = Tile(
+    'matmul_on_tensors',
+    'linalg.generic',
+    tile_sizes=[8, 8, 24],
+    pad=True,
+    pack_paddings=[1, 1, 1],
+    peel=[]).then(
+        Vectorize('matmul_on_tensors', 'linalg.generic') +
+        LoweringOnlyExpert('matmul_on_tensors', 'linalg.generic'))
+
 # 1 level of tiling, with padding, hoisted.
 expert_tile_1_pad_hoist = TestExpert([
     Tile('matmul_on_tensors',
@@ -169,11 +169,13 @@ expert_fuse_and_pad = TestExpert([
 ])
 
 all_experts = [
-    expert_no_tiling, expert_tile_1, expert_tile_and_interchange_1,
-    expert_tile_1_and_generalize_interchange, expert_tile_1_peel_scalarize,
-    expert_tile_1_pad, expert_tile_1_pad_hoist, expert_tile_2_pad_hoist,
-    expert_tile_3_pad_hoist_peel, expert_tile_3_pad_hoist_peel_scalarize,
-    expert_fuse_2_tile_1, expert_fuse_and_pad
+    e.print_ir(after_all=False) for e in [
+        expert_no_tiling, expert_tile_1, expert_tile_and_interchange_1,
+        expert_tile_1_and_generalize_interchange, expert_tile_1_peel_scalarize,
+        expert_tile_1_pad, expert_tile_1_pad_hoist, expert_tile_2_pad_hoist,
+        expert_tile_3_pad_hoist_peel, expert_tile_3_pad_hoist_peel_scalarize,
+        expert_fuse_2_tile_1, expert_fuse_and_pad
+    ]
 ]
 
 ################################################################################

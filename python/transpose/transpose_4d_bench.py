@@ -12,7 +12,14 @@ import typing as tp
 fun_name = 'transpose_4d_on_tensors'
 op_name = 'linalg.generic'
 
-expert_transpose_4d_0213 = SingleTilingExpert(
+def tiling_shuffle_lowering(**kwargs):
+  return TileAndDecompose(**kwargs)\
+    .then(Vectorize(fun_name, op_name, transpose_lowering='shuffle'))\
+    .then(Bufferize())\
+    .then(StagedVectorLowering())\
+    .then(LowerToLLVM())
+
+expert_transpose_4d_0213 = tiling_shuffle_lowering(
     fun_name=fun_name,
     op_name=op_name,
     tile_sizes=[1, 4, 4, 16],
@@ -20,13 +27,9 @@ expert_transpose_4d_0213 = SingleTilingExpert(
     peel=[0, 1],
     pad=False,
     pack_paddings=[],
-    hoist_paddings=[],
-    transpose_lowering='shuffle',
-    # kwargs start here.
-    # transforms=[Print('Input IR')],
-    print_ir_after_all=False)
+    hoist_paddings=[]).print_ir(after_all=False)
 
-expert_transpose_4d_1302 = SingleTilingExpert(
+expert_transpose_4d_1302 = tiling_shuffle_lowering(
     fun_name=fun_name,
     op_name=op_name,
     tile_sizes=[1, 0, 4, 4],
@@ -34,11 +37,7 @@ expert_transpose_4d_1302 = SingleTilingExpert(
     peel=[0, 1],
     pad=False,
     pack_paddings=[],
-    hoist_paddings=[],
-    transpose_lowering='shuffle',
-    # kwargs start here.
-    # transforms=[Print('Input IR')],
-    print_ir_after_all=False)
+    hoist_paddings=[]).print_ir(after_all=False)
 
 ################################################################################
 ### Problem instantiations.

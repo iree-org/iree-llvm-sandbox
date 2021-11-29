@@ -11,17 +11,20 @@ def LowerVectorFactory(stage):
 
   return type('LowerVectors' + str(stage), (LowerVectors,), {'__init__': init})
 
+
 VectorLowering = TransformListFactory('VectorLowering',
                                       [LowerVectorFactory(i) for i in range(7)])
 
 # TODO: After DecomposeToLowerDimensionalNamedOp the op_name to anchor on
 # changes: we need a better control mechanism.
 LoweringOnlyExpert = Bufferize.then(VectorLowering).then(LowerToLLVM)
-SingleTilingExpert = Tile.then(DecomposeToLowerDimensionalNamedOp).then(Vectorize).then(
-    LoweringOnlyExpert)
+SingleTilingExpert = Tile.then(DecomposeToLowerDimensionalNamedOp).then(
+    Vectorize).then(LoweringOnlyExpert)
 DoubleTilingExpert = Tile.then(SingleTilingExpert)
 TripleTilingExpert = Tile.then(DoubleTilingExpert)
 
+TileAndDecompose = Tile.then(DecomposeToLowerDimensionalNamedOp)
+DoubleTileAndDecompose = Tile.then(TileAndDecompose)
 
 # Expert compiler that applies the whole sparse compiler.
 class ExpertSparseCompiler(TransformationList):

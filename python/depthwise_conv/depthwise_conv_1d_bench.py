@@ -26,8 +26,7 @@ all_experts = [
         peel=[],
         pad=False,
         pack_paddings=[],
-        hoist_paddings=[],
-        print_ir_after_all=False)
+        hoist_paddings=[]).print_ir(after_all=False)
 ]
 
 ################################################################################

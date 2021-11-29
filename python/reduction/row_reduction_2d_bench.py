@@ -38,13 +38,12 @@ experimental_tile_and_fuse_expert = \
         fun_name=fun_name, op_name=op_name, tile_sizes=[4, 4]), \
       Bufferize(), \
       Vectorize(fun_name=fun_name, op_name=op_name) \
-    ], \
-  print_ir_after_all=False)
+    ])
 
 
 def all_experts(problem_sizes: List[int]):
   return [
-      SingleTilingExpert(
+      TileAndDecompose(
           fun_name=fun_name,
           op_name=op_name,
           # Little trick avoids tiling small dimensions and otherwise tile by 128.
@@ -53,11 +52,12 @@ def all_experts(problem_sizes: List[int]):
           peel=[],
           pad=False,
           pack_paddings=[],
-          hoist_paddings=[],
-          # kwargs passed down to LowerVectors.
-          # TODO: better composition of experts.
-          multi_reduction_lowering='innerreduction',
-          print_ir_after_all=False),
+          hoist_paddings=[])\
+      .then(Vectorize(fun_name, op_name))\
+      .then(Bufferize())\
+      .then(StagedVectorLowering(multi_reduction_lowering='innerreduction'))\
+      .then(LowerToLLVM())\
+      .print_ir(after_all=False),
       # experimental_tile_and_fuse_expert
   ]
 

@@ -79,9 +79,9 @@ def all_experts(fun_name: str, problem_sizes: List[int]):
           pack_paddings=[],
           hoist_paddings=[],
           # kwargs start here.
-          post_bufferization_transforms=post_bufferization_transforms,
-          # Set to True to see the IR.
-          print_ir_after_all=False),
+          post_bufferization_transforms=post_bufferization_transforms).print_ir(
+              # Set to True to see the IR.
+              after_all=False),
   ]
 
 
