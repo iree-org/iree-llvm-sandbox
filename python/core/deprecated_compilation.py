@@ -15,6 +15,10 @@ from mlir.execution_engine import *
 from mlir.runtime import *
 
 from .transforms import *
+from .compilation import (attach_inplaceable_attributes, attach_passthrough,
+                          emit_benchmarking_function, operand_type, scalar_type,
+                          _MLIR_RUNNER_UTILS_LIB_ENV,
+                          _MLIR_RUNNER_UTILS_LIB_DEFAULT)
 
 
 # TODO: retire this because it has internal  assumptions about number of
