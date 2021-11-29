@@ -56,10 +56,7 @@ class _TransformThenDescriptor:
       if isinstance(other, Transform):
         return TransformationList(transforms=[obj, other])
 
-      return TransformationList(transforms=[obj] + other.transforms,
-                                print_ir_after_all=other.print_ir_after_all,
-                                print_ir_at_begin=other.print_ir_at_begin,
-                                print_llvmir=other.print_llvmir)
+      return TransformationList(transforms=[obj] + other.transforms)
 
     return then_instance
 
@@ -145,33 +142,16 @@ class TransformationList:
 
   :Parameters:
     - `transforms` (`List[Transform]`) - List of transforms to apply in sequence
-    - `print_ir_after_all` (`bool`) - triggers printing of IR
-    - `print_llvmir` (`bool`) - dummy description for print LLVMIR in particular
   """
   transforms: tp.List
-  print_ir_at_begin: bool
-  print_ir_after_all: bool
-  print_llvmir: bool
 
   def __init__(self, **kwargs):
     self.transforms = []
-    self.print_ir_at_begin = False
-    self.print_ir_after_all = False
-    self.print_llvmir = False
     self.__dict__.update(kwargs)
 
   def __call__(self, entry_point_name: str, module: Module):
-    if self.print_ir_at_begin:
-      print(module)
     for transform in self.transforms:
-      is_llvmir = str(transform).find('LowerToLLVM') >= 0
-      print_ir = self.print_llvmir if is_llvmir else self.print_ir_after_all
-
-      if print_ir:
-        print('[[[ IR after transform: ' + str(transform) + ']]]')
       module = transform(module, entry_point_name)
-      if print_ir:
-        print(module)
     return module
 
   def __add__(
@@ -182,15 +162,7 @@ class TransformationList:
     The resulting list is no longer suitable for search.
     """
     transforms = [other] if isinstance(other, Transform) else other.transforms
-    if isinstance(other, TransformationList):
-      if self.print_ir_after_all != other.print_ir_after_all or \
-        self.print_llvmir != other.print_llvmir or \
-        self.print_ir_at_begin != other.print_ir_at_begin:
-        raise ValueError("Mismatching printing flags.")
-    return TransformationList(transforms=self.transforms + transforms,
-                              print_ir_after_all=self.print_ir_after_all,
-                              print_llvmir=self.print_llvmir,
-                              print_ir_at_begin=self.print_ir_at_begin)
+    return TransformationList(transforms=self.transforms + transforms)
 
   def print_ir(self,
                after_all: bool = False,
@@ -265,12 +237,6 @@ class TransformListMetaclass(type):
       self.transforms = []
       kwargs['fun_name'] = fun_name
       kwargs['op_name'] = op_name
-      if 'print_ir_at_begin' not in kwargs:
-        kwargs['print_ir_at_begin'] = False
-      if 'print_ir_after_all' not in kwargs:
-        kwargs['print_ir_after_all'] = False
-      if 'print_llvmir' not in kwargs:
-        kwargs['print_llvmir'] = False
       for transform, remapping in zip(transforms, remappings):
         transform_args = deepcopy(kwargs)
         for name, transform_name in remapping.items():

@@ -16,7 +16,7 @@ op_name = 'linalg.depthwise_conv_1d_nwc_wc'
 ################################################################################
 
 all_experts = [
-    # LoweringOnlyExpert([], print_ir_after_all=False),
+    # LoweringOnlyExpert().print_ir(after_all=False),
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
