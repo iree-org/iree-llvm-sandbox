@@ -8,7 +8,8 @@ from mlir.dialects import linalg
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.runtime import *
 
-from ..core.compilation import numpy_type, compile_and_callback
+from ..core.compilation import numpy_type
+from ..core.deprecated_compilation import compile_and_callback
 from ..core.search_vars import collect_variables
 from ..core import experts
 
