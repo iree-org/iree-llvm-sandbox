@@ -29,7 +29,7 @@ class FusionTestExpert(TransformationList):
     for vectorize_op_name in vectorize_op_list:
       t += [Vectorize(fn_name, vectorize_op_name)]
     t += [Bufferize(), Print()
-         ] + StagedLowerVectorsTransformationList() + [LowerToLLVM()]
+          ] + [LowerVectors(stage=i) for i in range(7)] + [LowerToLLVM()]
     d = {'transforms': t}
     kwargs.update(d)
     TransformationList.__init__(self, **kwargs)
@@ -116,3 +116,6 @@ def fill_matmul_bias_add_fusion():
 def main():
   fill_matmul_fusion()
   fill_matmul_bias_add_fusion()
+
+if __name__ == "__main__":
+  main()
