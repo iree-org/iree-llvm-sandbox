@@ -257,6 +257,7 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
       .tileIf(!tileSizes.empty() || scalarizeDynamicDims, anchorOpName,
               tilingOptions)
       .padIf(pad, anchorOpName, paddingOptions)
+      .decomposeIf(decomposeToLowerDimOp)
       .generalizeIf(generalize, anchorOpName)
       // TODO: decomposeToLowerDimIf when the need arises.
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
@@ -266,11 +267,6 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
   // Created a nested OpPassManager and run.
   OpPassManager dynamicPM(FuncOp::getOperationName());
   strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-
-  if (decomposeToLowerDimOp) {
-    dynamicPM.addPass(createLinalgStrategyDecomposePass());
-  }
-
   if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
 }
 
