@@ -30,6 +30,10 @@ namespace memref {
 class MemRefDialect;
 }  // end namespace memref
 
+namespace bufferization{
+class BufferizationDialect;
+}  // end namespace bufferization
+
 namespace tensor {
 class TensorDialect;
 }  // end namespace tensor

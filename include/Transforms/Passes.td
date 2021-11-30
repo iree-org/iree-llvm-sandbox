@@ -129,6 +129,9 @@ def LinalgSingleTilingExpert
 }
 
 def LinalgBufferizationDriver : Pass<"linalg-bufferization-driver", "ModuleOp"> {
+  let dependentDialects = [
+    "::mlir::bufferization::BufferizationDialect"
+  ];
   let summary = "Run module-level comprehensive inplace bufferization.";
   let constructor = "mlir::createLinalgBufferizationDriverPass()";
 }

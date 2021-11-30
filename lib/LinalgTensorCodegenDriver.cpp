@@ -17,6 +17,7 @@
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
@@ -149,7 +150,7 @@ void LLVMLoweringPass::runOnOperation() {
 /// In the future, it should be the zero of type + op.
 static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
   auto t = getElementTypeOrSelf(op.get().getType());
-  return b.create<ConstantOp>(op.getOwner()->getLoc(), t, b.getZeroAttr(t));
+  return b.create<arith::ConstantOp>(op.getOwner()->getLoc(), t, b.getZeroAttr(t));
 }
 
 /// Collect all Linalg ops, they must all have tensor semantics.
@@ -371,6 +372,7 @@ void LinalgBufferizationDriverPass::getDependentDialects(
   registry.insert<AffineDialect>();
   registry.insert<linalg::LinalgDialect>();
   registry.insert<memref::MemRefDialect>();
+  registry.insert<bufferization::BufferizationDialect>();
   registry.insert<scf::SCFDialect>();
   registry.insert<StandardOpsDialect>();
   registry.insert<tensor::TensorDialect>();
