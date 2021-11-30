@@ -24,12 +24,7 @@ def all_experts(problem_sizes: List[int]):
       TileAndDecompose(
           fun_name=fun_name,
           op_name=op_name,
-          tile_sizes=[32],
-          tile_interchange=[],
-          peel=[],
-          pad=False,
-          pack_paddings=[],
-          hoist_paddings=[])\
+          tile_sizes=[32])\
       .then(Vectorize(fun_name, op_name))\
       .then(Bufferize())\
       .then(StagedVectorLowering(multi_reduction_lowering='innerreduction'))\

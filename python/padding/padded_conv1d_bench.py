@@ -20,12 +20,7 @@ all_experts = [
         fun_name=fun_name,
         op_name=op_name,
         #           N  W   C  KW  F
-        tile_sizes=[1, 8, 32, 1, 8],
-        tile_interchange=[],
-        peel=[],
-        pad=False,
-        pack_paddings=[],
-        hoist_paddings=[]).print_ir(at_begin=True, after_all=False)
+        tile_sizes=[1, 8, 32, 1, 8]).print_ir(at_begin=True, after_all=False)
 ]
 
 ################################################################################

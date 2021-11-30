@@ -221,10 +221,14 @@ def create_variable(name, variable_type, **settings):
   else:
     raise Exception(f'unknown variable type: {variable_type}')
 
+def _get_variable_classes(variables):
+  return ((name, variable[0] if isinstance(variable, tuple) else variable)
+          for name, variable in variables.items())
+
 
 def instantiate_variables(variables, **settings):
   assignments = {}
-  for name, variablecls in variables.items():
+  for name, variablecls in _get_variable_classes(variables):
     variable = create_variable(name, variablecls, **settings)
     variable.assign(assignments, variable.random_value())
   return assignments
@@ -232,11 +236,11 @@ def instantiate_variables(variables, **settings):
 
 def are_constraints_satisfied(assignment, variables, **settings):
   tile_sizes_names = [
-      name for name, variablecls in variables.items()
+      name for name, variablecls in _get_variable_classes(variables)
       if variablecls is TilingSizesVariable
   ]
   interchange_names = [
-      name for name, variablecls in variables.items()
+      name for name, variablecls in _get_variable_classes(variables)
       if variablecls is InterchangeVariable
   ]
   # Check the tile sizes and interchange lengths match.
