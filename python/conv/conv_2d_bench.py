@@ -23,12 +23,7 @@ all_experts = [
             fun_name=fun_name,
             op_name=op_name,
             #           N  H  W  C  KH  KW  F
-            tile_sizes=[1, 1, 8, 32, 1, 1, 8],
-            tile_interchange=[],
-            peel=[],
-            pad=False,
-            pack_paddings=[],
-            hoist_paddings=[]) + \
+            tile_sizes=[1, 1, 8, 32, 1, 1, 8]) + \
           Vectorize(fun_name, op_name) + \
           Bufferize() + \
           StagedVectorLowering(transpose_lowering='shuffle') +\

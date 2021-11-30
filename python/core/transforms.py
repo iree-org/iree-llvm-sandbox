@@ -85,25 +85,17 @@ class Fuse(Transform):
   """
 
   variables = {
-      'tile_sizes': TilingSizesVariable,
-      'tile_interchange': InterchangeVariable,
-      'pad': BoolVariable,
-      'pack_paddings': PackPaddingVariable,
-      'hoist_paddings': HoistPaddingVariable,
-      'vectorize': BoolVariable,
-      'vectorize_paddings': BoolVariable,
+      'tile_sizes': (TilingSizesVariable, []),
+      'tile_interchange': (InterchangeVariable, []),
+      'pad': (BoolVariable, False),
+      'pack_paddings': (PackPaddingVariable, []),
+      'hoist_paddings': (HoistPaddingVariable, []),
+      'vectorize': (BoolVariable, False),
+      'vectorize_paddings': (BoolVariable, False),
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs, {
-        'tile_sizes': [],
-        'tile_interchange': [],
-        'pad': False,
-        'pack_paddings': [],
-        'hoist_paddings': [],
-        'vectorize': False,
-        'vectorize_paddings': False,
-    })
+    self._parse_variables_in_kwargs(kwargs)
     tile_str = _get_tile_sizes_str(self)
     interchange_str = _get_tile_interchange_str(self)
     pad_str = _get_pad_str(self)
@@ -144,12 +136,12 @@ class Tile(Transform):
   """
 
   variables = {
-      'tile_sizes': TilingSizesVariable,
-      'tile_interchange': InterchangeVariable,
-      'pad': BoolVariable,
-      'peel': PeelingVariable,
-      'pack_paddings': PackPaddingVariable,
-      'hoist_paddings': HoistPaddingVariable,
+      'tile_sizes': (TilingSizesVariable, []),
+      'tile_interchange': (InterchangeVariable, []),
+      'pad': (BoolVariable, False),
+      'peel': (PeelingVariable, []),
+      'pack_paddings': (PackPaddingVariable, []),
+      'hoist_paddings': (HoistPaddingVariable, []),
   }
 
   def __init__(
@@ -159,15 +151,7 @@ class Tile(Transform):
       # TODO: move this to a tunable variable.
       scalarize_dyn_dims=False,
       **kwargs):
-    self._parse_variables_in_kwargs(
-        kwargs, {
-            'tile_sizes': [],
-            'tile_interchange': [],
-            'pad': False,
-            'peel': [],
-            'pack_paddings': [],
-            'hoist_paddings': []
-        })
+    self._parse_variables_in_kwargs(kwargs)
     tile_str = _get_tile_sizes_str(self)
     interchange_str = _get_tile_interchange_str(self)
     pad_str = _get_pad_str(self)
@@ -215,11 +199,11 @@ class Generalize(Transform):
   """
 
   variables = {
-      'iterator_interchange': InterchangeVariable,
+      'iterator_interchange': (InterchangeVariable, []),
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs, {'iterator_interchange': []})
+    self._parse_variables_in_kwargs(kwargs)
     interchange_str = ''
 
     if self.iterator_interchange:

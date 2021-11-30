@@ -47,12 +47,7 @@ def all_experts(problem_sizes: List[int]):
           fun_name=fun_name,
           op_name=op_name,
           # Little trick avoids tiling small dimensions and otherwise tile by 128.
-          tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4],
-          tile_interchange=[],
-          peel=[],
-          pad=False,
-          pack_paddings=[],
-          hoist_paddings=[])\
+          tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4])\
       .then(Vectorize(fun_name, op_name))\
       .then(Bufferize())\
       .then(StagedVectorLowering(multi_reduction_lowering='innerreduction'))\

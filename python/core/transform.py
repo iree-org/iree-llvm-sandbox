@@ -67,7 +67,9 @@ class Transform:
   Searchable transformation parameters must be listed in the `variables` field.
   """
 
-  variables: tp.Mapping[str, tp.Type[Variable]] = dict()
+  variables: tp.Mapping[str, tp.Union[tp.Type[Transform],
+                                      tp.Tuple[tp.Type[Transform],
+                                               tp.Any]]] = dict()
 
   module: Module
   fun_name: str
@@ -78,21 +80,18 @@ class Transform:
     PassManager.parse(self.pipeline).run(module)
     return module
 
-  def _parse_variables_in_kwargs(self,
-                                 kwargs: tp.Mapping[str, tp.Any],
-                                 defaults: tp.Mapping[str, tp.Any] = dict()):
+  def _parse_variables_in_kwargs(self, kwargs: tp.Mapping[str, tp.Any]):
     """Set up instance fields that correspond to known variables from kwargs.
-    
-    Use the values if `defaults` if `kwargs` does not have one for the given
-    variable. Either `kwargs` or `defaults` must contain a value for all known
-    variables. 
+
+    The values that are missing a default value in `variables` of the current
+    class must be provided.
     """
     cls = self.__class__
     for name in cls.variables:
-      if name not in kwargs and name not in defaults:
-        raise ValueError(f"Missing {name} keyword argument when constructing "
-                         f"{cls} with no default provided.")
-      value = kwargs[name] if name in kwargs else defaults[name]
+      if name not in kwargs and not isinstance(cls.variables[name], tuple):
+        raise ValueError(f"Missing {name} mandatory keyword argument when "
+                         f"constructing {cls}.")
+      value = kwargs[name] if name in kwargs else cls.variables[name][1]
       self.__dict__[name] = value
 
   # Use the Python descriptor mechanism to combine the 'property' mechanism and
@@ -133,7 +132,7 @@ class _TransformListThenDescriptor:
 class TransformationList:
   """Base class for an Expert compiler that applies transformations in sequence.
 
-  Derived classes that whish to expose their configuration to search need an
+  Derived classes that wish to expose their configuration to search need an
   extra `variables` dictionary, which serves as a hook for search. The labels of
   the dictionary need to correspond to the corresponding argument name in the
   derived __init__ function. Such derived classes that chain transformations on
@@ -141,13 +140,14 @@ class TransformationList:
   `TransformationListMetaclass` that takes care of variables and init kwargs.
 
   :Parameters:
-    - `transforms` (`List[Transform]`) - List of transforms to apply in sequence
+    - `transforms` - List of transforms to apply in sequence
   """
-  transforms: tp.List
+  transforms: tp.Sequence[Transform]
+  _transform_classes: tp.Optional[tp.Sequence[tp.Type[Transform]]] = None
+  variables: tp.Mapping[str, tp.Type[Variable]] = dict()
 
-  def __init__(self, **kwargs):
-    self.transforms = []
-    self.__dict__.update(kwargs)
+  def __init__(self, transforms: tp.Sequence[Transform]):
+    self.transforms = transforms
 
   def __call__(self, entry_point_name: str, module: Module):
     for transform in self.transforms:
@@ -242,8 +242,9 @@ class TransformListMetaclass(type):
         for name, transform_name in remapping.items():
           if transform_name == name:
             continue
-          transform_args[transform_name] = transform_args[name]
-          del transform_args[name]
+          if name in transform_args:
+            transform_args[transform_name] = transform_args[name]
+            del transform_args[name]
         self.transforms.append(transform(**transform_args))
       self.__dict__.update(kwargs)
 
@@ -264,7 +265,6 @@ class TransformListMetaclass(type):
 
     return super(TransformListMetaclass, cls).__new__(cls, clsname, bases,
                                                       attrs)
-
 
 def TransformListFactory(name: str, transforms: tp.Sequence[Transform]):
   """Create a new TransformationList subclss with the given name that performs

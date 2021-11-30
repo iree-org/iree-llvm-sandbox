@@ -67,24 +67,11 @@ def all_experts(problem_sizes: List[int], transpose_avx2_lowering):
 
   tile1 = TileAndDecompose(fun_name,
                            op_name,
-                           tile_sizes=sizes2,
-                           tile_interchange=[],
-                           peel=[],
-                           pad=False,
-                           pack_paddings=[],
-                           hoist_paddings=[])
+                           tile_sizes=sizes2)
   tile2 = DoubleTileAndDecompose(fun_name=fun_name,
                                  op_name=op_name,
                                  tile_sizes1=sizes1,
-                                 tile_interchange1=[],
-                                 peel1=[],
-                                 pad1=False,
-                                 pack_paddings1=[],
-                                 hoist_paddings1=[],
                                  tile_sizes2=sizes2,
-                                 tile_interchange2=[],
-                                 peel2=[],
-                                 pad2=False,
                                  pack_paddings2=[0, 1],
                                  hoist_paddings2=[2, 2])
   vectorize = Vectorize(fun_name,

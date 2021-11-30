@@ -73,11 +73,6 @@ def all_experts(fun_name: str, problem_sizes: List[int]):
           fun_name=fun_name,
           op_name=op_name,
           tile_sizes=sizes2,
-          tile_interchange=[],
-          peel=[],
-          pad=False,
-          pack_paddings=[],
-          hoist_paddings=[],
           # kwargs start here.
           post_bufferization_transforms=post_bufferization_transforms).print_ir(
               # Set to True to see the IR.

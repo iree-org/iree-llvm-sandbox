@@ -23,21 +23,13 @@ expert_transpose_4d_0213 = tiling_shuffle_lowering(
     fun_name=fun_name,
     op_name=op_name,
     tile_sizes=[1, 4, 4, 16],
-    tile_interchange=[],
-    peel=[0, 1],
-    pad=False,
-    pack_paddings=[],
-    hoist_paddings=[]).print_ir(after_all=False)
+    peel=[0, 1]).print_ir(after_all=False)
 
 expert_transpose_4d_1302 = tiling_shuffle_lowering(
     fun_name=fun_name,
     op_name=op_name,
     tile_sizes=[1, 0, 4, 4],
-    tile_interchange=[],
-    peel=[0, 1],
-    pad=False,
-    pack_paddings=[],
-    hoist_paddings=[]).print_ir(after_all=False)
+    peel=[0, 1]).print_ir(after_all=False)
 
 ################################################################################
 ### Problem instantiations.
