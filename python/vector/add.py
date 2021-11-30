@@ -59,10 +59,7 @@ def main():
     create_vector_add(module, 'add_2d_f32', [8, 128], f32)
     create_vector_add(module, 'add_3d_i8', [8, 128, 4], i8)
 
-    transform = Transform(
-        # print_ir_after_all=True,
-        # print_llvmir=True
-    )
+    transform = Transform().print_ir(after_all=False, llvm=False)
 
     def apply_transform_to_entry_point_name(module):
       return transform('add_2d_f32', module)
