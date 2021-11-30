@@ -6,19 +6,48 @@ from .transform import Transform
 import mlir.all_passes_registration
 
 
+def _get_tile_sizes_str(transform: Transform) -> str:
+  """Compute the textual tile size flag for the given `transform`."""
+  if not transform.tile_sizes:
+    return ''
+  return f'tile-sizes={",".join([str(ts) for ts in transform.tile_sizes])}'
+
+
+def _get_tile_interchange_str(transform: Transform) -> str:
+  """Compute the textual tile interchange flag for the given `transform`."""
+  if not transform.tile_interchange:
+    return ''
+  tile_interchange = [str(ti) for ti in transform.tile_interchange]
+  return f'tile-interchange={",".join(tile_interchange)}'
+
+
+def _get_pad_str(transform: Transform) -> str:
+  """Compute the textual padding flags for the given `transform`."""
+  if not transform.pad:
+    return ''
+  pad_str = f'pad'
+  pack_paddings = [str(pp) for pp in transform.pack_paddings]
+  hoist_paddings = [str(hd) for hd in transform.hoist_paddings]
+  if pack_paddings:
+    pad_str = pad_str + f' pack-paddings={",".join(pack_paddings)}'
+  if hoist_paddings:
+    pad_str = pad_str + f' hoist-paddings={",".join(hoist_paddings)}'
+  return pad_str
+
+
 class Print(Transform):
   """Print intermediate IR.
 
   Dump the module and do not change it. The transform can be configured as
   follows:
-  * `name`: Printer name.
+  * `print_header`: Print header.
   """
 
-  def __init__(self, name=''):
-    self.name = name
+  def __init__(self, print_header='', **kwargs):
+    self.print_header = print_header
 
   def __call__(self, module: Module, fun_name: str):
-    print('[[[ IR printer: ' + self.name + ' ]]]')
+    print('[[[ IR printer: ' + self.print_header + ' ]]]')
     module.dump()
     return module
 
@@ -47,14 +76,14 @@ class Inject(Transform):
 
   Replace the module by the provided IR. The transform can be configured as
   follows:
-  * `ir`: Textual IR to inject.
+  * `ir_to_inject`: Textual IR to inject.
   """
 
-  def __init__(self, ir: str):
-    self.ir = ir
+  def __init__(self, ir_to_inject: str, **kwargs):
+    self.ir_to_inject = ir_to_inject
 
   def __call__(self, module: Module, fun_name: str, **kwargs):
-    return Module.parse(self.ir)
+    return Module.parse(self.ir_to_inject)
 
 
 class Fuse(Transform):
@@ -63,32 +92,50 @@ class Fuse(Transform):
   This transform can be configured as follows:
   * `tile_sizes`: Tile sizes used for tiling.
   * `tile_interchange`: Interchange used for tiling.
+  * `pad`: Pad the operands.
+  * `pack_paddings`: Pack the padded operand if the packing flag is set. `pad`
+     must also be specified.
+  * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
+     pad` must also be specified.
+  * `vectorize`: Vectorize the fused operations.
+  * `vectorize_padding`: Vectorize the pad tensor operations.
   """
 
   variables = {
       'tile_sizes': TilingSizesVariable,
       'tile_interchange': InterchangeVariable,
       'pad': BoolVariable,
+      'pack_paddings': PackPaddingVariable,
+      'hoist_paddings': HoistPaddingVariable,
+      'vectorize': BoolVariable,
+      'vectorize_paddings': BoolVariable,
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs, {
         'tile_sizes': [],
         'tile_interchange': [],
-        'pad': False
+        'pad': False,
+        'pack_paddings': [],
+        'hoist_paddings': [],
+        'vectorize': False,
+        'vectorize_paddings': False,
     })
-    tile_str = ''
-    interchange_str = ''
-    if self.tile_sizes:
-      tile_str = f'tile-sizes={",".join([str(ts) for ts in self.tile_sizes])}'
-    if self.tile_interchange:
-      dims = [str(ic) for ic in self.tile_interchange]
-      interchange_str = f'tile-interchange={",".join(dims)}'
+    tile_str = _get_tile_sizes_str(self)
+    interchange_str = _get_tile_interchange_str(self)
+    pad_str = _get_pad_str(self)
+    vectorize_str = ''
+    if self.vectorize:
+      vectorize_str = f'vectorize'
+      if self.vectorize_paddings:
+        vectorize_str = vectorize_str + f' vectorize-padding'
     pipeline = (f'linalg-fuse{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     {tile_str} '
-                f'     {interchange_str}}},'
+                f'     {interchange_str} '
+                f'     {pad_str} '
+                f'     {vectorize_str}}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
@@ -138,25 +185,11 @@ class Tile(Transform):
             'pack_paddings': [],
             'hoist_paddings': []
         })
-    tile_str = ''
-    interchange_str = ''
-    pad_str = ''
+    tile_str = _get_tile_sizes_str(self)
+    interchange_str = _get_tile_interchange_str(self)
+    pad_str = _get_pad_str(self)
     peeled_loops_str = ''
     scalarize_dyn_dims_str = ''
-
-    if self.tile_sizes:
-      tile_str = f'tile-sizes={",".join([str(ts) for ts in self.tile_sizes])}'
-    if self.tile_interchange:
-      dims = [str(ic) for ic in self.tile_interchange]
-      interchange_str = f'tile-interchange={",".join(dims)}'
-    if self.pad:
-      packing_flags = [str(pp) for pp in self.pack_paddings]
-      hoisting_depths = [str(hd) for hd in self.hoist_paddings]
-      pad_str = f'pad'
-      if packing_flags:
-        pad_str = pad_str + f' pack-paddings={",".join(packing_flags)}'
-      if hoisting_depths:
-        pad_str = pad_str + f' hoist-paddings={",".join(hoisting_depths)}'
     if self.peel:
       loop_indices = [str(l) for l in self.peel]
       peeled_loops_str = f'peeled-loops={",".join(loop_indices)}'

@@ -20,11 +20,26 @@ def LinalgFuse : Pass<"linalg-fuse", "FuncOp"> {
     Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
       "Which linalg op within the func is the anchor to latch on.">,
 
+    // Tiling options.
     ListOption<"tileSizes", "tile-sizes", "int64_t", "Tile sizes",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     ListOption<"tileInterchange", "tile-interchange", "int64_t",
                 "Tile loop interchange",
                 "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    Option<"pad", "pad", "bool", /*default=*/"false",
+      "Pad the anchor op operands.">,
+    ListOption<"packPaddings", "pack-paddings", "int64_t",
+               "Operand packing flags.",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"hoistPaddings", "hoist-paddings", "int64_t",
+               "Hoist padding depths.",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+
+    // Vectorization options.
+    Option<"vectorize", "vectorize", "bool", /*default=*/"false",
+      "Rewrite the linalg op as a vector operation.">,
+    Option<"vectorizePadding", "vectorize-padding", "bool", /*default=*/"false",
+      "Rewrite all linalg.pad_tensor ops in the function to vector form.">
   ];
   let dependentDialects = [
     "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",

@@ -157,38 +157,43 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
 // TODO: finer control.
 void LinalgFusePass::runOnOperation() {
   FuncOp funcOp = getOperation();
+  if (anchorOpName.empty()) return;
 
-  SmallVector<LinalgOp> linalgOps;
-  auto walkResult = funcOp.walk([&](LinalgOp op) {
-    if (!op.hasTensorSemantics()) return WalkResult::interrupt();
-    linalgOps.push_back(op);
-    return WalkResult::advance();
-  });
-  if (walkResult.wasInterrupted()) return signalPassFailure();
-  if (linalgOps.empty()) return;
+  // Set up tiling and vectorization options.
+  LinalgTilingAndFusionOptions tilingOptions;
+  tilingOptions.tileSizes = {tileSizes.begin(), tileSizes.end()};
+  tilingOptions.tileInterchange = {tileInterchange.begin(),
+                                   tileInterchange.end()};
 
-  // Compute the tile sizes and the interchange.
-  LinalgOp rootOp = linalgOps.back();
-  assert(tileSizes.size() >= rootOp.getNumLoops() &&
-         "expect one tile sizes per root op loop dimension");
-  assert(tileInterchange.empty() ||
-         tileInterchange.size() == tileSizes.size() &&
-             "expect the number of tile sizes and interchange dims to match");
-  SmallVector<int64_t> rootTileSizes(tileSizes.begin(),
-                                     tileSizes.begin() + rootOp.getNumLoops());
-  SmallVector<int64_t> rootInterchange =
-      tileInterchange.empty()
-          ? llvm::to_vector<6>(llvm::seq<int64_t>(0, rootOp.getNumLoops()))
-          : SmallVector<int64_t>(
-                tileInterchange.begin(),
-                tileInterchange.begin() + rootOp.getNumLoops());
+  // Set up padding options.
+  // TODO: Replace the lambdas by either functions defined in MLIR core or even
+  // adapt the LinalgPaddingOptions to take the `hoistPaddings` and
+  // `packPaddings` arrays directly.
+  auto packFunc = [&](OpOperand &opOperand) {
+    return opOperand.getOperandNumber() < packPaddings.size()
+               ? packPaddings[opOperand.getOperandNumber()]
+               : false;
+  };
+  auto hoistingFunc = [&](OpOperand &opOperand) {
+    return opOperand.getOperandNumber() < hoistPaddings.size()
+               ? hoistPaddings[opOperand.getOperandNumber()]
+               : 0;
+  };
+  LinalgPaddingOptions paddingOptions;
+  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
+  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
+  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
 
-  // Tile the root operation and fuse it with its producers.
-  OpBuilder b(funcOp.getContext());
-  FailureOr<TileLoopNest> tileLoopNest =
-      tileConsumerAndFuseProducers(b, rootOp, rootTileSizes, rootInterchange);
-  if (failed(tileLoopNest)) return signalPassFailure();
-  rootOp->replaceAllUsesWith(tileLoopNest->getRootOpReplacementResults());
+  CodegenStrategy strategy;
+  strategy.tileAndFuseIf(!tileSizes.empty(), anchorOpName, tilingOptions)
+      .padIf(pad, "", paddingOptions)
+      .vectorizeIf(vectorize, "", nullptr, vectorizePadding);
+
+  // Created a nested OpPassManager and run.
+  OpPassManager dynamicPM(FuncOp::getOperationName());
+  strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
+
+  if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
 }
 
 void LinalgFuseOutputIntoReductionPass::runOnOperation() {
