@@ -4,6 +4,7 @@ from itertools import chain
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 import random
 import math
+import typing as tp
 
 
 def rand_in_range(value_range):
@@ -178,6 +179,20 @@ class HoistPaddingVariable(IntVariable):
       result.append(rand_in_range(self.value_range))
     return result
 
+class ChoiceVariableBase(Variable):
+  """Base class for choice variables.
+
+  Subclasses must define an `options` attribute with the sequence of options to
+  choose from.
+  """
+  options: tp.Sequence
+
+  def __repr__(self):
+    return f'{self.__class__.__name__}({self.name}, {self.options})'
+
+  def random_value(self):
+    return random.choice(self.options)
+
 
 def collect_variables(op):
   type_vars = set()
@@ -218,6 +233,8 @@ def create_variable(name, variable_type, **settings):
                                 settings['hpad_value_range'])
   elif variable_type is PeelingVariable:
     return PeelingVariable(name, settings['tsize_length_range'])
+  elif issubclass(variable_type, ChoiceVariableBase):
+    return variable_type(name)
   else:
     raise Exception(f'unknown variable type: {variable_type}')
 
