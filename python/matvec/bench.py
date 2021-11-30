@@ -13,7 +13,7 @@ from ..contraction.definitions import *
 ### Compilation strategies.
 ################################################################################
 
-all_experts = [
+all_experts = [e.print_ir(after_all=False) for e in [
     SingleTilingExpert(
         'matvec_on_tensors',
         'linalg.generic',
@@ -22,8 +22,7 @@ all_experts = [
         peel=[],
         pad=True,
         pack_paddings=[1, 1, 0],
-        hoist_paddings=[2, 3, 0],
-        print_ir_after_all=False),
+        hoist_paddings=[2, 3, 0]),
     DoubleTilingExpert(
         'matvec_on_tensors',
         'linalg.generic',
@@ -38,9 +37,8 @@ all_experts = [
         peel2=[],
         pad2=True,
         pack_paddings2=[1, 1, 0],
-        hoist_paddings2=[4, 3, 0],
-        print_ir_after_all=False)
-]
+        hoist_paddings2=[4, 3, 0])
+]]
 
 ################################################################################
 ### Problem instantiations.

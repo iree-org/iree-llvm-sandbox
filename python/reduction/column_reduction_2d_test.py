@@ -14,7 +14,10 @@ from .definitions import *
 ################################################################################
 
 # No tiling.
-expert_no_tiling = LoweringOnlyExpert('column_reduction_2d_on_tensors', 'linalg.generic', print_ir_after_all=False)
+expert_no_tiling = LoweringOnlyExpert(
+    'column_reduction_2d_on_tensors',
+    'linalg.generic')\
+  .print_ir(after_all=False)
 
 all_experts = [expert_no_tiling]
 

@@ -14,38 +14,35 @@ from ..contraction.definitions import EinsumProblem
 ################################################################################
 
 all_experts = [
-    SingleTilingExpert(
-        'matmul_on_tensors',
-        'linalg.generic',
-        tile_sizes=[12, 32, 8],
-        tile_interchange=[0, 1, 2],
-        peel=[],
-        pad=True,
-        pack_paddings=[1, 1, 0],
-        hoist_paddings=[2, 3, 0],
-        print_ir_after_all=False),
-    DoubleTilingExpert(
-        'matmul_on_tensors',
-        'linalg.generic',
-        tile_sizes1=[288, 128, 512],
-        tile_interchange1=[0, 2, 1],
-        peel1=[],
-        pad1=False,
-        pack_paddings1=[],
-        hoist_paddings1=[],
-        tile_sizes2=[9, 32, 16],
-        tile_interchange2=[0, 1, 2],
-        peel2=[],
-        pad2=True,
-        pack_paddings2=[1, 1, 0],
-        hoist_paddings2=[5, 6, 0],
-        # kwargs start here
-        # kwargs passed down to LowerVectors.
-        # TODO: better composition of experts.
-        transpose_lowering='eltwise',
-        # Set to True to see the IR.
-        print_ir_after_all=False),
-]
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
+    SingleTilingExpert('matmul_on_tensors',
+                       'linalg.generic',
+                       tile_sizes=[12, 32, 8],
+                       tile_interchange=[0, 1, 2],
+                       peel=[],
+                       pad=True,
+                       pack_paddings=[1, 1, 0],
+                       hoist_paddings=[2, 3, 0]),
+    DoubleTileAndDecompose('matmul_on_tensors',
+                            'linalg.generic',
+                            tile_sizes1=[288, 128, 512],
+                            tile_interchange1=[0, 2, 1],
+                            peel1=[],
+                            pad1=False,
+                            pack_paddings1=[],
+                            hoist_paddings1=[],
+                            tile_sizes2=[9, 32, 16],
+                            tile_interchange2=[0, 1, 2],
+                            peel2=[],
+                            pad2=True,
+                            pack_paddings2=[1, 1, 0],
+                            hoist_paddings2=[5, 6, 0]).then(\
+      Vectorize('matmul_on_tensors',
+                'linalg.generic',
+                transpose_lowering='eltwise')).then(\
+      LoweringOnlyExpert('matmul_on_tensors',
+                         'linalg.generic'))
+    ]]
 
 ################################################################################
 ### Problem instantiations.
@@ -59,7 +56,7 @@ def make_size_list(sizes: Sequence):
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 10
+  n_iters = 10000
   problem_size_list = [
       [192, 128, 256],
       [260, 280, 300],
@@ -86,17 +83,16 @@ def main():
       ['m', 'k'],  # case 2: partially dynamic at compile time
       keys
   ]:  # case 3: fully dynamic at compile time
-    test_harness(
-        lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
-        map(make_size_list, problem_size_list),
-        all_experts,
-        n_iters=n_iters,
-        runtime_only_sizes=set(runtime_only),
-        function_name='matmul_on_tensors',
-        dump_ir_to_file='/tmp/abc.mlir',
-        dump_obj_to_file='/tmp/abc.o',
-        numpy_benchmark=numpy_kernel,
-        pytorch_benchmark=pytorch_kernel)
+    test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
+                 map(make_size_list, problem_size_list),
+                 all_experts,
+                 n_iters=n_iters,
+                 runtime_only_sizes=set(runtime_only),
+                 function_name='matmul_on_tensors',
+                 dump_ir_to_file='/tmp/abc.mlir',
+                 dump_obj_to_file='/tmp/abc.o',
+                 numpy_benchmark=numpy_kernel,
+                 pytorch_benchmark=pytorch_kernel)
 
 
 if __name__ == '__main__':

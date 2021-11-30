@@ -1,4 +1,5 @@
 from __future__ import annotations
+import functools
 
 from mlir.ir import Module
 from mlir.passmanager import PassManager
@@ -6,6 +7,61 @@ import typing as tp
 from copy import deepcopy
 
 from .search_vars import Variable
+
+class _TransformThenDescriptor:
+  """Python descriptor dispatching `then` on the `Transform` class as either
+  class or instance method."""
+
+  # Putting implementations in nested functions here directly instead of methods
+  # of Transformation may not be the most elegant approach, but it seems to be
+  # the only one that is picked up by the documentation and typecheck tooling.
+  def __get__(self, obj: tp.Any, objtype: type = None):
+    """Descriptor getter returns either a class-level composition using a
+    metaclass or an instance-level composition."""
+    # Calling as class method.
+    if obj is None:
+      assert issubclass(objtype, Transform)
+      def then_class(
+          other_cls: tp.Union[tp.Type['Transform'],
+                              tp.Type['TransformationList']]
+      ) -> tp.Type['TransformationList']:
+        """Creates a new TransformationList subclass chaining this
+        transformation with those provided as argument.
+
+        The new list can be further composed. An instance of the list can be
+        created by passing all parameters required by individual
+        transformations as keyword arguments to the list constructor.
+        """
+        assert issubclass(other_cls, (Transform, TransformationList))
+        name = objtype.__name__ + "Then" + other_cls.__name__
+        transforms = ([objtype, other_cls] if issubclass(other_cls, Transform)
+                      else [objtype] + other_cls._transform_classes)
+        return TransformListMetaclass(name, (TransformationList,), {},
+                                      transforms=transforms)
+
+      return then_class
+
+    # Calling as instance method.
+    assert isinstance(obj, Transform)
+
+    def then_instance(
+        other: tp.Union['Transform',
+                        'TransformationList']) -> 'TransformationList':
+      """Creates a new instance of the TransformationList chaining this
+      transformation instance with those provided as argument.
+
+      The chained transformations must be instantiated.
+      """
+      assert isinstance(other, (Transform, TransformationList))
+      if isinstance(other, Transform):
+        return TransformationList(transforms=[obj, other])
+
+      return TransformationList(transforms=[obj] + other.transforms,
+                                print_ir_after_all=other.print_ir_after_all,
+                                print_ir_at_begin=other.print_ir_at_begin,
+                                print_llvmir=other.print_llvmir)
+
+    return then_instance
 
 
 class Transform:
@@ -42,15 +98,40 @@ class Transform:
       value = kwargs[name] if name in kwargs else defaults[name]
       self.__dict__[name] = value
 
-  @classmethod
-  def then(cls, other_cls: tp.Union[tp.Type[Transform],
-                                    tp.Type['TransformationList']]):
-    name = cls.__name__ + "Then" + other_cls.__name__
-    transforms = [cls, other_cls] if issubclass(other_cls, Transform) \
-                 else [cls] + other_cls._transform_classes
-    return TransformListMetaclass(name, (TransformationList,), {},
-                                  transforms=transforms)
+  # Use the Python descriptor mechanism to combine the 'property' mechanism and
+  # optional 'classmethod' dispatch. The object is a descriptor that, when read
+  # on a class, produces a classmethod-like callable and, when read on an
+  # instance, produces an instance callable.
+  then = _TransformThenDescriptor()
 
+  def __add__(self, other: tp.Union[Transform, 'TransformationList']) -> 'TransformationList':
+    """Create a new transformation list from the current and another
+    transformation."""
+    return self.then(other)
+
+class Print(Transform):
+  """Print intermediate IR.
+
+  Dump the module and do not change it. The transform can be configured as
+  follows:
+  * `name`: Printer name.
+  """
+
+  def __init__(self, name='', **kwargs):
+    self.name = name
+
+  def __call__(self, module: Module, fun_name: str):
+    print('[[[ IR printer: ' + self.name + ' ]]]')
+    module.dump()
+    return module
+
+class _TransformListThenDescriptor:
+  """Python descriptor dispatching `then` on the `TransformationList` class as
+  either class or instance method."""
+  def __get__(self, obj: tp.Any, objtype: type):
+    if obj is None:
+      return objtype._then_cls
+    return obj.__add__
 
 class TransformationList:
   """Base class for an Expert compiler that applies transformations in sequence.
@@ -92,6 +173,38 @@ class TransformationList:
       if print_ir:
         print(module)
     return module
+
+  def __add__(
+      self, other: tp.Union[Transform,
+                            TransformationList]) -> TransformationList:
+    """Concatenate two transformation lists.
+
+    The resulting list is no longer suitable for search.
+    """
+    transforms = [other] if isinstance(other, Transform) else other.transforms
+    if isinstance(other, TransformationList):
+      if self.print_ir_after_all != other.print_ir_after_all or \
+        self.print_llvmir != other.print_llvmir or \
+        self.print_ir_at_begin != other.print_ir_at_begin:
+        raise ValueError("Mismatching printing flags.")
+    return TransformationList(transforms=self.transforms + transforms,
+                              print_ir_after_all=self.print_ir_after_all,
+                              print_llvmir=self.print_llvmir,
+                              print_ir_at_begin=self.print_ir_at_begin)
+
+  def print_ir(self,
+               after_all: bool = False,
+               at_begin: bool = False,
+               llvm: bool = False) -> TransformationList:
+    """Return a new transformation list that prints IR at the given points."""
+    transforms = [Print()] if at_begin else []
+    for t in self.transforms:
+      transforms.append(t)
+      if after_all or (llvm and 'LowerToLLVM' in str(t)):
+        transforms.append(Print(name=str(t)))
+    return TransformationList(transforms=transforms)
+
+  then = _TransformListThenDescriptor()
 
 
 def _get_name_remapping(transform_classes: tp.Sequence[tp.Type[Transform]]):
@@ -181,7 +294,7 @@ class TransformListMetaclass(type):
       return TransformListMetaclass(name, (TransformationList,), {},
                                     transforms=transforms)
 
-    attrs['then'] = then
+    attrs['_then_cls'] = then
 
     return super(TransformListMetaclass, cls).__new__(cls, clsname, bases,
                                                       attrs)
