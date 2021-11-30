@@ -15,7 +15,7 @@ from .definitions import *
 
 
 fusion_test_expert = Fuse.then(Bufferize).then(Print).then(
-    VectorLowering).then(LowerToLLVM)
+    LowerVectors).then(LowerToLLVM)
 
 
 # 1 linalg.fill -> linalg.matmul fusion.
