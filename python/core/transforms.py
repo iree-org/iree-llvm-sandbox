@@ -145,14 +145,13 @@ class Tile(Transform):
       'peel': (PeelingVariable, []),
       'pack_paddings': (PackPaddingVariable, []),
       'hoist_paddings': (HoistPaddingVariable, []),
+      'scalarize_dyn_dims': (BoolVariable, False),
   }
 
   def __init__(
       self,
       fun_name: str,
       op_name: str,
-      # TODO: move this to a tunable variable.
-      scalarize_dyn_dims=False,
       **kwargs):
     self._parse_variables_in_kwargs(kwargs)
     tile_str = _get_tile_sizes_str(self)
@@ -163,7 +162,7 @@ class Tile(Transform):
     if self.peel:
       loop_indices = [str(l) for l in self.peel]
       peeled_loops_str = f'peeled-loops={",".join(loop_indices)}'
-    if scalarize_dyn_dims:
+    if self.scalarize_dyn_dims:
       scalarize_dyn_dims_str = 'scalarize-dynamic-dims'
 
     pipeline = (f'linalg-tensor-codegen-driver{{'
@@ -181,6 +180,10 @@ class Tile(Transform):
 
 class Vectorize(Transform):
 
+  variables = {
+    'vectorize': (BoolVariable, True),
+  }
+
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     pipeline = (f'linalg-tensor-codegen-driver{{'
                 f'     anchor-func={fun_name} '
@@ -189,6 +192,7 @@ class Vectorize(Transform):
                 f'     vectorize-padding}},'
                 f'canonicalize,'
                 f'cse')
+    self._parse_variables_in_kwargs(kwargs)
     self.pipeline = (f'builtin.func({pipeline})')
 
 
@@ -244,28 +248,40 @@ class Bufferize(Transform):
     self.pipeline = pipeline
 
 class LowerVectors(Transform):
+  class ContractionLoweringChoice(ChoiceVariableBase):
+    options=("outerproduct", "dot", "matrixintrinsics")
+
+  class MultiReductionLoweringChoice(ChoiceVariableBase):
+    options=("innerparallel", "innerreduction")
+
+  class TransposeLoweringChoice(ChoiceVariableBase):
+    options=("eltwise", "flat_transpose", "shuffle")
+
+  variables = {
+      'contraction_lowering':
+          (ContractionLoweringChoice, ContractionLoweringChoice.options[0]),
+      'multi_reduction_lowering': (MultiReductionLoweringChoice,
+                                   MultiReductionLoweringChoice.options[0]),
+      'transpose_lowering':
+          (TransposeLoweringChoice, TransposeLoweringChoice.options[0]),
+      'transpose_avx2_lowering': (BoolVariable, False)
+  }
 
   def __init__(self, stages: tp.Union[int, tp.Sequence[int]] = range(7), **kwargs):
     if isinstance(stages, int):
       stages = [stages]
 
-    contraction_lowering = 'outerproduct' if 'contraction_lowering' not in \
-        kwargs else kwargs['contraction_lowering']
-    multi_reduction_lowering = 'innerparallel' if 'multi_reduction_lowering' \
-        not in kwargs else kwargs['multi_reduction_lowering']
-    transpose_lowering = 'eltwise' if 'transpose_lowering' not in \
-        kwargs else kwargs['transpose_lowering']
-    transpose_avx2_lowering = False if ('transpose_avx2_lowering' not in \
-        kwargs or not kwargs['transpose_lowering']) else True
+    self._parse_variables_in_kwargs(kwargs)
+
     pipelines = [(
         f'linalg-vector-lowering{{'
         f'    lower-vector-stage={stage}'
         f'    max-transfer-rank=1 '
         f'    split-transfers=linalg-copy '
-        f'    lower-vector-transpose-to={transpose_lowering} '
-        f'    lower-vector-transpose-to-avx2={transpose_avx2_lowering} '
-        f'    lower-vector-multi-reduction-to={multi_reduction_lowering} '
-        f'    lower-vector-contraction-to={contraction_lowering} '
+        f'    lower-vector-transpose-to={self.transpose_lowering} '
+        f'    lower-vector-transpose-to-avx2={self.transpose_avx2_lowering} '
+        f'    lower-vector-multi-reduction-to={self.multi_reduction_lowering} '
+        f'    lower-vector-contraction-to={self.contraction_lowering} '
         f'    unroll-vector-transfers=true}},'
         f'canonicalize,'
         f'cse') for stage in stages]
