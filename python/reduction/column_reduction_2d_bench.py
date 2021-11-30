@@ -26,7 +26,7 @@ def all_experts(problem_sizes: List[int]):
           tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4])\
           .then(Vectorize(fun_name, op_name))\
           .then(Bufferize())\
-          .then(StagedVectorLowering(
+          .then(LowerVectors(
             multi_reduction_lowering='innerparallel'))\
           .then(LowerToLLVM())\
           .print_ir(after_all=False),

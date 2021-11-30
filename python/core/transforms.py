@@ -1,9 +1,12 @@
 from mlir.ir import *
+from mlir.passmanager import PassManager
 
 from .search_vars import *
 from .transform import Transform, TransformationList
 
 import mlir.all_passes_registration
+
+import typing as tp
 
 
 def _get_tile_sizes_str(transform: Transform) -> str:
@@ -240,10 +243,12 @@ class Bufferize(Transform):
     pipeline = (f'linalg-bufferization-driver,' f'canonicalize,' f'cse')
     self.pipeline = pipeline
 
-
 class LowerVectors(Transform):
 
-  def __init__(self, stage, **kwargs):
+  def __init__(self, stages: tp.Union[int, tp.Sequence[int]] = range(7), **kwargs):
+    if isinstance(stages, int):
+      stages = [stages]
+
     contraction_lowering = 'outerproduct' if 'contraction_lowering' not in \
         kwargs else kwargs['contraction_lowering']
     multi_reduction_lowering = 'innerparallel' if 'multi_reduction_lowering' \
@@ -252,7 +257,7 @@ class LowerVectors(Transform):
         kwargs else kwargs['transpose_lowering']
     transpose_avx2_lowering = False if ('transpose_avx2_lowering' not in \
         kwargs or not kwargs['transpose_lowering']) else True
-    pipeline = (
+    pipelines = [(
         f'linalg-vector-lowering{{'
         f'    lower-vector-stage={stage}'
         f'    max-transfer-rank=1 '
@@ -263,12 +268,13 @@ class LowerVectors(Transform):
         f'    lower-vector-contraction-to={contraction_lowering} '
         f'    unroll-vector-transfers=true}},'
         f'canonicalize,'
-        f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
+        f'cse') for stage in stages]
+    self.pipelines = [f'builtin.func({pipeline})' for pipeline in pipelines]
 
-def StagedVectorLowering(**kwargs):
-  return TransformationList(
-      transforms=[LowerVectors(stage=i, **kwargs) for i in range(7)])
+  def __call__(self, module: Module, fun_name: str):
+    for pipeline in self.pipelines:
+      PassManager.parse(pipeline).run(module)
+    return module
 
 
 class LowerToLLVM(Transform):

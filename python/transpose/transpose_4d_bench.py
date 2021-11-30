@@ -16,7 +16,7 @@ def tiling_shuffle_lowering(**kwargs):
   return TileAndDecompose(**kwargs)\
     .then(Vectorize(fun_name, op_name, transpose_lowering='shuffle'))\
     .then(Bufferize())\
-    .then(StagedVectorLowering())\
+    .then(LowerVectors())\
     .then(LowerToLLVM())
 
 expert_transpose_4d_0213 = tiling_shuffle_lowering(

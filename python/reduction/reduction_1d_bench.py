@@ -27,7 +27,7 @@ def all_experts(problem_sizes: List[int]):
           tile_sizes=[32])\
       .then(Vectorize(fun_name, op_name))\
       .then(Bufferize())\
-      .then(StagedVectorLowering(multi_reduction_lowering='innerreduction'))\
+      .then(LowerVectors(multi_reduction_lowering='innerreduction'))\
       .then(LowerToLLVM())\
       .print_ir(after_all=False),
   ]

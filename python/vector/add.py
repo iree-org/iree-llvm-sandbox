@@ -44,7 +44,7 @@ def create_vector_add(module, name: str, sizes: List[int], element_type):
 class Transform(TransformationList):
 
   def __init__(self, **kwargs):
-    extra_transforms = [LowerVectors(stage=0), LowerToLLVM()]
+    extra_transforms = [LowerVectors(stages=0), LowerToLLVM()]
     t = extra_transforms if 'transforms' not in kwargs else kwargs[
         'transforms'] + extra_transforms
     d = {'transforms': t}

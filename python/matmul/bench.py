@@ -50,7 +50,7 @@ def make_size_list(sizes: Sequence):
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 10000
+  n_iters = 1000
   problem_size_list = [
       [192, 128, 256],
       [260, 280, 300],
