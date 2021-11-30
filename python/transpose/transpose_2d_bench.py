@@ -74,11 +74,11 @@ def all_experts(problem_sizes: List[int], transpose_avx2_lowering):
                                  tile_sizes2=sizes2,
                                  pack_paddings2=[0, 1],
                                  hoist_paddings2=[2, 2])
-  vectorize = Vectorize(fun_name,
-                        op_name,
-                        tranpose_lowering='shuffle',
-                        transpose_avx2_lowering=transpose_avx2_lowering)
-  lowering = LoweringOnlyExpert(fun_name, op_name)
+  vectorize = Vectorize(fun_name, op_name)
+  lowering = LoweringOnlyExpert(fun_name,
+                                op_name,
+                                transpose_lowering='shuffle',
+                                transpose_avx2_lowering=transpose_avx2_lowering)
 
   return [e.print_ir(after_all=False)
       for e in [\
