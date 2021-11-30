@@ -210,7 +210,7 @@ def _pytimed(callback: Callable[..., None], *args: Any, **kwargs: Any):
   return duration
 
 
-def _run_benchmark_n_iters(callback: Callable[int, None], n_iters: int,
+def _run_benchmark_n_iters(callback: Callable[[int], None], n_iters: int,
                            *args: Any):
   """Call the given callback `n_iters` times and return the list of times."""
   return [_pytimed(callback, *args) for _ in n_iters]
