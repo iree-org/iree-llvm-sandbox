@@ -70,7 +70,7 @@ def LinalgFuseOutputIntoReduction
 }
 
 def LinalgSingleTilingExpert
-    : Pass<"linalg-tensor-codegen-driver", "FuncOp"> {
+    : Pass<"linalg-single-tiling-expert-driver", "FuncOp"> {
   let summary = "Pass to drive transformations on Linalg on tensors.";
   let constructor = "mlir::createLinalgSingleTilingExpertPass()";
   let options = [
