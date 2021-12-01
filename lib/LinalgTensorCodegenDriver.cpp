@@ -259,7 +259,6 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
       .padIf(pad, anchorOpName, paddingOptions)
       .decomposeIf(decomposeToLowerDimOp)
       .generalizeIf(generalize, anchorOpName)
-      // TODO: decomposeToLowerDimIf when the need arises.
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
       .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName,
                    nullptr, vectorizePadding);
