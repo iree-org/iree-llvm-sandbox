@@ -59,4 +59,9 @@ jobs:
         python configure.py --llvm-path=../llvm-project
         ccache -s
 
+    - name: Test
+      run: |
+        cd ${GITHUB_WORKSPACE}/sandbox
+        python run_tests.py
+
     # TODO: Add a build for IREE but it will get stale as soon as we update core + sandbox
