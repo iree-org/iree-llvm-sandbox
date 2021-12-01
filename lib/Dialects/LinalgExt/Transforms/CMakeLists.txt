@@ -1,4 +1,5 @@
 add_mlir_library(MLIRLinalgExtTransforms
+  InParallelToAsync.cpp
   InParallelToSequentialFor.cpp
   Tiling.cpp
   TileToSequentialFor.cpp
@@ -9,6 +10,7 @@ add_mlir_library(MLIRLinalgExtTransforms
 
   LINK_LIBS PUBLIC
   MLIRAffineToStandard
+  MLIRAsync
   MLIRSCFToStandard
   MLIRLinalgToLLVM
   MLIRVectorToLLVM
