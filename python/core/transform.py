@@ -87,6 +87,13 @@ class Transform:
     class must be provided.
     """
     cls = self.__class__
+
+    for name in kwargs:
+      if name not in cls.variables and name not in ('fun_name', 'op_name'):
+        raise ValueError(
+            f"Unexpected {name} keyword argument, "
+            f"{cls.__name__} only accepts {list(cls.variables.keys())}")
+
     for name in cls.variables:
       if name not in kwargs and not isinstance(cls.variables[name], tuple):
         raise ValueError(f"Missing {name} mandatory keyword argument when "
@@ -235,18 +242,14 @@ class TransformListMetaclass(type):
 
     def init(self, fun_name: str, op_name: str, **kwargs):
       self.transforms = []
-      kwargs['fun_name'] = fun_name
-      kwargs['op_name'] = op_name
       for transform, remapping in zip(transforms, remappings):
-        transform_args = deepcopy(kwargs)
+        transform_args = {}
+        transform_args['fun_name'] = fun_name
+        transform_args['op_name'] = op_name
         for name, transform_name in remapping.items():
-          if transform_name == name:
-            continue
-          if name in transform_args:
-            transform_args[transform_name] = transform_args[name]
-            del transform_args[name]
+          if name in kwargs:
+            transform_args[transform_name] = kwargs[name]
         self.transforms.append(transform(**transform_args))
-      self.__dict__.update(kwargs)
 
     attrs['__init__'] = init
     attrs['_transform_classes'] = transforms

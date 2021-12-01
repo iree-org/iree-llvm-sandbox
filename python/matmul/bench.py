@@ -32,10 +32,10 @@ all_experts = [
                             pack_paddings2=[1, 1, 0],
                             hoist_paddings2=[5, 6, 0]).then(\
       Vectorize('matmul_on_tensors',
-                'linalg.generic',
-                transpose_lowering='eltwise')).then(\
+                'linalg.generic')).then(\
       LoweringOnlyExpert('matmul_on_tensors',
-                         'linalg.generic'))
+                         'linalg.generic',
+                         transpose_lowering='eltwise'))
     ]]
 
 ################################################################################
@@ -50,7 +50,7 @@ def make_size_list(sizes: Sequence):
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1000
+  n_iters = 10
   problem_size_list = [
       [192, 128, 256],
       [260, 280, 300],
