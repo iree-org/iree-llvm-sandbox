@@ -165,7 +165,7 @@ class Tile(Transform):
     if self.scalarize_dyn_dims:
       scalarize_dyn_dims_str = 'scalarize-dynamic-dims'
 
-    pipeline = (f'linalg-tensor-codegen-driver{{'
+    pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     {tile_str} '
@@ -185,7 +185,7 @@ class Vectorize(Transform):
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
-    pipeline = (f'linalg-tensor-codegen-driver{{'
+    pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     vectorize '
@@ -217,7 +217,7 @@ class Generalize(Transform):
       dims = [str(ic) for ic in self.iterator_interchange]
       interchange_str = f'iterator-interchange={",".join(dims)}'
 
-    pipeline = (f'linalg-tensor-codegen-driver{{'
+    pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     generalize '
@@ -236,7 +236,7 @@ class DecomposeToLowerDimensionalNamedOp(Transform):
   """
 
   def __init__(self, **kwargs):
-    pipeline = (f'linalg-tensor-codegen-driver{{'
+    pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     decompose-to-lower-dim }}')
     self.pipeline = (f'builtin.func({pipeline})')
 
