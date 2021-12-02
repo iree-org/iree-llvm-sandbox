@@ -13,7 +13,6 @@
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/Support/LogicalResult.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 using namespace mlir;
@@ -36,68 +35,61 @@ static void moveOperationsBefore(llvm::iterator_range<Block::iterator> opRange,
 /// Iterate over all the definitions produced by the operation range `opRange`
 /// and gather those with users outside the range.
 static void
-getDefsWithExternalUses(llvm::iterator_range<Block::iterator> opRange,
-                        SmallVectorImpl<Value> &defsWithExternalUses,
+getDefsWithUsesOutside(llvm::iterator_range<Block::iterator> opRange,
+                        SmallVectorImpl<Value> &defsWithUsesOutside,
                         SmallVectorImpl<Type> &defTypes) {
   SmallPtrSet<Operation *, 8> rangeSet;
   for (Operation &op : opRange)
     rangeSet.insert(&op);
 
-  for (Operation &op : llvm::make_early_inc_range(opRange))
+  for (Operation &op : opRange)
     for (Value res : op.getResults())
       for (Operation *user : res.getUsers())
         if (rangeSet.count(user) == 0) {
-          defsWithExternalUses.push_back(res);
+          defsWithUsesOutside.push_back(res);
           defTypes.push_back(res.getType());
           break;
         }
 }
 
-/// Introduce a vector.predicate op that encloses the loop body of the tiled
-/// loop. The predicate is computed based on the provided vectorization factor.
-static void createVectorPredicateOp(TiledLoopOp loopOp, int64_t vecFactor) {
+/// Introduce a vector.predicate op that encloses all the operations in
+/// `regionToPredicate` (except its terminator). `createPredicate` is used to
+/// create the operations that generate the predicate used by vector.predicate.
+/// These operations will be inserted at the beginning of `regionToPredicate`.
+/// The new vector.predicate will be inserted right after the operations
+/// generating the predicate.
+Optional<PredicateOp> mlir::vector_ext::predicateOp(
+    Operation *op, Region *regionToPredicate, OpBuilder &builder,
+    function_ref<Value(OpBuilder &)> createPredicate) {
+  // TODO: Support multi-block regions.
+  if (!regionToPredicate->hasOneBlock())
+    return llvm::None;
+
   // Compute the range of operations that will be moved within vector.predicate
-  // and the definitions within the range with external users.
-  Block &bodyBlock = loopOp.getLoopBody().front();
-  auto opsToMove =
-      llvm::make_range(bodyBlock.begin(), Block::iterator(bodyBlock.back()));
+  // and the definitions within the range with users outside the range.
+  Block &blockToPredicate = regionToPredicate->front();
+  auto opsToMove = llvm::make_range(blockToPredicate.begin(),
+                                    Block::iterator(blockToPredicate.back()));
 
-  SmallVector<Value, 8> defsWithExternalUses;
+  SmallVector<Value, 8> defsWithUsesOutside;
   SmallVector<Type, 8> defTypes;
-  getDefsWithExternalUses(opsToMove, defsWithExternalUses, defTypes);
+  getDefsWithUsesOutside(opsToMove, defsWithUsesOutside, defTypes);
 
-  // Initialize a builder to insert vector.predicate at the beginning of the
-  // loop body.
-  Location loc = loopOp.getLoc();
-  MLIRContext *context = loopOp.getContext();
-  OpBuilder builder(loopOp);
-  builder.setInsertionPointToStart(&bodyBlock);
+  // Set the builder insertion point to the beginning of the loop body to insert
+  // the predicate computation and the vector.predicate.
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPointToStart(&blockToPredicate);
+  Value predicate = createPredicate(builder);
 
-  // Generate the predicate to used by the vector.predicate operation:
-  //   %min = affine.min affine_map<(d0)[s0] -> (vecFactor, -d0 + s0)>(%iv)[%ub]
-  //   %vec_pred = vector.create_mask %min : vector<8xi1>
-  // TODO: This is probably not the most efficient way to generate the vector
-  // predicate. Consider using the vector IV.
-  AffineExpr i, j;
-  bindDims(context, i, j);
-  SmallVector<AffineMap, 4> maps = AffineMap::inferFromExprList(
-      ExprList{{builder.getAffineConstantExpr(vecFactor), i - j}});
-  auto minOp = builder.create<AffineMinOp>(
-      loc, loopOp.step()[0].getType(), maps[0],
-      ValueRange{loopOp.upperBound()[0], loopOp.getInductionVars()[0]});
-
-  auto maskType = VectorType::get({vecFactor}, builder.getI1Type());
-  auto predicate =
-      builder.create<CreateMaskOp>(loc, maskType, ValueRange{minOp});
-
-  // Generate the vector.predicate operation and move the range [`startOp`,
-  // `endOp`] of operations within its truePredicateRegion. We have to rewire
-  // the def-use chain for those definitions within the range that have external
-  // uses. Those uses are rewired to the results of the vector.predicate.
+  // Generate the vector.predicate operation and move 'opsToMove' within its
+  // truePredicateRegion. We have to rewire the def-use chain for those
+  // definitions within the range that have external uses. Those uses are
+  // rewired to the results of the vector.predicate.
+  Location loc = op->getLoc();
   auto vecPredOp = builder.create<PredicateOp>(loc, defTypes, predicate);
-  assert(defsWithExternalUses.size() == vecPredOp.getNumResults() &&
+  assert(defsWithUsesOutside.size() == vecPredOp.getNumResults() &&
          "Expected same size");
-  for (auto &en : llvm::enumerate(defsWithExternalUses))
+  for (auto &en : llvm::enumerate(defsWithUsesOutside))
     en.value().replaceAllUsesWith(vecPredOp.getResult(en.index()));
 
   Operation *truePredTerminator =
@@ -105,18 +97,20 @@ static void createVectorPredicateOp(TiledLoopOp loopOp, int64_t vecFactor) {
   moveOperationsBefore(opsToMove, truePredTerminator);
 
   // The existing terminator of TruePredicateRegion doesn't yield any value.
-  // Replace it with a new terminator that returns the definitions with external
-  // uses that we just moved.
+  // Replace it with a new terminator that returns the definitions with uses
+  // outside that we just moved.
   if (vecPredOp.getNumResults() > 0) {
     builder.setInsertionPoint(truePredTerminator);
-    builder.create<vector_ext::YieldOp>(loc, defsWithExternalUses);
+    builder.create<vector_ext::YieldOp>(loc, defsWithUsesOutside);
     truePredTerminator->erase();
   }
+
+  return vecPredOp;
 }
 
-/// Utility that predicates a tiled loop with a vector.predicate operation. The
-/// vectorization factor used for predication is assumed to be the step of the
-/// tiled loop.
+/// Utility that predicates the body a tiled loop with a vector.predicate
+/// operation. The vectorization factor used for predication is assumed to be
+/// the step of the tiled loop.
 LogicalResult mlir::vector_ext::predicateTiledLoop(TiledLoopOp loopOp) {
   if (loopOp.lowerBound().size() > 1)
     // TODO: Support multi-dim tiled loops.
@@ -129,7 +123,31 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(TiledLoopOp loopOp) {
     return failure();
   int64_t vecFactor = *maybeVecFactor;
 
-  createVectorPredicateOp(loopOp, vecFactor);
+  auto createPredicate = [&](OpBuilder &builder) -> Value {
+    // Generate the predicate to used by the vector.predicate operation:
+    //   %min = affine.min affine_map<(d0)[s0] -> (vecFactor, -d0 +
+    //   s0)>(%iv)[%ub] %vec_pred = vector.create_mask %min : vector<8xi1>
+    // TODO: This is probably not the most efficient way to generate the vector
+    // predicate. Consider using the vector IV.
+    AffineExpr i, j;
+    bindDims(loopOp.getContext(), i, j);
+    SmallVector<AffineMap, 4> maps = AffineMap::inferFromExprList(
+        ExprList{{builder.getAffineConstantExpr(vecFactor), i - j}});
+
+    Location loc = loopOp.getLoc();
+    auto minOp = builder.create<AffineMinOp>(
+        loc, loopOp.step()[0].getType(), maps[0],
+        ValueRange{loopOp.upperBound()[0], loopOp.getInductionVars()[0]});
+
+    auto maskType = VectorType::get({vecFactor}, builder.getI1Type());
+    return builder.create<CreateMaskOp>(loc, maskType, ValueRange{minOp});
+  };
+
+  OpBuilder builder(loopOp);
+  auto mayPredicate =
+      predicateOp(loopOp, &loopOp.getLoopBody(), builder, createPredicate);
+  if (!mayPredicate)
+    return failure();
 
   // TODO: Canonicalize affine.min ops feeding extract/insert slices guarded by
   // vector.predicate.
