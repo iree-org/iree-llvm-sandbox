@@ -1,7 +1,7 @@
 from mlir.ir import *
 from mlir.passmanager import PassManager
 
-from .search_vars import *
+from .variables import *
 from .transform import Transform, TransformationList
 
 import mlir.all_passes_registration
