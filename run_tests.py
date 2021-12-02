@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 # Script to run tests and benchmarks.
-
 import glob
 import os
 import subprocess
 import sys
-
 
 def _convert_path_to_module(test_script : str) -> str:
   """Convert the path of the test script to its module name."""
@@ -14,11 +12,8 @@ def _convert_path_to_module(test_script : str) -> str:
   if test_script.endswith(".py"):
     return test_script[:-3]
   return test_script
-
-
 def _run_test(test_script: str) -> bool:
   """Run the provided test script an return failure or success.
-
   A test succeeds if:
   - it does not time out
   - it returns zero
@@ -26,12 +21,14 @@ def _run_test(test_script: str) -> bool:
   """
   print(f"- running {test_script}: ", end="")
   module = _convert_path_to_module(test_script)
-  environment = os.environ
-  environment["PYTHONPATH"] = "./build/tools/sandbox/python_package"
-  environment["MLIR_RUNNER_UTILS_LIB"] = "./build/lib/libmlir_runner_utils.so"
+  env = os.environ
+  build_dir = env["IREE_LLVM_SANDBOX_BUILD_DIR"]
+  env["PYTHONPATH"] = os.path.join(build_dir, "tools/sandbox/python_package")
+  env["MLIR_RUNNER_UTILS_LIB"] = os.path.join(
+      build_dir, "lib/libmlir_runner_utils.so")
   proc = subprocess.Popen(["python", "-m", module],
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                          env=environment)
+                          env=env)
   try:
     outs, errs = proc.communicate(timeout=20)
   except subprocess.TimeoutExpired:
@@ -53,16 +50,21 @@ def _run_test(test_script: str) -> bool:
       return False
   print("\033[32m" + "SUCCESS" + "\033[m")
   return True
-
-
 def main():
   results = []
   for f in glob.glob("./python/**/*test.py", recursive=True):
     results.append(_run_test(f))
   errors = results.count(False)
   if errors:
-    print(f'-> {errors} tests failed!')
+    print(f"-> {errors} tests failed!")
+  # Additionally run the lit tests.
+  print(f"- running lit tests:")
+  returncode = subprocess.call(["lit",  "-v",  "test"])
+  if returncode != 0:
+    print(f"-> lit tests failed!")
+  if returncode != 0 or errors:
     exit(1)
+
 
 if __name__ == '__main__':
   main()
