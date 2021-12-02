@@ -28,9 +28,16 @@
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/MlirOptMain.h"
 
+namespace mlir {
+namespace test_ext {
+void registerTestVectorMaskingUtils();
+}
+} // namespace mlir
+
 using namespace llvm;
 using namespace mlir;
 using namespace mlir::linalg;
+using namespace mlir::test_ext;
 
 #ifdef SANDBOX_ENABLE_IREE_DIALECTS
 #include "iree-dialects/Dialect/Input/InputDialect.h"
@@ -46,11 +53,14 @@ static void registerIreeDialects(DialectRegistry &registry) {
 static void registerIreeDialects(DialectRegistry &registry) {}
 #endif
 
+void registerTestPasses() { registerTestVectorMaskingUtils(); }
+
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   ireeLlvmSandboxRegisterPasses();
   linalg_ext::registerLinalgExtPasses();
+  registerTestPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);

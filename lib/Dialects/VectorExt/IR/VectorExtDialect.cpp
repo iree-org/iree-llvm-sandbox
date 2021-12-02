@@ -1,4 +1,4 @@
-//===-- VectorExtDialect.h - Vector Extension dialect ------*- tablegen -*-===//
+//===-- VectorExtDialect.cpp - Vector Extension dialect -------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -21,5 +21,5 @@ void VectorExtDialect::initialize() {
       >();
 }
 
-}  // namespace vector_ext
-}  // namespace mlir
+} // namespace vector_ext
+} // namespace mlir
