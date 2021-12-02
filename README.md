@@ -102,7 +102,7 @@ python -c "import mlir.iree_sandbox"
 # Run a matmul.
 export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so; \
 cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}; \
-python -m python.matmul.test
+python -m python.examples.matmul.test
 ```
 
 ## Using mlir-proto-opt
@@ -117,89 +117,3 @@ TODOs:
 
 1.  hook up a lit test target.
 2.  re-add npcomp instructions once it is upgraded to use the same build setup.
-
-# Python-driven parameter search
-
-Python tests come with a tool to perform as simple randomized search. The search
-is going to randomly instantiate a given op to some cocnrete dimensions and type
-variables and try to compile it using mlir.
-
-The results are persisted in the `output/` folder by default in a structure that
-includes a name of the expert compiler, the name of the op and the
-success/failure/timeout status code. The results contain the full program output
-(including potential compilation errors) and an accompanying `.sh` file that can
-be used to re-run the same configuration again.
-
-## Collecting random measurements
-
-To run the search with default settings:
-
-```
-export PATH="${IREE_LLVM_SANDBOX_BUILD_DIR}/bin:$PATH"
-cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
-alias search_cli="python -m python.local_search.search_cli"
-search_cli
-```
-
-To run with a different linalg op, use `--op` flag:
-
-```
-search_cli --op matvec
-```
-
-To specify the name of the expert compilers, use `--expert` (see `experts.py`
-for all available expert definitions):
-
-```
-search_cli --experts ExpertCompiler1
-```
-
-To specify the possible types, use `--types` flag:
-
-```
-search_cli --types f32,f64
-```
-
-Alternatively, one can also force some variables to concrete values, while
-others will ramain random using `--assign`:
-
-```
-search_cli --assign M=16 N=32 K=64
-```
-
-To specify range of possible values for dimensions, use `--range` flag (where
-numbers correspond to arguments of the corresponding `range` function in
-Python):
-
-```
-search_cli --range 128,256,8
-```
-
-The search can be run using multiple processes at once, via `--par` flag:
-
-```
-search_cli --par 72
-```
-
-Each process collects the fixed number of random samples, customized via
-`--samples` flag:
-
-```
-search_cli --samples 100
-```
-
-## Showing ranked results
-
-One can see a ranked list, based on llvm-mca performance estimates:
-
-```
-alias rank_cli="python -m python.local_search.rank_cli"
-rank_cli
-```
-
-You can customize the `--op`, the number of the output results (`--limit`) and
-the metric used for ranking (`--by`) through additional command-line flags.
-
-The metrics are coming from either `runtime` or `mca` input files that can be
-specified using `--input` flag. By default results are ranked by the measured
-runtime.
