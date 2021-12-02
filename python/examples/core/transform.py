@@ -6,7 +6,7 @@ from mlir.passmanager import PassManager
 import typing as tp
 from copy import deepcopy
 
-from .search_vars import Variable
+from .variables import Variable
 
 class _TransformThenDescriptor:
   """Python descriptor dispatching `then` on the `Transform` class as either
@@ -63,7 +63,7 @@ class _TransformThenDescriptor:
 
 class Transform:
   """Base class for all parametrized transformations.
-  
+
   Searchable transformation parameters must be listed in the `variables` field.
   """
 
@@ -211,7 +211,7 @@ def _get_name_remapping(transform_classes: tp.Sequence[tp.Type[Transform]]):
 
 class TransformListMetaclass(type):
   """Metaclass for TransformationList subclasses that chain transformations.
-  
+
   Given the list of Transformation subclasses as `transforms` kwarg, creates a
   new class that derives TransformationList and instantiates the transformations
   in its constructor. The new subclass has the `variables` field suitable for
