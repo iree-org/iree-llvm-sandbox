@@ -6,4 +6,7 @@ add_mlir_library(MLIRVectorExtTransform
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRLinalg
+  MLIRVector
+  MLIRVectorExt
 )
