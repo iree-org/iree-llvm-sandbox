@@ -10,6 +10,7 @@
 #define DIALECTS_LINALGEXT_PASSDETAIL_H_
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Async/IR/Async.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -20,9 +21,9 @@ namespace mlir {
 namespace linalg_ext {
 
 #define GEN_PASS_CLASSES
-#include "Dialects/LinalgExt/Passes.h.inc"  // IWYU pragma: keep
+#include "Dialects/LinalgExt/Passes.h.inc" // IWYU pragma: keep
 
-}  // namespace linalg_ext
-}  // namespace mlir
+} // namespace linalg_ext
+} // namespace mlir
 
 #endif // DIALECTS_LINALGEXT_PASSDETAIL_H_
