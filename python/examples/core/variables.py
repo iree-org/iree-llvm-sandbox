@@ -1,14 +1,6 @@
 """Utilities for search space exploration over linalg operations."""
 
-from itertools import chain
-from mlir.dialects.linalg.opdsl.lang import OperandKind
-import random
-import math
 import typing as tp
-
-
-def rand_in_range(value_range):
-  return random.randrange(value_range.start, value_range.stop, value_range.step)
 
 
 class Variable:
@@ -22,9 +14,6 @@ class Variable:
 
     assignments[self.name] = value
 
-  def random_value(self):
-    'Abstract method that returns a valid random value for this variable.'
-
 
 class TypeVariable(Variable):
   'Linalg operation-specific type variable that defines a scalar component.'
@@ -35,9 +24,6 @@ class TypeVariable(Variable):
 
   def __repr__(self):
     return f'TypeVariable({self.name})'
-
-  def random_value(self):
-    return random.choice(self.scalar_types)
 
 
 class IntVariable(Variable):
@@ -50,18 +36,12 @@ class IntVariable(Variable):
   def __repr__(self):
     return f'IntVariable({self.name}, {self.value_range})'
 
-  def random_value(self):
-    return rand_in_range(self.value_range)
-
 
 class BoolVariable(Variable):
   'Boolean flag variable.'
 
   def __repr__(self):
     return f'BoolVariable({self.name})'
-
-  def random_value(self):
-    return random.randint(0, 1) == 0
 
 
 class DimensionVariable(IntVariable):
@@ -91,12 +71,6 @@ class TilingSizesVariable(Variable):
   def __repr__(self):
     return f'TilingSizesVariable({self.name}, {self.length_range}, {self.value_range})'
 
-  def random_value(self):
-    result = []
-    for x in range(rand_in_range(self.length_range)):
-      result.append(rand_in_range(self.value_range))
-    return result
-
 
 class InterchangeVariable(Variable):
   'Variable that corresponds to a dimension interchange.'
@@ -110,11 +84,6 @@ class InterchangeVariable(Variable):
 
   def __repr__(self):
     return f'InterchangeVariable({self.name}, {self.length_range})'
-
-  def random_value(self):
-    result = list(range(rand_in_range(self.length_range)))
-    random.shuffle(result)
-    return result
 
 
 class PeelingVariable(Variable):
@@ -130,11 +99,6 @@ class PeelingVariable(Variable):
   def __repr__(self):
     return f'PeelingVariable({self.name}, {self.length_range})'
 
-  def random_value(self):
-    options = list(range(rand_in_range(self.length_range)))
-    k = random.randint(0, len(options))
-    return sorted(random.sample(options, k))
-
 
 class PackPaddingVariable(Variable):
   'Variable that corresponds to pack padding.'
@@ -148,12 +112,6 @@ class PackPaddingVariable(Variable):
 
   def __repr__(self):
     return f'PackPaddingVariable({self.name}, {self.length_range})'
-
-  def random_value(self):
-    result = []
-    for x in range(rand_in_range(self.length_range)):
-      result.append(random.randint(0, 1))
-    return result
 
 
 class HoistPaddingVariable(IntVariable):
@@ -173,11 +131,6 @@ class HoistPaddingVariable(IntVariable):
   def __repr__(self):
     return f'HoistPaddingVariable({self.name}, {self.length_range}, {self.value_range})'
 
-  def random_value(self):
-    result = []
-    for x in range(rand_in_range(self.length_range)):
-      result.append(rand_in_range(self.value_range))
-    return result
 
 class ChoiceVariableBase(Variable):
   """Base class for choice variables.
@@ -189,6 +142,3 @@ class ChoiceVariableBase(Variable):
 
   def __repr__(self):
     return f'{self.__class__.__name__}({self.name}, {self.options})'
-
-  def random_value(self):
-    return random.choice(self.options)
