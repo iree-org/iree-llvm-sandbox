@@ -9,8 +9,6 @@
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 
 #include "Dialects/LinalgExt/LinalgExtInterfaces.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/TypeSwitch.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -20,6 +18,9 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/FunctionImplementation.h"
 #include "mlir/IR/OpImplementation.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -191,7 +192,8 @@ static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
                                result.operands))
       return failure();
   }
-  if (parser.parseArrowTypeList(result.types)) return failure();
+  if (parser.parseArrowTypeList(result.types))
+    return failure();
 
   SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   std::unique_ptr<Region> region = std::make_unique<Region>();
@@ -200,7 +202,8 @@ static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
     return failure();
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
 
   TileOp::ensureTerminator(*region, builder, result.location);
   result.addRegion(std::move(region));
@@ -261,7 +264,8 @@ static ParseResult parseInParallelOp(OpAsmParser &parser,
   if (parser.parseOperand(numThreads) ||
       parser.resolveOperand(numThreads, indexType, result.operands))
     return failure();
-  if (parser.parseArrowTypeList(result.types)) return failure();
+  if (parser.parseArrowTypeList(result.types))
+    return failure();
 
   SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   SmallVector<Type, 8> regionTypes;
@@ -272,7 +276,8 @@ static ParseResult parseInParallelOp(OpAsmParser &parser,
   result.addRegion(std::move(region));
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
   return success();
 }
 
@@ -356,8 +361,32 @@ static ParseResult parsePerformConcurrentlyOp(OpAsmParser &parser,
   result.addRegion(std::move(region));
 
   // Parse the optional attribute list.
-  if (parser.parseOptionalAttrDict(result.attributes)) return failure();
+  if (parser.parseOptionalAttrDict(result.attributes))
+    return failure();
   return success();
+}
+
+SmallVector<Type> PerformConcurrentlyOp::yieldedTypes() {
+  return llvm::to_vector(
+      llvm::map_range(this->yieldingOps(), [](ParallelInsertSliceOp op) {
+        return op.yieldedType();
+      }));
+}
+
+SmallVector<ParallelInsertSliceOp> PerformConcurrentlyOp::yieldingOps() {
+  SmallVector<ParallelInsertSliceOp> ret;
+  for (Operation &op : *getBody()) {
+    // TODO: interface when this grows up.
+    if (auto sliceOp = llvm::dyn_cast<ParallelInsertSliceOp>(op)) {
+      ret.push_back(sliceOp);
+      continue;
+    }
+    if (auto endPerformOp = llvm::dyn_cast<EndPerformConcurrentlyOp>(op)) {
+      continue;
+    }
+    llvm_unreachable("Unexpected operation in perform_concurrently");
+  }
+  return ret;
 }
 
 #define GET_OP_CLASSES
