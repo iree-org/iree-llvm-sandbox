@@ -55,6 +55,11 @@ include_directories(${IREE_LLVM_SANDBOX_BINARY_DIR}/include)
 # Enable python (assumes enabled MLIR bindings via MLIR_ENABLE_BINDINGS_PYTHON)
 ################################################################################
 
+if(NOT DEFINED MLIR_ENABLE_BINDINGS_PYTHON)
+  message(FATAL_ERROR
+    "This project requires MLIR_ENABLE_BINDINGS_PYTHON=ON")
+endif()
+
 include(MLIRDetectPythonEnv)
 mlir_configure_python_dev_packages()
 
