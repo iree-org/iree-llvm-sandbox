@@ -44,7 +44,8 @@ def LinalgFuse : Pass<"linalg-fuse", "FuncOp"> {
   let dependentDialects = [
     "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
     "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
-    "::mlir::StandardOpsDialect", "::mlir::tensor::TensorDialect"
+    "::mlir::StandardOpsDialect", "::mlir::tensor::TensorDialect",
+    "::mlir::vector::VectorDialect"
   ];
 }
 
