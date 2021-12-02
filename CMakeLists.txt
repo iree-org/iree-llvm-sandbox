@@ -8,9 +8,14 @@ endif()
 set(IREE_LLVM_SANDBOX_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 message(STATUS "iree_llvm_sandbox build directory: ${IREE_LLVM_SANDBOX_BINARY_DIR}")
 
+################################################################################
 # Compile in IREE dialects.
+################################################################################
+
 set(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR "" CACHE PATH "Path to iree-dialects project")
+
 set(SANDBOX_ENABLE_IREE_DIALECTS OFF)
+
 if(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR)
   message(STATUS "Enabling iree-dialects in sandbox")
   add_compile_definitions("SANDBOX_ENABLE_IREE_DIALECTS")
@@ -19,25 +24,51 @@ if(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR)
   set(SANDBOX_ENABLE_IREE_DIALECTS ON)
 endif()
 
+################################################################################
+# Set some variables
+################################################################################
+
 set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
 set(MLIR_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/../mlir/include)
 set(MLIR_TABLEGEN_OUTPUT_DIR ${CMAKE_BINARY_DIR}/tools/mlir/include)
-include_directories(SYSTEM ${MLIR_INCLUDE_DIR})
-include_directories(SYSTEM ${MLIR_TABLEGEN_OUTPUT_DIR})
 
 list(APPEND CMAKE_MODULE_PATH ${MLIR_MAIN_SRC_DIR}/cmake/modules)
 list(APPEND CMAKE_MODULE_PATH ${LLVM_MAIN_SRC_DIR}/cmake)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
 
-include(TableGen)
-include(AddLLVM)
-include(AddMLIR)
-include(MLIRDetectPythonEnv)
+################################################################################
+# Set include paths
+################################################################################
 
-mlir_configure_python_dev_packages()
+include_directories(SYSTEM ${MLIR_INCLUDE_DIR})
+include_directories(SYSTEM ${MLIR_TABLEGEN_OUTPUT_DIR})
+
+include_directories(${LLVM_INCLUDE_DIRS})
+include_directories(${MLIR_INCLUDE_DIRS})
+include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_BINARY_DIR}/include)
 
 include_directories(include)
 include_directories(${IREE_LLVM_SANDBOX_BINARY_DIR}/include)
+
+################################################################################
+# Enable python (assumes enabled MLIR bindings via MLIR_ENABLE_BINDINGS_PYTHON)
+################################################################################
+
+include(MLIRDetectPythonEnv)
+mlir_configure_python_dev_packages()
+
+################################################################################
+# Enable LLVM stuff
+################################################################################
+
+include(TableGen)
+include(AddLLVM)
+include(AddMLIR)
+
+################################################################################
+# Subdirs to recurse into
+################################################################################
 
 add_subdirectory(include)
 add_subdirectory(lib)
