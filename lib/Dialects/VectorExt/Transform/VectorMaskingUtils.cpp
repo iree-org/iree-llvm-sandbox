@@ -36,8 +36,8 @@ static void moveOperationsBefore(llvm::iterator_range<Block::iterator> opRange,
 /// and gather those with users outside the range.
 static void
 getDefsWithUsesOutside(llvm::iterator_range<Block::iterator> opRange,
-                        SmallVectorImpl<Value> &defsWithUsesOutside,
-                        SmallVectorImpl<Type> &defTypes) {
+                       SmallVectorImpl<Value> &defsWithUsesOutside,
+                       SmallVectorImpl<Type> &defTypes) {
   SmallPtrSet<Operation *, 8> rangeSet;
   for (Operation &op : opRange)
     rangeSet.insert(&op);
@@ -59,7 +59,7 @@ getDefsWithUsesOutside(llvm::iterator_range<Block::iterator> opRange,
 /// The new vector.predicate will be inserted right after the operations
 /// generating the predicate.
 Optional<PredicateOp> mlir::vector_ext::predicateOp(
-    Operation *op, Region *regionToPredicate, OpBuilder &builder,
+    OpBuilder &builder, Operation *op, Region *regionToPredicate,
     function_ref<Value(OpBuilder &)> createPredicate) {
   // TODO: Support multi-block regions.
   if (!regionToPredicate->hasOneBlock())
@@ -111,7 +111,8 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
 /// Utility that predicates the body a tiled loop with a vector.predicate
 /// operation. The vectorization factor used for predication is assumed to be
 /// the step of the tiled loop.
-LogicalResult mlir::vector_ext::predicateTiledLoop(TiledLoopOp loopOp) {
+LogicalResult mlir::vector_ext::predicateTiledLoop(OpBuilder &builder,
+                                                   TiledLoopOp loopOp) {
   if (loopOp.lowerBound().size() > 1)
     // TODO: Support multi-dim tiled loops.
     return failure();
@@ -124,7 +125,7 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(TiledLoopOp loopOp) {
   int64_t vecFactor = *maybeVecFactor;
 
   auto createPredicate = [&](OpBuilder &builder) -> Value {
-    // Generate the predicate to used by the vector.predicate operation:
+    // Generate the predicate to be used by the vector.predicate operation:
     //   %min = affine.min affine_map<(d0)[s0] -> (vecFactor, -d0 +
     //   s0)>(%iv)[%ub] %vec_pred = vector.create_mask %min : vector<8xi1>
     // TODO: This is probably not the most efficient way to generate the vector
@@ -143,9 +144,8 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(TiledLoopOp loopOp) {
     return builder.create<CreateMaskOp>(loc, maskType, ValueRange{minOp});
   };
 
-  OpBuilder builder(loopOp);
   auto mayPredicate =
-      predicateOp(loopOp, &loopOp.getLoopBody(), builder, createPredicate);
+      predicateOp(builder, loopOp, &loopOp.getLoopBody(), createPredicate);
   if (!mayPredicate)
     return failure();
 

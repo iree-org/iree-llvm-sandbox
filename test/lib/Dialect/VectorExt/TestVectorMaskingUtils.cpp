@@ -36,7 +36,8 @@ struct TestVectorMaskingUtils
 
   void runOnFunction() override {
     getFunction().walk([](TiledLoopOp loopOp) {
-      if (failed(predicateTiledLoop(loopOp)))
+      OpBuilder builder(loopOp);
+      if (failed(predicateTiledLoop(builder, loopOp)))
         loopOp.emitError("Predication of tiled loop failed");
     });
   }
