@@ -13,3 +13,6 @@ iree-runtime-snapshot
 torch
 torchvision
 torchaudio
+
+# Testing.
+lit
