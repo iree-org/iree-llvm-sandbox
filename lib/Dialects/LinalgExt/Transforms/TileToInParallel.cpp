@@ -12,7 +12,6 @@
 #include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "Transforms/Utils.h"
-#include "llvm/ADT/STLExtras.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
@@ -23,6 +22,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -37,7 +37,7 @@ struct TileOpToInParallelRewriter
                                 PatternRewriter &rewriter) const override {
     // TODO: verifier.
     assert(tileOp.getNumResults() > 0 &&
-           tileOp.outs().size() == tileOp.getNumResults());
+           tileOp.outSlices().size() == tileOp.getNumResults());
 
     // TODO: when supported, iterate over the tensor of sizes. This will be
     // iterating through a level of indirection.
@@ -47,7 +47,7 @@ struct TileOpToInParallelRewriter
     Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     Value totalSize =
-        rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(), zero);
+        rewriter.create<tensor::DimOp>(loc, tileOp.outSlices().front(), zero);
     Value step = tileOp.tile_sizes();
     assert(step.getType().isa<IndexType>() && "NYI: not an index type");
 
@@ -81,7 +81,7 @@ struct TileOpToInParallelRewriter
     // clang-format on
 
     SmallVector<Value> implicitSubtensorExtracts;
-    for (Value tensor : tileOp.outs()) {
+    for (Value tensor : tileOp.outSlices()) {
       implicitSubtensorExtracts.push_back(
           rewriter.createOrFold<tensor::ExtractSliceOp>(loc, tensor, offset,
                                                         size, one));
@@ -103,7 +103,7 @@ struct TileOpToInParallelRewriter
     PerformConcurrentlyOp performConcurrentlyOp = inParallelOp.getTerminator();
 
     rewriter.setInsertionPointToStart(performConcurrentlyOp.getBody());
-    for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outs())) {
+    for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outSlices())) {
       rewriter.createOrFold<ParallelInsertSliceOp>(
           loc, std::get<0>(it), std::get<1>(it), offset, size, one);
     }
@@ -120,7 +120,7 @@ struct TileToInParallelPass
     : public TileToInParallelBase<TileToInParallelPass> {
   void runOnOperation() override;
 };
-}  // namespace
+} // namespace
 
 void TileToInParallelPass::runOnOperation() {
   FuncOp funcOp = getOperation();

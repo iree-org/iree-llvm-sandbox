@@ -150,16 +150,9 @@ def LinalgExt_TileOp : LinalgExt_PureOp<"tile",
   }];
   let arguments = (ins AnyTypeOf<[// TODO: allow TensorOf<[Index]>,
                                   Index]>:$tile_sizes,
-                       Variadic<AnyRankedTensor>:$outs);
+                       Variadic<AnyRankedTensor>:$outSlices);
   let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$region);
-  // TODO: Placeholder to properly implement when needed.
-  // let skipDefaultBuilders = 1;
-  // let builders = [
-  //   OpBuilder<(ins "Value":$tile_sizes,
-  //     CArg<"function_ref<void(OpBuilder &, Location, /**/Value, Value)>",
-  //          "nullptr">)>
-  // ];
 
   let extraClassDeclaration = [{
     // TODO: helper for getting named region args without magic constants etc.
