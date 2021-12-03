@@ -15,6 +15,7 @@
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include <mlir/IR/OperationSupport.h>
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -35,6 +36,55 @@ static Value insertSliceIntoTensor(OpBuilder &b, Location loc,
       loc, sliceOp.source().getType(), source, dest, sliceOp.offsets(),
       sliceOp.sizes(), sliceOp.strides(), sliceOp.static_offsets(),
       sliceOp.static_sizes(), sliceOp.static_strides());
+}
+
+SmallVector<Value> tileToSCF(PatternRewriter &rewriter, TilingInterface op,
+                             TilingInterface clonedOp, ValueRange tileSizes) {
+  // Compute lower and upper bounds of the loop nest.
+  SmallVector<Range> ranges = clonedOp.getLoopBounds(rewriter);
+  assert(tileSizes.size() == ranges.size() &&
+         "expected tile sizes to match the number of loops");
+  SmallVector<Value> lbs, dims, allDims, steps;
+  for (auto it : llvm::enumerate(ranges)) {
+    allDims.push_back(it.value().size);
+    if (!isZero(tileSizes[it.index()])) {
+      lbs.push_back(it.value().offset);
+      dims.push_back(it.value().size);
+      steps.push_back(tileSizes[it.index()]);
+    }
+  }
+
+  // Generate loop nest: One loop per dimension.
+  llvm::SmallPtrSet<Operation *, 1> preservedUses;
+  SmallVector<Value> destOperand = clonedOp.getDestinationOperands(rewriter);
+  Location loc = op->getLoc();
+  auto loopNest = mlir::scf::buildLoopNest(
+      rewriter, loc, lbs, /*ubs=*/dims, steps, ValueRange(destOperand),
+      [&](OpBuilder &b, Location loc, ValueRange localIvs,
+          ValueRange iterArgs) -> scf::ValueVector {
+        // Compute offsets and sizes of ExtractSliceOp.
+        SmallVector<Value> offsets =
+            linalg::computeTileOffsets(b, loc, localIvs, tileSizes);
+        SmallVector<Value> sizes =
+            linalg::computeTileSizes(b, loc, localIvs, tileSizes, allDims);
+        // Create ExtractSliceOp: Extract a tile from the PadTensorOp.
+        // Note: The PadTensorOp is located outside of the loop nest. It is
+        // later moved inside by ExtractSliceOfPadTensorSwapPattern.
+        auto map =
+            AffineMap::getMultiDimIdentityMap(ranges.size(), b.getContext());
+        assert(clonedOp->getNumResults() == 1 && "expected single result op");
+        Value tiledOutput =
+            linalg::makeTiledShape(b, loc, clonedOp->getResult(0), tileSizes,
+                                   map, offsets, allDims, sizes);
+        auto sliceOp = tiledOutput.getDefiningOp<tensor::ExtractSliceOp>();
+        preservedUses.insert(sliceOp);
+        assert(sliceOp && "expected ExtractSliceOp");
+        // Insert the tile into the output tensor.
+        Value yieldValue =
+            insertSliceIntoTensor(b, loc, sliceOp, sliceOp, iterArgs[0]);
+        return scf::ValueVector({yieldValue});
+      });
+  return loopNest.getResults();
 }
 
 namespace {
@@ -93,16 +143,18 @@ namespace {
 struct OpTilingPattern : public OpInterfaceRewritePattern<TilingInterface> {
   OpTilingPattern(MLIRContext *context, linalg::LinalgTilingOptions opt,
                   linalg::LinalgTransformationFilter filt)
-      : OpInterfaceRewritePattern<TilingInterface>(context),
-        options(opt),
+      : OpInterfaceRewritePattern<TilingInterface>(context), options(opt),
         filter(filt) {}
 
   LogicalResult matchAndRewrite(TilingInterface op,
                                 PatternRewriter &rewriter) const override {
-    if (failed(filter.checkAndNotify(rewriter, op))) return failure();
+    if (failed(filter.checkAndNotify(rewriter, op)))
+      return failure();
 
     /// Currently only handle single result operations.
-    if (op->getNumResults() != 1) return failure();
+    if (op->getNumResults() != 1)
+      return failure();
+
     /// Currently only handle operations with all parallel iterator types.
     if (llvm::any_of(op.getLoopIteratorTypes(), [](StringRef iteratorType) {
           return iteratorType != getParallelIteratorTypeName();
@@ -110,60 +162,18 @@ struct OpTilingPattern : public OpInterfaceRewritePattern<TilingInterface> {
       return failure();
     }
 
-    auto clonedOp = cast<TilingInterface>(rewriter.clone(*op.getOperation()));
     // Get rank and tile sizes.
     SmallVector<Value> tileSizes =
         options.tileSizeComputationFunction(rewriter, op);
-    // Compute lower and upper bounds of the loop nest.
-    SmallVector<Range> ranges = clonedOp.getLoopBounds(rewriter);
-    assert(tileSizes.size() == ranges.size() &&
-           "expected tile sizes to match the number of loops");
-    SmallVector<Value> lbs, dims, allDims, steps;
-    for (auto it : llvm::enumerate(ranges)) {
-      allDims.push_back(it.value().size);
-      if (!isZero(tileSizes[it.index()])) {
-        lbs.push_back(it.value().offset);
-        dims.push_back(it.value().size);
-        steps.push_back(tileSizes[it.index()]);
-      }
-    }
-
-    // Generate loop nest: One loop per dimension.
-    llvm::SmallPtrSet<Operation *, 1> preservedUses;
-    SmallVector<Value> destOperand = clonedOp.getDestinationOperands(rewriter);
-    Location loc = op->getLoc();
-    auto loopNest = mlir::scf::buildLoopNest(
-        rewriter, loc, lbs, /*ubs=*/dims, steps, ValueRange(destOperand),
-        [&](OpBuilder &b, Location loc, ValueRange localIvs,
-            ValueRange iterArgs) -> scf::ValueVector {
-          // Compute offsets and sizes of ExtractSliceOp.
-          SmallVector<Value> offsets =
-              linalg::computeTileOffsets(b, loc, localIvs, tileSizes);
-          SmallVector<Value> sizes =
-              linalg::computeTileSizes(b, loc, localIvs, tileSizes, allDims);
-          // Create ExtractSliceOp: Extract a tile from the PadTensorOp.
-          // Note: The PadTensorOp is located outside of the loop nest. It is
-          // later moved inside by ExtractSliceOfPadTensorSwapPattern.
-          auto map =
-              AffineMap::getMultiDimIdentityMap(ranges.size(), b.getContext());
-          Value tiledOutput =
-              linalg::makeTiledShape(b, loc, clonedOp->getResult(0), tileSizes,
-                                     map, offsets, allDims, sizes);
-          auto sliceOp = tiledOutput.getDefiningOp<tensor::ExtractSliceOp>();
-          preservedUses.insert(sliceOp);
-          assert(sliceOp && "expected ExtractSliceOp");
-          // Insert the tile into the output tensor.
-          Value yieldValue =
-              insertSliceIntoTensor(b, loc, sliceOp, sliceOp, iterArgs[0]);
-          return scf::ValueVector({yieldValue});
-        });
+    auto clonedOp = cast<TilingInterface>(rewriter.clone(*op.getOperation()));
+    SmallVector<Value> results = tileToSCF(rewriter, op, clonedOp, tileSizes);
 
     filter.replaceLinalgTransformationFilter(rewriter, clonedOp);
-    rewriter.replaceOp(op, loopNest.getResults());
+    rewriter.replaceOp(op, results);
     return success();
   }
 
- private:
+private:
   linalg::LinalgTilingOptions options;
   linalg::LinalgTransformationFilter filter;
 };
@@ -175,14 +185,14 @@ struct SliceOpTiledOpSwapPattern
   SliceOpTiledOpSwapPattern(MLIRContext *context,
                             linalg::LinalgTilingOptions opt,
                             linalg::LinalgTransformationFilter filt)
-      : OpRewritePattern<tensor::ExtractSliceOp>(context),
-        options(opt),
+      : OpRewritePattern<tensor::ExtractSliceOp>(context), options(opt),
         filter(filt) {}
 
   LogicalResult matchAndRewrite(tensor::ExtractSliceOp sliceOp,
                                 PatternRewriter &rewriter) const override {
     auto sourceOp = sliceOp.source().getDefiningOp<TilingInterface>();
-    if (!sourceOp || !filter.hasReplacementFilter(sourceOp)) return failure();
+    if (!sourceOp || !filter.hasReplacementFilter(sourceOp))
+      return failure();
     Operation *tiledOp = sourceOp.getTiledImplementation(
         rewriter, sourceOp.getDestinationOperands(rewriter),
         sliceOp.getMixedOffsets(), sliceOp.getMixedSizes());
@@ -190,7 +200,7 @@ struct SliceOpTiledOpSwapPattern
     return success();
   }
 
- private:
+private:
   linalg::LinalgTilingOptions options;
   linalg::LinalgTransformationFilter filter;
 };
@@ -203,7 +213,7 @@ struct LinalgExtTilingPass : public LinalgExtTilingBase<LinalgExtTilingPass> {
   }
   void runOnOperation() override;
 };
-}  // namespace
+} // namespace
 
 void LinalgExtTilingPass::runOnOperation() {
   FuncOp funcOp = getOperation();

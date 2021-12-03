@@ -21,6 +21,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include <mlir/IR/OperationSupport.h>
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -144,16 +145,13 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
 // TileOp
 //===----------------------------------------------------------------------===//
 
-using BodyBuilderFn =
-    function_ref<void(OpBuilder &, Location, Value /*offset*/, Value /*size*/)>;
-
 static LogicalResult verify(TileOp op) { return success(); }
 
 static void print(OpAsmPrinter &p, TileOp op) {
   p << ' ' << op.tile_sizes() << ' ';
-  if (!op.outs().empty()) {
+  if (!op.outSlices().empty()) {
     p << "outs(";
-    llvm::interleaveComma(op.outs(), p,
+    llvm::interleaveComma(op.outSlices(), p,
                           [&p](Value v) { p << v << ": " << v.getType(); });
     p << ')';
   }
