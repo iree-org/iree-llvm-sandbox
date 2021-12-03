@@ -27,6 +27,37 @@ def LinalgExtTiling : Pass<"linalg-ext-tiling", "FuncOp"> {
   ];
 }
 
+def LinalgExtTilingToTileOp : Pass<"linalg-ext-tiling-to-tile-op", "FuncOp"> {
+  let summary = "Pass to tile an operation that implements TilingInterface to linalg_ext.tile op.";
+  let description = [{
+    Rewrite a TilingInterface operation to a linalg_ext.tile.
+
+    This transformation is meant to tile only a single dimension.
+    This is because TileOp is meant to remain a 1-D loop construct with parallel 
+    semantics. We specifically want to avoid TileOp becoming an n-D loop construct
+    in the absence of a very compelling motivation.
+    Unlike scf.for we do not need a one-shot multi-loop tiling when targeting TileOp.
+    Indeed the implicitly stacking terminator + outs operands bypass the 
+    traditional issues with inserting subset.insert/subset.extract op pairs.
+
+    This pass is experimental atm and written as a pattern that only applies once.
+    This is to avoid additional complexity related to attribute and state manipulation
+    via LinalgFilter which should ultimately be retired.
+  }];
+  let constructor = "mlir::linalg_ext::createLinalgExtTilingToTileOpPass()";
+  let dependentDialects = [
+    "AffineDialect",
+    "linalg::LinalgDialect",
+    "tensor::TensorDialect",
+    "memref::MemRefDialect",
+    "scf::SCFDialect"
+  ];
+  let options = [
+    // TODO: some permutation flag to know which dim to tile with TileOp.
+    Option<"tileSize", "tile-size", "unsigned", /*default=*/"0", "Tile Size">
+  ];
+}
+
 def InParallelToAsync : Pass<"linalg-in-parallel-to-async", "FuncOp"> {
   let summary = "Pass to lower linalg_ext.in_parallel to async.";
   let constructor = "mlir::linalg_ext::createInParallelToAsyncPass()";
