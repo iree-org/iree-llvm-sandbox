@@ -22,6 +22,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ArithInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/ComprehensiveBufferize/BufferizationInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ComprehensiveBufferize.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
@@ -365,6 +366,7 @@ void LinalgBufferizationDriverPass::getDependentDialects(
     DialectRegistry &registry) const {
   registry.insert<arith::ArithmeticDialect>();
   registry.insert<AffineDialect>();
+  registry.insert<bufferization::BufferizationDialect>();
   registry.insert<linalg::LinalgDialect>();
   registry.insert<memref::MemRefDialect>();
   registry.insert<bufferization::BufferizationDialect>();
@@ -376,6 +378,8 @@ void LinalgBufferizationDriverPass::getDependentDialects(
   linalg::comprehensive_bufferize::affine_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::arith_ext::
+      registerBufferizableOpInterfaceExternalModels(registry);
+  linalg::comprehensive_bufferize::bufferization_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
