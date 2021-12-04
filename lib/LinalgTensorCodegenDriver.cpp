@@ -93,8 +93,12 @@ struct LinalgBufferizationDriverPass
 
 struct LinalgVectorLoweringPass
     : public LinalgVectorLoweringBase<LinalgVectorLoweringPass> {
-  LinalgVectorLoweringPass() = default;
-  LinalgVectorLoweringPass(const LinalgVectorLoweringPass &pass) {}
+  LinalgVectorLoweringPass(int64_t vectorLoweringStage = 0) {
+    this->vectorLoweringStage.setValue(vectorLoweringStage);
+  }
+  LinalgVectorLoweringPass(const LinalgVectorLoweringPass &pass) {
+    this->vectorLoweringStage.setValue(pass.vectorLoweringStage);
+  }
 
   void runOnOperation() override;
 };
@@ -225,12 +229,18 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
 
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;
-  if (!tileSizes.empty()) tilingOptions = tilingOptions.setTileSizes(tileSizes);
+  bool doTiling = false;
+  if (!tileSizes.empty()) {
+    doTiling = true;
+    tilingOptions = tilingOptions.setTileSizes(tileSizes);
+  }
   if (!tileInterchange.empty())
     tilingOptions = tilingOptions.setInterchange(
         SmallVector<unsigned>(tileInterchange.begin(), tileInterchange.end()));
-  if (scalarizeDynamicDims)
+  if (scalarizeDynamicDims) {
+    doTiling = true;
     tilingOptions = tilingOptions.scalarizeDynamicDims();
+  }
   tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
 
   // Set up padding options.
@@ -255,8 +265,7 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
   CodegenStrategy strategy;
   StringRef genericOpName = GenericOp::getOperationName();
   strategy
-      .tileIf(!tileSizes.empty() || scalarizeDynamicDims, anchorOpName,
-              tilingOptions)
+      .tileIf(doTiling, anchorOpName, tilingOptions)
       .padIf(pad, anchorOpName, paddingOptions)
       .decomposeIf(decomposeToLowerDimOp)
       .generalizeIf(generalize, anchorOpName)
@@ -412,10 +421,25 @@ mlir::createLinalgBufferizationDriverPass() {
   return std::make_unique<LinalgBufferizationDriverPass>();
 }
 
-std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgVectorLoweringPass() {
-  return std::make_unique<LinalgVectorLoweringPass>();
+std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgVectorLoweringPass(
+    int64_t vectorLoweringStage) {
+  return std::make_unique<LinalgVectorLoweringPass>(vectorLoweringStage);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
   return std::make_unique<LLVMLoweringPass>();
+}
+
+//===----------------------------------------------------------------------===//
+// Transforms
+//===----------------------------------------------------------------------===//
+
+void mlir::addLowerToVectorTransforms(OpPassManager &passManager) {
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(0));
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(1));
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(2));
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(3));
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(4));
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(5));
+  passManager.addNestedPass<FuncOp>(createLinalgVectorLoweringPass(6));
 }
