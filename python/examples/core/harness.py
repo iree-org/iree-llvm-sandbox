@@ -9,6 +9,7 @@ import numpy
 from mlir.execution_engine import *
 from mlir.ir import *
 from mlir.runtime import *
+from mlir.iree_sandbox import register_sandbox_passes_and_dialects
 
 from ..core.compilation import compile_to_execution_engine, \
     emit_benchmarking_function
@@ -128,6 +129,7 @@ class ProblemInstance:
     self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict
 
     with Context() as ctx, Location.unknown() as loc:
+      register_sandbox_passes_and_dialects(ctx)
       self.mlir_context = ctx
       self.mlir_module = Module.create()
       with InsertionPoint(self.mlir_module.body):

@@ -5,9 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
+#include "Dialects/LinalgExt/Transforms/Utils.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -24,18 +26,6 @@ static bool isZero(Value v) {
   if (auto cst = v.getDefiningOp<arith::ConstantIndexOp>())
     return cst.value() == 0;
   return false;
-}
-
-// Insert a tile `source` into the destination tensor `dest`. The position at
-// which the tile is inserted (as well as size of tile) is taken from a given
-// ExtractSliceOp `sliceOp`.
-static Value insertSliceIntoTensor(OpBuilder &b, Location loc,
-                                   tensor::ExtractSliceOp sliceOp, Value source,
-                                   Value dest) {
-  return b.create<tensor::InsertSliceOp>(
-      loc, sliceOp.source().getType(), source, dest, sliceOp.offsets(),
-      sliceOp.sizes(), sliceOp.strides(), sliceOp.static_offsets(),
-      sliceOp.static_sizes(), sliceOp.static_strides());
 }
 
 SmallVector<Value> tileToSCF(PatternRewriter &rewriter, TilingInterface op,
@@ -81,7 +71,7 @@ SmallVector<Value> tileToSCF(PatternRewriter &rewriter, TilingInterface op,
         assert(sliceOp && "expected ExtractSliceOp");
         // Insert the tile into the output tensor.
         Value yieldValue =
-            insertSliceIntoTensor(b, loc, sliceOp, sliceOp, iterArgs[0]);
+            createMatchingSubsetInsertOp(b, loc, sliceOp, sliceOp, iterArgs[0]);
         return scf::ValueVector({yieldValue});
       });
   return loopNest.getResults();

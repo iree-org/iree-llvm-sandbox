@@ -37,6 +37,10 @@ def parse_arguments():
                       help="Build directory",
                       type=str,
                       default="build")
+  parser.add_argument("--build-mode",
+                      help="Build mode (Release, Debug or RelWithDebInfo)",
+                      type=str,
+                      default="Release")
   return parser.parse_args()
 
 
@@ -122,6 +126,7 @@ def main(args):
 
   # CMake configure.
   build_dir = os.path.abspath(args.build_dir)
+  build_mode = args.build_mode
   os.makedirs(build_dir, exist_ok=True)
   cmake_args = [
       "cmake",
@@ -138,7 +143,7 @@ def main(args):
       "-DLLVM_BUILD_EXAMPLES=ON",
       "-DMLIR_ENABLE_BINDINGS_PYTHON=ON",
       f"-DPython3_EXECUTABLE={sys.executable}",
-      "-DCMAKE_BUILD_TYPE=Release",
+      f"-DCMAKE_BUILD_TYPE={build_mode}",
       f"-DLLVM_EXTERNAL_PROJECTS={';'.join(llvm_projects)}",
   ] + llvm_configure_args
   print(f"-- Running cmake:\n  {' '.join(cmake_args)}")

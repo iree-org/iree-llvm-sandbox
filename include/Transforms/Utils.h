@@ -10,7 +10,7 @@
 #define IREE_LLVM_SANDBOX_TRANSFORMS_UTILS_H_
 
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
-#include <mlir/IR/AffineExpr.h>
+#include "mlir/IR/AffineExpr.h"
 
 namespace mlir {
 namespace linalg_ext {
