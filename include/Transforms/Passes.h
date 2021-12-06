@@ -27,17 +27,26 @@ std::unique_ptr<OperationPass<FuncOp>> createLinalgFusePass();
 std::unique_ptr<OperationPass<FuncOp>>
 createLinalgFuseOutputIntoReductionPass();
 
-/// Creates a pass to drive transformations on Linalg on tensors.
+/// Creates a pass to drive one-level tile + vectorization.
 std::unique_ptr<OperationPass<FuncOp>> createLinalgSingleTilingExpertPass();
 
 /// Creates a pass to driver the lowering of vector operations.
-std::unique_ptr<OperationPass<FuncOp>> createLinalgVectorLoweringPass();
+std::unique_ptr<OperationPass<FuncOp>> createLinalgVectorLoweringPass(
+    int64_t vectorLoweringStage = 0);
 
 /// Creates a pass to driver lowering to LLVM.
 std::unique_ptr<OperationPass<ModuleOp>> createLLVMLoweringPass();
 
 /// Experimental pass for vector distribution.
 std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
+
+//===----------------------------------------------------------------------===//
+// Transforms
+//===----------------------------------------------------------------------===//
+
+/// Add staged lowering of vector ops. `passManager` is expected to be a
+/// `builtin.func` op pass manager.
+void addLowerToVectorTransforms(OpPassManager &passManager);
 
 //===----------------------------------------------------------------------===//
 // Registration
