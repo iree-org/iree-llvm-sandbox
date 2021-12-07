@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -test-vector-masking-utils -split-input-file | FileCheck %s
+// RUN: mlir-proto-opt %s -test-vector-masking-utils=predication -split-input-file | FileCheck %s
 
 func @tiled_loop_1d(%arg0: tensor<?xf32>,
                     %arg1: tensor<?xf32>) -> tensor<?xf32> {
@@ -56,9 +56,9 @@ func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
                  %pred0: vector<16xi1>) {
   %c0 = arith.constant 0 : index
   %f0 = arith.constant 0.0 : f32
-  %0 = vector.transfer_read %arg0[%c0], %f0 : memref<?xf32>, vector<16xf32>
+  %0 = vector.transfer_read %arg0[%c0], %f0 {in_bounds = [true]} : memref<?xf32>, vector<16xf32>
   %add = arith.addf %0, %0 : vector<16xf32>
-  vector.transfer_write %add, %arg1[%c0] : vector<16xf32>, memref<?xf32>
+  vector.transfer_write %add, %arg1[%c0] {in_bounds = [true]} : vector<16xf32>, memref<?xf32>
   return
 }
 
@@ -68,9 +68,9 @@ func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
 // CHECK-NEXT:      vector_ext.predicate(%[[VAL_2]]: vector<16xi1>) {
 // CHECK-NEXT:        %[[VAL_3:.*]] = arith.constant 0 : index
 // CHECK-NEXT:        %[[VAL_4:.*]] = arith.constant 0.000000e+00 : f32
-// CHECK-NEXT:        %[[VAL_5:.*]] = vector.transfer_read %[[VAL_0]]{{\[}}%[[VAL_3]]], %[[VAL_4]] : memref<?xf32>, vector<16xf32>
+// CHECK-NEXT:        %[[VAL_5:.*]] = vector.transfer_read %[[VAL_0]]{{\[}}%[[VAL_3]]], %[[VAL_4]] {in_bounds = [true]} : memref<?xf32>, vector<16xf32>
 // CHECK-NEXT:        %[[VAL_6:.*]] = arith.addf %[[VAL_5]], %[[VAL_5]] : vector<16xf32>
-// CHECK-NEXT:        vector.transfer_write %[[VAL_6]], %[[VAL_1]]{{\[}}%[[VAL_3]]] : vector<16xf32>, memref<?xf32>
+// CHECK-NEXT:        vector.transfer_write %[[VAL_6]], %[[VAL_1]]{{\[}}%[[VAL_3]]] {in_bounds = [true]} : vector<16xf32>, memref<?xf32>
 // CHECK-NEXT:      }
 // CHECK-NEXT:      return
 // CHECK-NEXT:    }

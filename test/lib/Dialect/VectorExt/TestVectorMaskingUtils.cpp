@@ -26,6 +26,10 @@ namespace {
 
 struct TestVectorMaskingUtils
     : public PassWrapper<TestVectorMaskingUtils, FunctionPass> {
+
+  TestVectorMaskingUtils() = default;
+  TestVectorMaskingUtils(const TestVectorMaskingUtils &pass) {}
+
   StringRef getArgument() const final { return "test-vector-masking-utils"; }
   StringRef getDescription() const final {
     return "Test vector masking utilities";
@@ -34,7 +38,15 @@ struct TestVectorMaskingUtils
     registry.insert<LinalgDialect, VectorDialect, VectorExtDialect>();
   }
 
-  void runOnFunction() override {
+  Option<bool> predicationEnabled{*this, "predication",
+                                  llvm::cl::desc("Test vector predication"),
+                                  llvm::cl::init(false)};
+
+  Option<bool> maskingEnabled{*this, "masking",
+                              llvm::cl::desc("Test vector masking"),
+                              llvm::cl::init(false)};
+
+  void testPredication() {
     // Try different testing approaches until one triggers the predication
     // transformation for that particular function.
     bool predicationSucceeded = false;
@@ -76,6 +88,21 @@ struct TestVectorMaskingUtils
                        createPredicateForFuncOp))
         funcOp.emitError("Predication of function failed");
     }
+  }
+
+  void testMasking() {
+    FuncOp funcOp = getFunction();
+    OpBuilder builder(funcOp);
+    if (failed(maskVectorPredicateOps(builder, funcOp,
+                                      maskGenericOpMinimalMaskingStrategy)))
+      funcOp.emitError("Masking of function failed");
+  }
+
+  void runOnFunction() override {
+    if (predicationEnabled)
+      testPredication();
+    if (maskingEnabled)
+      testMasking();
   }
 };
 

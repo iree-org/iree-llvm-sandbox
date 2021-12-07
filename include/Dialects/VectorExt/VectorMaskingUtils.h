@@ -12,11 +12,13 @@
 #include "llvm/ADT/STLExtras.h"
 
 namespace mlir {
+class FuncOp;
 class LogicalResult;
 class Region;
 class OpBuilder;
 class Operation;
 class Value;
+class WalkStage;
 
 namespace linalg {
 class TiledLoopOp;
@@ -40,6 +42,28 @@ predicateOp(OpBuilder &builder, Operation *op, Region *regionToPredicate,
 /// the step of the tiled loop.
 LogicalResult predicateTiledLoop(OpBuilder &builder,
                                  linalg::TiledLoopOp loopOp);
+
+/// Function signature of a masking strategy for generic operations.
+using GenericOpMaskingStrategy = llvm::function_ref<void(
+    OpBuilder &, Operation *, Value, const WalkStage &)>;
+
+/// Traverse `op` and apply masking on all the vector.predicate ops and their
+/// enclosing operations using the strategy `maskGenericOp` to mask generic
+/// operations other than the vector.predicate.
+LogicalResult maskVectorPredicateOps(OpBuilder &builder, Operation *op,
+                                     GenericOpMaskingStrategy maskGenericOp);
+
+//===----------------------------------------------------------------------===//
+// Vector Masking Strategies.
+//===----------------------------------------------------------------------===//
+
+/// Masking strategy that only masks vector transfer operations and operations
+/// with side effects. Non-side-effecting ops are left unmasked.
+void maskGenericOpMinimalMaskingStrategy(OpBuilder &builder, Operation *op,
+                                         Value activeMask,
+                                         const WalkStage &stage);
+
+// TODO: Implement full masking strategy.
 
 } // namespace vector_ext
 } // namespace mlir
