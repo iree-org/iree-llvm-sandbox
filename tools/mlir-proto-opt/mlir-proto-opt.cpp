@@ -14,10 +14,6 @@
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/ToolOutputFile.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
@@ -27,6 +23,10 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/MlirOptMain.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/ToolOutputFile.h"
 
 namespace mlir {
 namespace test_ext {
@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registerIreeDialects(registry);
   registry.insert<linalg_ext::LinalgExtDialect, vector_ext::VectorExtDialect>();
+  linalg_ext::registerTilingInterfaceExternalModels(registry);
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
                             registry,

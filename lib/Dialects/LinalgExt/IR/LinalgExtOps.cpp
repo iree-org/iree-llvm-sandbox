@@ -77,7 +77,7 @@ SmallVector<StringRef> ReverseOp::getLoopIteratorTypes() {
   return iteratorTypes;
 }
 
-SmallVector<Range> ReverseOp::getLoopBounds(OpBuilder &builder) {
+SmallVector<Range> ReverseOp::getIterationDomain(OpBuilder &builder) {
   Location loc = getLoc();
   Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
   Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
@@ -89,13 +89,12 @@ SmallVector<Range> ReverseOp::getLoopBounds(OpBuilder &builder) {
   return ranges;
 }
 
-Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
-                                             ValueRange outputs,
-                                             ArrayRef<OpFoldResult> offsets,
-                                             ArrayRef<OpFoldResult> sizes) {
+SmallVector<Operation *> ReverseOp::getTiledImplementation(
+    OpBuilder &builder, ValueRange outputs, ArrayRef<OpFoldResult> offsets,
+    ArrayRef<OpFoldResult> sizes, bool tileDestOperands) {
   if (outputs.size() != 1) {
     this->emitOpError("expected single destination while tiling operation");
-    return nullptr;
+    return {};
   }
   int64_t rank = getOperandRank();
   SmallVector<OpFoldResult> strides(rank, builder.getI64IntegerAttr(1));
@@ -121,37 +120,72 @@ Operation *ReverseOp::getTiledImplementation(OpBuilder &builder,
   }
 
   SmallVector<Type, 4> resultTypes;
-  if (hasTensorSemantics()) {
+  if (tileDestOperands)
     tiledOperands.emplace_back(
         getSlice(builder, loc, outputs[0], mirrorOffsets, sizes, strides));
-    resultTypes.push_back(tiledOperands[1].getType());
-  } else {
-    tiledOperands.emplace_back(
-        getSlice(builder, loc, outputs[0], mirrorOffsets, sizes, strides));
-  }
+  else
+    tiledOperands.emplace_back(outputs[0]);
+
+  if (hasTensorSemantics())
+    resultTypes.push_back(tiledOperands.back().getType());
 
   Operation *tiledRevOp = cast<LinalgExtOp>(getOperation())
                               .clone(builder, loc, resultTypes, tiledOperands);
 
-  for (auto result : llvm::enumerate(tiledRevOp->getResults())) {
-    builder.create<tensor::InsertSliceOp>(loc, result.value(),
-                                          outputs[result.index()],
-                                          mirrorOffsets, sizes, strides);
+  if (tileDestOperands) {
+    for (auto result : llvm::enumerate(tiledRevOp->getResults())) {
+      builder.create<tensor::InsertSliceOp>(loc, result.value(),
+                                            outputs[result.index()],
+                                            mirrorOffsets, sizes, strides);
+    }
   }
-  return tiledRevOp;
+  return {tiledRevOp};
 }
 
 //===----------------------------------------------------------------------===//
 // TileOp
 //===----------------------------------------------------------------------===//
 
+void TileOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
+                   Value tileSize, ValueRange outs,
+                   TileOp::TileOpBodyBuilderFn bodyBuilder) {
+  result.addOperands(tileSize);
+  result.addOperands(outs);
+  result.addTypes(outs.getType());
+
+  Region *bodyRegion = result.addRegion();
+  bodyRegion->push_back(new Block);
+  Block &bodyBlock = bodyRegion->front();
+  bodyBlock.addArgument(builder.getIndexType());
+  bodyBlock.addArgument(builder.getIndexType());
+  // Handle the sliced out types in a conservative fashion: all dimensions
+  // become dynamic and a later canonicalization is expected to recover static
+  // types.
+  // TODO: should we relax this and use something less strict?
+  auto dynamicTypes =
+      llvm::to_vector(llvm::map_range(outs.getTypes(), [](Type t) -> Type {
+        auto rankedTensorType = t.cast<RankedTensorType>();
+        RankedTensorType::Builder rttb(rankedTensorType);
+        SmallVector<int64_t> dynamicShape(rankedTensorType.getRank(),
+                                          ShapedType::kDynamicSize);
+        return rttb.setShape(dynamicShape);
+      }));
+  bodyBlock.addArguments(dynamicTypes);
+
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPointToStart(&bodyBlock);
+  bodyBuilder(builder, result.location, bodyBlock.getArgument(0),
+              bodyBlock.getArgument(1), bodyBlock.getArguments().drop_front(2));
+}
+
+// TODO(#81): Impl me.
 static LogicalResult verify(TileOp op) { return success(); }
 
 static void print(OpAsmPrinter &p, TileOp op) {
   p << ' ' << op.tile_sizes() << ' ';
-  if (!op.outSlices().empty()) {
+  if (!op.outs().empty()) {
     p << "outs(";
-    llvm::interleaveComma(op.outSlices(), p,
+    llvm::interleaveComma(op.outs(), p,
                           [&p](Value v) { p << v << ": " << v.getType(); });
     p << ')';
   }

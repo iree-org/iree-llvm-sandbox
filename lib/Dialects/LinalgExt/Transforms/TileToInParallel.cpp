@@ -37,7 +37,7 @@ struct TileOpToInParallelRewriter
                                 PatternRewriter &rewriter) const override {
     // TODO: verifier.
     assert(tileOp.getNumResults() > 0 &&
-           tileOp.outSlices().size() == tileOp.getNumResults());
+           tileOp.outs().size() == tileOp.getNumResults());
 
     // TODO: when supported, iterate over the tensor of sizes. This will be
     // iterating through a level of indirection.
@@ -47,7 +47,7 @@ struct TileOpToInParallelRewriter
     Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     Value totalSize =
-        rewriter.create<tensor::DimOp>(loc, tileOp.outSlices().front(), zero);
+        rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(), zero);
     Value step = tileOp.tile_sizes();
     assert(step.getType().isa<IndexType>() && "NYI: not an index type");
 
@@ -81,7 +81,7 @@ struct TileOpToInParallelRewriter
     // clang-format on
 
     SmallVector<Value> implicitSubtensorExtracts;
-    for (Value tensor : tileOp.outSlices()) {
+    for (Value tensor : tileOp.outs()) {
       implicitSubtensorExtracts.push_back(
           rewriter.createOrFold<tensor::ExtractSliceOp>(loc, tensor, offset,
                                                         size, one));
@@ -103,7 +103,7 @@ struct TileOpToInParallelRewriter
     PerformConcurrentlyOp performConcurrentlyOp = inParallelOp.getTerminator();
 
     rewriter.setInsertionPointToStart(performConcurrentlyOp.getBody());
-    for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outSlices())) {
+    for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outs())) {
       rewriter.createOrFold<ParallelInsertSliceOp>(
           loc, std::get<0>(it), std::get<1>(it), offset, size, one);
     }

@@ -87,7 +87,7 @@ struct LinalgBufferizationDriverPass
 
   void runOnOperation() override;
 
- private:
+private:
   void getDependentDialects(DialectRegistry &registry) const override;
 };
 
@@ -110,7 +110,7 @@ struct LLVMLoweringPass : public LLVMLoweringBase<LLVMLoweringPass> {
   void runOnOperation() override;
 };
 
-}  // namespace
+} // namespace
 
 void LLVMLoweringPass::runOnOperation() {
   OpPassManager dynamicPM(ModuleOp::getOperationName());
@@ -155,7 +155,8 @@ void LLVMLoweringPass::runOnOperation() {
 /// In the future, it should be the zero of type + op.
 static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
   auto t = getElementTypeOrSelf(op.get().getType());
-  return b.create<arith::ConstantOp>(op.getOwner()->getLoc(), t, b.getZeroAttr(t));
+  return b.create<arith::ConstantOp>(op.getOwner()->getLoc(), t,
+                                     b.getZeroAttr(t));
 }
 
 /// Collect all Linalg ops, they must all have tensor semantics.
@@ -163,7 +164,8 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
 // TODO: finer control.
 void LinalgFusePass::runOnOperation() {
   FuncOp funcOp = getOperation();
-  if (anchorOpName.empty()) return;
+  if (anchorOpName.empty())
+    return;
 
   // Set up tiling and vectorization options.
   LinalgTilingAndFusionOptions tilingOptions;
@@ -199,12 +201,14 @@ void LinalgFusePass::runOnOperation() {
   OpPassManager dynamicPM(FuncOp::getOperationName());
   strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
 
-  if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
+  if (failed(runPipeline(dynamicPM, funcOp)))
+    return signalPassFailure();
 }
 
 void LinalgFuseOutputIntoReductionPass::runOnOperation() {
   FuncOp funcOp = getOperation();
-  if (funcOp.getName() != anchorFuncOpName) return;
+  if (funcOp.getName() != anchorFuncOpName)
+    return;
 
   LinalgTilingOptions tiling_options;
   tiling_options.setTileSizes(tileSizes);
@@ -225,7 +229,8 @@ void LinalgFuseOutputIntoReductionPass::runOnOperation() {
 
 void LinalgSingleTilingExpertPass::runOnOperation() {
   FuncOp funcOp = getOperation();
-  if (anchorOpName.empty()) return;
+  if (anchorOpName.empty())
+    return;
 
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;
@@ -264,8 +269,7 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
 
   CodegenStrategy strategy;
   StringRef genericOpName = GenericOp::getOperationName();
-  strategy
-      .tileIf(doTiling, anchorOpName, tilingOptions)
+  strategy.tileIf(doTiling, anchorOpName, tilingOptions)
       .padIf(pad, anchorOpName, paddingOptions)
       .decomposeIf(decomposeToLowerDimOp)
       .generalizeIf(generalize, anchorOpName)
@@ -276,7 +280,8 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
   // Created a nested OpPassManager and run.
   OpPassManager dynamicPM(FuncOp::getOperationName());
   strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-  if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
+  if (failed(runPipeline(dynamicPM, funcOp)))
+    return signalPassFailure();
 }
 
 void LinalgBufferizationDriverPass::runOnOperation() {
@@ -367,7 +372,8 @@ void LinalgVectorLoweringPass::runOnOperation() {
   OpPassManager dynamicPM(FuncOp::getOperationName());
   FuncOp funcOp = getOperation();
   strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-  if (failed(runPipeline(dynamicPM, funcOp))) return signalPassFailure();
+  if (failed(runPipeline(dynamicPM, funcOp)))
+    return signalPassFailure();
 }
 
 /// Return the dialect that must be loaded in the context before this pass.
@@ -421,8 +427,8 @@ mlir::createLinalgBufferizationDriverPass() {
   return std::make_unique<LinalgBufferizationDriverPass>();
 }
 
-std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgVectorLoweringPass(
-    int64_t vectorLoweringStage) {
+std::unique_ptr<OperationPass<FuncOp>>
+mlir::createLinalgVectorLoweringPass(int64_t vectorLoweringStage) {
   return std::make_unique<LinalgVectorLoweringPass>(vectorLoweringStage);
 }
 
