@@ -26,4 +26,11 @@ PRIVATE
   MLIRVectorExtTestPasses
   MLIRVectorExtTransform
 )
+if (SANDBOX_ENABLE_ALP)
+  target_link_libraries(mlir-proto-opt
+  PRIVATE
+  ExperimentalAlpTransforms
+  )
+endif()
+
 mlir_check_all_link_libraries(mlir-proto-opt)

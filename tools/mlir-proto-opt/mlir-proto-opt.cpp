@@ -54,17 +54,28 @@ static void registerIreeDialects(DialectRegistry &registry) {}
 #endif
 
 void registerTestPasses() { registerTestVectorMaskingUtils(); }
+#ifdef SANDBOX_ENABLE_ALP
+#include "alp/Transforms/Passes.h"
+#endif
+
+static void registerExperimentalPasses() {
+#ifdef SANDBOX_ENABLE_ALP
+  registerALPPasses();
+#endif
+}
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   ireeLlvmSandboxRegisterPasses();
+  registerExperimentalPasses();
   linalg_ext::registerLinalgExtPasses();
   registerTestPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
   registerIreeDialects(registry);
+
   registry.insert<linalg_ext::LinalgExtDialect, vector_ext::VectorExtDialect>();
   linalg_ext::registerTilingInterfaceExternalModels(registry);
 
