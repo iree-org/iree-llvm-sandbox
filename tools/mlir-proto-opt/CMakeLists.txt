@@ -23,8 +23,11 @@ PRIVATE
   MLIRLinalgExtTransforms
   MLIROptLib
   MLIRVectorExt
-  MLIRVectorExtTestPasses
   MLIRVectorExtTransform
+
+  # Tests.
+  MLIRTransformsExtTestPasses
+  MLIRVectorExtTestPasses
 )
 if (SANDBOX_ENABLE_ALP)
   target_link_libraries(mlir-proto-opt
