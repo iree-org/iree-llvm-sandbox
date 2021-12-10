@@ -5,6 +5,7 @@ add_mlir_library(MLIRVectorExtTestPasses
 
   LINK_LIBS PUBLIC
   MLIRPass
+  MLIRVector
   MLIRVectorExt
   MLIRVectorExtTransform
   )

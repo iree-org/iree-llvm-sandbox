@@ -35,11 +35,47 @@ struct TestVectorMaskingUtils
   }
 
   void runOnFunction() override {
-    getFunction().walk([](TiledLoopOp loopOp) {
-      OpBuilder builder(loopOp);
-      if (failed(predicateTiledLoop(builder, loopOp)))
-        loopOp.emitError("Predication of tiled loop failed");
-    });
+    // Try different testing approaches until one triggers the predication
+    // transformation for that particular function.
+    bool predicationSucceeded = false;
+
+    // Test tiled loop body predication.
+    if (!predicationSucceeded) {
+      getFunction().walk([&](TiledLoopOp loopOp) {
+        predicationSucceeded = true;
+        OpBuilder builder(loopOp);
+        if (failed(predicateTiledLoop(builder, loopOp)))
+          loopOp.emitError("Predication of tiled loop failed");
+      });
+    }
+
+    // Test function body predication.
+    if (!predicationSucceeded) {
+      FuncOp funcOp = getFunction();
+      predicationSucceeded = true;
+
+      // Return the mask from the last argument position in the function, if
+      // found. Otherwise, return a null value.
+      auto createPredicateForFuncOp = [&](OpBuilder &builder) -> Value {
+        Region *funcBody = &funcOp.body();
+        if (funcBody->args_empty())
+          return Value();
+
+        Value mask = funcBody->getArguments().back();
+        if (auto vecType = mask.getType().dyn_cast<VectorType>()) {
+          Type elemType = vecType.getElementType();
+          if (elemType.isInteger(1))
+            return mask;
+        }
+
+        return Value();
+      };
+
+      OpBuilder builder(funcOp);
+      if (!predicateOp(builder, funcOp, &funcOp.body(),
+                       createPredicateForFuncOp))
+        funcOp.emitError("Predication of function failed");
+    }
   }
 };
 

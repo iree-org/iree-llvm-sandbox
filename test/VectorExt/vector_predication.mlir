@@ -50,3 +50,27 @@ func @tiled_loop_1d(%arg0: tensor<?xf32>,
 // CHECK-NEXT:        }
 // CHECK-NEXT:        linalg.yield %[[PRED_RES:.*]] : tensor<?xf32>
 
+// -----
+
+func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
+                 %pred0: vector<16xi1>) {
+  %c0 = arith.constant 0 : index
+  %f0 = arith.constant 0.0 : f32
+  %0 = vector.transfer_read %arg0[%c0], %f0 : memref<?xf32>, vector<16xf32>
+  %add = arith.addf %0, %0 : vector<16xf32>
+  vector.transfer_write %add, %arg1[%c0] : vector<16xf32>, memref<?xf32>
+  return
+}
+
+// CHECK-LABEL:   func @func_pred0(
+// CHECK-SAME:                     %[[VAL_0:.*]]: memref<?xf32>, %[[VAL_1:.*]]: memref<?xf32>,
+// CHECK-SAME:                     %[[VAL_2:.*]]: vector<16xi1>) {
+// CHECK-NEXT:      vector_ext.predicate(%[[VAL_2]]: vector<16xi1>) {
+// CHECK-NEXT:        %[[VAL_3:.*]] = arith.constant 0 : index
+// CHECK-NEXT:        %[[VAL_4:.*]] = arith.constant 0.000000e+00 : f32
+// CHECK-NEXT:        %[[VAL_5:.*]] = vector.transfer_read %[[VAL_0]]{{\[}}%[[VAL_3]]], %[[VAL_4]] : memref<?xf32>, vector<16xf32>
+// CHECK-NEXT:        %[[VAL_6:.*]] = arith.addf %[[VAL_5]], %[[VAL_5]] : vector<16xf32>
+// CHECK-NEXT:        vector.transfer_write %[[VAL_6]], %[[VAL_1]]{{\[}}%[[VAL_3]]] : vector<16xf32>, memref<?xf32>
+// CHECK-NEXT:      }
+// CHECK-NEXT:      return
+// CHECK-NEXT:    }
