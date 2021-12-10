@@ -34,7 +34,7 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
                                 PatternRewriter &rewriter) const override {
     // TODO: verifier.
     assert(tileOp.getNumResults() > 0 &&
-           tileOp.outSlices().size() == tileOp.getNumResults());
+           tileOp.outs().size() == tileOp.getNumResults());
 
     // TODO: when supported, iterate over the tensor of sizes. This will be
     // iterating through a level of indirection.
@@ -44,7 +44,7 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     Value totalSize =
-        rewriter.create<tensor::DimOp>(loc, tileOp.outSlices().front(), zero);
+        rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(), zero);
     Value step = tileOp.tile_sizes();
     assert(step.getType().isa<IndexType>() && "NYI: not an index type");
 
@@ -52,8 +52,8 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     // body explicitly after having access to the new bbArgs.
     // As a consequence, `ensureTerminator` is not called and the body has no
     // terminator.
-    scf::ForOp forOp = rewriter.create<scf::ForOp>(loc, zero, totalSize, step,
-                                                   tileOp.outSlices());
+    scf::ForOp forOp =
+        rewriter.create<scf::ForOp>(loc, zero, totalSize, step, tileOp.outs());
 
     rewriter.setInsertionPointToStart(forOp.getBody());
 

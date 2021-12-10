@@ -23,7 +23,8 @@ all_experts = [
             fun_name,
             op_name,
             #           N  W   C  KW  F
-            tile_sizes=[1, 8, 32, 1, 8]) +\
+            tile_sizes=[1, 8, 32, 1, 8],
+            pad=True) +\
           Vectorize(fun_name, op_name) +\
           Bufferize() +\
           LowerVectors(transpose_lowering='shuffle') +\

@@ -35,7 +35,8 @@ class LinalgExt_Op<string mnemonic, list<OpTrait> traits = []> :
 def LinalgExt_ReverseOp : LinalgExt_Op<"reverse", [
     AttrSizedOperandSegments,
     DeclareOpInterfaceMethods<TilingInterface, [
-        "getLoopBounds",
+        "getLoopIteratorTypes",
+        "getIterationDomain",
         "getTiledImplementation"]>]> {
   let summary = "Reverse operator";
   let description = [{
@@ -150,11 +151,20 @@ def LinalgExt_TileOp : LinalgExt_PureOp<"tile",
   }];
   let arguments = (ins AnyTypeOf<[// TODO: allow TensorOf<[Index]>,
                                   Index]>:$tile_sizes,
-                       Variadic<AnyRankedTensor>:$outSlices);
+                       Variadic<AnyRankedTensor>:$outs);
   let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$region);
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$tileSizes, "ValueRange":$outs,
+      CArg<"function_ref<void(OpBuilder &, Location, Value, Value, ValueRange)>",
+           "nullptr">)>
+  ];
 
   let extraClassDeclaration = [{
+    using TileOpBodyBuilderFn =
+      function_ref<void(OpBuilder &, Location, Value /*offset*/, Value /*size*/,
+                        ValueRange /*outs*/)>;
     // TODO: helper for getting named region args without magic constants etc.
   }];
 

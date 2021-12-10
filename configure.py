@@ -23,6 +23,11 @@ def parse_arguments():
                       help="Build with ENABLE_LLD=ON (optional)",
                       dest="enable_lld",
                       default = False)
+  parser.add_argument("--enable-alp", 
+                      help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
+                      dest="enable_alp",
+                      action="store_false",
+                      default = False)
   parser.add_argument("--no-ccache",
                       help="Disables ccache (if available)",
                       dest="enable_ccache",
@@ -101,6 +106,10 @@ def main(args):
       llvm_configure_args.append("-DLLVM_ENABLE_LLD=ON")
     else:
       print("WARNING: LLD (ld.lld) not found on path. Configure may fail.")
+
+  # Optionally enable Alp
+  if args.enable_alp:
+    llvm_configure_args.append("-DSANBOX_ENABLE_ALP")
 
   # Detect ccache.
   if args.enable_ccache:

@@ -41,7 +41,7 @@ static Value insertSliceIntoTensor(OpBuilder &b, Location loc,
 SmallVector<Value> tileToSCF(PatternRewriter &rewriter, TilingInterface op,
                              TilingInterface clonedOp, ValueRange tileSizes) {
   // Compute lower and upper bounds of the loop nest.
-  SmallVector<Range> ranges = clonedOp.getLoopBounds(rewriter);
+  SmallVector<Range> ranges = clonedOp.getIterationDomain(rewriter);
   assert(tileSizes.size() == ranges.size() &&
          "expected tile sizes to match the number of loops");
   SmallVector<Value> lbs, dims, allDims, steps;
@@ -134,7 +134,8 @@ namespace {
 /// parallel loops of the operation. Specifically,
 /// 1) the `%0` in the third snippet needs to be `%arg1`, for cases where the
 ///    tiled loop is a reduction.
-/// 2) Current implementation is using the `getLoopBounds` method to get the
+/// 2) Current implementation is using the `getIterationDomain` method to get
+/// the
 ///    initial loop structure as described in the second snippet. If any of
 ///    those loops are reductions, then that IR snippet itself is wrong (replace
 ///    this with the case of `linalg.matmul` and the error becomes apparent).
@@ -193,9 +194,12 @@ struct SliceOpTiledOpSwapPattern
     auto sourceOp = sliceOp.source().getDefiningOp<TilingInterface>();
     if (!sourceOp || !filter.hasReplacementFilter(sourceOp))
       return failure();
-    Operation *tiledOp = sourceOp.getTiledImplementation(
+    SmallVector<Operation *> tiledOps = sourceOp.getTiledImplementation(
         rewriter, sourceOp.getDestinationOperands(rewriter),
-        sliceOp.getMixedOffsets(), sliceOp.getMixedSizes());
+        sliceOp.getMixedOffsets(), sliceOp.getMixedSizes(),
+        /*tileDestOperands=*/true);
+    assert(tiledOps.size() && "expected single tiled op");
+    Operation *tiledOp = tiledOps.front();
     rewriter.replaceOp(sliceOp, tiledOp->getResults());
     return success();
   }

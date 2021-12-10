@@ -27,5 +27,5 @@ compile_commands.json
 .clangd/
 
 # build dirs
-build*/
+*build*/
 ./runners/build*/

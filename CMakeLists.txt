@@ -32,6 +32,13 @@ set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
 set(MLIR_INCLUDE_DIR ${LLVM_MAIN_SRC_DIR}/../mlir/include)
 set(MLIR_TABLEGEN_OUTPUT_DIR ${CMAKE_BINARY_DIR}/tools/mlir/include)
 
+if (SANDBOX_ENABLE_ALP)
+  # ALP includes
+  add_compile_definitions("SANDBOX_ENABLE_ALP")
+  include_directories(experimental/alp/include)
+  include_directories(${CMAKE_BINARY_DIR}/tools/sandbox/experimental/alp/include)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${MLIR_MAIN_SRC_DIR}/cmake/modules)
 list(APPEND CMAKE_MODULE_PATH ${LLVM_MAIN_SRC_DIR}/cmake)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)
@@ -80,3 +87,8 @@ add_subdirectory(lib)
 add_subdirectory(python)
 add_subdirectory(test)
 add_subdirectory(tools)
+if (SANDBOX_ENABLE_ALP)
+# ALP cmake files
+add_subdirectory(experimental)
+endif()
+

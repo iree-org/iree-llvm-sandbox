@@ -11,16 +11,25 @@
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
+class DialectRegistry;
+
 namespace linalg_ext {
 
-/// Creates a pass to drive tiling of LinalgExt operations.
+/// Creates a pass to drive tiling of LinalgExt operations to scf::ForOp.
 std::unique_ptr<OperationPass<FuncOp>>
 createLinalgExtTilingPass(ArrayRef<int64_t> tileSizes = {});
+
+/// Creates a pass to drive tiling of LinalgExt operations to
+/// linalg_ext::TileOp.
+std::unique_ptr<OperationPass<FuncOp>>
+createLinalgExtTilingToTileOpPass(int64_t tileSize = 0);
 
 std::unique_ptr<OperationPass<FuncOp>> createInParallelToAsyncPass();
 std::unique_ptr<OperationPass<FuncOp>> createInParallelToSequentialForPass();
 std::unique_ptr<OperationPass<FuncOp>> createTileToSequentialForPass();
 std::unique_ptr<OperationPass<FuncOp>> createTileToInParallelPass();
+
+void registerTilingInterfaceExternalModels(DialectRegistry &registry);
 
 #define GEN_PASS_REGISTRATION
 #include "Dialects/LinalgExt/Passes.h.inc"

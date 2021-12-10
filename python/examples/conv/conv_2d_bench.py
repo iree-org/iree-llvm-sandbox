@@ -23,8 +23,9 @@ all_experts = [
             fun_name=fun_name,
             op_name=op_name,
             #           N  H  W  C  KH  KW  F
-            tile_sizes=[1, 1, 8, 32, 1, 1, 8]) + \
-          Vectorize(fun_name, op_name) + \
+            tile_sizes=[1, 1, 8, 32, 1, 1, 8],
+            pad=True) + \
+          Vectorize(fun_name, "") + \
           Bufferize() + \
           LowerVectors(transpose_lowering='shuffle') +\
           LowerToLLVM()
