@@ -30,8 +30,9 @@
 
 namespace mlir {
 namespace test_ext {
+void registerTestStagedPatternRewriteDriver();
 void registerTestVectorMaskingUtils();
-}
+} // namespace test_ext
 } // namespace mlir
 
 using namespace llvm;
@@ -53,7 +54,11 @@ static void registerIreeDialects(DialectRegistry &registry) {
 static void registerIreeDialects(DialectRegistry &registry) {}
 #endif
 
-void registerTestPasses() { registerTestVectorMaskingUtils(); }
+void registerTestPasses() {
+  registerTestStagedPatternRewriteDriver();
+  registerTestVectorMaskingUtils();
+}
+
 #ifdef SANDBOX_ENABLE_ALP
 #include "alp/Transforms/Passes.h"
 #endif
