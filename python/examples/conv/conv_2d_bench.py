@@ -76,5 +76,24 @@ def main():
       function_name=fun_name)
 
 
+def benchmark():
+  n_iters = 100
+  #   N   H   W   C  KH  KW   F     st      dil
+  problem_size_list = [\
+     [8, 15, 15, 32,  3,  3, 64, [1, 1], [1, 1]], \
+     [8, 15, 15, 32,  3,  3, 64, [2, 2], [2, 2]],  \
+  ]
+  test_harness(
+      lambda sizes, types: ConvolutionProblem(
+          'NHWC',
+          'HWCF',
+          strides=sizes['strides'],
+          dilations=sizes['dilations']), [[np.float32] * 3],
+      [make_size_list(keys, sizes) for sizes in problem_size_list],
+      all_experts,
+      n_iters=n_iters,
+      function_name=fun_name)
+
+
 if __name__ == '__main__':
   main()

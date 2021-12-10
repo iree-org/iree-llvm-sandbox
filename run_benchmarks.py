@@ -34,7 +34,7 @@ def _run_benchmark(bench_script: str):
   for line in out.splitlines():
     if "Runtime problem size" in line:
       sizes = [x.split(",")[0].split("}")[0] for x in line.split(":")[1:]]
-      problem_size = "x".join([x.strip() for x in sizes])
+      problem_size = "x".join([x.strip(" []") for x in sizes])
       print(f"  -> problem {problem_size}:\t")
       expert = 0
     if "expert" in line:
