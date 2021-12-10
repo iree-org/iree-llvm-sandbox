@@ -24,7 +24,16 @@ all_experts = [
             op_name=op_name,
             #           N  H  W  C  KH  KW  F
             tile_sizes=[1, 1, 8, 32, 1, 1, 8],
-            pad=True) + \
+            pad=True,
+            hoist_paddings=[7, 7, 0]) + \
+          # The two stage vectorization is needed since running canonicalize
+          # in between named op vectorization and pad tensor op vectorization
+          # produces significantly better code.
+          # The two stage vectorization is needed since only running
+          # canonicalize in between enables an efficient vectorization of
+          # the pad tensor operations.
+          # TODO: Remove once vectorization in one step works.
+          Vectorize(fun_name, "", vectorize_paddings=False) + \
           Vectorize(fun_name, "") + \
           Bufferize() + \
           LowerVectors(transpose_lowering='shuffle') +\
