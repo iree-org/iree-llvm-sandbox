@@ -229,8 +229,6 @@ void LinalgFuseOutputIntoReductionPass::runOnOperation() {
 
 void LinalgSingleTilingExpertPass::runOnOperation() {
   FuncOp funcOp = getOperation();
-  if (anchorOpName.empty())
-    return;
 
   // Set up tiling and vectorization options.
   LinalgTilingOptions tilingOptions;
