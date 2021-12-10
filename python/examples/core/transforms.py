@@ -179,17 +179,26 @@ class Tile(Transform):
 
 
 class Vectorize(Transform):
+  """Vectorize named operations.
+
+  This transform can be configured as follows:
+  * `vectorize_paddings`: Vectorize pad tensor operations.
+  """
 
   variables = {
-    'vectorize': (BoolVariable, True),
+    'vectorize_paddings': (BoolVariable, True),
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+    vectorize_paddings_str = ''
+    if self.vectorize_paddings:
+      vectorize_paddings_str = 'vectorize-padding'
     pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     vectorize '
-                f'     vectorize-padding}},'
+                f'     {vectorize_paddings_str}}},'
                 f'canonicalize,'
                 f'cse')
     self._parse_variables_in_kwargs(kwargs)
