@@ -179,7 +179,8 @@ class TransformationList:
     transforms = [Print()] if at_begin else []
     for t in self.transforms:
       transforms.append(t)
-      if after_all or (llvm and 'LowerToLLVM' in str(t)):
+      if (after_all and 'LowerToLLVM' not in str(t)) or \
+         (llvm and 'LowerToLLVM' in str(t)):
         transforms.append(Print(name=str(t)))
     return TransformationList(transforms=transforms)
 

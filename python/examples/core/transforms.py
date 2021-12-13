@@ -132,7 +132,7 @@ class Tile(Transform):
      must also be specified.
   * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
      pad` must also be specified.
-  * `scalarize_dyn_dims`: Scalarize all dimensions that having statically
+  * `scalarize_dyn_dims`: Scalarize all dimensions that have statically
     unknown size. Either `tile_sizes` or `scalarize_dyn_dims` must be specified.
     Cannot use both at the same time. Cannot be used together with `pad` or
     `peel`.
@@ -177,6 +177,56 @@ class Tile(Transform):
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
 
+class LinalgExtTile(Transform):
+  """Tile a linalg op with using the linalg_ext.tile op and a single
+  entry tile_sizes.
+
+  This transform can be configured as follows:
+  * `tile_sizes`: The 1-D tile size used for tiling.
+  """
+
+  variables = {
+    'tile_sizes': (TilingSizesVariable, []),
+  }
+
+  def __init__(
+      self,
+      fun_name: str,
+      op_name: str,
+      **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+    assert len(self.tile_sizes) == 1, "expected single tile size, got: " + \
+      str(self.tile_sizes)
+
+    pipeline = (f'linalg-ext-tiling-to-tile-op{{'
+                #f'     anchor-func={fun_name} '
+                #f'     anchor-op={op_name} '
+                f'     tile-size={self.tile_sizes[0]}}}'
+                #f'canonicalize,'
+                #f'cse'
+                )
+    self.pipeline = (f'builtin.func({pipeline})')
+
+class LinalgExtTileToSequentialFor(Transform):
+  """Rewrite linalg_ext.tile op to scf.for.
+  """
+
+  variables = {}
+
+  def __init__(
+      self,
+      fun_name: str,
+      op_name: str,
+      **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-tile-to-sequential-for{{'
+                #f'     anchor-func={fun_name} '
+                #f'     anchor-op={op_name} '
+                f'}},'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
 
 class Vectorize(Transform):
   """Vectorize named operations.
