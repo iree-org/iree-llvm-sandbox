@@ -87,17 +87,20 @@ struct InParallelOpToSCFRewriter
     // Need to manually clone + bvm all uses that are now nested under forOp.
     // Warning: this replacement is currently optimistic and may change the
     // semantics as explained in the pass description in Passes.td.
-    SmallVector<Operation *> opsToReplace, cloned;
+    SmallVector<Operation *> opsToReplace;
     for (Value toReplace : valuesToYield) {
       for (OpOperand &u : toReplace.getUses()) {
         Operation *op = u.getOwner();
         if (!forOp->isProperAncestor(op))
           continue;
-        OpBuilder::InsertionGuard g(rewriter);
-        rewriter.setInsertionPoint(op);
-        Operation *cloned = rewriter.clone(*op, bvm);
-        rewriter.replaceOp(op, cloned->getResults());
+        opsToReplace.push_back(op);
       }
+    }
+    for (Operation *op : opsToReplace) {
+      OpBuilder::InsertionGuard g(rewriter);
+      rewriter.setInsertionPoint(op);
+      Operation *cloned = rewriter.clone(*op, bvm);
+      rewriter.replaceOp(op, cloned->getResults());
     }
 
     // Insert terminator.
