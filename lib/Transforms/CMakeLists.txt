@@ -14,7 +14,7 @@ add_mlir_library(IREELinalgTensorSandboxTransforms
   MLIRLinalgTransforms
 
   DEPENDS
-  RunnersPassIncGen
+  DriverPassIncGen
   MLIRLinalg  # TODO: Why needed here?
   MLIRLinalgTransforms  # TODO: Why needed here?
   MLIRLinalgExtInterfacesIncGen
