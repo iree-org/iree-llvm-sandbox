@@ -27,7 +27,7 @@ MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(LinalgExt, linalg_ext,
                                       mlir::linalg_ext::LinalgExtDialect)
 
 void ireeLlvmSandboxRegisterPasses() {
-  registerRunnersPasses();
+  registerDriverPasses();
   linalg_ext::registerLinalgExtPasses();
 }
 
