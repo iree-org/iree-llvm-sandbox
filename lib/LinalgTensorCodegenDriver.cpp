@@ -86,9 +86,6 @@ struct LinalgBufferizationDriverPass
   LinalgBufferizationDriverPass(const LinalgBufferizationDriverPass &pass) {}
 
   void runOnOperation() override;
-
-private:
-  void getDependentDialects(DialectRegistry &registry) const override;
 };
 
 struct LinalgVectorLoweringPass
@@ -372,38 +369,6 @@ void LinalgVectorLoweringPass::runOnOperation() {
   strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
   if (failed(runPipeline(dynamicPM, funcOp)))
     return signalPassFailure();
-}
-
-/// Return the dialect that must be loaded in the context before this pass.
-void LinalgBufferizationDriverPass::getDependentDialects(
-    DialectRegistry &registry) const {
-  registry.insert<arith::ArithmeticDialect>();
-  registry.insert<AffineDialect>();
-  registry.insert<bufferization::BufferizationDialect>();
-  registry.insert<linalg::LinalgDialect>();
-  registry.insert<memref::MemRefDialect>();
-  registry.insert<bufferization::BufferizationDialect>();
-  registry.insert<scf::SCFDialect>();
-  registry.insert<StandardOpsDialect>();
-  registry.insert<tensor::TensorDialect>();
-  registry.insert<vector::VectorDialect>();
-
-  linalg::comprehensive_bufferize::affine_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::arith_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::bufferization_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::linalg_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::scf_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::std_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::tensor_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::vector_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
 }
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgFusePass() {

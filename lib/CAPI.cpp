@@ -10,9 +10,8 @@
 
 #include "CAPI.h"
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
-#include "Dialects/LinalgExt/Passes.h"
+#include "Registration.h"
 
-#include "Transforms/Passes.h"
 #include "mlir-c/Dialect/Linalg.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
@@ -26,19 +25,14 @@ using namespace mlir;
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(LinalgExt, linalg_ext,
                                       mlir::linalg_ext::LinalgExtDialect)
 
-void ireeLlvmSandboxRegisterPasses() {
-  registerDriverPasses();
-  linalg_ext::registerLinalgExtPasses();
-}
-
 void ireeLlvmSandboxRegisterAll(MlirContext context) {
   MlirDialectHandle linalgExtDialect = mlirGetDialectHandle__linalg_ext__();
   mlirDialectHandleRegisterDialect(linalgExtDialect, context);
 
-  ireeLlvmSandboxRegisterPasses();
+  registerOutsideOfDialectRegistry();
 
   DialectRegistry registry;
   unwrap(context)->getDialectRegistry().appendTo(registry);
-  linalg_ext::registerTilingInterfaceExternalModels(registry);
+  registerIntoDialectRegistry(registry);
   unwrap(context)->appendDialectRegistry(registry);
 }
