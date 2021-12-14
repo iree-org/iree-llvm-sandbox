@@ -25,13 +25,13 @@ expert_linalg_ext_tile = TestExpert([
     LinalgExtTile('matmul_on_tensors',
                   'linalg.generic',
                   tile_sizes=[2]),
-    LinalgExtTileToSequentialFor('matmul_on_tensors',
+    LinalgExtTileToInParallel('matmul_on_tensors',
                                  'linalg.generic'),
     Vectorize('matmul_on_tensors', 'linalg.generic'),
 ])
 
 all_experts = [
-    e.print_ir(after_all=True, llvm=True) for e in [
+    e.print_ir(after_all=False, llvm=False) for e in [
         expert_linalg_ext_tile
     ]
 ]

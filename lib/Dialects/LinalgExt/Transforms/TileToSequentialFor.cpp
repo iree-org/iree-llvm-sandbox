@@ -78,17 +78,9 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     // clang-format on
     SmallVector<Value> implicitSubtensorExtracts;
     for (Value tensor : forOp.getRegionIterArgs()) {
-      auto rankedTensorType = tensor.getType().cast<RankedTensorType>();
-      SmallVector<Value> offsets(rankedTensorType.getRank(), zero);
-      offsets.front() = offset;
-      SmallVector<Value> sizes;
-      sizes.push_back(size);
-      for (int64_t i = 1, e = rankedTensorType.getRank(); i < e; ++i)
-        sizes.push_back(rewriter.create<tensor::DimOp>(loc, tensor, i));
-      SmallVector<Value> strides(rankedTensorType.getRank(), one);
       implicitSubtensorExtracts.push_back(
-          rewriter.createOrFold<tensor::ExtractSliceOp>(loc, tensor, offsets,
-                                                        sizes, strides));
+          createSubsetExtractOpFromLeadingOffsetsSizesAndStrides(
+              rewriter, loc, tensor, offset, size, one));
     }
 
     // Regroup the values that replace the tileOp's bbArg and move the body.

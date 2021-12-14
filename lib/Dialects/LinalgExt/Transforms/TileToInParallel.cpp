@@ -6,11 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <mlir/IR/Builders.h>
 #include <mlir/IR/BuiltinOps.h>
 
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
+#include "Dialects/LinalgExt/Transforms/Utils.h"
 #include "Transforms/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -23,6 +25,7 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
 using namespace mlir::linalg_ext;
@@ -83,8 +86,8 @@ struct TileOpToInParallelRewriter
     SmallVector<Value> implicitSubtensorExtracts;
     for (Value tensor : tileOp.outs()) {
       implicitSubtensorExtracts.push_back(
-          rewriter.createOrFold<tensor::ExtractSliceOp>(loc, tensor, offset,
-                                                        size, one));
+          createSubsetExtractOpFromLeadingOffsetsSizesAndStrides(
+              rewriter, loc, tensor, offset, size, one));
     }
 
     // Get a reference to the TileOp terminator before the body is merged and it
@@ -102,13 +105,19 @@ struct TileOpToInParallelRewriter
     // ops and feed them to a new scf.yield terminator that we can now add.
     PerformConcurrentlyOp performConcurrentlyOp = inParallelOp.getTerminator();
 
-    rewriter.setInsertionPointToStart(performConcurrentlyOp.getBody());
     for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outs())) {
-      rewriter.createOrFold<ParallelInsertSliceOp>(
-          loc, std::get<0>(it), std::get<1>(it), offset, size, one);
+      SmallVector<Value> offsets, sizes, strides;
+      completeOffsetsSizesAndStrides(rewriter, loc, std::get<0>(it), offset,
+                                     size, one, offsets, sizes, strides);
+      OpBuilder::InsertionGuard g(rewriter);
+      rewriter.setInsertionPoint(
+          performConcurrentlyOp.getBody()->getTerminator());
+      createParallelInsertSliceOpFromLeadingOffsetsSizesAndStrides(
+          rewriter, loc, std::get<0>(it), std::get<1>(it), offsets, sizes,
+          strides);
     }
 
-    // // Cleanup and replace.
+    // Cleanup and replace.
     rewriter.eraseOp(tileYieldOp);
     rewriter.replaceOp(tileOp, inParallelOp.getResults());
 
