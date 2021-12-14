@@ -220,10 +220,26 @@ class LinalgExtTileToSequentialFor(Transform):
       **kwargs):
     self._parse_variables_in_kwargs(kwargs)
 
-    pipeline = (f'linalg-tile-to-sequential-for{{'
-                #f'     anchor-func={fun_name} '
-                #f'     anchor-op={op_name} '
-                f'}},'
+    pipeline = (f'linalg-tile-to-sequential-for,'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+class LinalgExtTileToInParallel(Transform):
+  """Rewrite linalg_ext.tile op to linalg_ext.in_parallel.
+  """
+
+  variables = {}
+
+  def __init__(
+      self,
+      fun_name: str,
+      op_name: str,
+      **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-tile-to-in-parallel,'
+                f'linalg-in-parallel-to-sequential-for,'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
