@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Dialects/LinalgExt/LinalgExtBufferization.h"
+#include "Dialects/LinalgExt/LinalgExtDialect.h"
 #include "Transforms/PassDetail.h"
 #include "Transforms/Passes.h"
 #include "Transforms/Transforms.h"
