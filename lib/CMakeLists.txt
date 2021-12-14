@@ -6,6 +6,7 @@ add_subdirectory(Transforms)
 
 set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
   MLIRLinalgExt
+  MLIRLinalgExtOpInterfaceImpl
   MLIRLinalgExtTransforms
   MLIRLinalgTransformOps
   MLIRLinalgTransformTransforms
@@ -29,6 +30,7 @@ add_mlir_library(IREELinalgTensorSandboxDriver
   MLIRAsync
   MLIRGPUOps
   MLIRLinalg
+  MLIRLinalgExtOpInterfaceImpl
   MLIRLinalgTransforms
   MLIRAffineToStandard
   MLIRMemRefTransforms

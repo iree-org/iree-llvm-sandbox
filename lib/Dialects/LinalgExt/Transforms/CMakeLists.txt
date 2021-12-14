@@ -29,3 +29,12 @@ add_mlir_library(MLIRLinalgExtTransforms
   MLIRSCF
   MLIRTransforms
 )
+
+add_mlir_library(MLIRLinalgExtOpInterfaceImpl
+  LinalgExtBufferization.cpp
+
+  PARTIAL_SOURCES_INTENDED
+  LINK_LIBS PUBLIC
+  MLIRBufferizableOpInterface
+  MLIRLinalgExt
+)

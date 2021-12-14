@@ -5,6 +5,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Registration.h"
+#include "Dialects/LinalgExt/LinalgExtBufferization.h"
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
@@ -113,4 +114,5 @@ void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::vector_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::linalg_ext::registerBufferizableOpInterfaceExternalModels(registry);
 }
