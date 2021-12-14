@@ -23,6 +23,10 @@ def parse_arguments():
                       help="Build with ENABLE_LLD=ON (optional)",
                       dest="enable_lld",
                       default = False)
+  parser.add_argument("--asan", 
+                      help="Build with LLVM_USE_SANITIZER=Address (optional)",
+                      dest="enable_asan",
+                      default = False)
   parser.add_argument("--enable-alp", 
                       help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
                       dest="enable_alp",
@@ -128,6 +132,8 @@ def main(args):
   build_dir = os.path.abspath(args.build_dir)
   build_mode = args.build_mode
   os.makedirs(build_dir, exist_ok=True)
+  if args.enable_asan:
+    llvm_configure_args.append("-DLLVM_USE_SANITIZER=Address")
   cmake_args = [
       "cmake",
       "-GNinja",
