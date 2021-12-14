@@ -24,7 +24,8 @@ all_experts = [
             op_name,
             #           N  W   C  KW  F
             tile_sizes=[1, 8, 32, 1, 8],
-            pad=True) +\
+            pad=True,
+            hoist_paddings=[4, 0, 0]) +\
           Vectorize(fun_name, op_name) +\
           Bufferize() +\
           LowerVectors(transpose_lowering='shuffle') +\
