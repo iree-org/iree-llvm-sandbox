@@ -16,6 +16,7 @@
 
 include "mlir/IR/OpBase.td"
 include "mlir/IR/OpAsmInterface.td"
+include "mlir/Dialect/PDL/IR/PDLTypes.td"
 
 def Linalg_Transform_Dialect : Dialect {
   let name = "linalg_transform";
@@ -30,6 +31,8 @@ class Linalg_Transform_Operation<string name, list<OpTrait> props = []>
   let cppNamespace = "::mlir::linalg::transform";
 }
 
+//===----------------------------------------------------------------------===//
+
 def SequenceOp : Linalg_Transform_Operation<"sequence",
                                             [NoTerminator, OpAsmOpInterface]> {
   let description = [{Contains a sequence of transformation ops to apply.}];
@@ -42,12 +45,32 @@ def SequenceOp : Linalg_Transform_Operation<"sequence",
   }];
 }
 
+def ApplyOp : Linalg_Transform_Operation<"apply", [NoTerminator]> {
+  let description = [{A container operation that connects a sequence of
+  transformations to apply to the condition at which the operation should
+  be applied. The condition should be a PDLMatchOp producing the root
+  operation, which is forwarded as the unique basic block argument to the
+  `transforms` region of the operation.}];
+
+  let regions = (region SizedRegion<1>:$transforms, SizedRegion<1>:$condition);
+  let assemblyFormat = "$transforms `when` $condition attr-dict-with-keyword";
+}
+
+def PDLMatchOp : Linalg_Transform_Operation<"pdl_match"> {
+  let description = [{Specifies the name of the PDL pattern used to match the
+  root operation on which the transformations are applied.}];
+
+  let arguments = (ins SymbolRefAttr:$pattern);
+  let assemblyFormat = "$pattern attr-dict";
+}
+
+//===----------------------------------------------------------------------===//
+
 def TileOp : Linalg_Transform_Operation<"tile"> {
   let description = [{Indicates that ops of a specific kind in the given
   function should be tiled with the options provided as attributes.}];
 
-  let arguments = (ins SymbolRefAttr:$fun_name,
-                   StrAttr:$op_name,
+  let arguments = (ins PDL_Operation:$op,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
                    DefaultValuedAttr<BoolAttr, "false">:$pad,
@@ -56,8 +79,9 @@ def TileOp : Linalg_Transform_Operation<"tile"> {
                    DefaultValuedAttr<BoolAttr, "false">:$scalarize_dyn_dims,
                    DefaultValuedAttr<BoolAttr, "false">:$generalize
                   );
+  let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "$op_name `in` $fun_name attr-dict";
+  let assemblyFormat = "$op attr-dict";
 }
 
 def BufferizeOp : Linalg_Transform_Operation<"bufferize"> {
@@ -75,12 +99,12 @@ def VectorizeOp : Linalg_Transform_Operation<"vectorize"> {
   let description = [{Indiactes that ops of a specific kind in the given
   function should be vectorized with the options provided as attributes.}];
 
-  let arguments = (ins SymbolRefAttr:$fun_name,
-                   StrAttr:$op_name,
+  let arguments = (ins PDL_Operation:$op,
                    DefaultValuedAttr<BoolAttr, "false">:$vectorize_padding
                   );
+  let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "$op_name `in` $fun_name attr-dict";
+  let assemblyFormat = "$op attr-dict";
 }
 
 def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {

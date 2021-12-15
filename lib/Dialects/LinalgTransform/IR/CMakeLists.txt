@@ -6,4 +6,5 @@ add_mlir_library(MLIRLinalgTransformOps
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRPDL
 )

@@ -8,6 +8,7 @@ set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
   MLIRLinalgExt
   MLIRLinalgExtTransforms
   MLIRLinalgTransformOps
+  MLIRLinalgTransformTransforms
   MLIRVectorExt
   MLIRVectorExtTransform
   IREELinalgTensorSandboxTransforms
