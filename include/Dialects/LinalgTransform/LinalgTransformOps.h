@@ -9,7 +9,7 @@
 #ifndef MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 #define MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/IR/OpDefinition.h"
 
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.h.inc"

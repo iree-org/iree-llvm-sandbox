@@ -9,7 +9,7 @@
 #include "Dialects/VectorExt/VectorMaskingUtils.h"
 #include "Dialects/VectorExt/VectorExtOps.h"
 #include "VisitorUtils.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/Support/LogicalResult.h"

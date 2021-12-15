@@ -12,7 +12,7 @@
 
 #include "Dialects/VectorExt/VectorExtOps.h"
 #include "Dialects/VectorExt/VectorMaskingUtils.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/Visitors.h"
 #include "mlir/Pass/Pass.h"

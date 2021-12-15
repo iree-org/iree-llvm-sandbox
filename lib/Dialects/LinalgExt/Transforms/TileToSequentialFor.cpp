@@ -13,7 +13,7 @@
 #include "Transforms/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/AffineExpr.h"
@@ -73,7 +73,7 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     Value offset = forOp.getInductionVar();
     // clang-format off
     Value size = ab.min(
-      ValueRange{ab.sub(AV(i).bind(totalSize), AV(j).bind(offset)), 
+      ValueRange{ab.sub(AV(i).bind(totalSize), AV(j).bind(offset)),
       step});
     // clang-format on
     SmallVector<Value> implicitSubtensorExtracts;

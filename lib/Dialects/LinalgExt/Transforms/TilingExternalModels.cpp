@@ -9,7 +9,7 @@
 #include "Dialects/LinalgExt/Passes.h"
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Interfaces/TilingInterface.h"
 #include "llvm/ADT/STLExtras.h"
