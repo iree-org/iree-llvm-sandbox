@@ -39,7 +39,8 @@ jobs:
       with:
         path: llvm-project
         repository: llvm/llvm-project
-        ref: ${{ steps.get_llvm_commit_hash.outputs.LLVM_COMMIT }}
+        ref: ${{ env.LLVM_COMMIT }}
+        
 
     - name: Install Python depends
       run: |
