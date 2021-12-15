@@ -9,7 +9,7 @@
 #include "Transforms/PassDetail.h"
 #include "Transforms/Passes.h"
 #include "Transforms/Transforms.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 
