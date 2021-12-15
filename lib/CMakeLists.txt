@@ -7,6 +7,7 @@ add_subdirectory(Transforms)
 set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
   MLIRLinalgExt
   MLIRLinalgExtTransforms
+  MLIRLinalgTransformOps
   MLIRVectorExt
   MLIRVectorExtTransform
   IREELinalgTensorSandboxTransforms
@@ -64,6 +65,7 @@ add_mlir_library(IREELinalgTensorSandboxRegistration
   DEPENDS
   ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
   MLIRLinalgOpsIncGen
+  MLIRLinalgTransformOpsIncGen
 )
 
 add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI

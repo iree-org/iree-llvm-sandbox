@@ -6,6 +6,7 @@
 
 #include "Registration.h"
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
+#include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "Transforms/Passes.h"
@@ -88,7 +89,9 @@ void mlir::registerOutsideOfDialectRegistry() {
 void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
   registerAllDialects(registry);
   registerIreeDialects(registry);
-  registry.insert<linalg_ext::LinalgExtDialect, vector_ext::VectorExtDialect>();
+  registry.insert<linalg_ext::LinalgExtDialect,
+                  linalg::transform::LinalgTransformDialect,
+                  vector_ext::VectorExtDialect>();
 
   linalg_ext::registerTilingInterfaceExternalModels(registry);
 
