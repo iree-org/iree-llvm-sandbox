@@ -6,6 +6,7 @@ add_mlir_library(MLIRLinalgExtTransforms
   TileToInParallel.cpp
   Tiling.cpp
   TilingToTileOp.cpp
+  Utils.cpp
 
   DEPENDS
   MLIRLinalgExt

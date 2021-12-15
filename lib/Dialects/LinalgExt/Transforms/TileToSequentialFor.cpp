@@ -9,6 +9,7 @@
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
+#include "Dialects/LinalgExt/Transforms/Utils.h"
 #include "Transforms/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -16,7 +17,9 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/AffineExpr.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Identifier.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -65,10 +68,9 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     bindSymbols(rewriter.getContext(), M);
 
     // Materialize the implicit subtensors as explicit subset_extract.
-    // TODO: geenralize to multiple offset/chunk_size bbargs if needed.
+    // TODO: generalize to multiple offset/chunk_size bbargs if needed.
     // TODO: generalize the subset op.
-    Value offset =
-        ab.mul(AV(i).bind(forOp.getInductionVar()), AV(M).bind(step));
+    Value offset = forOp.getInductionVar();
     // clang-format off
     Value size = ab.min(
       ValueRange{ab.sub(AV(i).bind(totalSize), AV(j).bind(offset)), 
@@ -77,8 +79,8 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     SmallVector<Value> implicitSubtensorExtracts;
     for (Value tensor : forOp.getRegionIterArgs()) {
       implicitSubtensorExtracts.push_back(
-          rewriter.createOrFold<tensor::ExtractSliceOp>(loc, tensor, offset,
-                                                        size, one));
+          createSubsetExtractOpFromLeadingOffsetsSizesAndStrides(
+              rewriter, loc, tensor, offset, size, one));
     }
 
     // Regroup the values that replace the tileOp's bbArg and move the body.
@@ -91,12 +93,13 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     auto tileYieldOp = cast<TileYieldOp>(&forOp.getBody()->back());
     SmallVector<Value> implicitSubtensorInserts;
     for (auto it :
-         llvm::zip(tileYieldOp.getOperands(), forOp.getRegionIterArgs())) {
-      // TODO: helper/interface to create matching insert/extract given
-      // extract/insert.
-      implicitSubtensorInserts.push_back(
-          rewriter.createOrFold<tensor::InsertSliceOp>(
-              loc, std::get<0>(it), std::get<1>(it), offset, size, one));
+         llvm::zip(implicitSubtensorExtracts, tileYieldOp.getOperands(),
+                   forOp.getRegionIterArgs())) {
+      implicitSubtensorInserts.push_back(createMatchingSubsetInsertOp(
+          rewriter, loc,
+          /*subsetExtractOp=*/
+          std::get<0>(it).getDefiningOp<tensor::ExtractSliceOp>(),
+          /*source=*/std::get<1>(it), /*dest=*/std::get<2>(it)));
     }
     // Insert terminator.
     rewriter.setInsertionPointToEnd(forOp.getBody());

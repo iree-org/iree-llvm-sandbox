@@ -15,6 +15,7 @@
 #include <pybind11/pybind11.h>
 
 #include "CAPI.h"
+#include "mlir/Bindings/Python/PybindAdaptors.h"
 
 namespace py = pybind11;
 
@@ -24,5 +25,9 @@ namespace py = pybind11;
 
 PYBIND11_MODULE(_ireeSandbox, m) {
   m.doc() = "IREE LLVM Sandbox Module";
-  ireeLlvmSandboxRegisterPasses();
+
+  m.def(
+      "register_sandbox_passes_and_dialects",
+      [](MlirContext context) { ireeLlvmSandboxRegisterAll(context); },
+      py::arg("context"));
 }

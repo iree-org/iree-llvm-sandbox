@@ -15,6 +15,7 @@
 #ifndef IREE_LLVM_SANDBOX_LIB_CAPI_H
 #define IREE_LLVM_SANDBOX_LIB_CAPI_H
 
+#include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
 
 #ifdef __cplusplus
@@ -22,6 +23,9 @@ extern "C" {
 #endif
 
 MLIR_CAPI_EXPORTED void ireeLlvmSandboxRegisterPasses();
+// Calls `ireeLlvmSandboxRegisterPasses` and wants to be the single entry point
+// from python.
+MLIR_CAPI_EXPORTED void ireeLlvmSandboxRegisterAll(MlirContext);
 
 #ifdef __cplusplus
 }

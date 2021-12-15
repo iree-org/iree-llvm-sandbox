@@ -23,6 +23,10 @@ def parse_arguments():
                       help="Build with ENABLE_LLD=ON (optional)",
                       dest="enable_lld",
                       default = False)
+  parser.add_argument("--asan", 
+                      help="Build with LLVM_USE_SANITIZER=Address (optional)",
+                      dest="enable_asan",
+                      default = False)
   parser.add_argument("--enable-alp", 
                       help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
                       dest="enable_alp",
@@ -37,6 +41,10 @@ def parse_arguments():
                       help="Build directory",
                       type=str,
                       default="build")
+  parser.add_argument("--build-mode",
+                      help="Build mode (Release, Debug or RelWithDebInfo)",
+                      type=str,
+                      default="Release")
   return parser.parse_args()
 
 
@@ -122,7 +130,10 @@ def main(args):
 
   # CMake configure.
   build_dir = os.path.abspath(args.build_dir)
+  build_mode = args.build_mode
   os.makedirs(build_dir, exist_ok=True)
+  if args.enable_asan:
+    llvm_configure_args.append("-DLLVM_USE_SANITIZER=Address")
   cmake_args = [
       "cmake",
       "-GNinja",
@@ -138,7 +149,7 @@ def main(args):
       "-DLLVM_BUILD_EXAMPLES=ON",
       "-DMLIR_ENABLE_BINDINGS_PYTHON=ON",
       f"-DPython3_EXECUTABLE={sys.executable}",
-      "-DCMAKE_BUILD_TYPE=Release",
+      f"-DCMAKE_BUILD_TYPE={build_mode}",
       f"-DLLVM_EXTERNAL_PROJECTS={';'.join(llvm_projects)}",
   ] + llvm_configure_args
   print(f"-- Running cmake:\n  {' '.join(cmake_args)}")
