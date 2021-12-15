@@ -97,16 +97,17 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
 
     Canonicalize = " --canonicalize --cse"
     CodegenDriver = "--linalg-tensor-codegen-driver=\"anchor-func=gemm anchor-op=linalg.generic" 
+    Tile = "--linalg-single-tiling-expert-driver=\"anchor-func=gemm anchor-op=linalg.generic" 
 
     # Transformations
-    OuterTiling = CodegenDriver + f" tile-sizes={tile_sizes} tile-interchange={reorder_tile_sizes}\"" + Canonicalize
+    OuterTiling = Tile + f" tile-sizes={tile_sizes} tile-interchange={reorder_tile_sizes}\"" + Canonicalize
 
-    InnerTiling = CodegenDriver + f" tile-sizes={register_tile_sizes} tile-interchange={reorder_register_tile_sizes}" + \
+    InnerTiling = Tile + f" tile-sizes={register_tile_sizes} tile-interchange={reorder_register_tile_sizes}" + \
                                   f" pad pack-paddings=1,1,0 hoist-paddings={hoist_packing} \"" + Canonicalize
 
-    DecomposeToLowerDimensionalNamedOp = CodegenDriver + " decompose-to-lower-dim\"" + Canonicalize
+    DecomposeToLowerDimensionalNamedOp = Tile + " decompose-to-lower-dim\"" + Canonicalize
 
-    Vectorize = CodegenDriver + " vectorize vectorize-padding\"" + Canonicalize
+    Vectorize = Tile + " vectorize vectorize-padding\"" + Canonicalize
 
     Bufferize = "--linalg-bufferization-driver" + Canonicalize
 
@@ -120,7 +121,9 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
     LowerVectorStage = lambda stage : LowerVector+f" lower-vector-stage={stage}\"" + Canonicalize
 
     ExtractKernel = "--alp-extract-kernel" + Canonicalize if extract_micro_kernel else ""
-    ModuloScheduling = "--alp-modulo-scheduling"  if modulo_scheduling else "" # TODO: Order is not preserved if I canonicalize
+    ModuloScheduling = "--alp-modulo-scheduling=\"interleave unrolling=16\"" + Canonicalize  if modulo_scheduling else "" # TODO: Order is not preserved if I canonicalize
+    Legalize = "--alp-legalize" + Canonicalize 
+    ExtractKernelTail = "--alp-extract-kernel-tail" + Canonicalize
 
     LowerToLLVM = "--convert-vector-to-scf " +\
                   "--convert-linalg-to-loops " +\
@@ -144,18 +147,21 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
                      Vectorize,
                      SaveIR(4, "vectorize"),
                      Bufferize,
-                     SaveIR(4, "bufferize"),
-                     LowerVectorStage(0),
-                     SaveIR(4, "lower_vector"),
                      ExtractKernel,
-                     ModuloScheduling,
+                     SaveIR(4, "bufferize"),
+                     Legalize,
+                     SaveIR(4, "legalize"),
                      SaveIR(4, "micro_kernel"),
+                     LowerVectorStage(0),
+                     SaveIR(4, "micro_kernel_2"),
                      LowerVectorStage(1),
                      LowerVectorStage(2),
                      LowerVectorStage(3),
                      LowerVectorStage(4),
                      LowerVectorStage(5),
                      LowerVectorStage(6),
+                     ModuloScheduling,
+                     ExtractKernelTail,
                      SaveIR(4, "micro_kernel_final"),
                      LowerToLLVM]
     
@@ -172,14 +178,16 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
 
     cmd = ["llc"]
     cmd.append(op_llvm)
-    cmd.append("-O3")
+    cmd.append("-O1")
+    cmd.append("-regalloc=greedy")
     cmd.append("-filetype=obj")
     cmd.append(f"-o {op_obj}")
     run_command(cmd)
 
     cmd = ["llc"]
     cmd.append(f"{op_llvm}")
-    cmd.append("-O3")
+    cmd.append("-O1")
+    cmd.append("-regalloc=greedy")
     cmd.append("-filetype=asm")
     cmd.append(f"-o {op_asm}")
     run_command(cmd)
@@ -192,6 +200,7 @@ def link_main(op, mktmp_fn):
     cmd = ["clang++"]
     cmd.append(f"{main_obj}")
     cmd.append(f"{op_obj}")
+    cmd.append("$IREE_LLVM_SANDBOX_SOURCE_DIR/experimental/alp/lib/AlpRuntime/alp_runtime.cpp")
     cmd.append(f"-o {out_bin}")
     cmd.append("-lmlir_c_runner_utils")
     print_command(cmd)
@@ -212,7 +221,7 @@ def build_mlir(op, m, n, k, options):
       tmp_dir_name = tmp_dir.name
       verbosity_level=0
 
-    (benchmark, op_mlir)= gemm(False)
+    (benchmark, op_mlir)= gemm(trA=True)
     mktmp = lambda x : os.path.join(tmp_dir_name, x)
     build_main_obj(benchmark, m, n, k, op, reps, mktmp)
     build_operator_obj(op_mlir, m, n, k, op, options, mktmp, verbosity_level)

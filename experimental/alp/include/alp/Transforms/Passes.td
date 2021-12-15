@@ -17,8 +17,15 @@ def ExtractKernelPass: Pass<"alp-extract-kernel", "ModuleOp"> {
   let options = [
     Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
       "Which func op is the anchor to latch on.">,
-    //Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
-    //  "Which linalg op within the func is the anchor to latch on.">,
+  ];
+}
+
+def ExtractKernelTailPass: Pass<"alp-extract-kernel-tail", "ModuleOp"> {
+  let summary = "Pass to extract the kernel in a separate function.";
+  let constructor = "mlir::createExtractKernelTailPass()";
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
+      "Which func op is the anchor to latch on.">,
   ];
 }
 
@@ -27,8 +34,21 @@ def ModuloSchedulingPass: FunctionPass<"alp-modulo-scheduling"> {
   let constructor = "mlir::createModuloSchedulingPass()";
   let options = [
 
-    Option<"unrolling", "unrolling", "int", /*default=*/"",
+    Option<"unrolling", "unrolling", /*type*/"int", /*default=*/"2",
       "Unrolling level before scheduling the loop.">,
+    Option<"interleave", "interleave", /*type*/"bool", /*default=*/"false",
+      "interleave the kernel computation while modulo scheduling.">,
+  ];
+}
+
+def LegalizePass: FunctionPass<"alp-legalize"> {
+  let summary = "Pass to legalize vector operations.";
+  let constructor = "mlir::createLegalizePass()";
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"\"kernel\"",
+      "Which func op is the anchor to latch on.">,
+    Option<"vectorLength", "vector-len", "int", /*default=*/"4",
+      "Size of the vector we want to legalize on.">,
   ];
 }
 

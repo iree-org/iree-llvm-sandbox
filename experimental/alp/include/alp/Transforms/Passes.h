@@ -20,8 +20,14 @@ namespace mlir {
 /// Create a pass extract the kernel function out
 std::unique_ptr<mlir::OperationPass<ModuleOp>> createExtractKernelPass();
 
+/// Create a pass extract the kernel function out 
+std::unique_ptr<mlir::OperationPass<ModuleOp>> createExtractKernelTailPass();
+
 /// Create a pass to modulo-schedule the kernel
 std::unique_ptr<mlir::FunctionPass> createModuloSchedulingPass();
+
+/// Create a pass to legalize vectors in a given function
+std::unique_ptr<mlir::FunctionPass> createLegalizePass();
 
 //===----------------------------------------------------------------------===//
 // Registration

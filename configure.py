@@ -30,7 +30,7 @@ def parse_arguments():
   parser.add_argument("--enable-alp", 
                       help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
                       dest="enable_alp",
-                      action="store_false",
+                      action="store_true",
                       default = False)
   parser.add_argument("--no-ccache",
                       help="Disables ccache (if available)",
@@ -117,7 +117,7 @@ def main(args):
 
   # Optionally enable Alp
   if args.enable_alp:
-    llvm_configure_args.append("-DSANBOX_ENABLE_ALP")
+    llvm_configure_args.append("-DSANDBOX_ENABLE_ALP=ON")
 
   # Detect ccache.
   if args.enable_ccache:

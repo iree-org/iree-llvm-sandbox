@@ -7,7 +7,7 @@ import numpy as np
 from subprocess import PIPE, Popen
 
 def run_command(cmd):
-    # print(cmd)
+    #print(cmd)
     output = subprocess.check_output(' '.join(cmd), shell=True)
     return output.decode('ascii')
 
@@ -17,6 +17,9 @@ def print_command(cmd):
 def run_and_save(cmd, original_ir, new_ir):
     out = run_command(cmd + [original_ir])
     f = open(f"{new_ir}", "w")
+    # Save the command that generated the IR
+    f.write("//"+' '.join(cmd)+"\n")
+    # Save the IR
     f.write(out)
     f.close()
 
