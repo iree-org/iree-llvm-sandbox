@@ -59,7 +59,7 @@ LogicalResult maskVectorPredicateOps(OpBuilder &builder, Operation *op,
 
 /// Masking strategy that only masks vector transfer operations and operations
 /// with side effects. Non-side-effecting ops are left unmasked.
-void maskGenericOpMinimalMaskingStrategy(OpBuilder &builder, Operation *op,
+void maskGenericOpWithSideEffects(OpBuilder &builder, Operation *op,
                                          Value activeMask,
                                          const WalkStage &stage);
 

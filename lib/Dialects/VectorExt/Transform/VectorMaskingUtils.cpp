@@ -226,12 +226,14 @@ LogicalResult mlir::vector_ext::maskVectorPredicateOps(
 
 /// Masking strategy that only masks vector transfer operations and operations
 /// with side effects. Non-side-effecting ops are left unmasked.
-void mlir::vector_ext::maskGenericOpMinimalMaskingStrategy(
+void mlir::vector_ext::maskGenericOpWithSideEffects(
     OpBuilder &builder, Operation *op, Value activeMask,
     const WalkStage &stage) {
   // Nothing to do. All-ones mask to apply.
   if (!activeMask)
     return;
+
+  OpBuilder::InsertionGuard guard(builder);
 
   if (stage.isBeforeAllRegions()) {
     // Mask vector.transfer_read.
@@ -246,7 +248,7 @@ void mlir::vector_ext::maskGenericOpMinimalMaskingStrategy(
       return;
     }
 
-    // Mask vector.transfer_read.
+    // Mask vector.transfer_write.
     if (auto xferWriteOp = dyn_cast<TransferWriteOp>(op)) {
       builder.setInsertionPoint(op);
       builder.create<TransferWriteOp>(

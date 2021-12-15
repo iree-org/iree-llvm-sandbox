@@ -94,7 +94,7 @@ struct TestVectorMaskingUtils
     FuncOp funcOp = getFunction();
     OpBuilder builder(funcOp);
     if (failed(maskVectorPredicateOps(builder, funcOp,
-                                      maskGenericOpMinimalMaskingStrategy)))
+                                      maskGenericOpWithSideEffects)))
       funcOp.emitError("Masking of function failed");
   }
 
