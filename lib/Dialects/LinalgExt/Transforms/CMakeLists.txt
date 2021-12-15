@@ -8,6 +8,7 @@ add_mlir_library(MLIRLinalgExtTransforms
   TilingToTileOp.cpp
   Utils.cpp
 
+  PARTIAL_SOURCES_INTENDED
   DEPENDS
   MLIRLinalgExt
 

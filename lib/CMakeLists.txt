@@ -1,7 +1,25 @@
+get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
+get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
+
 add_subdirectory(Dialects)
 add_subdirectory(Transforms)
 
-add_mlir_library(IREELinalgTensorSandbox
+set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
+  MLIRLinalgExt
+  MLIRLinalgExtTransforms
+  MLIRVectorExt
+  MLIRVectorExtTransform
+  IREELinalgTensorSandboxTransforms
+)
+
+set(IREE_LINALG_TENSOR_SANDBOX_DEPENDS
+  DriverPassIncGen
+  MLIRLinalgExtInterfacesIncGen
+  MLIRLinalgExtOpsIncGen
+  MLIRLinalgExtPassIncGen
+)
+
+add_mlir_library(IREELinalgTensorSandboxDriver
   LinalgTensorCodegenDriver.cpp
 
   PARTIAL_SOURCES_INTENDED
@@ -17,17 +35,35 @@ add_mlir_library(IREELinalgTensorSandbox
   MLIRVectorToLLVM
   MLIRMathToLLVM
   MLIRMemRefToLLVM
+
   # Sandbox libraries
-  MLIRLinalgExt
-  MLIRLinalgExtTransforms
-  IREELinalgTensorSandboxTransforms
+  ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
 
   DEPENDS
-  IREELinalgTensorSandboxTransforms
-  DriverPassIncGen
-  MLIRLinalgExtInterfacesIncGen
-  MLIRLinalgExtOpsIncGen
-  MLIRLinalgExtPassIncGen
+  ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
+  MLIRLinalgOpsIncGen
+)
+
+add_mlir_library(IREELinalgTensorSandboxRegistration
+  Registration.cpp
+
+  PARTIAL_SOURCES_INTENDED
+  LINK_LIBS PRIVATE
+  ${dialect_libs}
+  ${conversion_libs}
+  MLIRPass
+
+  # Sandbox libraries
+  IREELinalgTensorSandboxDriver
+  ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
+
+  # Tests.
+  MLIRTransformsExtTestPasses
+  MLIRVectorExtTestPasses
+
+  DEPENDS
+  ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
+  MLIRLinalgOpsIncGen
 )
 
 add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
@@ -37,9 +73,9 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
   LINK_LIBS PRIVATE
   MLIRCAPIRegistration
   MLIRPass
+  
   # Sandbox libraries
-  MLIRLinalgExt
-  MLIRLinalgExtTransforms
-  IREELinalgTensorSandbox
-  IREELinalgTensorSandboxTransforms
+  IREELinalgTensorSandboxDriver
+  IREELinalgTensorSandboxRegistration
+  ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
 )
