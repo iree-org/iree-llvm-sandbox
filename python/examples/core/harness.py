@@ -26,8 +26,11 @@ def log(*args):
   sys.stderr.flush()
 
 
+TimingResults = Mapping[str, Sequence[float]]
+
+
 def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
-                 n_iters: int) -> Mapping[str, Any]:
+                 n_iters: int) -> TimingResults:
   elapsed_ns = run_n_iters(n_iters)
   elapsed_s = np.flip(np.sort(elapsed_ns / 1.e9))
   elapsed_s_per_iter = [                  \
@@ -234,7 +237,7 @@ def test_harness(
     n_iters: int = 1,
     function_name: str = 'tested_function',
     runtime_only_sizes: AbstractSet[str] = set(),
-    **kwargs) -> Mapping[str, Any]:
+    **kwargs) -> Mapping[str, TimingResults]:
   """Test runner facility.
 
   Compiles and runs the a test or a benchmark for a cross-product of possible
@@ -269,7 +272,7 @@ def test_harness(
   Returns: A dictionary of all collected benchmark results.
   """
 
-  results = defaultdict(lambda: defaultdict(lambda: {}))
+  results = {}
 
   for np_types in np_types_list:
     for problem_sizes_dict in problem_sizes_list:
@@ -297,7 +300,7 @@ def test_harness(
             transform=expert,
             dump_ir_to_file=kwargs.get('dump_ir_to_file', ''))
 
-        results['expert'][expert] = problem.run(
+        results[str(expert)] = problem.run(
             n_iters=n_iters,
             entry_point_name='main',
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
