@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/VectorExt/VectorMaskingUtils.h"
-
 #include "Dialects/VectorExt/VectorExtOps.h"
+#include "VisitorUtils.h"
 #include "mlir/Dialect/Linalg/IR/LinalgOps.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
@@ -153,4 +153,110 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(OpBuilder &builder,
   // vector.predicate.
 
   return success();
+}
+
+/// Materialize masking on a vector.predicate op by generating the masks to
+/// apply to its enclosing operations and erasing the vector.predicate op after
+/// inlining its enclosing operations into its parent region.
+static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
+                             SmallVectorImpl<Value> &activeMasks,
+                             const WalkStage &stage) {
+  // Actions before visiting the TruePredicateRegion: Update active mask to be
+  // the predicate mask.
+  if (stage.isBeforeAllRegions()) {
+    activeMasks.push_back(predOp.predicate());
+    return;
+  }
+
+  // Actions after visiting the TruePredicateRegion: Pop the active mask for the
+  // TruePredicateRegion.
+  // if (stage.isAfterRegion(0)) {
+  //   activeMasks.pop_back();
+  //   return;
+  // }
+
+  // TODO: Generate complementary mask for FalsePredicateRegion.
+  // if (stage.isBeforeRegion(1)) {
+  //   return;
+  // }
+
+  // Actions after all the regions: Move operations outside the vector.predicate
+  // regions and remove vector.predicate op.
+  if (stage.isAfterAllRegions()) {
+    // TODO: Move this to isAfterRegion(0);
+    activeMasks.pop_back();
+
+    // Inline truePredicateRegion into parent op (except its terminator).
+    // TODO: Move this to builder.inlineRegionBefore?
+    auto &blocksToMove = predOp.truePredicateRegion().getBlocks();
+    assert(blocksToMove.size() == 1 && "Expected only one block");
+    assert(predOp.getResults().empty() &&
+           "TODO: Support vector.predicate with results");
+    auto &opsToMove = blocksToMove.front().getOperations();
+    moveOperationsBefore(
+        llvm::make_range(opsToMove.begin(), std::prev(opsToMove.end())),
+        predOp);
+    predOp.erase();
+    return;
+  }
+}
+
+/// Traverse `op` and apply masking on all the vector.predicate ops and their
+/// enclosing operations using the strategy `maskGenericOp` to mask generic
+/// operations other than the vector.predicate.
+// TODO: Add an initMask param to pass a mask that is not all-ones?
+LogicalResult mlir::vector_ext::maskVectorPredicateOps(
+    OpBuilder &builder, Operation *op, GenericOpMaskingStrategy maskGenericOp) {
+  OpBuilder::InsertionGuard guard(builder);
+
+  // Initialize stack of active masks. An empty stack means that the active mask
+  // is all-ones (masking is not required).
+  SmallVector<Value, 8> activeMasks;
+  activeMasks.push_back(Value());
+
+  genericWalk(op, [&](Operation *op, const WalkStage &stage) {
+    if (auto predOp = dyn_cast<PredicateOp>(op))
+      maskPredicateOp(builder, predOp, activeMasks, stage);
+    else
+      maskGenericOp(builder, op, activeMasks.back(), stage);
+  });
+
+  return success();
+}
+
+/// Masking strategy that only masks vector transfer operations and operations
+/// with side effects. Non-side-effecting ops are left unmasked.
+void mlir::vector_ext::maskGenericOpWithSideEffects(
+    OpBuilder &builder, Operation *op, Value activeMask,
+    const WalkStage &stage) {
+  // Nothing to do. All-ones mask to apply.
+  if (!activeMask)
+    return;
+
+  OpBuilder::InsertionGuard guard(builder);
+
+  if (stage.isBeforeAllRegions()) {
+    // Mask vector.transfer_read.
+    if (auto xferReadOp = dyn_cast<TransferReadOp>(op)) {
+      builder.setInsertionPoint(op);
+      auto newXferOp = builder.create<TransferReadOp>(
+          op->getLoc(), xferReadOp.getType(), xferReadOp.source(),
+          xferReadOp.indices(), xferReadOp.permutation_map(),
+          xferReadOp.padding(), activeMask, xferReadOp.in_boundsAttr());
+      xferReadOp.replaceAllUsesWith(newXferOp.getResult());
+      xferReadOp.erase();
+      return;
+    }
+
+    // Mask vector.transfer_write.
+    if (auto xferWriteOp = dyn_cast<TransferWriteOp>(op)) {
+      builder.setInsertionPoint(op);
+      builder.create<TransferWriteOp>(
+          op->getLoc(), xferWriteOp.vector(), xferWriteOp.source(),
+          xferWriteOp.indices(), xferWriteOp.permutation_mapAttr(), activeMask,
+          xferWriteOp.in_boundsAttr());
+      xferWriteOp.erase();
+      return;
+    }
+  }
 }
