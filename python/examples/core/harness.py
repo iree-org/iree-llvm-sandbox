@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+from collections import defaultdict
 
 from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence, Union
 
@@ -25,8 +26,11 @@ def log(*args):
   sys.stderr.flush()
 
 
+TimingResults = Mapping[str, Sequence[float]]
+
+
 def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
-                 n_iters: int):
+                 n_iters: int) -> TimingResults:
   elapsed_ns = run_n_iters(n_iters)
   elapsed_s = np.flip(np.sort(elapsed_ns / 1.e9))
   elapsed_s_per_iter = [                  \
@@ -61,6 +65,12 @@ def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
   for i in range(2, len(data)):
     format_str = '{:>12.2f}' * (len(data[0]) - 1) + '{:>12s}'
     print(format_str.format(*data[i]))
+
+  return {
+      "elapsed_s_per_iter": elapsed_s_per_iter,
+      "gbyte_per_s_per_iter": gbyte_per_s_per_iter,
+      "gflop_per_s_per_iter": gflop_per_s_per_iter,
+  }
 
 
 # TODO: support more than just RankedTensorType.
@@ -195,7 +205,7 @@ class ProblemInstance:
       run_n_iters(1)
 
     # 5. Showtime.
-    timed_invoke(
+    return timed_invoke(
         run_n_iters=run_n_iters,
         gflop_count=self.problem_definition.gflop_count_builder(
             runtime_problem_sizes_dict),
@@ -227,7 +237,7 @@ def test_harness(
     n_iters: int = 1,
     function_name: str = 'tested_function',
     runtime_only_sizes: AbstractSet[str] = set(),
-    **kwargs):
+    **kwargs) -> Mapping[str, TimingResults]:
   """Test runner facility.
 
   Compiles and runs the a test or a benchmark for a cross-product of possible
@@ -258,7 +268,11 @@ def test_harness(
     PyTorch. If the `BENCHMARK_TORCH` environment variable is set and the
     argument is provided, it will be called `n_iters` times for the purpose of
     measuring baseline performance.
+
+  Returns: A dictionary of all collected benchmark results.
   """
+
+  results = {}
 
   for np_types in np_types_list:
     for problem_sizes_dict in problem_sizes_list:
@@ -286,7 +300,7 @@ def test_harness(
             transform=expert,
             dump_ir_to_file=kwargs.get('dump_ir_to_file', ''))
 
-        problem.run(
+        results[str(expert)] = problem.run(
             n_iters=n_iters,
             entry_point_name='main',
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
@@ -301,7 +315,7 @@ def test_harness(
         print('\nNumPy reference\n')
         args = problem_definition.tensors_np_builder(problem_sizes_dict,
                                                      np_types)
-        timed_invoke(
+        results['numpy'] = timed_invoke(
             lambda n: _run_benchmark_n_iters(kwargs['numpy_benchmark'], n, args,
                                              problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
@@ -313,7 +327,9 @@ def test_harness(
         numpy_args = problem_definition.tensors_np_builder(
             problem_sizes_dict, np_types)
         args = list(map(torch.from_numpy, numpy_args))
-        timed_invoke(
+        results['pytorch'] = timed_invoke(
             lambda n: _run_benchmark_n_iters(kwargs[
                 'pytorch_benchmark'], n, args, problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
+
+    return results
