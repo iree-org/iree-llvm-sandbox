@@ -1,4 +1,5 @@
 add_mlir_library(MLIRLinalgTransformTransforms
+  TrackingRewriteDriver.cpp
   TransformInterpreter.cpp
 
   DEPENDS

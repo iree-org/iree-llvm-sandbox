@@ -11,9 +11,8 @@ func @matmul_tensors(
   // CHECK: %[[VA:.*]] = vector.transfer_read %[[TA]]
   // CHECK: %[[VB:.*]] = vector.transfer_read %[[TB]]
   // CHECK: %[[VC:.*]] = vector.transfer_read %[[TC]]
-  // CHECK: %[[VCPartial:.*]] = vector.contract {{.*}} %[[VA]], %[[VB]]
-  // CHECK: %[[VCFull:.*]] = arith.addf %[[VCPartial]], %[[VC]]
-  // CHECK: vector.transfer_write %[[VCFull]], %[[TC]]
+  // CHECK: %[[VCU:.*]] = vector.contract {{.*}} %[[VA]], %[[VB]], %[[VC]]
+  // CHECK: vector.transfer_write %[[VCU]], %[[TC]]
   %0 = linalg.matmul  ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
                      outs(%arg2: tensor<128x128xf32>)
     -> tensor<128x128xf32>
