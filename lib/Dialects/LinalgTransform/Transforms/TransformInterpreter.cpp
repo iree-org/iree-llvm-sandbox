@@ -14,6 +14,7 @@
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgTransform/Passes.h"
+#include "Dialects/LinalgTransform/TrackingCSE.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
@@ -596,6 +597,10 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
 
+    // TODO: remove entries from `operations` if the value is not used by any of
+    // the remaining transformations. This will allow the operation to be
+    // replaced/erased by cleanups below and is slightly more effective.
+
     // Run canonicalization, this is similar to running the canonicalizer pass,
     // but (a) keeps tracking the value/op mapping and (b) avoids constructing
     // the pattern set + pass pipeline on every step.
@@ -611,6 +616,8 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
       canonicalizationRoot = module;
     }
 
+    eliminateCommonSubexpressionsWithTrackedOps(canonicalizationRoot,
+                                                operations);
     if (failed(applyPatternsTrackAndFoldGreedily(canonicalizationRoot,
                                                  operations, patterns))) {
       LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
