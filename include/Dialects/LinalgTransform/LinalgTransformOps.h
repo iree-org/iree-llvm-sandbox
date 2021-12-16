@@ -10,6 +10,7 @@
 #define MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/IR/OpDefinition.h"
 
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.h.inc"

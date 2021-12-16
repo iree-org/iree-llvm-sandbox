@@ -6,8 +6,9 @@
 
 #include "Registration.h"
 #include "Dialects/LinalgExt/LinalgExtDialect.h"
-#include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgExt/Passes.h"
+#include "Dialects/LinalgTransform/LinalgTransformOps.h"
+#include "Dialects/LinalgTransform/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "Transforms/Passes.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
@@ -84,6 +85,7 @@ void mlir::registerOutsideOfDialectRegistry() {
   linalg_ext::registerLinalgExtPasses();
   registerExperimentalPasses();
   registerTestPasses();
+  transform::registerLinalgTransformInterpreterPass();
 }
 
 void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
