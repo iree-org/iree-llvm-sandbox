@@ -239,8 +239,24 @@ class LinalgExtTileToInParallel(Transform):
     self._parse_variables_in_kwargs(kwargs)
 
     pipeline = (f'linalg-tile-to-in-parallel,'
-                # TODO: when bufferization works, no more need to go through sequential for
-                # f'linalg-in-parallel-to-sequential-for,'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+class LinalgInParallelToAsync(Transform):
+  """Rewrite linalg_ext.in_parallel to the async dialect.
+  """
+
+  variables = {}
+
+  def __init__(
+      self,
+      fun_name: str,
+      op_name: str,
+      **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-in-parallel-to-async,'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
