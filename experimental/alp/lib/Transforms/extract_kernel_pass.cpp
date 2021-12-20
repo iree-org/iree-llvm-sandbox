@@ -62,10 +62,6 @@ void extract_function(StringRef func_name, Block *block, ModuleOp parentModule,
   block->walk([&](Operation *inst) {
     for (Value val: inst->getOperands()){
       if (dom_info.properlyDominates(val, parent_op)){
-        if(func_name=="kernel_tail"){
-        llvm::errs()<<"dominates?\n";
-
-        }
         arith::ConstantOp const_op = val.getDefiningOp<arith::ConstantOp>();
         if (const_op) {
           // It's useless to add many times the same index
