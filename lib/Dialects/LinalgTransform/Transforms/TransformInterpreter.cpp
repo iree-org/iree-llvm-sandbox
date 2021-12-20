@@ -14,6 +14,7 @@
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgTransform/Passes.h"
+#include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"
@@ -576,13 +577,45 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
   // Stash the function for the cases where we need to apply function-wise
   // transforms.
   FuncOp func = target->getParentOfType<FuncOp>();
+  ModuleOp module = func->getParentOfType<ModuleOp>();
+
+  MLIRContext *ctx = target->getContext();
+  RewritePatternSet patternList(ctx);
+  for (Dialect *dialect : ctx->getLoadedDialects())
+    dialect->getCanonicalizationPatterns(patternList);
+  for (RegisteredOperationName op : ctx->getRegisteredOperations())
+    op.getCanonicalizationPatterns(patternList, ctx);
+  FrozenRewritePatternSet patterns(std::move(patternList));
 
   for (Operation &transform : sequence.body().front()) {
-    if (failed(executeTransform(&transform, func, operations)))
+    if (failed(executeTransform(&transform, func, operations))) {
+      // TODO: should this be a user-visible error?
+      LLVM_DEBUG(DBGS() << "failed to apply transform: " << transform << "\n");
       return failure();
+    }
+    LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
+                      << "\n");
 
-    // TODO: need to run canonicalization and CSE here, but can't: these
-    // transformations may break rewrite/remove the operations being tracked.
+    // Run canonicalization, this is similar to running the canonicalizer pass,
+    // but (a) keeps tracking the value/op mapping and (b) avoids constructing
+    // the pattern set + pass pipeline on every step.
+    Operation *canonicalizationRoot = func;
+    if (isa<transform::LowerToLLVMOp>(transform)) {
+      // We cannot run the canonicalizer at a function level past LLVM
+      // conversion, so check that it is the last one.
+      // TODO: this may go away if we have a better scoping mechanism for large
+      // transformations such as bufferization and lowerings and track functions
+      // across them similarly to how we track linalg operations.
+      assert(&transform == &sequence.body().front().back() &&
+             "expected lowering to llvm to be the last transformation");
+      canonicalizationRoot = module;
+    }
+
+    if (failed(applyPatternsTrackAndFoldGreedily(canonicalizationRoot,
+                                                 operations, patterns))) {
+      LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
+      return failure();
+    }
   }
 
   return success();
