@@ -40,6 +40,7 @@
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Rewrite/PatternApplicator.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/StringRef.h"
@@ -645,15 +646,9 @@ static LogicalResult nestedInFunc(PDLValue value, ArrayAttr constantParams,
                      operation, functionSymbol) == func);
 }
 
+#ifndef NDEBUG
 constexpr llvm::StringLiteral kInterpreterMatched = "linalg_transform.matched";
-
-/// Hook for PDL driver to check if the operation is not marked with the matched
-/// marker.
-static LogicalResult notTagged(PDLValue value, ArrayAttr constantParams,
-                               PatternRewriter &rewriter) {
-  auto *operation = value.cast<Operation *>();
-  return success(!operation->getAttr(kInterpreterMatched));
-}
+#endif
 
 /// Factory for PDL driver rewrite hooks that do nothing but add matched
 /// operations to the `targets` list.
@@ -663,16 +658,47 @@ makePDLRewriter(SmallVectorImpl<Operation *> &targets) {
                              PatternRewriter &rewriter, PDLResultList &) {
     assert(args.size() == 1 && "expected one argument");
 
-    // TODO: this is a hack in absence of a custom driver that can consume PDL.
     // Just add an attribute to the op that is selected as a transformation
     // target, do nothing else. Separate code will find them and perform actual
     // transformations, otherwise we risk having one (nested) rewriter modify
     // the state known to another (outer PDL-level) rewriter.
     targets.push_back(args.front().cast<Operation *>());
+#ifndef NDEBUG
     args.front().cast<Operation *>()->setAttr(kInterpreterMatched,
                                               rewriter.getUnitAttr());
+#endif
   };
   return rewriter;
+}
+
+namespace {
+/// The only purpose of this class is to enable creation of PatternRewriter
+/// instances as the base class doesn't have a public constructor.
+class SimplePatternRewriter : public PatternRewriter {
+public:
+  explicit SimplePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
+};
+} // namespace
+
+/// Apply at most one pattern from the given list to each operation nested in
+/// `parent`.
+static void applyPatternsOnce(Operation *parent,
+                              const FrozenRewritePatternSet &patterns) {
+  PatternApplicator applicator(patterns);
+  applicator.applyDefaultCostModel();
+
+  // This assumes that patterns are only used for matching so there is no need
+  // for worklists or any sort of insertion/deletion tracking. This may change
+  // later, at which point the IR transformations will have to notify this
+  // rewriter somehow. Alternatively, we could have only the matching part, but
+  // we would need directl access to PDLBytecode for that.
+  SimplePatternRewriter rewriter(parent->getContext());
+  parent->walk([&](Operation *op) {
+    rewriter.setInsertionPoint(op);
+    if (failed(applicator.matchAndRewrite(op, rewriter))) {
+      LLVM_DEBUG(DBGS() << "failed to match any pattern to " << *op << "\n");
+    }
+  });
 }
 
 /// Executes the Linalg Transform apply operation. This first runs the `when`
@@ -702,7 +728,6 @@ static LogicalResult executeApply(linalg::transform::ApplyOp applyOp,
       patternOp.getOperation());
   PDLPatternModule pdlModule(std::move(pdlModuleOp));
   pdlModule.registerConstraintFunction("nestedInFunc", nestedInFunc);
-  pdlModule.registerConstraintFunction("notTagged", notTagged);
 
   Block *schedule = &applyOp.transforms().front();
   if (schedule->empty())
@@ -720,10 +745,7 @@ static LogicalResult executeApply(linalg::transform::ApplyOp applyOp,
                                     makePDLRewriter(rewriteTargets));
 
   RewritePatternSet patterns(std::move(pdlModule));
-  if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
-    emitError(module.getLoc()) << "failed to apply PDL patterns";
-    return failure();
-  }
+  applyPatternsOnce(module, std::move(patterns));
 
   for (Operation *op : rewriteTargets)
     if (failed(executeSequence(sequenceOp, op)))
