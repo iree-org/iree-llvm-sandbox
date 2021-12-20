@@ -1,4 +1,5 @@
 add_mlir_library(MLIRLinalgTransformTransforms
+  TrackingCSE.cpp
   TrackingRewriteDriver.cpp
   TransformInterpreter.cpp
 
