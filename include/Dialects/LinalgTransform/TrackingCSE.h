@@ -10,7 +10,7 @@ class DominanceInfo;
 class Value;
 
 void eliminateCommonSubexpressionsWithTrackedOps(
-    Operation *root, DenseMap<Value, Operation *> &trackedOps,
+    Operation *root, DenseMap<Value, SmallVector<Operation *, 4>> &trackedOps,
     DominanceInfo *domInfo = nullptr);
 } // namespace mlir
 

@@ -59,7 +59,8 @@ static LinalgOp findSingleLinalgOpDefiningAll(ValueRange range) {
 class TrackingRewriteDriver : public PatternRewriter {
 public:
   explicit TrackingRewriteDriver(
-      MLIRContext *ctx, DenseMap<Value, Operation *> &trackedOperations,
+      MLIRContext *ctx,
+      DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations,
       const FrozenRewritePatternSet &patterns,
       const GreedyRewriteConfig &config)
       : PatternRewriter(ctx), trackedOperations(trackedOperations),
@@ -68,7 +69,8 @@ public:
     matcher.applyDefaultCostModel();
 
     for (auto &pair : trackedOperations)
-      trackedOperationKeys.try_emplace(pair.second, pair.first);
+      for (Operation *op : pair.second)
+        trackedOperationKeys.try_emplace(op, pair.first);
   }
 
   void replaceOp(Operation *op, ValueRange newValues) override {
@@ -80,7 +82,10 @@ public:
       if (Value key = trackedOperationKeys.lookup(op)) {
         LLVM_DEBUG(DBGS() << "replacing tracked " << *op << " with "
                           << *replacement << "for " << key << "\n");
-        trackedOperations[key] = replacement;
+        auto iter = llvm::find(trackedOperations[key], op);
+        assert(iter != trackedOperations[key].end() &&
+               "expected to find the tracked operation list by key");
+        *iter = replacement;
         trackedOperationKeys.erase(op);
         trackedOperationKeys.try_emplace(replacement, key);
       }
@@ -108,7 +113,7 @@ public:
   }
 
 private:
-  DenseMap<Value, Operation *> &trackedOperations;
+  DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations;
   DenseMap<Operation *, Value> trackedOperationKeys;
 
   //--------------------------------------------------------------------------//
@@ -423,7 +428,8 @@ LogicalResult TrackingRewriteDriver::notifyMatchFailure(
 //--------------------------------------------------------------------------//
 
 LogicalResult mlir::applyPatternsTrackAndFoldGreedily(
-    Operation *root, DenseMap<Value, Operation *> &trackedOperations,
+    Operation *root,
+    DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations,
     const FrozenRewritePatternSet &patterns, GreedyRewriteConfig config) {
   assert(root->hasTrait<OpTrait::IsIsolatedFromAbove>() &&
          "can only apply patterns greedily to ops isolated form above");

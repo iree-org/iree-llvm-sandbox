@@ -43,6 +43,7 @@
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 
 #define DEBUG_TYPE "transform-interpreter"
@@ -287,17 +288,19 @@ static LogicalResult executeTileOp(linalg::LinalgOp target,
 /// Applies the transformation specified by the given decompose operation to the
 /// given target operation.
 static LogicalResult
-executeDecomposeOp(FuncOp target, linalg::transform::DecomposeOp decomposeOp) {
-  MLIRContext *ctx = target->getContext();
+executeDecomposeOp(ModuleOp module,
+                   linalg::transform::DecomposeOp decomposeOp) {
+  MLIRContext *ctx = module->getContext();
   RewritePatternSet patterns(ctx);
-  populateDecomposeConvolutionPatterns(patterns,
-                                       makeTransformationFilter(target));
-  if (failed(applyPatternsAndFoldGreedily(target, std::move(patterns))))
+  // TODO: make this targetable.
+  // populateDecomposeConvolutionPatterns(patterns,
+  //                                      makeTransformationFilter(target));
+  if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns))))
     return failure();
 
   // TODO: make this chainable, it isn't in the original codegenstrategy.
   SmallVector<Operation *> ignored;
-  findMarkedOps(target, ignored);
+  findMarkedOps(module, ignored);
 
   return success();
 }
@@ -358,9 +361,9 @@ static bool stageIncluded(int stage, transform::LowerVectorsOp lowerVectorsOp) {
 /// Appplies the transformation specified by the given lower vectors operation
 /// to the given function.
 static LogicalResult
-executeLowerVectorsOp(FuncOp target,
+executeLowerVectorsOp(ModuleOp module,
                       linalg::transform::LowerVectorsOp lowerVectorsOp) {
-  MLIRContext *ctx = target->getContext();
+  MLIRContext *ctx = module->getContext();
   RewritePatternSet patterns(ctx);
 
   vector::VectorTransposeLowering vectorTransposeLowering =
@@ -439,7 +442,7 @@ executeLowerVectorsOp(FuncOp target,
 
   // TODO: these transformations are currently not targeted at concrete ops.
   // LinalgTransformationFilter filter = makeTransformationFilter(target);
-  if (failed(applyPatternsAndFoldGreedily(target, std::move(patterns))))
+  if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns))))
     return failure();
 
   // TODO: make composable...
@@ -449,11 +452,9 @@ executeLowerVectorsOp(FuncOp target,
 /// Appplies the transformation specified by the given bufferize operation to
 /// the module containing the given function.
 static LogicalResult
-executeBufferizeOp(FuncOp target, linalg::transform::BufferizeOp bufferizeOp) {
-  // TODO: is this even feasible to scope bufferization at something else than
-  // module? It feels like it should be a hard barrier for all transformations.
-  auto module = target->getParentOfType<ModuleOp>();
-  PassManager pm(target->getContext());
+executeBufferizeOp(ModuleOp module,
+                   linalg::transform::BufferizeOp bufferizeOp) {
+  PassManager pm(module->getContext());
 
   pm.addPass(createLinalgComprehensiveModuleBufferizePass());
   if (failed(pm.run(module)))
@@ -467,12 +468,12 @@ executeBufferizeOp(FuncOp target, linalg::transform::BufferizeOp bufferizeOp) {
 /// Appplies the transformation specified by the given Lower to LLVM operation
 /// to the module containing the given function.
 static LogicalResult
-executeLowerToLLVMOp(FuncOp target,
+executeLowerToLLVMOp(ModuleOp module,
                      linalg::transform::LowerToLLVMOp lowerToLLVMOp) {
   // TODO: it is feasible to scope lowering at arbitrary level and introduce
   // unrealized casts, but there needs to be the final module-wise cleanup in
   // the end. Keep module-level for now.
-  PassManager pm(target->getContext());
+  PassManager pm(module->getContext());
 
   pm.addNestedPass<FuncOp>(createConvertVectorToSCFPass());
   pm.addNestedPass<FuncOp>(createConvertLinalgToLoopsPass());
@@ -494,139 +495,37 @@ executeLowerToLLVMOp(FuncOp target,
   pm.addPass(createMemRefToLLVMPass());
   pm.addPass(createLowerToLLVMPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
-  return pm.run(target->getParentOfType<ModuleOp>());
+  return pm.run(module);
 }
 
-/// Appplies the transformation specified by the given Linalg Transform dialect
-/// operation to the given target operation. The `operations` table contains the
-/// mapping between SSA values that correspond to operation handles produced and
-/// used by Linalg Transform dialect operations, and the Operation* objects in
-/// the code.
-static LogicalResult
-executeTransform(Operation *operation, FuncOp surroundingFunc,
-                 DenseMap<Value, Operation *> &operations) {
+namespace {
+/// The only purpose of this class is to enable creation of PatternRewriter
+/// instances as the base class doesn't have a public constructor.
+class SimplePatternRewriter : public PatternRewriter {
+public:
+  explicit SimplePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
+};
+} // namespace
 
-  if (auto tileOp = dyn_cast<linalg::transform::TileOp>(operation)) {
-    Operation *target = operations.lookup(tileOp.op());
-    // TODO: better error reporting story
-    assert(target);
-    auto linalgTarget = dyn_cast<LinalgOp>(target);
-    if (!linalgTarget) {
-      LLVM_DEBUG(DBGS() << "target is not a linalg op");
-      return failure();
+/// Apply at most one pattern from the given list to each operation nested in
+/// `parent`.
+static void applyPatternsOnce(Operation *parent,
+                              const FrozenRewritePatternSet &patterns) {
+  PatternApplicator applicator(patterns);
+  applicator.applyDefaultCostModel();
+
+  // This assumes that patterns are only used for matching so there is no need
+  // for worklists or any sort of insertion/deletion tracking. This may change
+  // later, at which point the IR transformations will have to notify this
+  // rewriter somehow. Alternatively, we could have only the matching part, but
+  // we would need directl access to PDLBytecode for that.
+  SimplePatternRewriter rewriter(parent->getContext());
+  parent->walk([&](Operation *op) {
+    rewriter.setInsertionPoint(op);
+    if (failed(applicator.matchAndRewrite(op, rewriter))) {
+      LLVM_DEBUG(DBGS() << "failed to match any pattern to " << *op << "\n");
     }
-
-    SmallVector<Operation *> results;
-    if (failed(executeTileOp(linalgTarget, tileOp, results)))
-      return failure();
-
-    assert(results.size() == 1);
-    operations.try_emplace(tileOp.transformed(), results.front());
-    return success();
-  }
-
-  if (auto decomposeOp = dyn_cast<linalg::transform::DecomposeOp>(operation))
-    return executeDecomposeOp(surroundingFunc, decomposeOp);
-
-  if (auto vectorizeOp = dyn_cast<linalg::transform::VectorizeOp>(operation)) {
-    Operation *target = operations.lookup(vectorizeOp.op());
-    // TODO: better error reporting story
-    assert(target);
-    auto linalgTarget = dyn_cast<LinalgOp>(target);
-    if (!linalgTarget) {
-      LLVM_DEBUG(DBGS() << "target is not a linalg op");
-      return failure();
-    }
-
-    SmallVector<Operation *> results;
-    if (failed(executeVectorizeOp(linalgTarget, vectorizeOp, results)))
-      return failure();
-
-    // TODO: unclear what to do if vectorization failed. Same for tiling btw.
-    // assert(results.size() == 1);
-    // operations.try_emplace(vectorizeOp.transformed(), results.front());
-    return success();
-  }
-
-  if (auto lowerVectorsOp =
-          dyn_cast<linalg::transform::LowerVectorsOp>(operation))
-    return executeLowerVectorsOp(surroundingFunc, lowerVectorsOp);
-
-  if (auto bufferizeOp = dyn_cast<linalg::transform::BufferizeOp>(operation))
-    return executeBufferizeOp(surroundingFunc, bufferizeOp);
-
-  if (auto lowerToLLVMOp = dyn_cast<transform::LowerToLLVMOp>(operation))
-    return executeLowerToLLVMOp(surroundingFunc, lowerToLLVMOp);
-
-  return operation->emitError() << "unknown transformation operation";
-}
-
-/// Applies the transformations listed in the `sequence` to operations starting
-/// from `target`. The following transformations may be applied to operations
-/// produced by previous transformations as indicated by SSA value flow in the
-/// Linalg Transform dialect.
-static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
-                                     Operation *target) {
-  Block *applyBlock =
-      &sequence->getParentOfType<transform::ApplyOp>().transforms().front();
-  if (applyBlock->getNumArguments() != 1)
-    return sequence.emitError()
-           << "only single-argument sequence blocks are supported";
-
-  DenseMap<Value, Operation *> operations;
-  operations.try_emplace(applyBlock->getArgument(0), target);
-
-  // Stash the function for the cases where we need to apply function-wise
-  // transforms.
-  FuncOp func = target->getParentOfType<FuncOp>();
-  ModuleOp module = func->getParentOfType<ModuleOp>();
-
-  MLIRContext *ctx = target->getContext();
-  RewritePatternSet patternList(ctx);
-  for (Dialect *dialect : ctx->getLoadedDialects())
-    dialect->getCanonicalizationPatterns(patternList);
-  for (RegisteredOperationName op : ctx->getRegisteredOperations())
-    op.getCanonicalizationPatterns(patternList, ctx);
-  FrozenRewritePatternSet patterns(std::move(patternList));
-
-  for (Operation &transform : sequence.body().front()) {
-    if (failed(executeTransform(&transform, func, operations))) {
-      // TODO: should this be a user-visible error?
-      LLVM_DEBUG(DBGS() << "failed to apply transform: " << transform << "\n");
-      return failure();
-    }
-    LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
-                      << "\n");
-
-    // TODO: remove entries from `operations` if the value is not used by any of
-    // the remaining transformations. This will allow the operation to be
-    // replaced/erased by cleanups below and is slightly more effective.
-
-    // Run canonicalization, this is similar to running the canonicalizer pass,
-    // but (a) keeps tracking the value/op mapping and (b) avoids constructing
-    // the pattern set + pass pipeline on every step.
-    Operation *canonicalizationRoot = func;
-    if (isa<transform::LowerToLLVMOp>(transform)) {
-      // We cannot run the canonicalizer at a function level past LLVM
-      // conversion, so check that it is the last one.
-      // TODO: this may go away if we have a better scoping mechanism for large
-      // transformations such as bufferization and lowerings and track functions
-      // across them similarly to how we track linalg operations.
-      assert(&transform == &sequence.body().front().back() &&
-             "expected lowering to llvm to be the last transformation");
-      canonicalizationRoot = module;
-    }
-
-    eliminateCommonSubexpressionsWithTrackedOps(canonicalizationRoot,
-                                                operations);
-    if (failed(applyPatternsTrackAndFoldGreedily(canonicalizationRoot,
-                                                 operations, patterns))) {
-      LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
-      return failure();
-    }
-  }
-
-  return success();
+  });
 }
 
 /// Hook for PDL driver to check if an operation (`value`) is directly nested in
@@ -671,85 +570,173 @@ makePDLRewriter(SmallVectorImpl<Operation *> &targets) {
   return rewriter;
 }
 
-namespace {
-/// The only purpose of this class is to enable creation of PatternRewriter
-/// instances as the base class doesn't have a public constructor.
-class SimplePatternRewriter : public PatternRewriter {
-public:
-  explicit SimplePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
-};
-} // namespace
-
-/// Apply at most one pattern from the given list to each operation nested in
-/// `parent`.
-static void applyPatternsOnce(Operation *parent,
-                              const FrozenRewritePatternSet &patterns) {
-  PatternApplicator applicator(patterns);
-  applicator.applyDefaultCostModel();
-
-  // This assumes that patterns are only used for matching so there is no need
-  // for worklists or any sort of insertion/deletion tracking. This may change
-  // later, at which point the IR transformations will have to notify this
-  // rewriter somehow. Alternatively, we could have only the matching part, but
-  // we would need directl access to PDLBytecode for that.
-  SimplePatternRewriter rewriter(parent->getContext());
-  parent->walk([&](Operation *op) {
-    rewriter.setInsertionPoint(op);
-    if (failed(applicator.matchAndRewrite(op, rewriter))) {
-      LLVM_DEBUG(DBGS() << "failed to match any pattern to " << *op << "\n");
+/// Appends to `targets` the operations that `transformOp` should be run op.
+/// The `transformOp` is expected to have the TargetableTransformOpTrait. Its
+/// target may be either an SSA value that corresponds to a list of ops
+/// produced by other transforms and stored in `operations` or a list of ops
+/// that match the PDL pattern specified by its name.
+template <typename OpTy>
+static LogicalResult findTransformTarget(
+    OpTy transformOp, ModuleOp module,
+    const DenseMap<Value, SmallVector<Operation *, 4>> &operations,
+    SmallVectorImpl<Operation *> &targets) {
+  if (transformOp.op()) {
+    size_t initialSize = targets.size();
+    llvm::append_range(targets, operations.lookup(transformOp.op()));
+    if (llvm::any_of(llvm::drop_begin(targets, initialSize),
+                     [](Operation *op) { return !isa<LinalgOp>(op); })) {
+      return failure();
     }
-  });
-}
-
-/// Executes the Linalg Transform apply operation. This first runs the `when`
-/// condition to find the list of ops that match the transformation criteria
-/// using PDL interpreter and then applies the transformations indicated in the
-/// sequence region.
-static LogicalResult executeApply(linalg::transform::ApplyOp applyOp,
-                                  ModuleOp module) {
-  Block *condition = &applyOp.condition().front();
-  if (condition->empty())
-    return applyOp.emitError() << "expected non-empty 'when' condition";
-
-  auto pdlMatchOp = dyn_cast<linalg::transform::PDLMatchOp>(condition->front());
-  if (!llvm::hasSingleElement(*condition) || !pdlMatchOp) {
-    return applyOp.emitError()
-           << "only a single '"
-           << linalg::transform::PDLMatchOp::getOperationName()
-           << "' condition is currently supported";
+    return success();
   }
 
+  assert(transformOp.matcher().hasValue() &&
+         "expected either an operand or a matcher attribute");
   auto patternOp = SymbolTable::lookupNearestSymbolFrom<pdl::PatternOp>(
-      pdlMatchOp, pdlMatchOp.pattern());
+      transformOp, *transformOp.matcher());
+  if (!patternOp)
+    return transformOp->emitError() << "could not find the pattern by name";
 
-  OwningModuleRef pdlModuleOp = ModuleOp::create(pdlMatchOp.getLoc());
-  pdlModuleOp->getBody(0)->getOperations().splice(
-      pdlModuleOp->getBody(0)->begin(), patternOp->getBlock()->getOperations(),
-      patternOp.getOperation());
+  // Clone the pattern operation into the temporary module used by the driver
+  // as it might be referenced multiple times.
+  OwningModuleRef pdlModuleOp = ModuleOp::create(transformOp.getLoc());
+  pdlModuleOp->getBody(0)->getOperations().push_front(patternOp->clone());
   PDLPatternModule pdlModule(std::move(pdlModuleOp));
   pdlModule.registerConstraintFunction("nestedInFunc", nestedInFunc);
 
-  Block *schedule = &applyOp.transforms().front();
-  if (schedule->empty())
-    return applyOp.emitError() << "expected non-empty transforms block";
-  auto sequenceOp = dyn_cast<linalg::transform::SequenceOp>(schedule->front());
-  if (!llvm::hasSingleElement(*schedule) || !sequenceOp) {
-    return applyOp.emitError()
-           << "only a single '"
-           << linalg::transform::SequenceOp::getOperationName()
-           << "' is currently supported";
-  }
-
-  SmallVector<Operation *> rewriteTargets;
   pdlModule.registerRewriteFunction("linalg_transform.apply",
-                                    makePDLRewriter(rewriteTargets));
+                                    makePDLRewriter(targets));
 
   RewritePatternSet patterns(std::move(pdlModule));
   applyPatternsOnce(module, std::move(patterns));
+  if (targets.empty()) {
+    // TODO: better error reporting story.
+    LLVM_DEBUG(DBGS() << "could not match any operation with " << transformOp
+                      << "\n");
+    return failure();
+  }
 
-  for (Operation *op : rewriteTargets)
-    if (failed(executeSequence(sequenceOp, op)))
+  return success();
+}
+
+/// Applies `transform` with options provided by `configOp` to all operations
+/// specified as targets by `configOp`.
+template <typename OpTy, typename FnTy>
+static LogicalResult executeTransformOnEach(
+    ModuleOp module, OpTy configOp, FnTy transform,
+    DenseMap<Value, SmallVector<Operation *, 4>> &operations) {
+  SmallVector<Operation *> targets;
+  if (failed(findTransformTarget(configOp, module, operations, targets))) {
+    LLVM_DEBUG(DBGS() << "could not find a linalg op target");
+    return failure();
+  }
+
+  for (Operation *target : targets) {
+    assert(target && "null target");
+    auto linalgTarget = dyn_cast<LinalgOp>(target);
+    if (!linalgTarget) {
+      LLVM_DEBUG(DBGS() << "non-linalg operation found " << *target << "\n");
       return failure();
+    }
+    SmallVector<Operation *> results;
+    if (failed(transform(linalgTarget, configOp, results)))
+      return failure();
+
+    assert(results.size() <= 1 && "multi-result transformation");
+    if (results.empty()) {
+      LLVM_DEBUG(DBGS() << "failed to transform " << *target << "\n");
+      continue;
+    }
+    operations[configOp.transformed()].push_back(results.front());
+
+    // TODO: what to do if the following target was somehow modified by
+    // operation on the current target?
+  }
+  return success();
+}
+
+/// Appplies the transformation specified by the given Linalg Transform dialect
+/// operation to the given target operation. The `operations` table contains the
+/// mapping between SSA values that correspond to operation handles produced and
+/// used by Linalg Transform dialect operations, and the Operation* objects in
+/// the code.
+static LogicalResult
+executeTransform(Operation *operation, ModuleOp module,
+                 DenseMap<Value, SmallVector<Operation *, 4>> &operations) {
+  if (auto tileOp = dyn_cast<linalg::transform::TileOp>(operation)) {
+    return executeTransformOnEach(module, tileOp, &executeTileOp, operations);
+  }
+
+  if (auto decomposeOp = dyn_cast<linalg::transform::DecomposeOp>(operation))
+    return executeDecomposeOp(module, decomposeOp);
+
+  if (auto vectorizeOp = dyn_cast<linalg::transform::VectorizeOp>(operation)) {
+    return executeTransformOnEach(module, vectorizeOp, &executeVectorizeOp,
+                                  operations);
+  }
+
+  if (auto lowerVectorsOp =
+          dyn_cast<linalg::transform::LowerVectorsOp>(operation))
+    return executeLowerVectorsOp(module, lowerVectorsOp);
+
+  if (auto bufferizeOp = dyn_cast<linalg::transform::BufferizeOp>(operation))
+    return executeBufferizeOp(module, bufferizeOp);
+
+  if (auto lowerToLLVMOp = dyn_cast<transform::LowerToLLVMOp>(operation))
+    return executeLowerToLLVMOp(module, lowerToLLVMOp);
+
+  return operation->emitError() << "unknown transformation operation";
+}
+
+/// Applies the transformations listed in the `sequence` to operations starting
+/// from `target`. The following transformations may be applied to operations
+/// produced by previous transformations as indicated by SSA value flow in the
+/// Linalg Transform dialect.
+static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
+                                     ModuleOp module) {
+  DenseMap<Value, SmallVector<Operation *, 4>> operations;
+
+  MLIRContext *ctx = module->getContext();
+  RewritePatternSet patternList(ctx);
+  for (Dialect *dialect : ctx->getLoadedDialects())
+    dialect->getCanonicalizationPatterns(patternList);
+  for (RegisteredOperationName op : ctx->getRegisteredOperations())
+    op.getCanonicalizationPatterns(patternList, ctx);
+  FrozenRewritePatternSet patterns(std::move(patternList));
+
+  // Run the canonicalizations upfront so we don't match and transform
+  // operations only to drop them later.
+  eliminateCommonSubexpressionsWithTrackedOps(module, operations);
+  if (failed(applyPatternsTrackAndFoldGreedily(module, operations, patterns))) {
+    LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
+    return failure();
+  }
+
+  for (Operation &transform : sequence.body().front()) {
+    if (failed(executeTransform(&transform, module, operations))) {
+      // TODO: should this be a user-visible error?
+      LLVM_DEBUG(DBGS() << "failed to apply transform: " << transform << "\n");
+      return failure();
+    }
+    LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
+                      << "\n");
+
+    // TODO: remove entries from `operations` if the value is not used by any of
+    // the remaining transformations. This will allow the operation to be
+    // replaced/erased by cleanups below and is slightly more effective.
+
+    // Run canonicalization and CSE. This is similar to running the
+    // canonicalizer pass, but (a) keeps tracking the value/op mapping and (b)
+    // avoids constructing the pattern set + pass pipeline on every step.
+    // TODO: consider better targeting that module-level transformations here.
+    eliminateCommonSubexpressionsWithTrackedOps(module, operations);
+    if (failed(
+            applyPatternsTrackAndFoldGreedily(module, operations, patterns))) {
+      LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
+      return failure();
+    }
+  }
+
   return success();
 }
 
@@ -790,8 +777,8 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
     if (!module)
       return signalPassFailure();
 
-    auto result = module.walk([&](linalg::transform::ApplyOp applyOp) {
-      if (failed(executeApply(applyOp, module)))
+    auto result = module.walk([&](linalg::transform::SequenceOp sequenceOp) {
+      if (failed(executeSequence(sequenceOp, module)))
         return WalkResult::interrupt();
       return WalkResult::advance();
     });

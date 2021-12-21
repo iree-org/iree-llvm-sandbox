@@ -38,11 +38,6 @@ pdl.pattern @pdl_target : benefit(1) {
   pdl.rewrite %0 with "linalg_transform.apply"
 }
 
-linalg_transform.apply {
-^bb0(%arg0: !pdl.operation):
-  linalg_transform.sequence {
-    %0 = tile %arg0 {sizes = [4, 4, 4], pad = false}
-  }
-} when {
-  linalg_transform.pdl_match @pdl_target
+linalg_transform.sequence {
+  %0 = tile when @pdl_target {sizes = [4, 4, 4], pad = false}
 }
