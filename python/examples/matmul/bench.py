@@ -15,6 +15,10 @@ from ..contraction.definitions import EinsumProblem
 
 all_experts = [
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
+    # Degenerate tile size for the bs=1 corner case
+    SingleTilingExpert('matmul_on_tensors',
+                       'linalg.generic',
+                       tile_sizes=[0, 128, 8]),
     SingleTilingExpert('matmul_on_tensors',
                        'linalg.generic',
                        tile_sizes=[12, 32, 8],
@@ -24,9 +28,9 @@ all_experts = [
                        hoist_paddings=[2, 3, 0]),
     DoubleTileAndDecompose('matmul_on_tensors',
                             'linalg.generic',
-                            tile_sizes1=[288, 128, 512],
+                            tile_sizes1=[144, 128, 384],
                             tile_interchange1=[0, 2, 1],
-                            tile_sizes2=[9, 32, 16],
+                            tile_sizes2=[8, 32, 16],
                             tile_interchange2=[0, 1, 2],
                             pad2=True,
                             pack_paddings2=[1, 1, 0],
@@ -35,7 +39,7 @@ all_experts = [
                 'linalg.generic')).then(\
       LoweringOnlyExpert('matmul_on_tensors',
                          'linalg.generic',
-                         transpose_lowering='eltwise'))
+                         transpose_lowering='eltwise')),
     ]]
 
 ################################################################################
@@ -50,7 +54,7 @@ def make_size_list(sizes: Sequence):
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 10
+  n_iters = 100
   problem_size_list = [
       [192, 128, 256],
       [260, 280, 300],
@@ -61,6 +65,12 @@ def main():
       [2048, 2048, 2048],
       [4000, 4000, 4000],
   ]
+  problem_size_list = [
+    [1, 384, 384],
+    [128, 384, 384],
+    [128, 384, 1536],
+    [128, 1536, 384]
+  ]
 
   def numpy_kernel(args, sizes, types):
     A, B, C = args
@@ -68,14 +78,15 @@ def main():
     np.dot(A, B, out=C)
 
   def pytorch_kernel(args, sizes, types):
+    import torch
     A, B, C = args
     C.fill_(0.)
     torch.mm(A, B, out=C)
 
   for runtime_only in [
       [],  # case 1: static at compile time
-      ['m', 'k'],  # case 2: partially dynamic at compile time
-      keys
+      # ['m', 'k'],  # case 2: partially dynamic at compile time
+      # keys
   ]:  # case 3: fully dynamic at compile time
     test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
                  map(make_size_list, problem_size_list),
