@@ -214,18 +214,19 @@ class ProblemInstance:
         n_iters=n_iters)
 
 def _pytimed(callback: Callable[..., None], *args: Any, **kwargs: Any):
-  """Call the given callback and return time in seconds as result."""
+  """Call the given callback and return time in nanoseconds as result."""
   start_time = time.monotonic_ns()
   results = callback(*args, **kwargs)
   end_time = time.monotonic_ns()
-  duration = 1.e-9 * (end_time - start_time)
+  duration = (end_time - start_time)
   return duration
 
 
 def _run_benchmark_n_iters(callback: Callable[[int], None], n_iters: int,
                            *args: Any):
-  """Call the given callback `n_iters` times and return the list of times."""
-  return [_pytimed(callback, *args) for _ in range(n_iters)]
+  """Call the given callback `n_iters` times and return the times as a 1-d array."""
+  return np.asarray([_pytimed(callback, *args) for _ in range(n_iters)])
+
 
 
 def test_harness(
