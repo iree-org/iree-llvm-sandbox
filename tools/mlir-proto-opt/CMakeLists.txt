@@ -1,11 +1,3 @@
-if(SANDBOX_ENABLE_IREE_DIALECTS)
-  list(APPEND dialect_libs
-    IREEInputDialect
-    IREELinalgExtDialect
-    IREELinalgExtPasses
-  )
-endif()
-
 if (SANDBOX_ENABLE_ALP)
   list(APPEND dialect_libs
     ExperimentalAlpTransforms

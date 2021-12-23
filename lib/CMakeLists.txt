@@ -1,6 +1,14 @@
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 
+if(SANDBOX_ENABLE_IREE_DIALECTS)
+  list(APPEND dialect_libs
+    IREEInputDialect
+    IREELinalgExtDialect
+    IREELinalgExtPasses
+  )
+endif()
+
 add_subdirectory(Dialects)
 add_subdirectory(Transforms)
 
@@ -83,7 +91,7 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
   LINK_LIBS PRIVATE
   MLIRCAPIRegistration
   MLIRPass
-  
+
   # Sandbox libraries
   IREELinalgTensorSandboxDriver
   IREELinalgTensorSandboxRegistration
