@@ -1,3 +1,6 @@
+#  Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+#  See https://llvm.org/LICENSE.txt for license information.
+#  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 typest = """
 !memref_type_A = type tensor<_K_x_M_xf32>
 !memref_type_B = type tensor<_K_x_N_xf32>

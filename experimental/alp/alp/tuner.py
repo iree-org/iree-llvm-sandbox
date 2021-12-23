@@ -10,7 +10,7 @@ from opentuner import MeasurementInterface
 from opentuner import Result
 import sys
 
-from .utils  import assemble_options_from_list, parse
+from .utils import parse
 
 max_flops = 0
 class MLIRFlagsTuner(MeasurementInterface):

@@ -14,6 +14,13 @@ set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
   IREELinalgTensorSandboxTransforms
 )
 
+if (SANDBOX_ENABLE_ALP)
+  list(APPEND IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
+    ExperimentalAlpTransforms
+  )
+endif()
+
+
 set(IREE_LINALG_TENSOR_SANDBOX_DEPENDS
   DriverPassIncGen
   MLIRLinalgExtInterfacesIncGen
