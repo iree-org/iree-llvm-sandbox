@@ -149,7 +149,6 @@ def emit_benchmarking_function(name: str,
 def compile_to_execution_engine(module,
                                 transform: Callable,
                                 opt_level: int = 3):
-  start = time.time()
   transformed_module = transform(module)
   execution_engine = ExecutionEngine(
       transformed_module,
@@ -157,6 +156,4 @@ def compile_to_execution_engine(module,
       shared_libs=[
           os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT)
       ])
-  elapsed_compilation_s = time.time() - start
-  print(f"compilation in {elapsed_compilation_s:.{4}}s")
   return transformed_module, execution_engine
