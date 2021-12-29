@@ -73,9 +73,11 @@ class EinsumProblem(ProblemDefinition):
     """Returns random NumPy suitable for calling the kernel."""
     shapes = self.shapes_builder(sizes)
     tensors = [
-        np.random.rand(*s).astype(t) for s, t in zip(shapes[:-1], types[:-1])
+        realign(np.random.rand(*s).astype(t), byte_alignment=64)
+        for s, t in zip(shapes, types)
     ]
-    return tensors + [np.zeros(shapes[-1]).astype(types[-1])]
+    tensors[-1].fill(0.)
+    return tensors
 
   def check_np(self, *args: np.dtype) -> None:
     """Checks whether the computation results correspond to the reference
@@ -120,6 +122,7 @@ class EinsumProblem(ProblemDefinition):
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(types[-1].element_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[-1], value=zero)
+      print('Einsum spec: ', str(self.specification))
       contraction = make_einsum(str(self.specification))(
           *func.arguments[:-1], outs=[tensor_zero])
       std.ReturnOp([contraction])
