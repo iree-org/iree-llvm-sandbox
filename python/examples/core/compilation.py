@@ -29,6 +29,8 @@ scalar_types = list(numpy_types.keys())
 
 _MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
 _MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
+_MLIR_C_RUNNER_UTILS_LIB_ENV = "MLIR_C_RUNNER_UTILS_LIB"
+_MLIR_C_RUNNER_UTILS_LIB_DEFAULT = "libmlir_c_runner_utils.so"
 
 def numpy_type(scalar_type):
   numpy_types[scalar_type]
@@ -149,14 +151,12 @@ def emit_benchmarking_function(name: str,
 def compile_to_execution_engine(module,
                                 transform: Callable,
                                 opt_level: int = 3):
-  start = time.time()
   transformed_module = transform(module)
   execution_engine = ExecutionEngine(
       transformed_module,
       opt_level,
       shared_libs=[
-          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT)
+          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
+          os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV, _MLIR_C_RUNNER_UTILS_LIB_DEFAULT)
       ])
-  elapsed_compilation_s = time.time() - start
-  print(f"compilation in {elapsed_compilation_s:.{4}}s")
   return transformed_module, execution_engine

@@ -101,6 +101,7 @@ python -c "import mlir.iree_sandbox"
 
 # Run a matmul.
 export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so; \
+export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so; \
 cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}; \
 python -m python.examples.matmul.test
 ```
@@ -129,3 +130,45 @@ lit -v test
 python ./run_tests
 ```
 The lit configuration file `test/lit.cfg.py` contains a list of excluded tests.
+
+# Benchmark commands.
+
+Adaptation of recommended benchmark instructions found [here](https://llvm.org/docs/Benchmarking.html).
+Run the following as root.
+
+```
+# Basic info
+numactl --hardware
+
+################################################################
+# prepare to run on cpu 4.
+################################################################
+# Disable address space randomization.
+echo 0 > /proc/sys/kernel/randomize_va_space
+
+# Disable the sibling of CPU 4.
+cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list 
+# E.g. this may return 4,10
+echo 0 > /sys/devices/system/cpu/cpu10/online
+
+################################################################
+# cpuset manipulation.
+################################################################
+# For reference, cset shield does not seem to run as expected on at least 2 systems.
+# cset shield -c 4 --user=${RUN_AS_USER} -k on --userset=${RUN_AS_USER}
+# Instead, reproduce the follwing: https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
+#
+cset set -c 0-3 -s system
+cset set -s sandbox -c 4 -m 0 --cpu_exclusive
+cset proc -m -f root -t system
+
+################################################################
+# TODO: freq control; cloud VM instances do not allow.
+################################################################
+
+IREE_LLVM_SANDBOX_BUILD_DIR=$(pwd)/build \
+MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so \
+MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
+PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package cset proc -s sandbox \
+-e ${PATH_TO_VENV}/.venv/mlirdev/bin/python -- -m python.examples.matmul.bench
+```
