@@ -85,6 +85,7 @@ def main():
     np.dot(A, B, out=C)
 
   def pytorch_kernel(args, sizes, types):
+    import torch
     A, B, C = args
     C.fill_(0.)
     torch.mm(A, B, out=C)
