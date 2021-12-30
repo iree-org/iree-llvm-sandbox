@@ -30,14 +30,6 @@ pdl.pattern @pdl_target : benefit(1) {
   pdl.rewrite %0 with "linalg_transform.apply"
 }
 
-linalg_transform.apply {
-^bb0(%arg0: !pdl.operation):
-  linalg_transform.sequence {
-    %1 = vectorize %arg0 {vectorize_padding = true}
-    //bufferize
-    //lower_vectors { multireduction_lowering = "innerreduce"}
-    //lower_to_llvm
-  }
-} when {
-  linalg_transform.pdl_match @pdl_target
+linalg_transform.sequence {
+  %1 = vectorize when @pdl_target {vectorize_padding = true}
 }

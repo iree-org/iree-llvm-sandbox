@@ -45,32 +45,18 @@ def SequenceOp : Linalg_Transform_Operation<"sequence",
   }];
 }
 
-def ApplyOp : Linalg_Transform_Operation<"apply", [NoTerminator]> {
-  let description = [{A container operation that connects a sequence of
-  transformations to apply to the condition at which the operation should
-  be applied. The condition should be a PDLMatchOp producing the root
-  operation, which is forwarded as the unique basic block argument to the
-  `transforms` region of the operation.}];
-
-  let regions = (region SizedRegion<1>:$transforms, SizedRegion<1>:$condition);
-  let assemblyFormat = "$transforms `when` $condition attr-dict-with-keyword";
-}
-
-def PDLMatchOp : Linalg_Transform_Operation<"pdl_match"> {
-  let description = [{Specifies the name of the PDL pattern used to match the
-  root operation on which the transformations are applied.}];
-
-  let arguments = (ins SymbolRefAttr:$pattern);
-  let assemblyFormat = "$pattern attr-dict";
-}
-
 //===----------------------------------------------------------------------===//
 
-def TileOp : Linalg_Transform_Operation<"tile"> {
+def TargetableOpTrait : NativeOpTrait<"TargetableTransformOpTrait"> {
+  let cppNamespace = "::mlir";
+}
+
+def TileOp : Linalg_Transform_Operation<"tile", [TargetableOpTrait]> {
   let description = [{Indicates that ops of a specific kind in the given
   function should be tiled with the options provided as attributes.}];
 
-  let arguments = (ins PDL_Operation:$op,
+  let arguments = (ins Optional<PDL_Operation>:$op,
+                   OptionalAttr<SymbolRefAttr>:$matcher,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
                    DefaultValuedAttr<BoolAttr, "false">:$pad,
@@ -81,7 +67,7 @@ def TileOp : Linalg_Transform_Operation<"tile"> {
                   );
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "$op attr-dict";
+  let assemblyFormat = "($op^)? (`when` $matcher^)? attr-dict";
 }
 
 def BufferizeOp : Linalg_Transform_Operation<"bufferize"> {
@@ -95,16 +81,17 @@ def DecomposeOp : Linalg_Transform_Operation<"decompose"> {
   let assemblyFormat = "attr-dict";
 }
 
-def VectorizeOp : Linalg_Transform_Operation<"vectorize"> {
+def VectorizeOp : Linalg_Transform_Operation<"vectorize", [TargetableOpTrait]> {
   let description = [{Indiactes that ops of a specific kind in the given
   function should be vectorized with the options provided as attributes.}];
 
-  let arguments = (ins PDL_Operation:$op,
+  let arguments = (ins Optional<PDL_Operation>:$op,
+                   OptionalAttr<SymbolRefAttr>:$matcher,
                    DefaultValuedAttr<BoolAttr, "false">:$vectorize_padding
                   );
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "$op attr-dict";
+  let assemblyFormat = "($op^)? (`when` $matcher^)? attr-dict";
 }
 
 def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {

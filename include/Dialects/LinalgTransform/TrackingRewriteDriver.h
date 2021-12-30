@@ -21,7 +21,8 @@ namespace mlir {
 /// must be replaced with Linalg operations and must not be erased in the
 /// patterns.
 LogicalResult applyPatternsTrackAndFoldGreedily(
-    Operation *root, DenseMap<Value, Operation *> &trackedOperations,
+    Operation *root,
+    DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations,
     const FrozenRewritePatternSet &patterns,
     GreedyRewriteConfig config = GreedyRewriteConfig());
 } // namespace mlir
