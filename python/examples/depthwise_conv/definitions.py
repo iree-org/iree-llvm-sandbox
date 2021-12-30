@@ -357,6 +357,8 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
 
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(output_type.element_type, 0.0)
+      # Skip fill to emulate fusion.
+      # tensor_zero = func.arguments[2]
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
       conv = self.__op_builder(
           func.arguments[0],
