@@ -8,6 +8,7 @@ from copy import deepcopy
 
 from .variables import Variable
 
+
 class _TransformThenDescriptor:
   """Python descriptor dispatching `then` on the `Transform` class as either
   class or instance method."""
@@ -21,6 +22,7 @@ class _TransformThenDescriptor:
     # Calling as class method.
     if obj is None:
       assert issubclass(objtype, Transform)
+
       def then_class(
           other_cls: tp.Union[tp.Type['Transform'],
                               tp.Type['TransformationList']]
@@ -107,10 +109,13 @@ class Transform:
   # instance, produces an instance callable.
   then = _TransformThenDescriptor()
 
-  def __add__(self, other: tp.Union[Transform, 'TransformationList']) -> 'TransformationList':
+  def __add__(
+      self, other: tp.Union[Transform,
+                            'TransformationList']) -> 'TransformationList':
     """Create a new transformation list from the current and another
     transformation."""
     return self.then(other)
+
 
 class Print(Transform):
   """Print intermediate IR.
@@ -128,13 +133,16 @@ class Print(Transform):
     module.dump()
     return module
 
+
 class _TransformListThenDescriptor:
   """Python descriptor dispatching `then` on the `TransformationList` class as
   either class or instance method."""
+
   def __get__(self, obj: tp.Any, objtype: type):
     if obj is None:
       return objtype._then_cls
     return obj.__add__
+
 
 class TransformationList:
   """Base class for an Expert compiler that applies transformations in sequence.
@@ -269,6 +277,7 @@ class TransformListMetaclass(type):
 
     return super(TransformListMetaclass, cls).__new__(cls, clsname, bases,
                                                       attrs)
+
 
 def TransformListFactory(name: str, transforms: tp.Sequence[Transform]):
   """Create a new TransformationList subclss with the given name that performs

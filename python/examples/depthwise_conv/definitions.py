@@ -360,12 +360,11 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
       # Skip fill to emulate fusion.
       # tensor_zero = func.arguments[2]
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
-      conv = self.__op_builder(
-          func.arguments[0],
-          func.arguments[1],
-          outs=[tensor_zero],
-          strides=self.__strides,
-          dilations=self.__dilations)
+      conv = self.__op_builder(func.arguments[0],
+                               func.arguments[1],
+                               outs=[tensor_zero],
+                               strides=self.__strides,
+                               dilations=self.__dilations)
       std.ReturnOp([conv])
 
     return func

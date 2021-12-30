@@ -45,6 +45,7 @@ class EinsumProblem(ProblemDefinition):
 
   def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Constructs the tensor shapes given problem parameters."""
+
     def shape_of_tensor(name: str):
       return [sizes[d] for d in getattr(self.specification, name)]
 
@@ -62,9 +63,8 @@ class EinsumProblem(ProblemDefinition):
     """Return the GByte count given problem parameters."""
     lhs_type, rhs_type, output_type = types
     lhs_shape, rhs_shape, output_shape = self.shapes_builder(sizes)
-    ro_gbytes = 1.e-9 * (
-        np.prod(lhs_shape) * np.dtype(lhs_type).itemsize +
-        np.prod(rhs_shape) * np.dtype(rhs_type).itemsize)
+    ro_gbytes = 1.e-9 * (np.prod(lhs_shape) * np.dtype(lhs_type).itemsize +
+                         np.prod(rhs_shape) * np.dtype(rhs_type).itemsize)
     rw_gbytes = 2.e-9 * np.prod(output_shape) * np.dtype(output_type).itemsize
     return ro_gbytes + rw_gbytes
 
@@ -123,8 +123,8 @@ class EinsumProblem(ProblemDefinition):
       zero = arith.ConstantOp(types[-1].element_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[-1], value=zero)
       print('Einsum spec: ', str(self.specification))
-      contraction = make_einsum(str(self.specification))(
-          *func.arguments[:-1], outs=[tensor_zero])
+      contraction = make_einsum(str(self.specification))(*func.arguments[:-1],
+                                                         outs=[tensor_zero])
       std.ReturnOp([contraction])
 
     return func

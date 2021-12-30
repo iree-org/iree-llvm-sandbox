@@ -78,9 +78,8 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     """
     shapes = self.shapes_builder(sizes)
     input_np_type, kernel_np_type, output_np_type = types
-    ro_gbytes = 1e-9 * (
-        np.prod(shapes[0]) * np.dtype(input_np_type).itemsize +
-        np.prod(shapes[1]) * np.dtype(kernel_np_type).itemsize)
+    ro_gbytes = 1e-9 * (np.prod(shapes[0]) * np.dtype(input_np_type).itemsize +
+                        np.prod(shapes[1]) * np.dtype(kernel_np_type).itemsize)
     rw_gbytes = 2e-9 * (np.prod(shapes[2]) * np.dtype(output_np_type).itemsize)
     return ro_gbytes + rw_gbytes
 
@@ -194,12 +193,11 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
       with InsertionPoint(block):
         linalg.YieldOp(zero)
 
-      conv = linalg.conv_1d_nwc_wcf(
-          padded_input,
-          func.arguments[1],
-          outs=[tensor_zero],
-          strides=[self.stride],
-          dilations=[self.dilation])
+      conv = linalg.conv_1d_nwc_wcf(padded_input,
+                                    func.arguments[1],
+                                    outs=[tensor_zero],
+                                    strides=[self.stride],
+                                    dilations=[self.dilation])
       # linalg.Conv1DNwcWcfOp returns a Value instead of OpView, so we have to
       # manually wrap it in a list here.
       std.ReturnOp([conv])

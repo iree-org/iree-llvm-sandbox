@@ -205,13 +205,13 @@ class ProblemInstance:
       run_n_iters(1)
 
     # 5. Showtime.
-    return timed_invoke(
-        run_n_iters=run_n_iters,
-        gflop_count=self.problem_definition.gflop_count_builder(
-            runtime_problem_sizes_dict),
-        gbyte_count=self.problem_definition.gbyte_count_builder(
-            runtime_problem_sizes_dict, self.np_types),
-        n_iters=n_iters)
+    return timed_invoke(run_n_iters=run_n_iters,
+                        gflop_count=self.problem_definition.gflop_count_builder(
+                            runtime_problem_sizes_dict),
+                        gbyte_count=self.problem_definition.gbyte_count_builder(
+                            runtime_problem_sizes_dict, self.np_types),
+                        n_iters=n_iters)
+
 
 def _pytimed(callback: Callable[..., None], *args: Any, **kwargs: Any):
   """Call the given callback and return time in nanoseconds as result."""
@@ -228,17 +228,15 @@ def _run_benchmark_n_iters(callback: Callable[[int], None], n_iters: int,
   return np.asarray([_pytimed(callback, *args) for _ in range(n_iters)])
 
 
-
-def test_harness(
-    problem_factory: Callable[[Mapping[str, Any], Sequence[np.dtype]],
-                              ProblemDefinition],
-    np_types_list: Sequence[Sequence[np.dtype]],
-    problem_sizes_list: Sequence[Mapping[str, Any]],
-    experts: Sequence[TransformationList],
-    n_iters: int = 1,
-    function_name: str = 'tested_function',
-    runtime_only_sizes: AbstractSet[str] = set(),
-    **kwargs) -> Mapping[str, TimingResults]:
+def test_harness(problem_factory: Callable[
+    [Mapping[str, Any], Sequence[np.dtype]], ProblemDefinition],
+                 np_types_list: Sequence[Sequence[np.dtype]],
+                 problem_sizes_list: Sequence[Mapping[str, Any]],
+                 experts: Sequence[TransformationList],
+                 n_iters: int = 1,
+                 function_name: str = 'tested_function',
+                 runtime_only_sizes: AbstractSet[str] = set(),
+                 **kwargs) -> Mapping[str, TimingResults]:
   """Test runner facility.
 
   Compiles and runs the a test or a benchmark for a cross-product of possible

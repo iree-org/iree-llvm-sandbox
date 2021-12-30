@@ -116,10 +116,9 @@ def make_einsum(specification: str):
   op_name = "_".join(["contraction", lhs_dims, rhs_dims, output_dims])
 
   @linalg_structured_op(op_name=op_name)
-  def einsum_contraction(
-      LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
-      RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
-      O=TensorDef(U, *symbols(output_dims), output=True)):
+  def einsum_contraction(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
+                         RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
+                         O=TensorDef(U, *symbols(output_dims), output=True)):
     domain(*dims(output_dims + reduction_dims))
     implements(ContractionOpInterface)
     O[dims(output_dims)] += cast(U, LHS[dims(lhs_dims)]) * cast(

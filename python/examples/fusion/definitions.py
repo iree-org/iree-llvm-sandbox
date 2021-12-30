@@ -122,8 +122,9 @@ class MatmulProblem(ProblemDefinition):
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(acc_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
-      matmul = linalg.matmul(
-          func.arguments[0], func.arguments[1], outs=[tensor_zero])
+      matmul = linalg.matmul(func.arguments[0],
+                             func.arguments[1],
+                             outs=[tensor_zero])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       std.ReturnOp([matmul])
@@ -133,10 +134,9 @@ class MatmulProblem(ProblemDefinition):
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
 @linalg_structured_op
-def add_bias_to_2d(
-    I=TensorDef(T, S.M, S.N),
-    Bias=TensorDef(T, S.N),
-    O=TensorDef(T, S.M, S.N, output=True)):
+def add_bias_to_2d(I=TensorDef(T, S.M, S.N),
+                   Bias=TensorDef(T, S.N),
+                   O=TensorDef(T, S.M, S.N, output=True)):
   domain(D.m, D.n)
   O[D.m, D.n] = I[D.m, D.n] + Bias[D.n]
 
@@ -186,18 +186,20 @@ class MatmulBiasAddProblem(ProblemDefinition):
     # Actual benchmarked function called under entry_point_name.
     func = builtin.FuncOp(name, (types, [types[-2]]))
     # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(
-        func, inplaceable=[False, False, False, True, True])
+    attach_inplaceable_attributes(func,
+                                  inplaceable=[False, False, False, True, True])
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
     acc_type = types[-2].element_type
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(acc_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[3], value=zero)
-      matmul = linalg.matmul(
-          func.arguments[0], func.arguments[1], outs=[tensor_zero])
-      bias_add = add_bias_to_2d(
-          matmul, func.arguments[2], outs=[func.arguments[4]])
+      matmul = linalg.matmul(func.arguments[0],
+                             func.arguments[1],
+                             outs=[tensor_zero])
+      bias_add = add_bias_to_2d(matmul,
+                                func.arguments[2],
+                                outs=[func.arguments[4]])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       std.ReturnOp([bias_add])

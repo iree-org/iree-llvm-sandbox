@@ -148,11 +148,7 @@ class Tile(Transform):
       'scalarize_dyn_dims': (BoolVariable, False),
   }
 
-  def __init__(
-      self,
-      fun_name: str,
-      op_name: str,
-      **kwargs):
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
     tile_str = _get_tile_sizes_str(self)
     interchange_str = _get_tile_interchange_str(self)
@@ -177,6 +173,7 @@ class Tile(Transform):
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
 
+
 class LinalgExtTile(Transform):
   """Tile a linalg op with using the linalg_ext.tile op and a single
   entry tile_sizes.
@@ -186,26 +183,24 @@ class LinalgExtTile(Transform):
   """
 
   variables = {
-    'tile_sizes': (TilingSizesVariable, []),
+      'tile_sizes': (TilingSizesVariable, []),
   }
 
-  def __init__(
-      self,
-      fun_name: str,
-      op_name: str,
-      **kwargs):
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
     assert len(self.tile_sizes) == 1, "expected single tile size, got: " + \
       str(self.tile_sizes)
 
-    pipeline = (f'linalg-ext-tiling-to-tile-op{{'
-                #f'     anchor-func={fun_name} '
-                #f'     anchor-op={op_name} '
-                f'     tile-size={self.tile_sizes[0]}}}'
-                #f'canonicalize,'
-                #f'cse'
-                )
+    pipeline = (
+        f'linalg-ext-tiling-to-tile-op{{'
+        #f'     anchor-func={fun_name} '
+        #f'     anchor-op={op_name} '
+        f'     tile-size={self.tile_sizes[0]}}}'
+        #f'canonicalize,'
+        #f'cse'
+    )
     self.pipeline = (f'builtin.func({pipeline})')
+
 
 class LinalgExtTileToSequentialFor(Transform):
   """Rewrite linalg_ext.tile op to scf.for.
@@ -213,11 +208,7 @@ class LinalgExtTileToSequentialFor(Transform):
 
   variables = {}
 
-  def __init__(
-      self,
-      fun_name: str,
-      op_name: str,
-      **kwargs):
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
 
     pipeline = (f'linalg-tile-to-sequential-for,'
@@ -225,17 +216,14 @@ class LinalgExtTileToSequentialFor(Transform):
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
 
+
 class LinalgExtTileToInParallel(Transform):
   """Rewrite linalg_ext.tile op to linalg_ext.in_parallel.
   """
 
   variables = {}
 
-  def __init__(
-      self,
-      fun_name: str,
-      op_name: str,
-      **kwargs):
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
 
     pipeline = (f'linalg-tile-to-in-parallel,'
@@ -243,6 +231,7 @@ class LinalgExtTileToInParallel(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
+
 
 class Vectorize(Transform):
   """Vectorize named operations.
@@ -252,7 +241,7 @@ class Vectorize(Transform):
   """
 
   variables = {
-    'vectorize_paddings': (BoolVariable, True),
+      'vectorize_paddings': (BoolVariable, True),
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
@@ -319,18 +308,22 @@ class DecomposeToLowerDimensionalNamedOp(Transform):
 class Bufferize(Transform):
 
   def __init__(self, **kwargs):
-    pipeline = (f'linalg-bufferization-driver,' f'canonicalize,' f'cse')
+    pipeline = (f'linalg-bufferization-driver,'
+                f'canonicalize,'
+                f'cse')
     self.pipeline = pipeline
 
+
 class LowerVectors(Transform):
+
   class ContractionLoweringChoice(ChoiceVariableBase):
-    options=("outerproduct", "dot", "matrixintrinsics")
+    options = ("outerproduct", "dot", "matrixintrinsics")
 
   class MultiReductionLoweringChoice(ChoiceVariableBase):
-    options=("innerparallel", "innerreduction")
+    options = ("innerparallel", "innerreduction")
 
   class TransposeLoweringChoice(ChoiceVariableBase):
-    options=("eltwise", "flat_transpose", "shuffle")
+    options = ("eltwise", "flat_transpose", "shuffle")
 
   variables = {
       'contraction_lowering':
@@ -342,24 +335,27 @@ class LowerVectors(Transform):
       'transpose_avx2_lowering': (BoolVariable, False)
   }
 
-  def __init__(self, stages: tp.Union[int, tp.Sequence[int]] = range(7), **kwargs):
+  def __init__(self,
+               stages: tp.Union[int, tp.Sequence[int]] = range(7),
+               **kwargs):
     if isinstance(stages, int):
       stages = [stages]
 
     self._parse_variables_in_kwargs(kwargs)
 
-    pipelines = [(
-        f'linalg-vector-lowering{{'
-        f'    lower-vector-stage={stage}'
-        f'    max-transfer-rank=1 '
-        f'    split-transfers=linalg-copy '
-        f'    lower-vector-transpose-to={self.transpose_lowering} '
-        f'    lower-vector-transpose-to-avx2={self.transpose_avx2_lowering} '
-        f'    lower-vector-multi-reduction-to={self.multi_reduction_lowering} '
-        f'    lower-vector-contraction-to={self.contraction_lowering} '
-        f'    unroll-vector-transfers=true}},'
-        f'canonicalize,'
-        f'cse') for stage in stages]
+    pipelines = [
+        (f'linalg-vector-lowering{{'
+         f'    lower-vector-stage={stage}'
+         f'    max-transfer-rank=1 '
+         f'    split-transfers=linalg-copy '
+         f'    lower-vector-transpose-to={self.transpose_lowering} '
+         f'    lower-vector-transpose-to-avx2={self.transpose_avx2_lowering} '
+         f'    lower-vector-multi-reduction-to={self.multi_reduction_lowering} '
+         f'    lower-vector-contraction-to={self.contraction_lowering} '
+         f'    unroll-vector-transfers=true}},'
+         f'canonicalize,'
+         f'cse') for stage in stages
+    ]
     self.pipelines = [f'builtin.func({pipeline})' for pipeline in pipelines]
 
   def __call__(self, module: Module, fun_name: str):
@@ -371,7 +367,9 @@ class LowerVectors(Transform):
 class LowerToLLVM(Transform):
 
   def __init__(self, **kwargs):
-    pipeline = (f'llvm-lowering,' f'canonicalize,' f'cse')
+    pipeline = (f'llvm-lowering,'
+                f'canonicalize,'
+                f'cse')
     self.pipeline = pipeline
 
 

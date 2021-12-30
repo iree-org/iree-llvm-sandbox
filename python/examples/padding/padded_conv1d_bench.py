@@ -33,6 +33,7 @@ keys = ['N', 'W', 'C', 'KW', 'F', 'WpadL', 'WpadR', 'stride', 'dilation']
 def make_size_list(sizes: Sequence):
   return {k: v for k, v in zip(keys, sizes)}
 
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
@@ -41,16 +42,15 @@ def main():
      [8, 16, 32,  3, 64,     0,    1,     1,       1], \
   ]
 
-  test_harness(
-      lambda sizes, t: Padded_Conv1d_NWC_WCF_Problem(
-          WpadL=sizes['WpadL'],
-          WpadR=sizes['WpadR'],
-          stride=sizes['stride'],
-          dilation=sizes['dilation']), [[np.float32] * 3],
-      map(make_size_list, problem_size_list),
-      all_experts,
-      n_iters=n_iters,
-      function_name=fun_name)
+  test_harness(lambda sizes, t: Padded_Conv1d_NWC_WCF_Problem(
+      WpadL=sizes['WpadL'],
+      WpadR=sizes['WpadR'],
+      stride=sizes['stride'],
+      dilation=sizes['dilation']), [[np.float32] * 3],
+               map(make_size_list, problem_size_list),
+               all_experts,
+               n_iters=n_iters,
+               function_name=fun_name)
 
 
 if __name__ == '__main__':

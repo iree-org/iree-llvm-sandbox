@@ -12,6 +12,7 @@ import typing as tp
 fun_name = 'transpose_4d_on_tensors'
 op_name = 'linalg.generic'
 
+
 def tiling_shuffle_lowering(**kwargs):
   return TileAndDecompose(**kwargs)\
     .then(Vectorize(fun_name, op_name))\
@@ -19,16 +20,13 @@ def tiling_shuffle_lowering(**kwargs):
     .then(LowerVectors(transpose_lowering='shuffle'))\
     .then(LowerToLLVM())
 
+
 expert_transpose_4d_0213 = tiling_shuffle_lowering(
-    fun_name=fun_name,
-    op_name=op_name,
-    tile_sizes=[1, 4, 4, 16],
+    fun_name=fun_name, op_name=op_name, tile_sizes=[1, 4, 4, 16],
     peel=[0, 1]).print_ir(after_all=False)
 
 expert_transpose_4d_1302 = tiling_shuffle_lowering(
-    fun_name=fun_name,
-    op_name=op_name,
-    tile_sizes=[1, 0, 4, 4],
+    fun_name=fun_name, op_name=op_name, tile_sizes=[1, 0, 4, 4],
     peel=[0, 1]).print_ir(after_all=False)
 
 ################################################################################
@@ -61,13 +59,12 @@ def main():
     return {k: v for k, v in zip(keys, sizes)}
 
   for problem in problem_list:
-    test_harness(
-        lambda s, t: TransposeNDProblem(
-            permutation=problem[1], op_builder=problem[2]), [[np.float32] * 2],
-        [make_size_list(keys, problem[0])],
-        experts=[problem[3]],
-        n_iters=n_iters,
-        function_name=fun_name)
+    test_harness(lambda s, t: TransposeNDProblem(permutation=problem[1],
+                                                 op_builder=problem[2]),
+                 [[np.float32] * 2], [make_size_list(keys, problem[0])],
+                 experts=[problem[3]],
+                 n_iters=n_iters,
+                 function_name=fun_name)
 
 
 if __name__ == '__main__':

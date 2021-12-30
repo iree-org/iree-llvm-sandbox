@@ -43,6 +43,7 @@ keys = ['N', 'W', 'C', 'KW', 'F', 'strides', 'dilations']
 def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
   return {k: v for k, v in zip(keys, sizes)}
 
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1000
@@ -56,14 +57,13 @@ def main():
      [8, 16, 32,  3, 64,  [3],  [2]],  \
   ]
 
-  test_harness(
-      lambda sizes, types: ConvolutionProblem(
-          'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
-      [[np.float32] * 3],
-      [make_size_list(keys, sizes) for sizes in problem_size_list],
-      all_experts,
-      n_iters=n_iters,
-      function_name=fun_name)
+  test_harness(lambda sizes, types: ConvolutionProblem(
+      'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
+               [[np.float32] * 3],
+               [make_size_list(keys, sizes) for sizes in problem_size_list],
+               all_experts,
+               n_iters=n_iters,
+               function_name=fun_name)
 
 
 def benchmark():
@@ -73,14 +73,13 @@ def benchmark():
      [8, 15, 32,  3, 64,  [1],  [1]], \
      [8, 15, 32,  3, 64,  [2],  [2]], \
   ]
-  test_harness(
-      lambda sizes, types: ConvolutionProblem(
-          'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
-      [[np.float32] * 3],
-      [make_size_list(keys, sizes) for sizes in problem_size_list],
-      all_experts,
-      n_iters=n_iters,
-      function_name=fun_name)
+  test_harness(lambda sizes, types: ConvolutionProblem(
+      'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
+               [[np.float32] * 3],
+               [make_size_list(keys, sizes) for sizes in problem_size_list],
+               all_experts,
+               n_iters=n_iters,
+               function_name=fun_name)
 
 
 if __name__ == '__main__':

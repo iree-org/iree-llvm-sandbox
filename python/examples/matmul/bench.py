@@ -83,6 +83,7 @@ keys = ['m', 'n', 'k']
 def make_size_list(sizes: Sequence):
   return {k: v for k, v in zip(keys, sizes)}
 
+
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
@@ -103,11 +104,12 @@ def main():
   for runtime_only in [
       [],  # case 1: static at compile time
       ['m', 'k'],  # case 2: partially dynamic at compile time
-      keys # case 3: fully dynamic at compile time
-  ]: 
+      keys  # case 3: fully dynamic at compile time
+  ]:
     #            fastest           slowest
     # specs: C +=  A^T.B      A.B    A.B^T
-    for spec in ['km,kn', 'mk,kn', 'mk,nk' ]:
+    for spec in ['km,kn', 'mk,kn', 'mk,nk']:
+
       def numpy_kernel(args, sizes, types):
         A, B, C = args
         C.fill(0.)
@@ -128,15 +130,15 @@ def main():
         torch.mm(A, B, out=C)
 
       test_harness(lambda s, t: EinsumProblem(spec), [[np.float32] * 3],
-                  map(make_size_list, problem_size_list),
-                  all_experts,
-                  n_iters=n_iters,
-                  runtime_only_sizes=set(runtime_only),
-                  function_name='matmul_on_tensors',
-                  dump_ir_to_file='/tmp/abc.mlir',
-                  dump_obj_to_file='/tmp/abc.o',
-                  numpy_benchmark=numpy_kernel,
-                  pytorch_benchmark=pytorch_kernel)
+                   map(make_size_list, problem_size_list),
+                   all_experts,
+                   n_iters=n_iters,
+                   runtime_only_sizes=set(runtime_only),
+                   function_name='matmul_on_tensors',
+                   dump_ir_to_file='/tmp/abc.mlir',
+                   dump_obj_to_file='/tmp/abc.o',
+                   numpy_benchmark=numpy_kernel,
+                   pytorch_benchmark=pytorch_kernel)
 
 
 def benchmark():

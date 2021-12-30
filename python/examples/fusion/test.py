@@ -13,28 +13,25 @@ from .definitions import *
 ### Expert for running the fusion tests.
 ################################################################################
 
-
-fusion_test_expert = Fuse.then(Bufferize).then(Print).then(
-    LowerVectors).then(LowerToLLVM)
+fusion_test_expert = Fuse.then(Bufferize).then(Print).then(LowerVectors).then(
+    LowerToLLVM)
 
 
 # 1 linalg.fill -> linalg.matmul fusion.
 def fill_matmul_fusion():
 
-  expert = fusion_test_expert(
-      'matmul_on_tensors',
-      'linalg.matmul',
-      tile_sizes=[4, 8, 6],
-      tile_interchange=[0, 1, 2],
-      pad=True,
-      pack_paddings=[1, 1, 0],
-      hoist_paddings=[0, 0, 0],
-      vectorize=True,
-      vectorize_paddings=True)
+  expert = fusion_test_expert('matmul_on_tensors',
+                              'linalg.matmul',
+                              tile_sizes=[4, 8, 6],
+                              tile_interchange=[0, 1, 2],
+                              pad=True,
+                              pack_paddings=[1, 1, 0],
+                              hoist_paddings=[0, 0, 0],
+                              vectorize=True,
+                              vectorize_paddings=True)
   problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
-  problem = ProblemInstance(
-      problem_definition=MatmulProblem(),
-      np_types=[np.float32, np.float32, np.float32])
+  problem = ProblemInstance(problem_definition=MatmulProblem(),
+                            np_types=[np.float32, np.float32, np.float32])
 
   ## These lit tests are not actually run, but can be checked locally using
   ## $ bazel run ${IREE_LLVM_SANDBOX_DIR}:fusion_test | \
@@ -55,24 +52,22 @@ def fill_matmul_fusion():
   # CHECK-SAME:            %[[LHS_VEC]], %[[RHS_VEC]], %[[PHI]]
   #      CHECK:          scf.yield %[[CONTRACT]]
   #      CHECK:       vector.transfer_write %[[REDUCTION]], %[[ARG2]]
-  problem.compile(
-      entry_point_name='matmul_main',
-      fun_to_benchmark_name='matmul_on_tensors',
-      compile_time_problem_sizes_dict=problem_sizes_dict,
-      transform=expert)
+  problem.compile(entry_point_name='matmul_main',
+                  fun_to_benchmark_name='matmul_on_tensors',
+                  compile_time_problem_sizes_dict=problem_sizes_dict,
+                  transform=expert)
 
 
 def fill_matmul_bias_add_fusion():
-  expert = fusion_test_expert(
-      'matmul_bias_add_on_tensors',
-      'linalg.generic',
-      tile_sizes=[4, 8, 6],
-      tile_interchange=[0, 1, 2],
-      pad=True,
-      pack_paddings=[1, 1, 0],
-      hoist_paddings=[0, 0, 0],
-      vectorize=True,
-      vectorize_paddings=True)
+  expert = fusion_test_expert('matmul_bias_add_on_tensors',
+                              'linalg.generic',
+                              tile_sizes=[4, 8, 6],
+                              tile_interchange=[0, 1, 2],
+                              pad=True,
+                              pack_paddings=[1, 1, 0],
+                              hoist_paddings=[0, 0, 0],
+                              vectorize=True,
+                              vectorize_paddings=True)
   problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
   problem = ProblemInstance(
       problem_definition=MatmulBiasAddProblem(),
@@ -97,11 +92,10 @@ def fill_matmul_bias_add_fusion():
   #      CHECK:       %[[CONTRACT:.+]] = vector.contract
   # CHECK-SAME:          %[[LHS_VEC]], %[[RHS_VEC]], %[[BCAST]]
   #      CHECK:       vector.transfer_write %[[CONTRACT]], %[[ARG4]]
-  problem.compile(
-      entry_point_name='matmul_bias_add_main',
-      fun_to_benchmark_name='matmul_bias_add_on_tensors',
-      compile_time_problem_sizes_dict=problem_sizes_dict,
-      transform=expert)
+  problem.compile(entry_point_name='matmul_bias_add_main',
+                  fun_to_benchmark_name='matmul_bias_add_on_tensors',
+                  compile_time_problem_sizes_dict=problem_sizes_dict,
+                  transform=expert)
 
 
 def main():

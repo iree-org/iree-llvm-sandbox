@@ -20,6 +20,7 @@ def TestExpert(transforms: tp.Sequence[tp.Union[Transform,
   return (TransformationList(transforms=transforms) + Bufferize() +
           LoweringOnlyExpert('matmul_on_tensors', 'linalg.generic'))
 
+
 # TODO: Check generate code for basic code quality, e.g., no linalg.copy.
 
 # No tiling.
@@ -54,10 +55,7 @@ expert_tile_1_and_generalize_interchange = \
 # to enable tuning and pass it into the transformation list directly.
 expert_tile_1_peel_scalarize = TransformationList(
     transforms=[
-        Tile('matmul_on_tensors',
-             'linalg.generic',
-             tile_sizes=[8],
-             peel=[0]),
+        Tile('matmul_on_tensors', 'linalg.generic', tile_sizes=[8], peel=[0]),
         Tile('matmul_on_tensors', 'linalg.generic', scalarize_dyn_dims=True),
     ] + Vectorize.then(LoweringOnlyExpert)
     ('matmul_on_tensors', 'linalg.generic').transforms)
@@ -84,9 +82,7 @@ expert_tile_1_pad_hoist = TestExpert([
 ])
 # 2 levels of tiling, with padding, hoisted.
 expert_tile_2_pad_hoist = TestExpert([
-    Tile('matmul_on_tensors',
-         'linalg.generic',
-         tile_sizes=[8, 8, 24]),
+    Tile('matmul_on_tensors', 'linalg.generic', tile_sizes=[8, 8, 24]),
     Tile('matmul_on_tensors',
          'linalg.generic',
          tile_sizes=[4, 4, 12],
@@ -97,9 +93,7 @@ expert_tile_2_pad_hoist = TestExpert([
 ])
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
 expert_tile_3_pad_hoist_peel = TestExpert([
-    Tile('matmul_on_tensors',
-         'linalg.generic',
-         tile_sizes=[8, 8, 24]),
+    Tile('matmul_on_tensors', 'linalg.generic', tile_sizes=[8, 8, 24]),
     Tile('matmul_on_tensors',
          'linalg.generic',
          tile_sizes=[4, 4, 12],
@@ -115,9 +109,7 @@ expert_tile_3_pad_hoist_peel = TestExpert([
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
 # Scalarize remaining dynamic dims.
 expert_tile_3_pad_hoist_peel_scalarize = TestExpert([
-    Tile('matmul_on_tensors',
-         'linalg.generic',
-         tile_sizes=[8, 8, 24]),
+    Tile('matmul_on_tensors', 'linalg.generic', tile_sizes=[8, 8, 24]),
     Tile('matmul_on_tensors',
          'linalg.generic',
          tile_sizes=[4, 4, 12],

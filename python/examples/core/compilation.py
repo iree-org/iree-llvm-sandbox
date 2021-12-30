@@ -32,6 +32,7 @@ _MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
 _MLIR_C_RUNNER_UTILS_LIB_ENV = "MLIR_C_RUNNER_UTILS_LIB"
 _MLIR_C_RUNNER_UTILS_LIB_DEFAULT = "libmlir_c_runner_utils.so"
 
+
 def numpy_type(scalar_type):
   numpy_types[scalar_type]
 
@@ -112,8 +113,8 @@ def emit_benchmarking_function(name: str,
   its last argument.
   """
   i64_type = IntegerType.get_signless(64)
-  nano_time = builtin.FuncOp(
-      "nano_time", ([], [i64_type]), visibility="private")
+  nano_time = builtin.FuncOp("nano_time", ([], [i64_type]),
+                             visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
   memref_of_i64_type = MemRefType.get([-1], i64_type)
@@ -157,6 +158,7 @@ def compile_to_execution_engine(module,
       opt_level,
       shared_libs=[
           os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
-          os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV, _MLIR_C_RUNNER_UTILS_LIB_DEFAULT)
+          os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV,
+                    _MLIR_C_RUNNER_UTILS_LIB_DEFAULT)
       ])
   return transformed_module, execution_engine

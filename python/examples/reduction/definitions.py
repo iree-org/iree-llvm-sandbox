@@ -30,6 +30,7 @@ def reduction_1d(A=TensorDef(T, S.M), B=TensorDef(T, output=True)):
   domain(D.m)
   B[None] += A[D.m]
 
+
 class Reduction1DProblem(ProblemDefinition):
   """ Problem definition for a single fill + reduction_1d problem."""
 
@@ -135,6 +136,7 @@ class Reduction1DProblem(ProblemDefinition):
 
     return func
 
+
 ################################################################################
 ### Row Reduction 2D
 ################################################################################
@@ -146,8 +148,8 @@ class Reduction1DProblem(ProblemDefinition):
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
 @linalg_structured_op
-def row_reduction_2d(
-    A=TensorDef(T, S.M, S.N), B=TensorDef(T, S.M, output=True)):
+def row_reduction_2d(A=TensorDef(T, S.M, S.N), B=TensorDef(T, S.M,
+                                                           output=True)):
   domain(D.m, D.n)
   B[D.m] += A[D.m, D.n]
 
@@ -268,8 +270,8 @@ class RowReduction2DProblem(ProblemDefinition):
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
 @linalg_structured_op
-def column_reduction_2d(
-    A=TensorDef(T, S.M, S.N), B=TensorDef(T, S.N, output=True)):
+def column_reduction_2d(A=TensorDef(T, S.M, S.N),
+                        B=TensorDef(T, S.N, output=True)):
   domain(D.m, D.n)
   B[D.n] += A[D.m, D.n]
 

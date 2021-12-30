@@ -40,7 +40,6 @@ from mlir.dialects.linalg.opdsl import lang as dsl
 # Import compilation utilties for the tests.
 from ..core import experts
 
-
 # Message to print out when tests stop with failure.
 FAILURE_MESSAGE = "FAILURE"
 
@@ -72,7 +71,6 @@ _SUPPORTED_PARALLELIZATION_OPTIONS = (0, 1, 2, 3, 4)
 _SUPPORTED_VECTOR_LENGTHS = (1, 16, 64)
 # Available sparsity values for each tensor dimension.
 _SUPPORTED_SPARSITY_VALUES = (st.DimLevelType.dense, st.DimLevelType.compressed)
-
 
 # Alias for annotating the type for the function object used to invoke the
 # compiler.
@@ -112,10 +110,12 @@ def mlir_type_from_td_type(td_type: TDType) -> ir.Type:
   }
   return tdtype_to_irtype[td_type]
 
+
 # Supported integer types.
 _SUPPORTED_INT_TYPES = (TDType.I16, TDType.I32, TDType.I64)
 # Supported floating point types.
 _SUPPORTED_FP_TYPES = (TDType.F32, TDType.F64)
+
 
 def _generate_tensor_dot(shape: List[int], values: Tuple[int, ...],
                          first_nonzero_pos: int) -> List[int]:
@@ -190,10 +190,9 @@ def generate_tensor(shape: List[int],
   first_nonzero_pos = random_state.choice(_STEP_FOR_NON_ZERO_VALUES)
 
   # Generate the data as a list of values.
-  data = (
-      _generate_tensor_dot(shape, values, first_nonzero_pos)
-      if scheme == _Scheme.DOT else _generate_tensor_plane(
-          shape, values, first_nonzero_pos))
+  data = (_generate_tensor_dot(shape, values, first_nonzero_pos)
+          if scheme == _Scheme.DOT else _generate_tensor_plane(
+              shape, values, first_nonzero_pos))
 
   return data
 
@@ -382,26 +381,25 @@ class TestDesc:
         for i in range(num_inputs)
     ]
     output_types = [ir.RankedTensorType.get(self._get_output_dims(), mlir_type)]
-    main_func = builtin.FuncOp(
-        _ENTRY_NAME, (input_types + output_types, output_types),
-        visibility="public")
+    main_func = builtin.FuncOp(_ENTRY_NAME,
+                               (input_types + output_types, output_types),
+                               visibility="public")
     main_func.attributes["llvm.emit_c_interface"] = ir.UnitAttr.get()
 
     # Convert the operands to sparse encodings, call the callee and return its
     # result.
     with ir.InsertionPoint(main_func.add_entry_block()):
       converted_tensors = []
-      for i, argument, encoding in zip(
-          range(num_inputs), main_func.arguments, attrs):
+      for i, argument, encoding in zip(range(num_inputs), main_func.arguments,
+                                       attrs):
         conversion = st.ConvertOp(
-            ir.RankedTensorType.get(
-                self._get_input_dims(i), mlir_type, encoding), argument)
+            ir.RankedTensorType.get(self._get_input_dims(i), mlir_type,
+                                    encoding), argument)
         converted_tensors.append(conversion.dest)
 
       call = std.CallOp(output_types, ir.FlatSymbolRefAttr.get(callee_name),
                         converted_tensors + [main_func.arguments[-1]])
       std.ReturnOp(call.results)
-
 
   def _build_module_and_engine(
       self, compiler: CompilerType, type: TDType,
@@ -444,8 +442,9 @@ class TestDesc:
     # We currently rely on an environment to pass in the full path for a
     # supporting library to overwrite the default supporting library.
     support_lib = os.getenv(_SUPPORTLIB_ENV_VAR, _DEFAULT_SUPPORTLIB)
-    engine = ee.ExecutionEngine(
-        compiled_module, opt_level=_OPT_LEVEL, shared_libs=[support_lib])
+    engine = ee.ExecutionEngine(compiled_module,
+                                opt_level=_OPT_LEVEL,
+                                shared_libs=[support_lib])
 
     return engine
 
@@ -536,9 +535,9 @@ class TestDesc:
       input_descs = []
       for i in range(self._get_num_inputs()):
         input_descs.append(
-            InputDesc(
-                list(range(len(self._input_affines[i]))),
-                [st.DimLevelType.dense] * len(self._input_affines[i]), 0, 0))
+            InputDesc(list(range(len(self._input_affines[i]))),
+                      [st.DimLevelType.dense] * len(self._input_affines[i]), 0,
+                      0))
 
       self._ref_result = self.get_result(0, 1, type, input_descs)
 
@@ -657,11 +656,10 @@ def _get_command_line_values() -> Tuple[int, int]:
       required=False,
       default=os.cpu_count(),
       help="the number of processes to run the test (default os.cpu_count())")
-  parser.add_argument(
-      "-log",
-      choices=["info", "error"],
-      default="info",
-      help="the logging level (default=info)"),
+  parser.add_argument("-log",
+                      choices=["info", "error"],
+                      default="info",
+                      help="the logging level (default=info)"),
   args = parser.parse_args()
   levels = {
       "error": logging.ERROR,

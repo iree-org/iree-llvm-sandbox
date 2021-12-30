@@ -7,6 +7,7 @@ np = __import__('numpy', fromlist=['dtype'])
 # Qualified import of mlir.ir.Type to disambiguate with typing.Type.
 ir = __import__('mlir.ir', fromlist=['Type'])
 
+
 class ProblemDefinition:
   """ Generic problem definition interface."""
 

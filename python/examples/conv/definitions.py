@@ -323,10 +323,10 @@ class ConvolutionProblem(ProblemDefinition):
           kernel_slices.append(slice(None))
       slice_kernel = K[tuple(kernel_slices)]
 
-      reference_O += np.tensordot(
-          slice_input,
-          slice_kernel,
-          axes=([input_parallel_dim], [kernel_parallel_dim]))
+      reference_O += np.tensordot(slice_input,
+                                  slice_kernel,
+                                  axes=([input_parallel_dim],
+                                        [kernel_parallel_dim]))
 
     if not np.allclose(O, reference_O):
       delta = O - reference_O
@@ -361,12 +361,11 @@ class ConvolutionProblem(ProblemDefinition):
     with InsertionPoint(func.add_entry_block()):
       zero = arith.ConstantOp(output_type.element_type, 0.0)
       tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
-      conv = self.__op_builder(
-          func.arguments[0],
-          func.arguments[1],
-          outs=[tensor_zero],
-          strides=self.__strides,
-          dilations=self.__dilations)
+      conv = self.__op_builder(func.arguments[0],
+                               func.arguments[1],
+                               outs=[tensor_zero],
+                               strides=self.__strides,
+                               dilations=self.__dilations)
       std.ReturnOp([conv])
 
     return func

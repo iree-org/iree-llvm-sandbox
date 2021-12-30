@@ -22,18 +22,13 @@ def TestExpert(transforms: tp.Sequence[tp.Union[Transform,
 
 
 expert_linalg_ext_tile = TestExpert([
-    LinalgExtTile('matmul_on_tensors',
-                  'linalg.generic',
-                  tile_sizes=[2]),
-    LinalgExtTileToSequentialFor('matmul_on_tensors',
-                                 'linalg.generic'),
+    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[2]),
+    LinalgExtTileToSequentialFor('matmul_on_tensors', 'linalg.generic'),
     Vectorize('matmul_on_tensors', 'linalg.generic'),
 ])
 
 all_experts = [
-    e.print_ir(after_all=False, llvm=False) for e in [
-        expert_linalg_ext_tile
-    ]
+    e.print_ir(after_all=False, llvm=False) for e in [expert_linalg_ext_tile]
 ]
 
 ################################################################################
@@ -44,19 +39,19 @@ keys = ['m', 'n', 'k']
 
 
 def make_size_list(sizes: Sequence[int]):
-    return {k: v for k, v in zip(keys, sizes)}
+  return {k: v for k, v in zip(keys, sizes)}
 
 
 # CHECK-NOT: FAILURE
 def main():
-    n_iters = 1
-    problem_size_list = [[3, 5, 7]]
-    test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
-                 map(make_size_list, problem_size_list),
-                 all_experts,
-                 n_iters=n_iters,
-                 function_name='matmul_on_tensors')
+  n_iters = 1
+  problem_size_list = [[3, 5, 7]]
+  test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
+               map(make_size_list, problem_size_list),
+               all_experts,
+               n_iters=n_iters,
+               function_name='matmul_on_tensors')
 
 
 if __name__ == '__main__':
-    main()
+  main()

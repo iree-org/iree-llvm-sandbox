@@ -155,10 +155,9 @@ def run_tests(num_processes: int) -> bool:
   """
 
   @dsl.linalg_structured_op
-  def add_dsl(
-      A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
-      B=dsl.TensorDef(dsl.T, *_test_desc.inputs[1]),
-      C=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
+  def add_dsl(A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
+              B=dsl.TensorDef(dsl.T, *_test_desc.inputs[1]),
+              C=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
     """The operation being tested: C = A + B."""
     C[dsl.D.m, dsl.D.n] = A[dsl.D.m, dsl.D.n] + B[dsl.D.m, dsl.D.n]
 

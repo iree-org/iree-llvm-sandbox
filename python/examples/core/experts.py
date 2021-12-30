@@ -12,6 +12,7 @@ TripleTilingExpert = Tile.then(DoubleTilingExpert)
 TileAndDecompose = Tile.then(DecomposeToLowerDimensionalNamedOp)
 DoubleTileAndDecompose = Tile.then(TileAndDecompose)
 
+
 # Expert compiler that applies the whole sparse compiler.
 class ExpertSparseCompiler(TransformationList):
   variables = {'options': str}

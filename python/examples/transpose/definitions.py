@@ -16,6 +16,7 @@ avx512 = False
 
 DIMNAMES = 'MNKLPQRST'
 
+
 class TransposeNDProblem(ProblemDefinition):
   """ Problem definition for a single n-dimensional transpose problem."""
 

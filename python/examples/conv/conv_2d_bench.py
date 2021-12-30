@@ -41,56 +41,58 @@ keys = ['N', 'H', 'W', 'C', 'KH', 'KW', 'F', 'strides', 'dilations']
 
 
 def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
-    return {k: v for k, v in zip(keys, sizes)}
+  return {k: v for k, v in zip(keys, sizes)}
 
 
 # CHECK-NOT: FAILURE
 def main():
-    n_iters = 100
-    #   N   H   W   C  KH  KW   F     st      dil
-    problem_size_list = [
-        [8, 16, 16, 32,  3,  3, 64, [1, 1], [1, 1]],
-        [8, 16, 16, 32,  3,  3, 64, [1, 2], [1, 2]],
-        [8, 16, 16, 32,  3,  3, 64, [2, 1], [1, 2]],
-        [8, 16, 16, 32,  3,  3, 64, [2, 2], [2, 2]],
-        [8, 16, 16, 32,  3,  3, 64, [2, 3], [3, 2]],
-        [8, 16, 16, 32,  3,  3, 64, [3, 2], [2, 3]],
-    ]
+  n_iters = 100
+  #   N   H   W   C  KH  KW   F     st      dil
+  problem_size_list = [
+      [8, 16, 16, 32, 3, 3, 64, [1, 1], [1, 1]],
+      [8, 16, 16, 32, 3, 3, 64, [1, 2], [1, 2]],
+      [8, 16, 16, 32, 3, 3, 64, [2, 1], [1, 2]],
+      [8, 16, 16, 32, 3, 3, 64, [2, 2], [2, 2]],
+      [8, 16, 16, 32, 3, 3, 64, [2, 3], [3, 2]],
+      [8, 16, 16, 32, 3, 3, 64, [3, 2], [2, 3]],
+  ]
 
-    test_harness(
-        lambda sizes, types: ConvolutionProblem(
-            'NHWC',
-            'HWCF',
-            strides=sizes['strides'],
-            dilations=sizes['dilations']), [[np.float32] * 3],
-        [make_size_list(keys, sizes) for sizes in problem_size_list],
-        all_experts,
-        n_iters=n_iters,
-        function_name=fun_name,
-        dump_ir_to_file='/tmp/abcd.mlir',
-        dump_obj_to_file='/tmp/abcd.o',)
+  test_harness(
+      lambda sizes, types: ConvolutionProblem('NHWC',
+                                              'HWCF',
+                                              strides=sizes['strides'],
+                                              dilations=sizes['dilations']),
+      [[np.float32] * 3],
+      [make_size_list(keys, sizes) for sizes in problem_size_list],
+      all_experts,
+      n_iters=n_iters,
+      function_name=fun_name,
+      dump_ir_to_file='/tmp/abcd.mlir',
+      dump_obj_to_file='/tmp/abcd.o',
+  )
 
 
 def benchmark():
-    n_iters = 100
-    #   N   H   W   C  KH  KW   F     st      dil
-    problem_size_list = [
-        [8, 15, 15, 32,  3,  3, 64, [1, 1], [1, 1]],
-        [8, 15, 15, 32,  3,  3, 64, [2, 2], [2, 2]],
-    ]
-    test_harness(
-        lambda sizes, types: ConvolutionProblem(
-            'NHWC',
-            'HWCF',
-            strides=sizes['strides'],
-            dilations=sizes['dilations']), [[np.float32] * 3],
-        [make_size_list(keys, sizes) for sizes in problem_size_list],
-        all_experts,
-        n_iters=n_iters,
-        function_name=fun_name,
-        dump_ir_to_file='/tmp/abcd.mlir',
-        dump_obj_to_file='/tmp/abcd.o',)
+  n_iters = 100
+  #   N   H   W   C  KH  KW   F     st      dil
+  problem_size_list = [
+      [8, 15, 15, 32, 3, 3, 64, [1, 1], [1, 1]],
+      [8, 15, 15, 32, 3, 3, 64, [2, 2], [2, 2]],
+  ]
+  test_harness(
+      lambda sizes, types: ConvolutionProblem('NHWC',
+                                              'HWCF',
+                                              strides=sizes['strides'],
+                                              dilations=sizes['dilations']),
+      [[np.float32] * 3],
+      [make_size_list(keys, sizes) for sizes in problem_size_list],
+      all_experts,
+      n_iters=n_iters,
+      function_name=fun_name,
+      dump_ir_to_file='/tmp/abcd.mlir',
+      dump_obj_to_file='/tmp/abcd.o',
+  )
 
 
 if __name__ == '__main__':
-    main()
+  main()

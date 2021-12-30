@@ -136,9 +136,9 @@ def run_tests(num_processes: int) -> bool:
   """
   # The operation used to test the JIT compiler and runtime.
   @dsl.linalg_structured_op
-  def _reduce_dsl(
-      A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
-      B=dsl.TensorDef(dsl.T, *_test_desc.output, output=True)) -> None:
+  def _reduce_dsl(A=dsl.TensorDef(dsl.T, *_test_desc.inputs[0]),
+                  B=dsl.TensorDef(dsl.T, *_test_desc.output,
+                                  output=True)) -> None:
     """The operation being tested: B = sum(A)."""
     B[dsl.D.m] += A[dsl.D.m, dsl.D.n, dsl.D.o]
 

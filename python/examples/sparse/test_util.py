@@ -122,9 +122,8 @@ def _test_int_sparse_tensor_types() -> bool:
   for comb in itertools.product(test_common.int_types(),
                                 test_common.bitwidths(),
                                 test_common.bitwidths()):
-    supported = (
-        comb[1] == comb[2] and
-        (comb[0] != test_common.TDType.I64 or comb[1] == 64))
+    supported = (comb[1] == comb[2] and
+                 (comb[0] != test_common.TDType.I64 or comb[1] == 64))
 
     if supported != test_common.supported_tensor_types(*comb):
       return False
@@ -180,9 +179,8 @@ def _test_reference_result() -> bool:
                                    [dsl.S.M, dsl.S.N], [dsl.S.M, dsl.S.N])
 
   @dsl.linalg_structured_op
-  def copy_dsl(
-      A=dsl.TensorDef(dsl.T, *test_desc.inputs[0]),
-      B=dsl.TensorDef(dsl.T, *test_desc.output, output=True)) -> None:
+  def copy_dsl(A=dsl.TensorDef(dsl.T, *test_desc.inputs[0]),
+               B=dsl.TensorDef(dsl.T, *test_desc.output, output=True)) -> None:
     """The operation being tested: B = A."""
     B[dsl.D.m, dsl.D.n] = A[dsl.D.m, dsl.D.n]
 
@@ -201,11 +199,12 @@ def _test_reference_result() -> bool:
 
 def run_test() -> None:
   logging.basicConfig(level=logging.INFO)
-  num_failed = (
-      _test_mismatching_ordering_sparsity() + _test_invalid_ordering() +
-      _test_invalid_affine_expression() + _test_generate_tensor() +
-      _test_float_sparse_tensor_types() + _test_int_sparse_tensor_types() +
-      _test_reference_result_before_available() + _test_reference_result())
+  num_failed = (_test_mismatching_ordering_sparsity() +
+                _test_invalid_ordering() + _test_invalid_affine_expression() +
+                _test_generate_tensor() + _test_float_sparse_tensor_types() +
+                _test_int_sparse_tensor_types() +
+                _test_reference_result_before_available() +
+                _test_reference_result())
 
   if num_failed:
     logging.error(f"{num_failed} tests failed.")

@@ -44,6 +44,7 @@ objdump_flags = lambda fn: [
     'att',
 ]
 
+
 def objdump_and_llvm_mca(args, obj_file):
   fn = args['f']
 
@@ -51,8 +52,8 @@ def objdump_and_llvm_mca(args, obj_file):
   asm_file = obj_file + '.S'
   f = open(asm_file, 'w')
   objdump = args['llvm_objdump']
-  p = subprocess.Popen(
-      [objdump] + objdump_flags(fn) + [obj_file], stdout=subprocess.PIPE)
+  p = subprocess.Popen([objdump] + objdump_flags(fn) + [obj_file],
+                       stdout=subprocess.PIPE)
   print(' '.join(p.args))
   p = subprocess.Popen(['tail', '-n', '+7'], stdin=p.stdout, stdout=f)
   p.wait()
@@ -86,17 +87,17 @@ def compile_to_object(args):
 
   llvm_opt = args['llvm_opt']
   prun = subprocess.Popen(['cat'] + [ll_file], stdout=subprocess.PIPE)
-  prun = subprocess.Popen(
-      [llvm_opt] + opt_flags(args), stdin=prun.stdout, stdout=subprocess.PIPE)
+  prun = subprocess.Popen([llvm_opt] + opt_flags(args),
+                          stdin=prun.stdout,
+                          stdout=subprocess.PIPE)
   print(' '.join(prun.args))
 
   obj_file = mlir_file + '.o'
   f = open(obj_file, 'w')
   llvm_llc = args['llvm_llc']
-  prun = subprocess.Popen(
-      [llvm_llc] + llc_flags(args) + ['-o'] + [obj_file],
-      stdin=prun.stdout,
-      stdout=prun.stdout)
+  prun = subprocess.Popen([llvm_llc] + llc_flags(args) + ['-o'] + [obj_file],
+                          stdin=prun.stdout,
+                          stdout=prun.stdout)
   print(' '.join(prun.args))
   prun.wait()
   f.close()
@@ -131,33 +132,35 @@ def main():
   """)
   parser.add_argument('-llvm-llc', default='', help='full path to llc')
   parser.add_argument('-llvm-mca', default='', help='full path to llvm-mca')
-  parser.add_argument(
-      '-llvm-objdump', default='', help='full path to llvm-objdump')
+  parser.add_argument('-llvm-objdump',
+                      default='',
+                      help='full path to llvm-objdump')
   parser.add_argument('-llvm-opt', default='', help='full path to opt')
-  parser.add_argument(
-      '-mlir-translate', default='', help='full path to mlir-translate')
+  parser.add_argument('-mlir-translate',
+                      default='',
+                      help='full path to mlir-translate')
 
   parser.add_argument(
       '-mlir-file',
       default='',
       help='(optional) full path to mlir file in the llvm dialect')
-  parser.add_argument(
-      '-obj-file', default='', help='(optional) full path to obj file')
+  parser.add_argument('-obj-file',
+                      default='',
+                      help='(optional) full path to obj file')
 
-  parser.add_argument(
-      '-c',
-      '-cpu',
-      default='skylake-avx512',
-      choices=cpu_choices,
-      help='cpu to compile for')
-  parser.add_argument(
-      '-a',
-      '-arch',
-      default='x86-64',
-      choices=arch_choices,
-      help='arch to compile for')
-  parser.add_argument(
-      '-f', '-fn', help='name of the function to run through llvm_mca')
+  parser.add_argument('-c',
+                      '-cpu',
+                      default='skylake-avx512',
+                      choices=cpu_choices,
+                      help='cpu to compile for')
+  parser.add_argument('-a',
+                      '-arch',
+                      default='x86-64',
+                      choices=arch_choices,
+                      help='arch to compile for')
+  parser.add_argument('-f',
+                      '-fn',
+                      help='name of the function to run through llvm_mca')
   args = vars(parser.parse_args())
 
   if 'obj_file' in args:

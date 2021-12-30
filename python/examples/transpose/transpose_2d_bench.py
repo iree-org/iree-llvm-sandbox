@@ -65,9 +65,7 @@ def all_experts(problem_sizes: List[int], transpose_avx2_lowering):
     maxCandidateThatDivides(candidateRegisterTileSizes2, sizes_for_register_tiling[1])  \
   ]
 
-  tile1 = TileAndDecompose(fun_name,
-                           op_name,
-                           tile_sizes=sizes2)
+  tile1 = TileAndDecompose(fun_name, op_name, tile_sizes=sizes2)
   tile2 = DoubleTileAndDecompose(fun_name=fun_name,
                                  op_name=op_name,
                                  tile_sizes1=sizes1,
@@ -160,15 +158,15 @@ def main():
   for problem_sizes in problem_size_list:
     experts = all_experts(problem_sizes, transpose_avx2_lowering=False) + \
               all_experts(problem_sizes, transpose_avx2_lowering=True)
-    test_harness(
-        lambda s, t: TransposeNDProblem(
-            permutation=[1, 0], op_builder=transpose_2d), [[np.float32] * 2],
-        [make_size_list(keys, problem_sizes)],
-        experts,
-        n_iters=n_iters,
-        function_name=fun_name,
-        dump_ir_to_file='/tmp/abc.mlir',
-        dump_obj_to_file='/tmp/abc.o')
+    test_harness(lambda s, t: TransposeNDProblem(permutation=[1, 0],
+                                                 op_builder=transpose_2d),
+                 [[np.float32] * 2], [make_size_list(keys, problem_sizes)],
+                 experts,
+                 n_iters=n_iters,
+                 function_name=fun_name,
+                 dump_ir_to_file='/tmp/abc.mlir',
+                 dump_obj_to_file='/tmp/abc.o')
+
 
 if __name__ == '__main__':
   main()
