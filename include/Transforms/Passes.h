@@ -31,11 +31,14 @@ createLinalgFuseOutputIntoReductionPass();
 std::unique_ptr<OperationPass<FuncOp>> createLinalgSingleTilingExpertPass();
 
 /// Creates a pass to driver the lowering of vector operations.
-std::unique_ptr<OperationPass<FuncOp>> createLinalgVectorLoweringPass(
-    int64_t vectorLoweringStage = 0);
+std::unique_ptr<OperationPass<FuncOp>>
+createLinalgVectorLoweringPass(int64_t vectorLoweringStage = 0);
 
 /// Creates a pass to driver lowering to LLVM.
 std::unique_ptr<OperationPass<ModuleOp>> createLLVMLoweringPass();
+
+/// Create a pass to drive the unrolling of a single parent loop of an op.
+std::unique_ptr<OperationPass<FuncOp>> createUnrollOneParentLoopPass();
 
 /// Experimental pass for vector distribution.
 std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
@@ -56,6 +59,6 @@ void addLowerToVectorTransforms(OpPassManager &passManager);
 #define GEN_PASS_REGISTRATION
 #include "Transforms/Passes.h.inc"
 
-}  // namespace mlir
+} // namespace mlir
 
-#endif  // IREE_LLVM_SANDBOX_PASSES_H
+#endif // IREE_LLVM_SANDBOX_PASSES_H

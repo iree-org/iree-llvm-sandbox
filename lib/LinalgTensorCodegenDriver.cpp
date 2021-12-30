@@ -47,6 +47,7 @@
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Visitors.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/LoopUtils.h"
@@ -56,6 +57,19 @@ using namespace mlir;
 using namespace mlir::linalg;
 
 namespace {
+
+static void
+getAtMostNEnclosingLoops(Operation *op, int64_t nLoops,
+                         SmallVector<scf::ForOp> &reverseEnclosingLoops) {
+  scf::ForOp outermostEnclosingForOp = nullptr;
+  Operation *nextEnclosingOp = op->getParentOp();
+  while (nLoops-- > 0 &&
+         (outermostEnclosingForOp = dyn_cast<scf::ForOp>(nextEnclosingOp))) {
+    reverseEnclosingLoops.push_back(outermostEnclosingForOp);
+    nextEnclosingOp = outermostEnclosingForOp->getParentOp();
+  }
+}
+
 struct LinalgFusePass : public LinalgFuseBase<LinalgFusePass> {
   LinalgFusePass() = default;
   LinalgFusePass(const LinalgFusePass &pass) {}
@@ -104,6 +118,13 @@ struct LLVMLoweringPass : public LLVMLoweringBase<LLVMLoweringPass> {
   LLVMLoweringPass() = default;
   LLVMLoweringPass(const LLVMLoweringPass &pass) {}
 
+  void runOnOperation() override;
+};
+
+struct UnrollOneParentLoopPass
+    : public UnrollOneParentLoopBase<UnrollOneParentLoopPass> {
+  UnrollOneParentLoopPass() = default;
+  UnrollOneParentLoopPass(const UnrollOneParentLoopPass &pass) {}
   void runOnOperation() override;
 };
 
@@ -371,6 +392,27 @@ void LinalgVectorLoweringPass::runOnOperation() {
     return signalPassFailure();
 }
 
+void UnrollOneParentLoopPass::runOnOperation() {
+  if (getOperation().getName() != anchorFuncOpName)
+    return;
+
+  // Poor man's op targeting.
+  getOperation().walk([&](Operation *op) {
+    if (op->getName().getStringRef() != anchorOpName)
+      return WalkResult::advance();
+    SmallVector<scf::ForOp> reverseEnclosingLoops;
+    getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
+    if (failed(loopUnrollByFactor(op->getParentOfType<scf::ForOp>(),
+                                  unrollFactor)))
+      signalPassFailure();
+    return WalkResult::interrupt();
+  });
+}
+
+//===----------------------------------------------------------------------===//
+// Pass creation entry points.
+//===----------------------------------------------------------------------===//
+
 std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgFusePass() {
   return std::make_unique<LinalgFusePass>();
 }
@@ -397,6 +439,10 @@ mlir::createLinalgVectorLoweringPass(int64_t vectorLoweringStage) {
 
 std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
   return std::make_unique<LLVMLoweringPass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
+  return std::make_unique<UnrollOneParentLoopPass>();
 }
 
 //===----------------------------------------------------------------------===//

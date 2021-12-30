@@ -37,12 +37,15 @@ all_experts = [
                             tile_interchange2=[0, 1, 2],
                             pad2=True,
                             pack_paddings2=[1, 1, 0],
-                            hoist_paddings2=[5, 6, 0]).then(\
-      Vectorize('matmul_on_tensors',
-                'linalg.generic')).then(\
-      LoweringOnlyExpert('matmul_on_tensors',
-                         'linalg.generic',
-                         transpose_lowering='eltwise')),
+                            hoist_paddings2=[5, 6, 0])
+      .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
+      .then(UnrollOneParentLoop('matmul_on_tensors', 
+                                'vector.contract', 
+                                parent_loop_num=1,
+                                unroll_factor=4))
+      .then(LoweringOnlyExpert('matmul_on_tensors',
+                                'linalg.generic',
+                                transpose_lowering='eltwise')),
     DoubleTileAndDecompose('matmul_on_tensors',
                             'linalg.generic',
                             tile_sizes1=[288, 128, 512],
@@ -51,12 +54,11 @@ all_experts = [
                             tile_interchange2=[0, 1, 2],
                             pad2=True,
                             pack_paddings2=[1, 1, 0],
-                            hoist_paddings2=[5, 6, 0]).then(\
-      Vectorize('matmul_on_tensors',
-                'linalg.generic')).then(\
-      LoweringOnlyExpert('matmul_on_tensors',
-                         'linalg.generic',
-                         transpose_lowering='eltwise')),
+                            hoist_paddings2=[5, 6, 0])
+      .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
+      .then(LoweringOnlyExpert('matmul_on_tensors',
+                                'linalg.generic',
+                                transpose_lowering='eltwise')),
     DoubleTileAndDecompose('matmul_on_tensors',
                             'linalg.generic',
                             tile_sizes1=[128, 384, 512],
@@ -65,12 +67,11 @@ all_experts = [
                             tile_interchange2=[1, 0, 2],
                             pad2=True,
                             pack_paddings2=[1, 1, 0],
-                            hoist_paddings2=[3, 2, 0]).then(\
-      Vectorize('matmul_on_tensors',
-                'linalg.generic')).then(\
-      LoweringOnlyExpert('matmul_on_tensors',
-                         'linalg.generic',
-                         transpose_lowering='eltwise'))
+                            hoist_paddings2=[3, 2, 0])
+      .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
+      .then(LoweringOnlyExpert('matmul_on_tensors',
+                                'linalg.generic',
+                                transpose_lowering='eltwise')),
     ]]
 
 ################################################################################
