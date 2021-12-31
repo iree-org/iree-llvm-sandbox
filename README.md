@@ -163,9 +163,15 @@ cset set -s sandbox -c 4 -m 0 --cpu_exclusive
 cset proc -m -f root -t system
 
 ################################################################
-# TODO: freq control; cloud VM instances do not allow.
+# Freq control (note, cloud VM instances do not allow).
 ################################################################
 
+echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
+echo performance > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
+
+################################################################
+# Exec.
+################################################################
 IREE_LLVM_SANDBOX_BUILD_DIR=$(pwd)/build \
 MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so \
 MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
