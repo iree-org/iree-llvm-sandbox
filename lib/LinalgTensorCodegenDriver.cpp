@@ -402,8 +402,7 @@ void UnrollOneParentLoopPass::runOnOperation() {
       return WalkResult::advance();
     SmallVector<scf::ForOp> reverseEnclosingLoops;
     getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
-    if (failed(loopUnrollByFactor(op->getParentOfType<scf::ForOp>(),
-                                  unrollFactor)))
+    if (failed(loopUnrollByFactor(reverseEnclosingLoops.back(), unrollFactor)))
       signalPassFailure();
     return WalkResult::interrupt();
   });
