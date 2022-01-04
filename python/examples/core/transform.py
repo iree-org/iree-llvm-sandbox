@@ -117,7 +117,7 @@ class Transform:
     return self.then(other)
 
 
-class Print(Transform):
+class PrintIR(Transform):
   """Print intermediate IR.
 
   Dump the module and do not change it. The transform can be configured as
@@ -131,6 +131,23 @@ class Print(Transform):
   def __call__(self, module: Module, fun_name: str):
     print('[[[ IR printer: ' + self.name + ' ]]]')
     module.dump()
+    return module
+
+
+class PrintPipeline(Transform):
+  """Print the pipeline of the transform.
+
+  Do not change the module.
+  """
+
+  def __init__(self, t: Transform):
+    assert hasattr(t, 'pipeline') or hasattr(t, 'pipelines'), "missing attr"
+    self.pipelines = [t.pipeline] if hasattr(t, 'pipeline') else t.pipelines
+
+  def __call__(self, module: Module, fun_name: str):
+    for pipeline in self.pipelines:
+      print("[[[ Run pipeline:\n mlir-proto-opt -pass-pipeline='" + pipeline +
+            "'\n   ]]]")
     return module
 
 
@@ -184,12 +201,24 @@ class TransformationList:
                at_begin: bool = False,
                llvm: bool = False) -> TransformationList:
     """Return a new transformation list that prints IR at the given points."""
-    transforms = [Print()] if at_begin else []
+    transforms = [PrintIR()] if at_begin else []
     for t in self.transforms:
       transforms.append(t)
       if (after_all and 'LowerToLLVM' not in str(t)) or \
          (llvm and 'LowerToLLVM' in str(t)):
-        transforms.append(Print(name=str(t)))
+        transforms.append(PrintIR(name=str(t)))
+    return TransformationList(transforms=transforms)
+
+  def print_pipeline(
+      self,
+      before_all: bool = False,
+  ) -> TransformationList:
+    """Return a new transformation list that prints the pipeline commands at the given points."""
+    transforms = []
+    for t in self.transforms:
+      if before_all and (hasattr(t, 'pipeline') or hasattr(t, 'pipelines')):
+        transforms.append(PrintPipeline(t))
+      transforms.append(t)
     return TransformationList(transforms=transforms)
 
   then = _TransformListThenDescriptor()
