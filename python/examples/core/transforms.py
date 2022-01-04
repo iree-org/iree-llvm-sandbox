@@ -378,7 +378,6 @@ class LowerToLLVM(Transform):
                 f'cse')
     self.pipeline = pipeline
 
-
 class UnrollOneParentLoop(Transform):
 
   variables = {
@@ -394,26 +393,6 @@ class UnrollOneParentLoop(Transform):
                 f'     anchor-op={op_name} '
                 f'     parent-loop-num={self.parent_loop_num}'
                 f'     unroll-factor={self.unroll_factor}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
-
-
-class OutlineOneParentLoop(Transform):
-
-  variables = {
-      'parent_loop_num': (IntVariable, 1),
-  }
-
-  def __init__(self, fun_name: str, op_name: str, result_func_name: str,
-               **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-
-    pipeline = (f'outline-one-parent-loop{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     parent-loop-num={self.parent_loop_num}'
-                f'     result-func-name={result_func_name}}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')

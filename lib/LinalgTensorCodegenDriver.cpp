@@ -128,13 +128,6 @@ struct UnrollOneParentLoopPass
   void runOnOperation() override;
 };
 
-struct OutlineOneParentLoopPass
-    : public OutlineOneParentLoopBase<OutlineOneParentLoopPass> {
-  OutlineOneParentLoopPass() = default;
-  OutlineOneParentLoopPass(const OutlineOneParentLoopPass &pass) {}
-  void runOnOperation() override;
-};
-
 } // namespace
 
 void LLVMLoweringPass::runOnOperation() {
@@ -415,47 +408,6 @@ void UnrollOneParentLoopPass::runOnOperation() {
   });
 }
 
-scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
-  if (op->getNumRegions() != 1)
-    return nullptr;
-  OpBuilder::InsertionGuard g(b);
-  b.setInsertionPoint(op);
-  scf::ExecuteRegionOp executeRegionOp =
-      b.create<scf::ExecuteRegionOp>(op->getLoc(), op->getResultTypes());
-  {
-    OpBuilder::InsertionGuard g(b);
-    b.setInsertionPointToStart(&executeRegionOp.getRegion().emplaceBlock());
-    Operation *clonedOp = b.cloneWithoutRegions(*op);
-    Region &clonedRegion = clonedOp->getRegions().front();
-    assert(clonedRegion.empty() && "expected empty region");
-    b.inlineRegionBefore(op->getRegions().front(), clonedRegion,
-                         clonedRegion.end());
-    b.create<scf::YieldOp>(op->getLoc(), clonedOp->getResults());
-  }
-  b.replaceOp(op, executeRegionOp.getResults());
-  return executeRegionOp;
-}
-
-void OutlineOneParentLoopPass::runOnOperation() {
-  if (getOperation().getName() != anchorFuncOpName)
-    return;
-
-  // Poor man's op targeting.
-  getOperation().walk([&](Operation *op) {
-    if (op->getName().getStringRef() != anchorOpName)
-      return WalkResult::advance();
-    SmallVector<scf::ForOp> reverseEnclosingLoops;
-    getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
-    IRRewriter b(op->getContext());
-    scf::ExecuteRegionOp exec =
-        outlineInExecuteRegion(b, reverseEnclosingLoops.back());
-    if (failed(outlineSingleBlockRegion(b, op->getLoc(), exec.getRegion(),
-                                        resultFuncName)))
-      signalPassFailure();
-    return WalkResult::interrupt();
-  });
-}
-
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
@@ -490,10 +442,6 @@ std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
   return std::make_unique<UnrollOneParentLoopPass>();
-}
-
-std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
-  return std::make_unique<OutlineOneParentLoopPass>();
 }
 
 //===----------------------------------------------------------------------===//
