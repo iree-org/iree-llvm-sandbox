@@ -229,6 +229,56 @@ def _run_benchmark_n_iters(callback: Callable[[int], None], n_iters: int,
   return np.asarray([_pytimed(callback, *args) for _ in range(n_iters)])
 
 
+def _parse_problem_sizes(argument: str) -> Sequence[Union[int, Sequence[int]]]:
+  """Parse a problem size argument into a possibly nested integer sequence.
+
+  Examples:
+  64,128 -> [64, 128]
+  32,32,[1,1] -> [32, 32, [1, 1]]
+  """
+  problem_sizes = []
+  inc = []
+  dec = []
+  for idx, token in enumerate(argument.split(',')):
+    if token.startswith('['):
+      token = token[1:]
+      inc.append(idx)
+    if token.endswith(']'):
+      token = token[:-1]
+      dec.append(idx)
+    if not (len(inc) == len(dec) or len(inc) == len(dec) + 1):
+      raise ValueError()
+    problem_sizes.append(int(token))
+  # Nest the sizes found between the inc and dec indices.
+  if len(inc) != len(dec):
+    raise ValueError()
+  nested = []
+  curr = 0
+  for lb, ub in zip(inc, dec):
+    nested.extend(problem_sizes[curr:lb])
+    nested.append(problem_sizes[lb:ub + 1])
+    curr = ub + 1
+  nested.extend(problem_sizes[curr:])
+  return nested
+
+
+def _parse_read_only(argument: str) -> Sequence[str]:
+  """Parse a sequence of read only dimensions.
+
+  Examples:
+  k,m -> ['k', 'm']
+  [] -> []
+  """
+  if argument == '[]':
+    return []
+  read_only = []
+  for token in argument.split(','):
+    if not token.isalpha():
+      raise ValueError()
+    read_only.append(token)
+  return read_only
+
+
 def test_argparser(benchmark_name: str,
                    default_problem_sizes_list: Sequence[Sequence[int]],
                    default_expert_list: Sequence[int],
@@ -247,7 +297,7 @@ def test_argparser(benchmark_name: str,
   """
   parser = argparse.ArgumentParser(description=benchmark_name)
   parser.add_argument('--problem_sizes_list', '-p',
-                      type=lambda x: [int(elem) for elem in x.split(',')],
+                      type=_parse_problem_sizes,
                       nargs='+',
                       help='problem sizes (e.g., -p 32,32,64 8,8,8)',
                       default=default_problem_sizes_list)
@@ -255,7 +305,7 @@ def test_argparser(benchmark_name: str,
                       help='experts (e.g., -e 0 1 2)',
                       default=default_expert_list)
   parser.add_argument('--runtime_only_list', '-r',
-                      type=lambda x: [elem for elem in x.split(',')],
+                      type=_parse_read_only,
                       nargs='+',
                       help='runtime only dimensions (e.g., -r k,m k [])',
                       default=default_runtime_only_list)

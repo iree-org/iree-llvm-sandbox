@@ -85,14 +85,24 @@ def main():
       [1, 7, 7, 1024, 3, 3, [1, 1], [1, 1]],
   ]
 
-  problem_size_list = microbenchmark_problem_size_list
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "depthwise conv 2d benchmark",
+    #   N   H   W   C  KH  KW      st      dil
+    default_problem_sizes_list = microbenchmark_problem_size_list,
+    default_expert_list = [
+      idx for idx, _ in enumerate(all_experts)
+    ],
+    default_runtime_only_list = [],
+    default_spec_list = [])
+
   test_harness(
       lambda sizes, t: DepthwiseConvolutionProblem(
           'NHWC', 'HWC', strides=sizes['strides'], dilations=sizes['dilations'
                                                                   ]),
       [[np.float32] * 3],
-      map(lambda sizes: make_size_list(keys, sizes), problem_size_list),
-      all_experts,
+      map(lambda sizes: make_size_list(keys, sizes), args.problem_sizes_list),
+      [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
       n_iters=n_iters,
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',

@@ -40,17 +40,31 @@ def make_size_list(keys: Sequence[str], sizes: Sequence):
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1000
-  #   N   W   C  KW   st  dil
-  problem_size_list = [[8, 16, 32, 3, [1], [1]], [8, 16, 32, 3, [1], [2]],
-                       [8, 16, 32, 3, [2], [1]], [8, 16, 32, 3, [2], [2]],
-                       [8, 16, 32, 3, [2], [3]], [8, 16, 32, 3, [3], [2]]]
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "depthwise conv 2d benchmark",
+    #  N   W   C  KW   st  dil
+    default_problem_sizes_list = [
+      [8, 16, 32, 3, [1], [1]],
+      [8, 16, 32, 3, [1], [2]],
+      [8, 16, 32, 3, [2], [1]],
+      [8, 16, 32, 3, [2], [2]],
+      [8, 16, 32, 3, [2], [3]],
+      [8, 16, 32, 3, [3], [2]]
+    ],
+    default_expert_list = [
+      idx for idx, _ in enumerate(all_experts)
+    ],
+    default_runtime_only_list = [],
+    default_spec_list = [])
 
   test_harness(
       lambda sizes, t: DepthwiseConvolutionProblem(
           'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
       [[np.float32] * 3],
-      map(lambda sizes: make_size_list(keys, sizes), problem_size_list),
-      all_experts,
+      map(lambda sizes: make_size_list(keys, sizes), args.problem_sizes_list),
+      [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
       n_iters=n_iters,
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',

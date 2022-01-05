@@ -47,14 +47,23 @@ def make_size_list(sizes: Sequence):
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
-  problem_size_list = [
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "matvec benchmark",
+    default_problem_sizes_list = [
       [192, 128],
       [260, 280],
       [1000, 1000],
       [1024, 1024],
       [2040, 2040],
       [4000, 4000],
-  ]
+    ],
+    default_expert_list = [
+      idx for idx, _ in enumerate(all_experts)
+    ],
+    default_runtime_only_list = [],
+    default_spec_list = [])
 
   def numpy_kernel(args, sizes, types):
     A, y, x = args
@@ -68,8 +77,8 @@ def main():
 
   test_harness(
       lambda s, t: EinsumProblem('mn,n'), [[np.float32] * 3],
-      map(make_size_list, problem_size_list),
-      all_experts,
+      map(make_size_list, args.problem_sizes_list),
+      [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
       n_iters=n_iters,
       function_name='matvec_on_tensors',
       numpy_benchmark=numpy_kernel,
