@@ -40,6 +40,10 @@ std::unique_ptr<OperationPass<ModuleOp>> createLLVMLoweringPass();
 /// Create a pass to drive the unrolling of a single parent loop of an op.
 std::unique_ptr<OperationPass<FuncOp>> createUnrollOneParentLoopPass();
 
+/// Create a pass to drive the outlining of the region of a single parent loop
+/// of an op.
+std::unique_ptr<OperationPass<FuncOp>> createOutlineOneParentLoopPass();
+
 /// Experimental pass for vector distribution.
 std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
 
