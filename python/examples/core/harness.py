@@ -1,3 +1,4 @@
+import argparse
 import sys
 import os
 import time
@@ -226,6 +227,44 @@ def _run_benchmark_n_iters(callback: Callable[[int], None], n_iters: int,
                            *args: Any):
   """Call the given callback `n_iters` times and return the times as a 1-d array."""
   return np.asarray([_pytimed(callback, *args) for _ in range(n_iters)])
+
+
+def test_argparser(benchmark_name: str,
+                   default_problem_sizes_list: Sequence[Sequence[int]],
+                   default_expert_list: Sequence[int],
+                   default_runtime_only_list: Sequence[Sequence[str]],
+                   default_spec_list: Sequence[str]) -> argparse.Namespace:
+  """Test argument parser.
+
+  Creates an argument parser and returns the parsed arguments.
+
+  Arguments:
+  benchmark_name: Benchmark name.
+  default_problem_sizes_list: Default problem sizes.
+  default_expert_list: Default expert indices.
+  default_runtime_only_list: Default runtime only dimensions list.
+  default_spec_list: Default specification list.
+  """
+  parser = argparse.ArgumentParser(description=benchmark_name)
+  parser.add_argument('--problem_sizes_list', '-p',
+                      type=lambda x: [int(elem) for elem in x.split(',')],
+                      nargs='+',
+                      help='problem sizes (e.g., -p 32,32,64 8,8,8)',
+                      default=default_problem_sizes_list)
+  parser.add_argument('--expert_list', '-e', type=int, nargs='+',
+                      help='experts (e.g., -e 0 1 2)',
+                      default=default_expert_list)
+  parser.add_argument('--runtime_only_list', '-r',
+                      type=lambda x: [elem for elem in x.split(',')],
+                      nargs='+',
+                      help='runtime only dimensions (e.g., -r k,m k [])',
+                      default=default_runtime_only_list)
+  parser.add_argument('--spec_list', '-s',
+                      type=str,
+                      nargs='+',
+                      help='problem specifications (e.g., -s mk,kn km,kn)',
+                      default=default_spec_list)
+  return parser.parse_args(sys.argv[1:])
 
 
 def test_harness(problem_factory: Callable[

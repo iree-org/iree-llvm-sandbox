@@ -47,21 +47,30 @@ def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1000
-  #   N   W   C  KW   F  st  dil
-  problem_size_list = [\
-     [8, 16, 32,  3, 64,  [1],  [1]], \
-     [8, 16, 32,  3, 64,  [1],  [2]], \
-     [8, 16, 32,  3, 64,  [2],  [1]], \
-     [8, 16, 32,  3, 64,  [2],  [2]], \
-     [8, 16, 32,  3, 64,  [2],  [3]], \
-     [8, 16, 32,  3, 64,  [3],  [2]],  \
-  ]
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "conv 1d benchmark",
+    #  N   W   C  KW   F  st  dil
+    default_problem_sizes_list = [
+      [8, 16, 32,  3, 64,  [1],  [1]],
+      [8, 16, 32,  3, 64,  [1],  [2]],
+      [8, 16, 32,  3, 64,  [2],  [1]],
+      [8, 16, 32,  3, 64,  [2],  [2]],
+      [8, 16, 32,  3, 64,  [2],  [3]],
+      [8, 16, 32,  3, 64,  [3],  [2]],
+    ],
+    default_expert_list = [
+      idx for idx, _ in enumerate(all_experts)
+    ],
+    default_runtime_only_list = [],
+    default_spec_list = [])
 
   test_harness(lambda sizes, types: ConvolutionProblem(
       'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
                [[np.float32] * 3],
-               [make_size_list(keys, sizes) for sizes in problem_size_list],
-               all_experts,
+               [make_size_list(keys, sizes) for sizes in args.problem_sizes_list],
+               [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
                n_iters=n_iters,
                function_name=fun_name)
 
