@@ -153,19 +153,5 @@ def main():
                    pytorch_benchmark=pytorch_kernel)
 
 
-def benchmark():
-  n_iters = 10
-  problem_sizes_list = [
-      [200, 200, 200],
-      [1000, 1000, 1000],
-      [2000, 2000, 2000],
-  ]
-  test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
-               map(make_size_list, problem_sizes_list),
-               all_experts,
-               n_iters=n_iters,
-               function_name='matmul_on_tensors')
-
-
 if __name__ == '__main__':
   main()
