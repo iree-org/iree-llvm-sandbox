@@ -5,7 +5,7 @@
 from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
-from ..core.transform import Print
+from ..core.transform import PrintIR
 
 from .definitions import *
 
@@ -13,7 +13,7 @@ from .definitions import *
 ### Expert for running the fusion tests.
 ################################################################################
 
-fusion_test_expert = Fuse.then(Bufferize).then(Print).then(LowerVectors).then(
+fusion_test_expert = Fuse.then(Bufferize).then(PrintIR).then(LowerVectors).then(
     LowerToLLVM)
 
 
