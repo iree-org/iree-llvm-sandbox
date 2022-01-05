@@ -39,8 +39,8 @@ all_experts = [
                             pack_paddings2=[1, 1, 0],
                             hoist_paddings2=[5, 6, 0])
       .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
-      .then(UnrollOneParentLoop('matmul_on_tensors', 
-                                'vector.contract', 
+      .then(UnrollOneParentLoop('matmul_on_tensors',
+                                'vector.contract',
                                 parent_loop_num=1,
                                 unroll_factor=4))
       .then(LoweringOnlyExpert('matmul_on_tensors',
@@ -88,7 +88,11 @@ def make_size_list(sizes: Sequence):
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
-  problem_size_list = [
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "matmul benchmark",
+    default_problem_sizes_list = [
       [1, 384, 384],
       [128, 384, 384],
       [128, 1536, 384],
@@ -99,17 +103,24 @@ def main():
       [1020, 1020, 1020],
       [1020, 1021, 1022],
       [1024, 1024, 1024],
-      [2048, 2048, 347],
-  ]
+      [2048, 2048, 347]
+    ],
+    default_expert_list = [
+      idx for idx, _ in enumerate(all_experts)
+    ],
+    default_runtime_only_list = [
+        [],  # case 1: static at compile time
+        ['m', 'k'],  # case 2: partially dynamic at compile time
+        keys  # case 3: fully dynamic at compile time
+    ],
+    default_spec_list = [
+      'km,kn',  # C += A^T.B  fastest
+      'mk,kn',  # C += A.B
+      'mk,nk'   # C += A.B^T  slowest
+    ])
 
-  for runtime_only in [
-      [],  # case 1: static at compile time
-      ['m', 'k'],  # case 2: partially dynamic at compile time
-      keys  # case 3: fully dynamic at compile time
-  ]:
-    #            fastest           slowest
-    # specs: C +=  A^T.B      A.B    A.B^T
-    for spec in ['km,kn', 'mk,kn', 'mk,nk']:
+  for runtime_only in args.runtime_only_list:
+    for spec in args.spec_list:
 
       def numpy_kernel(args, sizes, types):
         A, B, C = args
@@ -131,10 +142,10 @@ def main():
         torch.mm(A, B, out=C)
 
       test_harness(lambda s, t: EinsumProblem(spec), [[np.float32] * 3],
-                   map(make_size_list, problem_size_list),
-                   all_experts,
+                   map(make_size_list, args.problem_sizes_list),
+                   [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
                    n_iters=n_iters,
-                   runtime_only_sizes=set(runtime_only),
+                   runtime_only_sizes=set(runtime_only).intersection(keys),
                    function_name='matmul_on_tensors',
                    dump_ir_to_file='/tmp/abc.mlir',
                    dump_obj_to_file='/tmp/abc.o',
@@ -144,13 +155,13 @@ def main():
 
 def benchmark():
   n_iters = 10
-  problem_size_list = [
+  problem_sizes_list = [
       [200, 200, 200],
       [1000, 1000, 1000],
       [2000, 2000, 2000],
   ]
   test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
-               map(make_size_list, problem_size_list),
+               map(make_size_list, problem_sizes_list),
                all_experts,
                n_iters=n_iters,
                function_name='matmul_on_tensors')
