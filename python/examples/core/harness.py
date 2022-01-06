@@ -1,4 +1,5 @@
 import argparse
+import re
 import sys
 import os
 import time
@@ -229,6 +230,44 @@ def _run_benchmark_n_iters(callback: Callable[[int], None], n_iters: int,
   return np.asarray([_pytimed(callback, *args) for _ in range(n_iters)])
 
 
+def _parse_problem_sizes(argument: str) -> Sequence[Union[int, Sequence[int]]]:
+  """Parse a problem size argument into a possibly nested integer sequence.
+
+  Examples:
+  64,128 -> [64, 128]
+  32,32,[1,1] -> [32, 32, [1, 1]]
+  """
+  problem_sizes = []
+  while argument:
+    # Match size.
+    match = re.match(r"""[,]?\d+""", argument)
+    if match:
+      problem_sizes.append(int(match.group().lstrip(',')))
+      argument = argument[match.end():]
+      continue
+    # Match nested sizes.
+    match = re.match(r"""[,]?\[[0-9,]+\]""", argument)
+    if match:
+      nested = match.group().lstrip(',')[1:-1]
+      problem_sizes.append([int(elem) for elem in nested.split(',')])
+      argument = argument[match.end():]
+      continue
+    raise ValueError()
+  return problem_sizes
+
+
+def _parse_read_only(argument: str) -> Sequence[str]:
+  """Parse a sequence of read only dimensions.
+
+  Examples:
+  k,m -> ['k', 'm']
+  [] -> []
+  """
+  if argument == '[]':
+    return []
+  return argument.split(',')
+
+
 def test_argparser(benchmark_name: str,
                    default_problem_sizes_list: Sequence[Sequence[int]],
                    default_expert_list: Sequence[int],
@@ -247,7 +286,7 @@ def test_argparser(benchmark_name: str,
   """
   parser = argparse.ArgumentParser(description=benchmark_name)
   parser.add_argument('--problem_sizes_list', '-p',
-                      type=lambda x: [int(elem) for elem in x.split(',')],
+                      type=_parse_problem_sizes,
                       nargs='+',
                       help='problem sizes (e.g., -p 32,32,64 8,8,8)',
                       default=default_problem_sizes_list)
@@ -255,7 +294,7 @@ def test_argparser(benchmark_name: str,
                       help='experts (e.g., -e 0 1 2)',
                       default=default_expert_list)
   parser.add_argument('--runtime_only_list', '-r',
-                      type=lambda x: [elem for elem in x.split(',')],
+                      type=_parse_read_only,
                       nargs='+',
                       help='runtime only dimensions (e.g., -r k,m k [])',
                       default=default_runtime_only_list)
