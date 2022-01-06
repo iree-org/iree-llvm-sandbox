@@ -9,6 +9,7 @@ from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence
 
 import numpy
 import pandas
+import seaborn
 
 from mlir.execution_engine import *
 from mlir.ir import *
@@ -38,7 +39,7 @@ class Measurements:
   config_keys = [
     "expert",
     "np_types",
-    "compile_time_problem_sizes_dict",
+    "runtime_only",
     "runtime_problem_sizes_dict"
   ]
   data_keys = [
@@ -52,15 +53,16 @@ class Measurements:
         dict([(col, []) for col in self.config_keys + self.data_keys]))
 
   def append(self, expert: str, np_types: Sequence[np.dtype],
-             compile_time_problem_sizes_dict: ProblemSizes,
+             runtime_only_sizes: AbstractSet[str],
              runtime_problem_sizes_dict: ProblemSizes,
              timing_results_dict: TimingResults):
     """Append measurement results."""
     config = pandas.DataFrame(dict(
       zip(self.config_keys,
-          [[expert], [np_types],
-            [compile_time_problem_sizes_dict],
-            [runtime_problem_sizes_dict]])))
+          [[expert],
+            [self._stringify_types(np_types)],
+              [self._stringify_set(runtime_only_sizes)],
+              [self._stringify_dict(runtime_problem_sizes_dict)]])))
     results = pandas.DataFrame(dict(
       [(k, timing_results_dict[k]) for k in self.data_keys]))
     product = config.merge(results, how='cross')
@@ -73,6 +75,81 @@ class Measurements:
   def to_data_frame(self) -> pandas.DataFrame:
     """Return a data frame containing the aggregated data."""
     return self.data
+
+  def plot(self, path: os.path, data_key: str, data_label: str):
+    """Plot the measurements."""
+    config_key = "runtime_problem_sizes_dict"
+    keys_to_iter = [k for k in self.config_keys if k is not config_key]
+    config_to_iter = self.data[keys_to_iter].drop_duplicates()
+    for _, row in config_to_iter.iterrows():
+      # Compute the plot file name by filtering non alpha numberic characters.
+      file_name = "plot"
+      for k, v in row.to_dict().items():
+        alnum_name = ''.join([c for c in v if c.isalnum()])
+        file_name += str.format(f"_{k}_{alnum_name}")
+      file_name += ".pdf"
+      file_name = os.path.join(path, file_name)
+      # Obtain the data elements to plot.
+      filtered = self.data
+      for k, v in row.to_dict().items():
+        filtered = filtered[filtered[k] == v]
+      # Plot the selected data.
+      plt = seaborn.violinplot(x=config_key, y=data_key, data=filtered)
+      keys, new_labels = self._compress_problem_sizes_label(
+          [text.get_text() for text in plt.xaxis.get_ticklabels()])
+      plt.set(xticklabels=new_labels)
+      plt.set(xlabel=str.format(
+          f"problem sizes [{','.join(keys)}]"), ylabel=data_label)
+      plt.tick_params(axis='x', rotation=20)
+      fig = plt.get_figure()
+      fig.tight_layout()
+      fig.savefig(file_name)
+
+  def _compress_problem_sizes_label(self,
+              labels: Sequence[str]) -> (Sequence[str], Sequence[str]):
+    """Compress the problem size labels.
+
+    Identify the dimensions that take different values and compress the
+    labels to contain only the values for these varying dimensions.
+
+    Example:
+    ["H=64,W=32", "H=64,W=64"]
+    ->
+    ["W"], ["32", "64"]
+    """
+    label_dicts = []
+    for label in labels:
+      groups = re.findall(r"""([a-zA-Z]+)=(\d+|\[[0-9, ]+\])""", label)
+      label_dicts.append(dict(groups))
+    # Collect all values for a specific key.
+    value_dict = {}
+    for label_dict in label_dicts:
+      for k, v in label_dict.items():
+        if k in value_dict:
+          value_dict[k].add(v)
+        else:
+          value_dict[k] = set([v])
+    # Collect the keys that have multiple values.
+    keys = []
+    for k, v in value_dict.items():
+      if len(v) != 1:
+        keys.append(k)
+    # Collect the keys for every label
+    new_labels = []
+    for label_dict in label_dicts:
+      new_labels.append(",".join([label_dict[k] for k in keys]))
+    return keys, new_labels
+
+  def _stringify_types(self, value: Sequence[np.dtype]) -> str:
+    return ",".join([
+      repr(dt).lstrip("<class 'numpy.").rstrip("'>") for dt in value])
+
+  def _stringify_set(self, value: AbstractSet[str]) -> str:
+    return ",".join([k for k in value])
+
+  def _stringify_dict(self, value: ProblemSizes) -> str:
+    return ",".join([
+      str.format(f"{k}={v}") for k, v in value.items()])
 
 
 def _compute_quantiles(measurements: Sequence[float],
@@ -393,6 +470,7 @@ def test_harness(problem_factory: Callable[
     PyTorch. If the `BENCHMARK_TORCH` environment variable is set and the
     argument is provided, it will be called `n_iters` times for the purpose of
     measuring baseline performance.
+  plot_path: A path to an existing directory to dump the performance plots.
 
   Returns: A dictionary of all collected benchmark results.
   """
@@ -431,8 +509,7 @@ def test_harness(problem_factory: Callable[
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
 
-        measurements.append(str(expert), np_types,
-                            compile_time_problem_sizes_dict,
+        measurements.append(str(expert), np_types, runtime_only_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
       problem_definition = problem_factory(problem_sizes_dict, np_types)
@@ -449,8 +526,7 @@ def test_harness(problem_factory: Callable[
                                              problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-        measurements.append('numpy', np_types,
-                            compile_time_problem_sizes_dict,
+        measurements.append('numpy', np_types, runtime_only_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
       if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
@@ -465,8 +541,12 @@ def test_harness(problem_factory: Callable[
                 'pytorch_benchmark'], n, args, problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-        measurements.append('pytorch', np_types,
-                            compile_time_problem_sizes_dict,
+        measurements.append('pytorch', np_types, runtime_only_sizes,
                             runtime_problem_sizes_dict, timing_results)
+
+    if 'plot_path' in kwargs:
+      measurements.plot(kwargs.get('plot_path'),
+                        'gflop_per_s_per_iter',
+                        'compute throughput [GFlop/s]')
 
     return measurements
