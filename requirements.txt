@@ -4,6 +4,8 @@
 
 # MLIR dependencies.
 numpy
+pandas
+seaborn
 pybind11
 PyYAML
 

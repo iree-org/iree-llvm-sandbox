@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence, Union
 
 import numpy
+import pandas
 
 from mlir.execution_engine import *
 from mlir.ir import *
@@ -28,34 +29,81 @@ def log(*args):
 
 
 TimingResults = Mapping[str, Sequence[float]]
+ProblemSizes = Mapping[str, Sequence[Union[int, Sequence[int]]]]
+
+
+class Measurements:
+  """Class storing measurement configuration and results in data frame."""
+  config_keys = [
+    "expert",
+    "np_types",
+    "compile_time_problem_sizes_dict",
+    "runtime_problem_sizes_dict"
+  ]
+  data_keys = [
+    "elapsed_s_per_iter",
+    "gbyte_per_s_per_iter",
+    "gflop_per_s_per_iter"
+  ]
+
+  def __init__(self):
+    self.data = pandas.DataFrame(
+        dict([(col, []) for col in self.config_keys + self.data_keys]))
+
+  def append(self, expert: str, np_types: Sequence[np.dtype],
+             compile_time_problem_sizes_dict: ProblemSizes,
+             runtime_problem_sizes_dict: ProblemSizes,
+             timing_results_dict: TimingResults):
+    """Append measurement results."""
+    config = pandas.DataFrame(dict(
+      zip(self.config_keys,
+          [[expert], [np_types],
+            [compile_time_problem_sizes_dict],
+            [runtime_problem_sizes_dict]])))
+    results = pandas.DataFrame(dict(
+      [(k, timing_results_dict[k]) for k in self.data_keys]))
+    product = config.merge(results, how='cross')
+    self.data = self.data.append(product)
+
+  def to_dict(self) -> Mapping[str, Any]:
+    """Return a dictionary containing the aggregated data."""
+    return self.data.to_dict()
+
+  def to_data_frame(self) -> pandas.DataFrame:
+    """Return a data frame containing the aggregated data."""
+    return self.data
+
+
+def _compute_quantiles(measurements: Sequence[float],
+                       n_iters: int) -> Sequence[float]:
+  return [
+    measurements[0],
+    measurements[((n_iters * 1) // 100)],
+    measurements[((n_iters * 10) // 100)],
+    measurements[((n_iters * 25) // 100)],
+    measurements[((n_iters * 50) // 100)],
+    measurements[((n_iters * 75) // 100)],
+    measurements[((n_iters * 90) // 100)],
+    measurements[((n_iters * 99) // 100)],
+    measurements[-1]
+  ]
 
 
 def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
                  n_iters: int) -> TimingResults:
   elapsed_ns = run_n_iters(n_iters)
-  elapsed_s = np.flip(np.sort(elapsed_ns / 1.e9))
-  elapsed_s_per_iter = [                  \
-      elapsed_s[0],                       \
-      elapsed_s[((n_iters *  1) // 100)], \
-      elapsed_s[((n_iters * 10) // 100)], \
-      elapsed_s[((n_iters * 25) // 100)], \
-      elapsed_s[((n_iters * 50) // 100)], \
-      elapsed_s[((n_iters * 75) // 100)], \
-      elapsed_s[((n_iters * 90) // 100)], \
-      elapsed_s[((n_iters * 99) // 100)], \
-      elapsed_s[-1]                       \
-  ]
+  elapsed_s_per_iter = [sec for sec in np.flip(np.sort(elapsed_ns / 1.e9))]
   gbyte_per_s_per_iter = [(gbyte_count / sec) for sec in elapsed_s_per_iter]
   gflop_per_s_per_iter = [(gflop_count / sec) for sec in elapsed_s_per_iter]
   print(f'xxxxxxxxxx : {n_iters} iters time on {1} threads')
   line = '-' * 120
   header_data = \
       ['slowest', 'p1', 'p10', 'p25', 'p50', 'p75', 'p90', 'p99', 'fastest']
-  data = [ \
-      header_data +              ['unit'], \
-      elapsed_s_per_iter +    ['seconds'], \
-      gflop_per_s_per_iter + ['GFlops/s'], \
-      gbyte_per_s_per_iter +    ['GBs/s']  \
+  data = [
+      header_data + ['unit'],
+      _compute_quantiles(elapsed_s_per_iter, n_iters) + ['seconds'],
+      _compute_quantiles(gflop_per_s_per_iter, n_iters) + ['GFlops/s'],
+      _compute_quantiles(gbyte_per_s_per_iter, n_iters) + ['GBs/s']
   ]
   print(line)
   format_str = '{:>12s}' * len(data[0])
@@ -275,7 +323,7 @@ def test_harness(problem_factory: Callable[
                  n_iters: int = 1,
                  function_name: str = 'tested_function',
                  runtime_only_sizes: AbstractSet[str] = set(),
-                 **kwargs) -> Mapping[str, TimingResults]:
+                 **kwargs) -> Measurements:
   """Test runner facility.
 
   Compiles and runs the a test or a benchmark for a cross-product of possible
@@ -310,7 +358,7 @@ def test_harness(problem_factory: Callable[
   Returns: A dictionary of all collected benchmark results.
   """
 
-  results = {}
+  measurements = Measurements()
 
   for np_types in np_types_list:
     for problem_sizes_dict in problem_sizes_list:
@@ -338,11 +386,15 @@ def test_harness(problem_factory: Callable[
             transform=expert,
             dump_ir_to_file=kwargs.get('dump_ir_to_file', ''))
 
-        results[str(expert)] = problem.run(
+        timing_results = problem.run(
             n_iters=n_iters,
             entry_point_name='main',
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
+
+        measurements.append(str(expert), np_types,
+                            compile_time_problem_sizes_dict,
+                            runtime_problem_sizes_dict, timing_results)
 
       problem_definition = problem_factory(problem_sizes_dict, np_types)
       gflops = problem_definition.gflop_count_builder(problem_sizes_dict)
@@ -353,10 +405,14 @@ def test_harness(problem_factory: Callable[
         print('\nNumPy reference\n')
         args = problem_definition.tensors_np_builder(problem_sizes_dict,
                                                      np_types)
-        results['numpy'] = timed_invoke(
+        timing_results = timed_invoke(
             lambda n: _run_benchmark_n_iters(kwargs['numpy_benchmark'], n, args,
                                              problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
+
+        measurements.append('numpy', np_types,
+                            compile_time_problem_sizes_dict,
+                            runtime_problem_sizes_dict, timing_results)
 
       if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
         print('\nPyTorch reference\n')
@@ -365,9 +421,13 @@ def test_harness(problem_factory: Callable[
         numpy_args = problem_definition.tensors_np_builder(
             problem_sizes_dict, np_types)
         args = list(map(torch.from_numpy, numpy_args))
-        results['pytorch'] = timed_invoke(
+        timing_results = timed_invoke(
             lambda n: _run_benchmark_n_iters(kwargs[
                 'pytorch_benchmark'], n, args, problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-    return results
+        measurements.append('pytorch', np_types,
+                            compile_time_problem_sizes_dict,
+                            runtime_problem_sizes_dict, timing_results)
+
+    return measurements
