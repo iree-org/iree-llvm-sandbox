@@ -1,4 +1,5 @@
 import argparse
+import re
 import sys
 import os
 import time
@@ -237,29 +238,22 @@ def _parse_problem_sizes(argument: str) -> Sequence[Union[int, Sequence[int]]]:
   32,32,[1,1] -> [32, 32, [1, 1]]
   """
   problem_sizes = []
-  inc = []
-  dec = []
-  for idx, token in enumerate(argument.split(',')):
-    if token.startswith('['):
-      token = token[1:]
-      inc.append(idx)
-    if token.endswith(']'):
-      token = token[:-1]
-      dec.append(idx)
-    if not (len(inc) == len(dec) or len(inc) == len(dec) + 1):
-      raise ValueError()
-    problem_sizes.append(int(token))
-  # Nest the sizes found between the inc and dec indices.
-  if len(inc) != len(dec):
+  while argument:
+    # Match size.
+    match = re.match(r"""[,]?\d+""", argument)
+    if match:
+      problem_sizes.append(int(match.group().lstrip(',')))
+      argument = argument[match.end():]
+      continue
+    # Match nested sizes.
+    match = re.match(r"""[,]?\[[0-9,]+\]""", argument)
+    if match:
+      nested = match.group().lstrip(',')[1:-1]
+      problem_sizes.append([int(elem) for elem in nested.split(',')])
+      argument = argument[match.end():]
+      continue
     raise ValueError()
-  nested = []
-  curr = 0
-  for lb, ub in zip(inc, dec):
-    nested.extend(problem_sizes[curr:lb])
-    nested.append(problem_sizes[lb:ub + 1])
-    curr = ub + 1
-  nested.extend(problem_sizes[curr:])
-  return nested
+  return problem_sizes
 
 
 def _parse_read_only(argument: str) -> Sequence[str]:
@@ -271,12 +265,7 @@ def _parse_read_only(argument: str) -> Sequence[str]:
   """
   if argument == '[]':
     return []
-  read_only = []
-  for token in argument.split(','):
-    if not token.isalpha():
-      raise ValueError()
-    read_only.append(token)
-  return read_only
+  return argument.split(',')
 
 
 def test_argparser(benchmark_name: str,
