@@ -243,8 +243,8 @@ static LogicalResult executeTileOp(linalg::LinalgOp target,
   MLIRContext *ctx = target->getContext();
   FuncOp parentFunc = target->getParentOfType<FuncOp>();
   RewritePatternSet patterns(ctx);
-  patterns.insert<LinalgGenericTilingPattern>(
-      ctx, makeTransformationFilter(target), tilingOptions);
+  patterns.insert<LinalgTilingPattern>(ctx, tilingOptions,
+                                       makeTransformationFilter(target));
   if (failed(applyPatternsAndFoldGreedily(target->getParentOfType<FuncOp>(),
                                           std::move(patterns))))
     return failure();
