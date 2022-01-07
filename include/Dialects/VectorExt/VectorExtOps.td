@@ -139,7 +139,7 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
   }];
 
   // TODO: Add verifier to check type consistentcy at the region boundary based
-  on warp size and future permutation map.
+  // on warp size and future permutation map.
 
   let arguments = (ins Index:$laneid, Variadic<AnyType>:$args);
   let results = (outs Variadic<AnyType>:$results);
