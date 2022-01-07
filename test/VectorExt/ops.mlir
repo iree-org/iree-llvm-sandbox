@@ -29,3 +29,35 @@ func @predicate_results(%pred: vector<32xi1>) {
 // CHECK-NEXT:      }
 // CHECK-NEXT:      return
 // CHECK-NEXT:    }
+
+// -----
+
+func @warp(%laneid: index) {
+  vector_ext.warp_single_lane (%laneid) {
+  }
+  return
+}
+
+// CHECK-LABEL:   func @warp(
+// CHECK-NEXT:      vector_ext.warp_single_lane(%{{.*}}) {
+// CHECK-NEXT:      }
+// CHECK-NEXT:      return
+// CHECK-NEXT:    }
+
+// -----
+
+func @warp_operand_result(%laneid: index, %v0 : vector<4xi32>) -> (vector<4xi32>) {
+  %2 = vector_ext.warp_single_lane (%laneid)
+  args(%v0 : vector<4xi32>) -> (vector<4xi32>) {
+   ^bb0(%arg0 : vector<128xi32>) :
+    %0 = arith.constant dense<2>: vector<128xi32>
+    %1 = arith.addi %arg0, %0 : vector<128xi32>
+    vector_ext.yield %1 : vector<128xi32>
+  }
+  return %2 : vector<4xi32>
+}
+
+// CHECK-LABEL:   func @warp_operand_result(
+// CHECK-NEXT:      %{{.*}} = vector_ext.warp_single_lane(%{{.*}}) args(%{{.*}} : vector<4xi32>) -> (vector<4xi32>) {
+//      CHECK:        vector_ext.yield %{{.*}} : vector<128xi32>
+// CHECK-NEXT:      }

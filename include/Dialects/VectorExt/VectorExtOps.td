@@ -59,4 +59,72 @@ def VectorExt_YieldOp : VectorExt_Op<"yield", [
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
+def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_single_lane",
+      [DeclareOpInterfaceMethods<RegionBranchOpInterface>,
+       SingleBlockImplicitTerminator<"vector_ext::YieldOp">,
+       RecursiveSideEffects]> {
+  let summary = "vector.warp_single_lane operation";
+  let description = [{
+    Operation that encapsulate code that should be ran on a single lane within a
+    warp. Any code present in the region would only be executed on first lane
+    based on the laneid paramter. The op assumes `laneid` operand is an id to
+    identify the warp and it goes from 0 to warp_size.
+
+    // TODO: Add warp size as an attribute and support multiple dimensions lane
+    ids.
+
+    Operands are vector values distributed on all threads that may be used by
+    the single lane execution. The matching region argument is a vector of all
+    the values of those threads available to the single active lane. The
+    distributed dimension is implicit based on the shape of the operand and
+    argument. In the future this may be described by an affine map.
+
+    Return values are distributed on all threads using laneId as index. The
+    vector is distributed based on the shape ratio between the vector type of
+    the yield and the result type.
+    If the shapes are the same this means the value is broadcasted to all lanes.
+    In the future the distribution can be made more explicit using affine_maps
+    and will support having multiple Ids.
+
+    During lowering values passed as operands and return value need to be
+    visible to different lanes within the warp. This would usually be done by
+    going through memory.
+
+    Example:
+    ```
+    vector_ext.warp_single_lane (%laneid) {
+      ...
+    }
+
+    %0 = vector_ext.warp_single_lane(%laneid)
+    args(%v0 : vector<4xi32>) -> (vector<1xf32>) {
+    ^bb0(%arg0 : vector<128xi32>) :
+      ...
+      vector_ext.yield %1 : vector<32xf32>
+    }
+    ```
+
+    This may be lowered to an scf.if region as below:
+    ```
+      %cnd = arith.cmpi eq, %laneid, %c0 : index
+      scf.if %cnd {
+         ...
+      }
+    ```
+  }];
+
+  // TODO: Add verifier.
+
+  let arguments = (ins Index:$laneid, Variadic<AnyType>:$args);
+  let results = (outs Variadic<AnyType>:$results);
+  let regions = (region SizedRegion<1>:$warpRegion);
+
+  let skipDefaultBuilders = 1;
+  let builders = [
+    OpBuilder<(ins "Value":$laneid)>,
+    // TODO: Add arguments support in the builder.
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid)>
+  ];
+}
+
 #endif // DIALECTS_VECTOREXT_VECTOREXTOPS
