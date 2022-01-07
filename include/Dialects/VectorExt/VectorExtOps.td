@@ -59,11 +59,11 @@ def VectorExt_YieldOp : VectorExt_Op<"yield", [
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
-def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_single_lane",
+def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
       [DeclareOpInterfaceMethods<RegionBranchOpInterface>,
        SingleBlockImplicitTerminator<"vector_ext::YieldOp">,
        RecursiveSideEffects]> {
-  let summary = "vector.warp_single_lane operation";
+  let summary = "vector.warp_execute_on_lane_0 operation";
   let description = [{
     Operation that encapsulate code that should be ran on a single lane within a
     warp. Any code present in the region would only be executed on first lane
@@ -92,15 +92,8 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_single_lane",
 
     Example:
     ```
-    vector_ext.warp_single_lane (%laneid) {
+    vector_ext.warp_execute_on_lane_0 (%laneid) {
       ...
-    }
-
-    %0 = vector_ext.warp_single_lane(%laneid)
-    args(%v0 : vector<4xi32>) -> (vector<1xf32>) {
-    ^bb0(%arg0 : vector<128xi32>) :
-      ...
-      vector_ext.yield %1 : vector<32xf32>
     }
     ```
 
@@ -111,6 +104,33 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_single_lane",
          ...
       }
     ```
+
+    When the region has operands and/or return values:
+    ```
+    %0 = vector_ext.warp_execute_on_lane_0(%laneid)
+    args(%v0 : vector<4xi32>) -> (vector<1xf32>) {
+    ^bb0(%arg0 : vector<128xi32>) :
+      ...
+      vector_ext.yield %1 : vector<32xf32>
+    }
+    ```
+
+    values at the region boundary would go through memory:
+    ```
+    %tmp0 = memreg.alloc() : memref<32xf32, 3>
+    %tmp1 = memreg.alloc() : memref<32xf32, 3>
+    %cnd = arith.cmpi eq, %threadid, %c0 : index
+    vector.store %v0, %tmp0[%threadid] : memref<32xf32>, vector<1xf32>
+    warp_sync
+    scf.if %cnd {
+      %arg0 = vector.load %tmp0[%c0] : memref<32xf32>, vector<32xf32>
+      ...
+      vector.store %1, %tmp1[%c0] : memref<32xf32>, vector<32xf32>
+    }
+    warp_sync
+    %0 = vector.load %tmp1[%threadid] : memref<32xf32>, vector<32xf32>
+    ```
+
   }];
 
   // TODO: Add verifier.

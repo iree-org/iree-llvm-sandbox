@@ -33,13 +33,13 @@ func @predicate_results(%pred: vector<32xi1>) {
 // -----
 
 func @warp(%laneid: index) {
-  vector_ext.warp_single_lane (%laneid) {
+  vector_ext.warp_execute_on_lane_0 (%laneid) {
   }
   return
 }
 
 // CHECK-LABEL:   func @warp(
-// CHECK-NEXT:      vector_ext.warp_single_lane(%{{.*}}) {
+// CHECK-NEXT:      vector_ext.warp_execute_on_lane_0(%{{.*}}) {
 // CHECK-NEXT:      }
 // CHECK-NEXT:      return
 // CHECK-NEXT:    }
@@ -47,7 +47,7 @@ func @warp(%laneid: index) {
 // -----
 
 func @warp_operand_result(%laneid: index, %v0 : vector<4xi32>) -> (vector<4xi32>) {
-  %2 = vector_ext.warp_single_lane (%laneid)
+  %2 = vector_ext.warp_execute_on_lane_0 (%laneid)
   args(%v0 : vector<4xi32>) -> (vector<4xi32>) {
    ^bb0(%arg0 : vector<128xi32>) :
     %0 = arith.constant dense<2>: vector<128xi32>
@@ -58,6 +58,6 @@ func @warp_operand_result(%laneid: index, %v0 : vector<4xi32>) -> (vector<4xi32>
 }
 
 // CHECK-LABEL:   func @warp_operand_result(
-// CHECK-NEXT:      %{{.*}} = vector_ext.warp_single_lane(%{{.*}}) args(%{{.*}} : vector<4xi32>) -> (vector<4xi32>) {
+// CHECK-NEXT:      %{{.*}} = vector_ext.warp_execute_on_lane_0(%{{.*}}) args(%{{.*}} : vector<4xi32>) -> (vector<4xi32>) {
 //      CHECK:        vector_ext.yield %{{.*}} : vector<128xi32>
 // CHECK-NEXT:      }
