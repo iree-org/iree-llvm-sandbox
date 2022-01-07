@@ -40,7 +40,7 @@ class Measurements:
   config_keys = [
     "expert",
     "np_types",
-    "runtime_only",
+    "dynamic_at_compile_time",
     "runtime_problem_sizes_dict"
   ]
   data_keys = [
@@ -54,7 +54,7 @@ class Measurements:
         dict([(col, []) for col in self.config_keys + self.data_keys]))
 
   def append(self, expert: str, np_types: Sequence[np.dtype],
-             runtime_only_sizes: AbstractSet[str],
+             dynamic_at_compile_time_sizes: AbstractSet[str],
              runtime_problem_sizes_dict: ProblemSizes,
              timing_results_dict: TimingResults):
     """Append measurement results."""
@@ -62,7 +62,7 @@ class Measurements:
       zip(self.config_keys,
           [[expert],
             [self._stringify_types(np_types)],
-              [self._stringify_set(runtime_only_sizes)],
+              [self._stringify_set(dynamic_at_compile_time_sizes)],
               [self._stringify_dict(runtime_problem_sizes_dict)]])))
     results = pandas.DataFrame(dict(
       [(k, timing_results_dict[k]) for k in self.data_keys]))
@@ -418,8 +418,8 @@ def _parse_problem_sizes(argument: str) -> Sequence[Union[int, Sequence[int]]]:
   return problem_sizes
 
 
-def _parse_read_only(argument: str) -> Sequence[str]:
-  """Parse a sequence of read only dimensions.
+def _parse_dimension_list(argument: str) -> Sequence[str]:
+  """Parse a sequence of dimensions or the empty list.
 
   Examples:
   k,m -> ['k', 'm']
@@ -433,7 +433,7 @@ def _parse_read_only(argument: str) -> Sequence[str]:
 def test_argparser(benchmark_name: str,
                    default_problem_sizes_list: Sequence[Sequence[int]],
                    default_expert_list: Sequence[int],
-                   default_runtime_only_list: Sequence[Sequence[str]],
+                   default_dynamic_at_compile_time_list: Sequence[Sequence[str]],
                    default_spec_list: Sequence[str]) -> argparse.Namespace:
   """Test argument parser.
 
@@ -443,7 +443,7 @@ def test_argparser(benchmark_name: str,
   benchmark_name: Benchmark name.
   default_problem_sizes_list: Default problem sizes.
   default_expert_list: Default expert indices.
-  default_runtime_only_list: Default runtime only dimensions list.
+  default_dynamic_at_compile_time_list: Default dynamic at compile time dimensions.
   default_spec_list: Default specification list.
   """
   parser = argparse.ArgumentParser(description=benchmark_name)
@@ -455,11 +455,11 @@ def test_argparser(benchmark_name: str,
   parser.add_argument('--expert_list', '-e', type=int, nargs='+',
                       help='experts (e.g., -e 0 1 2)',
                       default=default_expert_list)
-  parser.add_argument('--runtime_only_list', '-r',
-                      type=_parse_read_only,
+  parser.add_argument('--dynamic_at_compile_time_list', '-r',
+                      type=_parse_dimension_list,
                       nargs='+',
-                      help='runtime only dimensions (e.g., -r k,m k [])',
-                      default=default_runtime_only_list)
+                      help='dynamic at compile time dimensions (e.g., -r k,m k [])',
+                      default=default_dynamic_at_compile_time_list)
   parser.add_argument('--spec_list', '-s',
                       type=str,
                       nargs='+',
@@ -475,7 +475,7 @@ def test_harness(problem_factory: Callable[
                  experts: Sequence[TransformationList],
                  n_iters: int = 1,
                  function_name: str = 'tested_function',
-                 runtime_only_sizes: AbstractSet[str] = set(),
+                 dynamic_at_compile_time_sizes: AbstractSet[str] = set(),
                  **kwargs) -> Measurements:
   """Test runner facility.
 
@@ -493,7 +493,7 @@ def test_harness(problem_factory: Callable[
   n_iters: Number of times to run the test.
   function_name: Name of the function in which the IR is emitted, this name can
    be used by compilation experts to target the transformation.
-  runtime_only_sizes: A set of size keys that should be treated as unknown (-1)
+  dynamic_at_compile_time_sizes: A set of size keys that should be treated as unknown (-1)
     at compilation time and only set at runtime.
 
   Keyword arguments:
@@ -517,7 +517,7 @@ def test_harness(problem_factory: Callable[
   for np_types in np_types_list:
     for problem_sizes_dict in problem_sizes_list:
       compile_time_problem_sizes_dict = {
-          key: (value if key not in runtime_only_sizes else -1)
+          key: (value if key not in dynamic_at_compile_time_sizes else -1)
           for key, value in problem_sizes_dict.items()
       }
       runtime_problem_sizes_dict = problem_sizes_dict
@@ -546,7 +546,7 @@ def test_harness(problem_factory: Callable[
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
 
-        measurements.append(str(expert), np_types, runtime_only_sizes,
+        measurements.append(str(expert), np_types, dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
       problem_definition = problem_factory(problem_sizes_dict, np_types)
@@ -563,7 +563,7 @@ def test_harness(problem_factory: Callable[
                                              problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-        measurements.append('numpy', np_types, runtime_only_sizes,
+        measurements.append('numpy', np_types, dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
       if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
@@ -578,7 +578,7 @@ def test_harness(problem_factory: Callable[
                 'pytorch_benchmark'], n, args, problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-        measurements.append('pytorch', np_types, runtime_only_sizes,
+        measurements.append('pytorch', np_types, dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
     if 'plot_path' in kwargs:

@@ -108,7 +108,7 @@ def main():
     default_expert_list = [
       idx for idx, _ in enumerate(all_experts)
     ],
-    default_runtime_only_list = [
+    default_dynamic_at_compile_time_list = [
         [],  # case 1: static at compile time
         ['m', 'k'],  # case 2: partially dynamic at compile time
         keys  # case 3: fully dynamic at compile time
@@ -119,7 +119,7 @@ def main():
       'mk,nk'   # C += A.B^T  slowest
     ])
 
-  for runtime_only in args.runtime_only_list:
+  for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
     for spec in args.spec_list:
 
       def numpy_kernel(args, sizes, types):
@@ -145,7 +145,7 @@ def main():
                    map(make_size_list, args.problem_sizes_list),
                    [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
                    n_iters=n_iters,
-                   runtime_only_sizes=set(runtime_only).intersection(keys),
+                   dynamic_at_compile_time_sizes=set(dynamic_at_compile_time).intersection(keys),
                    function_name='matmul_on_tensors',
                    dump_ir_to_file='/tmp/abc.mlir',
                    dump_obj_to_file='/tmp/abc.o',
