@@ -140,6 +140,10 @@ expert_fuse_and_pad = TestExpert([
          pack_paddings=[1, 1, 1],
          hoist_paddings=[3, 3, 3]),
     Vectorize('matmul_on_tensors', 'linalg.generic'),
+    OutlineOneParentLoop('matmul_on_tensors',
+                         'vector.contract',
+                         'foo',
+                         parent_loop_num=2),
     Tile('matmul_on_tensors', 'linalg.fill', tile_sizes=[8, 8]),
     Vectorize('matmul_on_tensors', 'linalg.fill')
 ])
