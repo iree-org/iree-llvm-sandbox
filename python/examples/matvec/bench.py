@@ -62,7 +62,7 @@ def main():
     default_expert_list = [
       idx for idx, _ in enumerate(all_experts)
     ],
-    default_runtime_only_list = [],
+    default_dynamic_at_compile_time_list = [],
     default_spec_list = [])
 
   def numpy_kernel(args, sizes, types):
