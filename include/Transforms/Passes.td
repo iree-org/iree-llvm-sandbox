@@ -216,6 +216,29 @@ def LLVMLowering : Pass<"llvm-lowering", "ModuleOp"> {
   ];
 }
 
+def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "FuncOp"> {
+  let summary = "Pass to unroll a vector op to a target size.";
+  let constructor = "mlir::createUnrollOneVectorOpPass()";
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
+      "Which func op is the anchor to latch on.">,
+    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
+      "Which unique op within the func is the anchor to latch on.">,
+
+    // UnrollOneVectorOp options.
+    ListOption<"sourceShape", "source-shape", "int64_t", "Source vector shape",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"targetShape", "target-shape", "int64_t", "Target vector shape",
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+  ];
+  let dependentDialects = [
+    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
+    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
+    "::mlir::StandardOpsDialect", "::mlir::tensor::TensorDialect",
+    "::mlir::vector::VectorDialect"
+  ];
+}
+
 def UnrollOneParentLoop : Pass<"unroll-one-parent-loop", "FuncOp"> {
   let summary = "Pass to unroll the k^th parent loop of an op by some amount.";
   let constructor = "mlir::createUnrollOneParentLoopPass()";

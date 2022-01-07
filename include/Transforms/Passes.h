@@ -37,6 +37,9 @@ createLinalgVectorLoweringPass(int64_t vectorLoweringStage = 0);
 /// Creates a pass to driver lowering to LLVM.
 std::unique_ptr<OperationPass<ModuleOp>> createLLVMLoweringPass();
 
+/// Create a pass to drive the unrolling of a single vector op.
+std::unique_ptr<OperationPass<FuncOp>> createUnrollOneVectorOpPass();
+
 /// Create a pass to drive the unrolling of a single parent loop of an op.
 std::unique_ptr<OperationPass<FuncOp>> createUnrollOneParentLoopPass();
 

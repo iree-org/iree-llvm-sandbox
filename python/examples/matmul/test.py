@@ -121,7 +121,19 @@ expert_tile_3_pad_hoist_peel_scalarize = TestExpert([
          tile_sizes=[2, 3, 7],
          peel=[0, 1, 2]),
     Tile('matmul_on_tensors', 'linalg.generic', scalarize_dyn_dims=True),
-    Vectorize('matmul_on_tensors', 'linalg.generic')
+    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    UnrollOneVectorOp(
+        'matmul_on_tensors',
+        'vector.contract',
+        source_shape=[2, 3, 7],
+        target_shape=[1, 3, 7],
+    ),
+    UnrollOneVectorOp(
+        'matmul_on_tensors',
+        'vector.contract',
+        source_shape=[2, 3, 5],
+        target_shape=[1, 3, 5],
+    ),
 ])
 # Fuse, then tile.
 expert_fuse_2_tile_1 = TestExpert([
@@ -149,7 +161,7 @@ expert_fuse_and_pad = TestExpert([
 ])
 
 all_experts = [
-    e.print_ir(after_all=False) for e in [
+    e.print_ir(after_all=True) for e in [
         expert_no_tiling, expert_tile_1, expert_tile_and_interchange_1,
         expert_tile_1_and_generalize_interchange, expert_tile_1_peel_scalarize,
         expert_tile_1_pad, expert_tile_1_pad_hoist, expert_tile_2_pad_hoist,

@@ -121,6 +121,13 @@ struct LLVMLoweringPass : public LLVMLoweringBase<LLVMLoweringPass> {
   void runOnOperation() override;
 };
 
+struct UnrollOneVectorOpPass
+    : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
+  UnrollOneVectorOpPass() = default;
+  UnrollOneVectorOpPass(const UnrollOneVectorOpPass &pass) {}
+  void runOnOperation() override;
+};
+
 struct UnrollOneParentLoopPass
     : public UnrollOneParentLoopBase<UnrollOneParentLoopPass> {
   UnrollOneParentLoopPass() = default;
@@ -399,6 +406,35 @@ void LinalgVectorLoweringPass::runOnOperation() {
     return signalPassFailure();
 }
 
+void UnrollOneVectorOpPass::runOnOperation() {
+  if (getOperation().getName() != anchorFuncOpName)
+    return;
+
+  MLIRContext *ctx = &getContext();
+  RewritePatternSet patterns(ctx);
+  vector::populateVectorUnrollPatterns(
+      patterns, vector::UnrollVectorOptions()
+                    .setNativeShape(targetShape)
+                    .setFilterConstraint([&](Operation *op) {
+                      auto unrollInterface =
+                          dyn_cast<VectorUnrollOpInterface>(op);
+                      if (!unrollInterface ||
+                          op->getName().getStringRef() != anchorOpName ||
+                          !sourceShape.hasValue() ||
+                          !unrollInterface.getShapeForUnroll().hasValue())
+                        return failure();
+
+                      ArrayRef<int64_t> sourceShapeToMatch{sourceShape};
+                      auto shapeForUnroll =
+                          unrollInterface.getShapeForUnroll().getValue();
+                      ArrayRef<int64_t> actualSourceShape{
+                          shapeForUnroll.begin(), shapeForUnroll.end()};
+                      return success(sourceShapeToMatch == actualSourceShape);
+                    }));
+  vector::populateVectorToVectorCanonicalizationPatterns(patterns);
+  (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+}
+
 void UnrollOneParentLoopPass::runOnOperation() {
   if (getOperation().getName() != anchorFuncOpName)
     return;
@@ -486,6 +522,10 @@ mlir::createLinalgVectorLoweringPass(int64_t vectorLoweringStage) {
 
 std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
   return std::make_unique<LLVMLoweringPass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
+  return std::make_unique<UnrollOneVectorOpPass>();
 }
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {

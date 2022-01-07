@@ -9,19 +9,11 @@ import mlir.all_passes_registration
 import typing as tp
 
 
-def _get_tile_sizes_str(transform: Transform) -> str:
+def _get_size_list_as_str(name: str, sizes: tp.List[int]) -> str:
   """Compute the textual tile size flag for the given `transform`."""
-  if not transform.tile_sizes:
+  if not sizes or len(sizes) == 0:
     return ''
-  return f'tile-sizes={",".join([str(ts) for ts in transform.tile_sizes])}'
-
-
-def _get_tile_interchange_str(transform: Transform) -> str:
-  """Compute the textual tile interchange flag for the given `transform`."""
-  if not transform.tile_interchange:
-    return ''
-  tile_interchange = [str(ti) for ti in transform.tile_interchange]
-  return f'tile-interchange={",".join(tile_interchange)}'
+  return f'{name}={",".join([str(ts) for ts in sizes])}'
 
 
 def _get_pad_str(transform: Transform) -> str:
@@ -99,8 +91,9 @@ class Fuse(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
-    tile_str = _get_tile_sizes_str(self)
-    interchange_str = _get_tile_interchange_str(self)
+    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
+    interchange_str = _get_size_list_as_str(name="tile-interchange",
+                                            sizes=self.tile_interchange)
     pad_str = _get_pad_str(self)
     vectorize_str = ''
     if self.vectorize:
@@ -150,8 +143,9 @@ class Tile(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
-    tile_str = _get_tile_sizes_str(self)
-    interchange_str = _get_tile_interchange_str(self)
+    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
+    interchange_str = _get_size_list_as_str(name="tile-interchange",
+                                            sizes=self.tile_interchange)
     pad_str = _get_pad_str(self)
     peeled_loops_str = ''
     scalarize_dyn_dims_str = ''
@@ -275,11 +269,8 @@ class Generalize(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
-    interchange_str = ''
-
-    if self.iterator_interchange:
-      dims = [str(ic) for ic in self.iterator_interchange]
-      interchange_str = f'iterator-interchange={",".join(dims)}'
+    interchange_str = _get_size_list_as_str(name='iterator-interchange',
+                                            sizes=self.iterator_interchange)
 
     pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
@@ -377,6 +368,32 @@ class LowerToLLVM(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
+
+
+class UnrollOneVectorOp(Transform):
+
+  variables = {
+      # Vector unrolling is similar to tiling but using unrolling instead of
+      # loops. Use TilingSizesVariable as a searchable type.
+      'source_shape': (TilingSizesVariable, []),
+      'target_shape': (TilingSizesVariable, []),
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+    source_shape_str = _get_size_list_as_str(name='source-shape',
+                                             sizes=self.source_shape)
+    target_shape_str = _get_size_list_as_str(name='target-shape',
+                                             sizes=self.target_shape)
+
+    pipeline = (f'unroll-one-vector-op{{'
+                f'     anchor-func={fun_name} '
+                f'     anchor-op={op_name} '
+                f'     {source_shape_str} '
+                f'     {target_shape_str}}},'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class UnrollOneParentLoop(Transform):
