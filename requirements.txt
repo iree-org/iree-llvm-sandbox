@@ -4,8 +4,6 @@
 
 # MLIR dependencies.
 numpy
-pandas
-seaborn
 pybind11
 PyYAML
 
@@ -18,3 +16,8 @@ torchaudio
 
 # Testing.
 lit
+
+# Plotting.
+pandas
+matplotlib
+seaborn

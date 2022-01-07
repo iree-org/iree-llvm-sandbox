@@ -10,6 +10,7 @@ from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence
 import numpy
 import pandas
 import seaborn
+import matplotlib
 
 from mlir.execution_engine import *
 from mlir.ir import *
@@ -77,40 +78,76 @@ class Measurements:
     return self.data
 
   def plot(self, path: os.path, data_key: str, data_label: str):
-    """Plot the measurements."""
-    config_key = "runtime_problem_sizes_dict"
-    keys_to_iter = [k for k in self.config_keys if k is not config_key]
-    config_to_iter = self.data[keys_to_iter].drop_duplicates()
-    for _, row in config_to_iter.iterrows():
-      # Compute the plot file name by filtering non alpha numberic characters.
-      file_name = "plot"
-      for k, v in row.to_dict().items():
-        alnum_name = ''.join([c for c in v if c.isalnum()])
-        file_name += str.format(f"_{k}_{alnum_name}")
-      file_name += ".pdf"
-      file_name = os.path.join(path, file_name)
-      # Obtain the data elements to plot.
-      filtered = self.data
-      for k, v in row.to_dict().items():
-        filtered = filtered[filtered[k] == v]
+    """Plot the provided measurement type for all problem sizes.
+
+    Plot the problem sizes for every expert, np_types, etc. combination.
+    """
+    config_key_to_plot = "runtime_problem_sizes_dict"
+    config_keys_to_fix = [
+        k for k in self.config_keys if k is not config_key_to_plot]
+    plot_configurations = self.data[config_keys_to_fix].drop_duplicates()
+    # Create a plot for every combination of expert, np_types, etc.
+    for _, plot_configuration in plot_configurations.iterrows():
+      data_to_plot = self._get_data_to_plot(plot_configuration.to_dict())
       # Plot the selected data.
-      plt = seaborn.violinplot(x=config_key, y=data_key, data=filtered)
-      keys, new_labels = self._compress_problem_sizes_label(
-          [text.get_text() for text in plt.xaxis.get_ticklabels()])
-      plt.set(xticklabels=new_labels)
-      plt.set(xlabel=str.format(
-          f"problem sizes [{','.join(keys)}]"), ylabel=data_label)
-      plt.tick_params(axis='x', rotation=20)
+      plt = self._plot_data(config_key_to_plot, data_key,
+                            data_label, data_to_plot)
       fig = plt.get_figure()
       fig.tight_layout()
-      fig.savefig(file_name)
+      file_name = self._get_plot_file_name(plot_configuration.to_dict())
+      fig.savefig(os.path.join(path, file_name))
+
+  def _plot_data(self,
+                 config_key_to_plot: str, data_key: str, data_label: str,
+                 data_to_plot: pandas.DataFrame) -> matplotlib.axes.Axes:
+    """Plot the provided data and configuration combination."""
+    plt = seaborn.violinplot(
+        x=config_key_to_plot, y=data_key, data=data_to_plot)
+    keys, new_labels = self._compress_problem_sizes_label(
+        [text.get_text() for text in plt.xaxis.get_ticklabels()])
+    plt.set(xticklabels=new_labels)
+    plt.set(xlabel=str.format(
+        f"problem sizes [{','.join(keys)}]"), ylabel=data_label)
+    plt.tick_params(axis='x', rotation=20)
+    return plt
+
+  def _get_data_to_plot(self,
+              plot_configuration: Mapping[str, str]) -> pandas.DataFrame:
+    """Return the data points for the given plot configuration."""
+    data_to_plot = self.data
+    for k, v in plot_configuration.items():
+      data_to_plot = data_to_plot[data_to_plot[k] == v]
+    return data_to_plot
+
+  def _get_plot_file_name(self,
+              plot_configuration: Mapping[str, str]) -> str:
+    """"Return unique file name for the plot configuration.
+
+    Concat the plot configuration key value pairs and remove special
+    characters that may not be supported by the file system.
+
+    Example:
+    {'expert': 'SingleTilingExpert', 'np_types': 'float32,float32,float32'}
+    ->
+    'plot_expert_SingleTilingExpert_np_types_float32float32float32.pdf'
+    """
+    file_name = "plot"
+    for k, v in plot_configuration.items():
+      alphanumeric = ''.join([c for c in v if c.isalnum()])
+      file_name += str.format(f"_{k}_{alphanumeric}")
+    file_name += ".pdf"
+    return file_name
 
   def _compress_problem_sizes_label(self,
               labels: Sequence[str]) -> (Sequence[str], Sequence[str]):
-    """Compress the problem size labels.
+    """Shorten the problem size lables by removing redundant information.
 
-    Identify the dimensions that take different values and compress the
-    labels to contain only the values for these varying dimensions.
+    Plotting the entire problem size configuration for every axis tick
+    requires a lot of space and results in overlapping labels. The method
+    identifies the dimensions that take different values and filters out
+    the dimensions that are constant for the entire plot. Additionally,
+    the dimension names (it suffices to plot them once) and sizes values
+    are returned seperately.
 
     Example:
     ["H=64,W=32", "H=64,W=64"]
