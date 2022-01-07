@@ -90,6 +90,11 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
     visible to different lanes within the warp. This would usually be done by
     going through memory.
 
+    The region is *not* isolated from above. For values coming from the parent
+    region only the lane 0 value will be available so it generally only make
+    sense for uniform values. If all the lanes need to be accessible the value
+    needs to go through region argument.
+
     Example:
     ```
     vector_ext.warp_execute_on_lane_0 (%laneid) {
@@ -133,7 +138,8 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
 
   }];
 
-  // TODO: Add verifier.
+  // TODO: Add verifier to check type consistentcy at the region boundary based
+  on warp size and future permutation map.
 
   let arguments = (ins Index:$laneid, Variadic<AnyType>:$args);
   let results = (outs Variadic<AnyType>:$results);
