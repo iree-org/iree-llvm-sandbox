@@ -1,12 +1,18 @@
-// RUN: mlir-proto-opt %s -outline-one-parent-loop="anchor-func=test anchor-op=scf.yield parent-loop-num=1 pipeline-factor=2" | \
+// RUN: mlir-proto-opt %s -outline-one-parent-loop="anchor-func=test anchor-op=scf.yield parent-loop-num=1 II=10 read-latency=20" | \
 // RUN: FileCheck %s
 
 // CHECK-LABEL: func @test
-func @test(%ub: index, %it: index) -> index {
+func @test(%input: tensor<1000xf32>, %o: tensor<1000xf32>) -> tensor<1000xf32> {
   %c0 = arith.constant 0 : index
-  %c1 = arith.constant 1 : index
-  %res = scf.for %i = %c0 to %ub step %c1 iter_args(%bbit = %it) -> (index) {
-    scf.yield %bbit : index
+  %c4 = arith.constant 1 : index
+  %c250 = arith.constant 250 : index
+  %cst_0 = arith.constant 0.000000e+00 : f32
+  %cst_1 = arith.constant dense<1.000000e+00> : vector<4xf32>
+  %out = scf.for %i = %c0 to %c250 step %c4 iter_args(%t0 = %o) -> (tensor<1000xf32>) {
+    %a = vector.transfer_read %input[%i], %cst_0 : tensor<1000xf32>, vector<4xf32>
+    %b = arith.addf %a, %cst_1 : vector<4xf32>
+    %t1 = vector.transfer_write %b, %t0[%i] : vector<4xf32>, tensor<1000xf32>
+    scf.yield %t1 : tensor<1000xf32>
   }
-  return %res: index
+  return %out: tensor<1000xf32>
 }
