@@ -13,6 +13,10 @@ from ..contraction.definitions import *
 ### Compilation strategies.
 ################################################################################
 
+all_names = [
+  "SingleTiling",
+  "DoubleTiling"
+]
 all_experts = [e.print_ir(after_all=False) for e in [
     SingleTilingExpert(
         'matvec_on_tensors',
@@ -41,9 +45,6 @@ all_experts = [e.print_ir(after_all=False) for e in [
 keys = ['m', 'n']
 
 
-def make_size_list(sizes: Sequence):
-  return {k: v for k, v in zip(keys, sizes)}
-
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
@@ -59,9 +60,7 @@ def main():
       [2040, 2040],
       [4000, 4000],
     ],
-    default_expert_list = [
-      idx for idx, _ in enumerate(all_experts)
-    ],
+    default_expert_list = all_names,
     default_dynamic_at_compile_time_list = [],
     default_spec_list = [])
 
@@ -77,8 +76,8 @@ def main():
 
   test_harness(
       lambda s, t: EinsumProblem('mn,n'), [[np.float32] * 3],
-      map(make_size_list, args.problem_sizes_list),
-      [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
+      test_sizes(keys, args.problem_sizes_list),
+      test_experts(all_experts, all_names, args.expert_list),
       n_iters=n_iters,
       function_name='matvec_on_tensors',
       numpy_benchmark=numpy_kernel,

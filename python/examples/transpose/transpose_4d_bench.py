@@ -55,14 +55,12 @@ def main():
                           2], transpose_4d_1302, expert_transpose_4d_1302),
   ]
 
-  def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
-    return {k: v for k, v in zip(keys, sizes)}
-
   for problem in problem_list:
     test_harness(lambda s, t: TransposeNDProblem(permutation=problem[1],
                                                  op_builder=problem[2]),
-                 [[np.float32] * 2], [make_size_list(keys, problem[0])],
-                 experts=[problem[3]],
+                 [[np.float32] * 2],
+                 test_sizes(keys, [problem[0]]),
+                 test_experts([problem[3]]),
                  n_iters=n_iters,
                  function_name=fun_name)
 
