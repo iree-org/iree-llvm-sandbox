@@ -47,6 +47,9 @@ std::unique_ptr<OperationPass<FuncOp>> createUnrollOneParentLoopPass();
 /// of an op.
 std::unique_ptr<OperationPass<FuncOp>> createOutlineOneParentLoopPass();
 
+/// Create a pass to drive the pipelining of a single parent loop of an op.
+std::unique_ptr<OperationPass<FuncOp>> createPipelineOneParentLoopPass();
+
 /// Experimental pass for vector distribution.
 std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
 

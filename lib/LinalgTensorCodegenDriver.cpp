@@ -142,6 +142,13 @@ struct OutlineOneParentLoopPass
   void runOnOperation() override;
 };
 
+struct PipelineOneParentLoopPass
+    : public PipelineOneParentLoopBase<PipelineOneParentLoopPass> {
+  PipelineOneParentLoopPass() = default;
+  PipelineOneParentLoopPass(const PipelineOneParentLoopPass &pass) {}
+  void runOnOperation() override;
+};
+
 } // namespace
 
 void LLVMLoweringPass::runOnOperation() {
@@ -492,6 +499,22 @@ void OutlineOneParentLoopPass::runOnOperation() {
   });
 }
 
+void PipelineOneParentLoopPass::runOnOperation() {
+  if (getOperation().getName() != anchorFuncOpName)
+    return;
+
+  // Poor man's op targeting.
+  getOperation().walk([&](Operation *op) {
+    if (op->getName().getStringRef() != anchorOpName)
+      return WalkResult::advance();
+    SmallVector<scf::ForOp> reverseEnclosingLoops;
+    getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
+    // TODO: imple me.
+    reverseEnclosingLoops.back().dump();
+    return WalkResult::interrupt();
+  });
+}
+
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
@@ -534,6 +557,10 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
   return std::make_unique<OutlineOneParentLoopPass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>> mlir::createPipelineOneParentLoopPass() {
+  return std::make_unique<PipelineOneParentLoopPass>();
 }
 
 //===----------------------------------------------------------------------===//
