@@ -14,8 +14,10 @@
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgTransform/Passes.h"
+#include "Dialects/LinalgTransform/ScopedTransform.h"
 #include "Dialects/LinalgTransform/TrackingCSE.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
+#include "Transforms/Functional.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"
@@ -53,9 +55,13 @@
 using namespace mlir;
 using namespace mlir::linalg;
 
+//===----------------------------------------------------------------------===//
+// Utility Functions
+//===----------------------------------------------------------------------===//
+
 /// Extracts a vector of int64_t from an array attribute. Asserts if the
 /// attribute contains values other than integers.
-SmallVector<int64_t> extractI64Array(ArrayAttr attr) {
+static SmallVector<int64_t> extractI64Array(ArrayAttr attr) {
   SmallVector<int64_t> result;
   result.reserve(attr.size());
   for (APInt value : attr.getAsValueRange<IntegerAttr>())
@@ -65,7 +71,7 @@ SmallVector<int64_t> extractI64Array(ArrayAttr attr) {
 
 /// Extracts a vector of unsigned from an array attribute. Asserts if the
 /// attribute contains values other than intergers. May truncate.
-SmallVector<unsigned> extractUIntArray(ArrayAttr attr) {
+static SmallVector<unsigned> extractUIntArray(ArrayAttr attr) {
   SmallVector<unsigned> result;
   result.reserve(attr.size());
   for (APInt value : attr.getAsValueRange<IntegerAttr>())
@@ -83,51 +89,40 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
                                      b.getZeroAttr(t));
 }
 
-/// The value used by the interpreter pass in the Linalg transform marker
-/// attribute.
-constexpr llvm::StringLiteral kInterpreterTransformMarkerValue =
-    "linalg_transform.marker";
+//===----------------------------------------------------------------------===//
+// Functional Rewrite Helpers
+//===----------------------------------------------------------------------===//
 
-/// Populates `operations` with ops nested in `container` that have the
-/// transform marker set, and removes the marker.
-static void findMarkedOps(Operation *container,
-                          SmallVectorImpl<Operation *> &operations) {
-  container->walk([&](Operation *op) {
-    auto attr =
-        op->getAttrOfType<StringAttr>(LinalgTransforms::kLinalgTransformMarker);
-    if (attr && attr.getValue() == kInterpreterTransformMarkerValue) {
-      op->removeAttr(LinalgTransforms::kLinalgTransformMarker);
-      operations.push_back(op);
-    }
-  });
+using FunctionalLinalgTransform =
+    std::function<FailureOr<LinalgOp>(LinalgOp, PatternRewriter &)>;
+
+/// Fallback "pattern" for simply forwarding a result when an interpreter op is
+/// a no-op.
+static FailureOr<LinalgOp> forwardOp(LinalgOp op, PatternRewriter &rewriter) {
+  return op;
 }
 
-/// Returns a transformation filter that only matches the `target` operation and
-/// sets the interpreter transform marker on it to ensure further discovery.
-// TODO: If the patterns could communicate the result somehow, we wouldn't need
-// to go through markers.
-static LinalgTransformationFilter makeTransformationFilter(Operation *target) {
-  auto initialTargetFilter = [target](Operation *operation) {
-    return success(operation == target);
-  };
-  return LinalgTransformationFilter(
-      initialTargetFilter, {},
-      StringAttr::get(kInterpreterTransformMarkerValue, target->getContext()));
+/// Wrap a pattern into a functional call to `returningMatchAndRewrite`.
+template <typename FunctionalLinalgPattern, typename... Args>
+static auto callFunctional(Args &&...args) {
+  FunctionalLinalgPattern pattern(std::forward<Args>(args)...);
+  return
+      [pattern = std::move(pattern)](LinalgOp op, PatternRewriter &rewriter) {
+        return pattern.returningMatchAndRewrite(op, rewriter);
+      };
 }
+
+//===----------------------------------------------------------------------===//
+// Linalg Transforms
+//===----------------------------------------------------------------------===//
 
 /// Applies the pad pattern to the given target operation as indicated by the
 /// tile op that subsumes padding. Populates `nextTargets` with transformable
 /// operations for further transformations (currently, the single padded op).
-static LogicalResult
-executePadFromTileOp(linalg::LinalgOp target, linalg::transform::TileOp tileOp,
-                     SmallVectorImpl<Operation *> &nextTargets) {
-  if (!target)
-    return failure();
-
-  if (!tileOp.pad()) {
-    nextTargets.push_back(target);
-    return success();
-  }
+static FunctionalLinalgTransform
+buildPadFromTileOpPattern(linalg::transform::TileOp tileOp) {
+  if (!tileOp.pad())
+    return forwardOp;
 
   auto packFunc = [&](OpOperand &opOperand) {
     return opOperand.getOperandNumber() < tileOp.pack_paddings().size()
@@ -150,80 +145,51 @@ executePadFromTileOp(linalg::LinalgOp target, linalg::transform::TileOp tileOp,
   paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
   paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
 
-  MLIRContext *ctx = target->getContext();
-  FuncOp parentFunc = target->getParentOfType<FuncOp>();
-  RewritePatternSet patterns(ctx);
-  patterns.insert<LinalgPaddingPattern>(ctx, paddingOptions,
-                                        makeTransformationFilter(target));
-  if (failed(applyPatternsAndFoldGreedily(target->getParentOfType<FuncOp>(),
-                                          std::move(patterns))))
-    return failure();
-
-  findMarkedOps(parentFunc, nextTargets);
-  return success();
+  return callFunctional<LinalgPaddingPattern>(tileOp.getContext(),
+                                              paddingOptions);
 }
 
 /// Applies the generalization pattern to the given target operation as
 /// indicated by the tile op that subsumes padding. Populates `nextTargets` with
 /// transformable operations for further transformations (currently, the single
 /// generalized op).
-static LogicalResult
-executeGeneralizeFromTileOp(linalg::LinalgOp target,
-                            linalg::transform::TileOp tileOp,
-                            SmallVectorImpl<Operation *> &nextTargets) {
-  if (!target)
-    return failure();
-
-  if (!tileOp.generalize()) {
-    nextTargets.push_back(target);
-    return success();
-  }
-
-  MLIRContext *ctx = target->getContext();
-  FuncOp parentFunc = target->getParentOfType<FuncOp>();
-  RewritePatternSet patterns(ctx);
-  patterns.insert<LinalgGeneralizationPattern>(
-      ctx, makeTransformationFilter(target));
-  if (failed(applyPatternsAndFoldGreedily(target->getParentOfType<FuncOp>(),
-                                          std::move(patterns))))
-    return failure();
-
-  findMarkedOps(parentFunc, nextTargets);
-  return success();
+static FunctionalLinalgTransform
+buildGeneralizeFromTileOpPattern(linalg::transform::TileOp tileOp) {
+  if (!tileOp.generalize())
+    return forwardOp;
+  auto pattern =
+      callFunctional<LinalgGeneralizationPattern>(tileOp.getContext());
+  return [pattern = std::move(pattern)](
+             LinalgOp op, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+    FailureOr<GenericOp> result = pattern(op, rewriter);
+    if (failed(result))
+      return failure();
+    return cast<LinalgOp>(**result);
+  };
 }
 
 /// Applies the interchange pattern to the given target operation as indicated
 /// by the tile op that subsumes padding. Populates `nextTargets` with
 /// transformable operations for further transformations (currently, the single
 /// interchanged op).
-static LogicalResult
-executeInterchangeFromTileOp(linalg::LinalgOp target,
-                             linalg::transform::TileOp tileOp,
-                             SmallVectorImpl<Operation *> &nextTargets) {
-  if (!target)
-    return failure();
+static FunctionalLinalgTransform
+buildInterchangeFromTileOp(linalg::transform::TileOp tileOp) {
+  if (tileOp.interchange().empty())
+    return forwardOp;
 
-  if (tileOp.interchange().empty()) {
-    nextTargets.push_back(target);
-    return success();
-  }
-
-  MLIRContext *ctx = target->getContext();
-  FuncOp parentFunc = target->getParentOfType<FuncOp>();
-  RewritePatternSet patterns(ctx);
-  auto interchangeVector =
-      llvm::to_vector<4>(llvm::map_range(tileOp.interchange(), [](Attribute a) {
-        return static_cast<unsigned>(
-            a.cast<IntegerAttr>().getValue().getZExtValue());
-      }));
-  patterns.insert<GenericOpInterchangePattern>(
-      ctx, interchangeVector, makeTransformationFilter(target));
-  if (failed(applyPatternsAndFoldGreedily(target->getParentOfType<FuncOp>(),
-                                          std::move(patterns))))
-    return failure();
-
-  findMarkedOps(parentFunc, nextTargets);
-  return success();
+  auto interchangeVector = extractUIntArray(tileOp.interchange());
+  GenericOpInterchangePattern pattern(tileOp.getContext(), interchangeVector);
+  return
+      [pattern = std::move(pattern)](
+          LinalgOp linalgOp, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+        if (auto op = dyn_cast<GenericOp>(*linalgOp)) {
+          FailureOr<GenericOp> result =
+              pattern.returningMatchAndRewrite(op, rewriter);
+          if (succeeded(result))
+            return cast<LinalgOp>(**result);
+        }
+        return failure();
+      };
 }
 
 /// Applies the transformation specified by the given tile operation to the
@@ -232,58 +198,30 @@ executeInterchangeFromTileOp(linalg::LinalgOp target,
 /// the single op after tiling).
 // TODO: if the tiling pattern failed, we still want to populate results with
 // something.
-static LogicalResult executeTileOp(linalg::LinalgOp target,
-                                   linalg::transform::TileOp tileOp,
-                                   SmallVectorImpl<Operation *> &results) {
+static FailureOr<LinalgOp> executeTileOp(LinalgOp target,
+                                         linalg::transform::TileOp tileOp) {
   LinalgTilingOptions tilingOptions;
   tilingOptions.setTileSizes(extractI64Array(tileOp.sizes()));
   tilingOptions.setInterchange(extractUIntArray(tileOp.interchange()));
   if (tileOp.scalarize_dyn_dims())
     tilingOptions.scalarizeDynamicDims();
 
-  MLIRContext *ctx = target->getContext();
-  FuncOp parentFunc = target->getParentOfType<FuncOp>();
-  RewritePatternSet patterns(ctx);
-  patterns.insert<LinalgTilingPattern>(ctx, tilingOptions,
-                                       makeTransformationFilter(target));
-  if (failed(applyPatternsAndFoldGreedily(target->getParentOfType<FuncOp>(),
-                                          std::move(patterns))))
-    return failure();
-
-  // TODO: this should go into a custom driver, presumably. And this looks
-  // redundant with that, maybe we shouldn't have tiling subsume pad, generalize
-  // and interchange.
-  SmallVector<Operation *> targets;
-  findMarkedOps(parentFunc, targets);
-
-  // TODO: we need some sort of array monad for this to work nicely.
-  SmallVector<Operation *> nextTargets;
-  for (Operation *nextTarget : targets) {
-    if (failed(executePadFromTileOp(dyn_cast<LinalgOp>(nextTarget), tileOp,
-                                    nextTargets)))
+  LinalgTilingPattern pattern(tileOp.getContext(), tilingOptions);
+  auto functionalTile = [&](LinalgOp op,
+                            PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+    auto result = pattern.returningMatchAndRewrite(op, rewriter);
+    if (failed(result))
       return failure();
-  }
+    return result->op;
+  };
 
-  std::swap(targets, nextTargets);
-  nextTargets.clear();
+  auto tileSeq = functional::SequenceBuilder()
+                     .begin(std::move(functionalTile))
+                     .then(buildPadFromTileOpPattern(tileOp))
+                     .then(buildGeneralizeFromTileOpPattern(tileOp))
+                     .then(buildInterchangeFromTileOp(tileOp));
 
-  for (Operation *nextTarget : targets) {
-    if (failed(executeGeneralizeFromTileOp(dyn_cast<LinalgOp>(nextTarget),
-                                           tileOp, nextTargets)))
-      return failure();
-  }
-
-  std::swap(targets, nextTargets);
-  nextTargets.clear();
-
-  for (Operation *nextTarget : targets) {
-    if (failed(executeInterchangeFromTileOp(dyn_cast<LinalgOp>(nextTarget),
-                                            tileOp, nextTargets)))
-      return failure();
-  }
-
-  llvm::append_range(results, nextTargets);
-  return success();
+  return functional::applyAt(target, tileSeq);
 }
 
 /// Applies the transformation specified by the given decompose operation to the
@@ -300,9 +238,6 @@ executeDecomposeOp(ModuleOp module,
     return failure();
 
   // TODO: make this chainable, it isn't in the original codegenstrategy.
-  SmallVector<Operation *> ignored;
-  findMarkedOps(module, ignored);
-
   return success();
 }
 
@@ -310,19 +245,12 @@ executeDecomposeOp(ModuleOp module,
 /// given target operation AND some related operations.Populates `results` with
 /// transformation operations for further transformations if the pattern applied
 /// successfully (currently, the main "contraction" op after vectorization).
-static LogicalResult
-executeVectorizeOp(linalg::LinalgOp target,
-                   linalg::transform::VectorizeOp vectorizeOp,
-                   SmallVectorImpl<Operation *> &results) {
-  MLIRContext *ctx = target->getContext();
-  FuncOp parentFunc = target->getParentOfType<FuncOp>();
-  RewritePatternSet patterns(ctx);
-
-  LinalgTransformationFilter filter = makeTransformationFilter(target);
-  LinalgVectorizationOptions options;
-  patterns.insert<LinalgVectorizationPattern>(ctx, filter, options);
-
+static FailureOr<LinalgOp>
+executeVectorizeOp(LinalgOp target,
+                   linalg::transform::VectorizeOp vectorizeOp) {
   // TODO: this is copy-pasta from LinalgStrategyVectorizePass, it shouldn't be.
+  MLIRContext *ctx = target->getContext();
+  RewritePatternSet patterns(ctx);
   vector::populateVectorTransferPermutationMapLoweringPatterns(patterns);
   vector::populateVectorReductionToContractPatterns(patterns);
   patterns.add<linalg::LinalgCopyVTRForwardingPattern,
@@ -330,23 +258,27 @@ executeVectorizeOp(linalg::LinalgOp target,
                                                        /*benefit=*/2);
   if (vectorizeOp.vectorize_padding())
     linalg::populatePadTensorOpVectorizationPatterns(patterns);
+  LinalgVectorizationPattern pattern(vectorizeOp.getContext());
+  auto functionalVectorize = [&](LinalgOp op, PatternRewriter &rewriter) {
+    return pattern.matchAndRewrite(op, rewriter);
+  };
 
-  if (failed(applyPatternsAndFoldGreedily(target->getParentOfType<FuncOp>(),
-                                          std::move(patterns))))
-    return failure();
+  /// Apply the transformations in a scope.
+  return transform::scoped(
+      target,
+      [&](transform::ScopeOp scope, Operation *op) -> FailureOr<LinalgOp> {
+        if (failed(functional::applyAt(op, functionalVectorize)) ||
+            failed(applyPatternsAndFoldGreedily(scope, std::move(patterns))))
+          return failure();
+        // FIXME: Vectorization doesn't return anything.
+        return LinalgOp();
+      });
 
-  // TODO: complication, only the vectorization pattern is actually targeted,
-  // the rest of the patterns cannot be targeted and need a different scoping
-  // mechanism (not sure how much IR must be pulled into the scope).
-  //
   // TODO: vectorization may fail because the op is not vectorizable, unclear
   // what to do here. We should probably report it somehow, but we may also
   // want to go on and keep the original for continuation. Should we have
   // some notion of transformation optionality vs. mandatory (like lowering)?
   // How to find ops that were not replaced?
-  findMarkedOps(parentFunc, results);
-
-  return success();
 }
 
 /// Returns true of the numbered vector lowering stage is included into the list
@@ -499,17 +431,31 @@ executeLowerToLLVMOp(ModuleOp module,
   return pm.run(module);
 }
 
-namespace {
-/// The only purpose of this class is to enable creation of PatternRewriter
-/// instances as the base class doesn't have a public constructor.
-class SimplePatternRewriter : public PatternRewriter {
-public:
-  explicit SimplePatternRewriter(MLIRContext *ctx) : PatternRewriter(ctx) {}
-};
-} // namespace
+//===----------------------------------------------------------------------===//
+// Linalg Interpreter Driver
+//===----------------------------------------------------------------------===//
+//
+/// Apply at most one pattern from the given list to each operation nested in
+/// `parent`.
+static SmallVector<LinalgOp>
+applyPatternsOnce(Operation *parent, const FrozenRewritePatternSet &patterns) {
+  PatternApplicator applicator(patterns);
+  applicator.applyDefaultCostModel();
+
+  // TODO: The C++ functional API needs better interoperability with PDL.
+  return functional::applyForEachIn(
+      parent,
+      [&](Operation *op, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+        if (succeeded(applicator.matchAndRewrite(op, rewriter)))
+          if (auto linalgOp = dyn_cast<LinalgOp>(op))
+            return linalgOp;
+        return failure();
+      });
+}
 
 /// Hook for PDL driver to check if an operation (`value`) is directly nested in
 /// a function with the name provided as constant parameter.
+/// TODO: PDL needs user-defined "questions".
 static LogicalResult nestedInFunc(PDLValue value, ArrayAttr constantParams,
                                   PatternRewriter &rewriter) {
   auto *operation = value.cast<Operation *>();
@@ -521,40 +467,36 @@ static LogicalResult nestedInFunc(PDLValue value, ArrayAttr constantParams,
 
   if (!func)
     return rewriter.notifyMatchFailure(operation, "not nested in a function");
-  return success(SymbolTable::lookupNearestSymbolFrom<FuncOp>(
-                     operation, functionSymbol) == func);
+  return success(functionSymbol.getLeafReference() == func.getName());
 }
 
+/// PDL rewrite hook that does nothing.
+static void noOpRewriter(ArrayRef<PDLValue> args, ArrayAttr constantParams,
+                         PatternRewriter &rewriter, PDLResultList &results) {
+  assert(args.size() == 1 && "expected one argument");
 #ifndef NDEBUG
-constexpr llvm::StringLiteral kInterpreterMatched = "linalg_transform.matched";
+  args.front().cast<Operation *>()->setAttr("linalg_transform.matched",
+                                            rewriter.getUnitAttr());
 #endif
+}
 
-/// Appends to `targets` the operations that `transformOp` should be run on.
-/// The `transformOp` is expected to have the TargetableTransformOpTrait. Its
+/// Returns the operations that `transformOp` should be run on. The `transformOp` is expected to have the TargetableTransformOpTrait. Its
 /// target may be either an SSA value that corresponds to a list of ops
 /// produced by other transforms and stored in `operations` or a list of ops
 /// that match the PDL pattern specified by its name.
 template <typename OpTy>
-static LogicalResult
+static FailureOr<SmallVector<LinalgOp>>
 findTransformTarget(OpTy transformOp, ModuleOp module,
-                    const TransformOpMapping &operations,
-                    SmallVectorImpl<Operation *> &targets) {
-  if (transformOp.target()) {
-    size_t initialSize = targets.size();
-    llvm::append_range(targets, operations.lookup(transformOp.target()));
-    if (llvm::any_of(llvm::drop_begin(targets, initialSize),
-                     [](Operation *op) { return !isa<LinalgOp>(op); })) {
-      return failure();
-    }
-    return success();
-  }
+                    const DenseMap<Value, SmallVector<LinalgOp>> &operations) {
+  if (Value target = transformOp.target())
+    return operations.lookup(target);
 
   assert(transformOp.targetMatcher().hasValue() &&
          "expected either an operand or a matcher attribute");
   auto patternOp = SymbolTable::lookupNearestSymbolFrom<pdl::PatternOp>(
       transformOp, *transformOp.targetMatcher());
   if (!patternOp)
-    return transformOp->emitError() << "could not find the pattern by name";
+    return {transformOp->emitError() << "could not find the pattern by name"};
 
   // Clone the pattern operation into the temporary module used by the driver
   // as it might be referenced multiple times.
@@ -563,92 +505,39 @@ findTransformTarget(OpTy transformOp, ModuleOp module,
   PDLPatternModule pdlModule(std::move(pdlModuleOp));
   pdlModule.registerConstraintFunction("nestedInFunc", nestedInFunc);
 
-  /// Factory for PDL driver rewrite hooks that do nothing but add matched
-  /// operations to the `targets` list.
-  auto gatherOps =
-      [](SmallVectorImpl<Operation *> &targets) -> PDLRewriteFunction {
-    auto rewriter = [&targets](ArrayRef<PDLValue> args,
-                               ArrayAttr constantParams,
-                               PatternRewriter &rewriter, PDLResultList &) {
-      assert(args.size() == 1 && "expected one argument");
-
-      // Just add an attribute to the op that is selected as a transformation
-      // target, do nothing else. Separate code will find them and perform
-      // actual transformations, otherwise we risk having one (nested) rewriter
-      // modify the state known to another (outer PDL-level) rewriter.
-      targets.push_back(args.front().cast<Operation *>());
-#ifndef NDEBUG
-      args.front().cast<Operation *>()->setAttr(kInterpreterMatched,
-                                                rewriter.getUnitAttr());
-#endif
-    };
-    return rewriter;
-  };
-
-  pdlModule.registerRewriteFunction("linalg_transform.apply",
-                                    gatherOps(targets));
+  pdlModule.registerRewriteFunction("linalg_transform.apply", noOpRewriter);
 
   RewritePatternSet patterns(std::move(pdlModule));
-  FrozenRewritePatternSet frozen(std::move(patterns));
-  PatternApplicator applicator(frozen);
-  applicator.applyDefaultCostModel();
-
-  // This assumes that patterns are only used for matching so there is no need
-  // for worklists or any sort of insertion/deletion tracking. This may change
-  // later, at which point the IR transformations will have to notify this
-  // rewriter somehow. Alternatively, we could have only the matching part, but
-  // we would need directl access to PDLBytecode for that.
-  SimplePatternRewriter rewriter(module->getContext());
-  module->walk([&](Operation *op) {
-    rewriter.setInsertionPoint(op);
-    if (failed(applicator.matchAndRewrite(op, rewriter))) {
-      LLVM_DEBUG(DBGS() << "failed to match any pattern to " << *op << "\n");
-    }
-  });
-
-  if (targets.empty()) {
-    // TODO: better error reporting story.
-    LLVM_DEBUG(DBGS() << "could not match any operation with " << transformOp
-                      << "\n");
-    return failure();
-  }
-
-  return success();
+  return applyPatternsOnce(module, std::move(patterns));
 }
 
 /// Applies `transform` with options provided by `configOp` to all operations
 /// specified as targets by `configOp`.
 template <typename OpTy, typename FnTy>
-static LogicalResult executeTransformOnEach(ModuleOp module, OpTy configOp,
-                                            FnTy transform,
-                                            TransformOpMapping &operations) {
-  SmallVector<Operation *> targets;
-  if (failed(findTransformTarget(configOp, module, operations, targets))) {
-    LLVM_DEBUG(DBGS() << "could not find a linalg op target");
+static LogicalResult
+executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
+                       DenseMap<Value, SmallVector<LinalgOp>> &operations) {
+  FailureOr<SmallVector<LinalgOp>> targets =
+      findTransformTarget(configOp, module, operations);
+  if (failed(targets)) {
+    LLVM_DEBUG(DBGS() << "failed to find a linalg op target");
     return failure();
   }
 
-  for (Operation *target : targets) {
-    assert(target && "null target");
-    auto linalgTarget = dyn_cast<LinalgOp>(target);
-    if (!linalgTarget) {
-      LLVM_DEBUG(DBGS() << "non-linalg operation found " << *target << "\n");
-      return failure();
-    }
-    SmallVector<Operation *> results;
-    if (failed(transform(linalgTarget, configOp, results)))
-      return failure();
+  SmallVector<LinalgOp> results =
+      functional::applyForEach(*targets, [&](LinalgOp op, PatternRewriter &) {
+        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n";);
+        auto result = transform(op, configOp);
+        LLVM_DEBUG(DBGS() << "transformation "
+                          << (failed(result) ? "failed" : "succeeded"));
+        return result;
+      });
 
-    assert(results.size() <= 1 && "multi-result transformation");
-    if (results.empty()) {
-      LLVM_DEBUG(DBGS() << "failed to transform " << *target << "\n");
-      continue;
-    }
-    operations[configOp.transformed()].push_back(results.front());
+  // All transformations must succeed.
+  if (results.size() != targets->size())
+    return failure();
 
-    // TODO: what to do if the following target was somehow modified by
-    // operation on the current target?
-  }
+  operations.insert({configOp.transformed(), std::move(results)});
   return success();
 }
 
@@ -717,10 +606,6 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
 
-    // TODO: remove entries from `operations` if the value is not used by any of
-    // the remaining transformations. This will allow the operation to be
-    // replaced/erased by cleanups below and is slightly more effective.
-
     // Run canonicalization and CSE. This is similar to running the
     // canonicalizer pass, but (a) keeps tracking the value/op mapping and (b)
     // avoids constructing the pattern set + pass pipeline on every step.
@@ -735,6 +620,10 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
 
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Linalg Interpreter Pass
+//===----------------------------------------------------------------------===//
 
 namespace {
 /// Pass that executes transformations specified by a module-level

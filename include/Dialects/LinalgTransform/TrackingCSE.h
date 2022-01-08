@@ -13,7 +13,6 @@
 
 namespace mlir {
 class DominanceInfo;
-class Operation;
 
 void eliminateCommonSubexpressionsWithTrackedOps(
     Operation *root, TransformOpMapping &trackedOps,

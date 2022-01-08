@@ -9,6 +9,7 @@
 #ifndef MLIR_DIALECT_LINALG_RANSFORMS_TRANSFORMOPMAPPING_H
 #define MLIR_DIALECT_LINALG_RANSFORMS_TRANSFORMOPMAPPING_H
 
+#include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -16,7 +17,7 @@ namespace mlir {
 class Operation;
 class Value;
 
-using TransformOpMapping = DenseMap<Value, SmallVector<Operation *>>;
+using TransformOpMapping = DenseMap<Value, SmallVector<linalg::LinalgOp>>;
 } // namespace mlir
 
 #endif // MLIR_DIALECT_LINALG_RANSFORMS_TRANSFORMOPMAPPING_H
