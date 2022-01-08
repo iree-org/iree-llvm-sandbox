@@ -75,6 +75,7 @@ add_mlir_library(IREELinalgTensorSandboxRegistration
   ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
 
   # Tests.
+  MLIRLinalgTransformTestPasses
   MLIRTransformsExtTestPasses
   MLIRVectorExtTestPasses
 
