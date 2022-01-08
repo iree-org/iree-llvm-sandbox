@@ -2,6 +2,7 @@ add_mlir_library(MLIRLinalgTransformTransforms
   TrackingCSE.cpp
   TrackingRewriteDriver.cpp
   TransformInterpreter.cpp
+  TrackingListener.cpp
 
   DEPENDS
   MLIRLinalgOpsIncGen
@@ -9,6 +10,7 @@ add_mlir_library(MLIRLinalgTransformTransforms
   MLIRLinalgPassIncGen
 
   LINK_LIBS PUBLIC
+  IREELinalgTensorSandboxTransforms
   MLIRAffineToStandard
   MLIRBufferization
   MLIRComprehensiveBufferize

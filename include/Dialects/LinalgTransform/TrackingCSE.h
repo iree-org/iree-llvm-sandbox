@@ -10,13 +10,10 @@
 #define MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGCSE_H
 
 #include "Dialects/LinalgTransform/TransformOpMapping.h"
-#include "mlir/Support/LLVM.h"
 
 namespace mlir {
-
-class Operation;
 class DominanceInfo;
-class Value;
+class Operation;
 
 void eliminateCommonSubexpressionsWithTrackedOps(
     Operation *root, TransformOpMapping &trackedOps,
