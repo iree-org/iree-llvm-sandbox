@@ -4,6 +4,9 @@ add_mlir_library(IREELinalgTensorSandboxTransforms
   ConvertToGPUDialect.cpp
   FuseFillIntoReduction.cpp
   LinalgTileAndFuse.cpp
+  Listener.cpp
+  ListenerCSE.cpp
+  ListenerGreedyPatternRewriteDriver.cpp
   StagedPatternRewriteDriver.cpp
   VectorDistribution.cpp
 
