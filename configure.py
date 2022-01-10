@@ -16,22 +16,23 @@ def parse_arguments():
                       default=os.path.abspath(os.path.dirname(__file__)))
   parser.add_argument("--llvm-path", help="Path to llvm-project sources")
   parser.add_argument("--iree-path", help="Path to IREE (used if enabled)")
-  parser.add_argument("--target",
-                      help="Semicolumn-separated list of targets to build with LLVM",
-                      default = "X86")
-  parser.add_argument("--lld", 
+  parser.add_argument(
+      "--target",
+      help="Semicolumn-separated list of targets to build with LLVM",
+      default="X86")
+  parser.add_argument("--lld",
                       help="Build with ENABLE_LLD=ON (optional)",
                       dest="enable_lld",
-                      default = False)
-  parser.add_argument("--asan", 
+                      default=False)
+  parser.add_argument("--asan",
                       help="Build with LLVM_USE_SANITIZER=Address (optional)",
                       dest="enable_asan",
-                      default = False)
-  parser.add_argument("--enable-alp", 
+                      default=False)
+  parser.add_argument("--enable-alp",
                       help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
                       dest="enable_alp",
                       action="store_true",
-                      default = False)
+                      default=False)
   parser.add_argument("--no-ccache",
                       help="Disables ccache (if available)",
                       dest="enable_ccache",
@@ -45,6 +46,11 @@ def parse_arguments():
                       help="Build mode (Release, Debug or RelWithDebInfo)",
                       type=str,
                       default="Release")
+  parser.add_argument(
+      "--use-system-cc",
+      help="Use the default system compiler" +
+      "\n[warning] Setting to false seems to trigger spurious rebuilds",
+      default=True)
   return parser.parse_args()
 
 
@@ -95,16 +101,18 @@ def main(args):
     return 1
 
   # Detect clang.
-  clang_path = shutil.which("clang")
-  clangpp_path = shutil.which("clang++")
-  has_clang = False
-  if clang_path and clangpp_path:
-    llvm_configure_args.append(f"-DCMAKE_C_COMPILER={clang_path}")
-    llvm_configure_args.append(f"-DCMAKE_CXX_COMPILER={clangpp_path}")
-    has_clang = True
-  else:
-    print(
-        "WARNING: Could not find clang. Building with default system compiler")
+  # Adding DCMAKE_C_COMPILER / DCMAKE_CXX_COMPILER seems to trigger spurious
+  # rebuilds everywhere ..
+  if not args.use_system_cc:
+    clang_path = shutil.which("clang")
+    clangpp_path = shutil.which("clang++")
+    if clang_path and clangpp_path:
+      llvm_configure_args.append(f"-DCMAKE_C_COMPILER={clang_path}")
+      llvm_configure_args.append(f"-DCMAKE_CXX_COMPILER={clangpp_path}")
+    else:
+      print(
+          "WARNING: Could not find clang. Building with default system compiler"
+      )
 
   # Detect lld.
   if args.enable_lld:
@@ -157,7 +165,9 @@ def main(args):
 
   # Write out .env.
   with open(f"{os.path.join(args.repo_root, '.env')}", "wt") as f:
-    f.write(f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_package')}")
+    f.write(
+        f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_package')}"
+    )
 
   # Do initial build.
   # Also build all the relevant tools to disassemble and run analyses.
