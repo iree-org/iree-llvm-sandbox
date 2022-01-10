@@ -15,9 +15,7 @@ op_name = 'linalg.depthwise_conv_2d_nhwc_hwc'
 # Compilation strategies.
 ################################################################################
 
-all_names = [
-  "DepthWiseConv2DExpert"
-]
+all_names = ["DepthWiseConv2DExpert"]
 all_experts = [
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
         Tile(
@@ -85,12 +83,26 @@ def main():
 
   # Specify default configuration and parse command line.
   args = test_argparser(
-    "depthwise conv 2d benchmark",
-    #   N   H   W   C  KH  KW      st      dil
-    default_problem_sizes_list = microbenchmark_problem_size_list,
-    default_expert_list = all_names,
-    default_dynamic_at_compile_time_list = [],
-    default_spec_list = [])
+      "depthwise conv 2d benchmark",
+      #   N   H   W   C  KH  KW      st      dil
+      default_problem_sizes_list=microbenchmark_problem_size_list,
+      default_expert_list=[idx for idx, _ in enumerate(all_experts)],
+      default_dynamic_at_compile_time_list=[],
+      default_spec_list=[])
+
+  def numpy_kernel(args, sizes, types):
+    problem = DepthwiseConvolutionProblem('NHWC',
+                                          'HWC',
+                                          strides=sizes['strides'],
+                                          dilations=sizes['dilations'])
+    problem.reference_np(*args)
+
+  def pytorch_kernel(args, sizes, types):
+    problem = DepthwiseConvolutionProblem('NHWC',
+                                          'HWC',
+                                          strides=sizes['strides'],
+                                          dilations=sizes['dilations'])
+    problem.reference_pt(*args)
 
   test_harness(
       lambda sizes, t: DepthwiseConvolutionProblem(
@@ -103,6 +115,8 @@ def main():
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',
       dump_obj_to_file='/tmp/abcd.o',
+      numpy_benchmark=numpy_kernel,
+      pytorch_benchmark=pytorch_kernel,
   )
 
 
