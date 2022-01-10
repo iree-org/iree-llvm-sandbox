@@ -26,6 +26,11 @@ def Linalg_Transform_Dialect : Dialect {
   ];
 }
 
+// Operations with this trait must provide the following methods:
+//   - `Value target()` - returns the operation handle (value of !pdl.operation
+//     type) targeted by this transformation, if available;
+//   - `Optional<SymbolRefAttr> matcher()` - returns the name of the PDL matcher
+//     that selects the ops targeted by this transformation, if provided.
 class Linalg_Transform_Operation<string name, list<OpTrait> props = []>
     : Op<Linalg_Transform_Dialect, name, props> {
   let cppNamespace = "::mlir::linalg::transform";
@@ -55,8 +60,8 @@ def TileOp : Linalg_Transform_Operation<"tile", [TargetableOpTrait]> {
   let description = [{Indicates that ops of a specific kind in the given
   function should be tiled with the options provided as attributes.}];
 
-  let arguments = (ins Optional<PDL_Operation>:$op,
-                   OptionalAttr<SymbolRefAttr>:$matcher,
+  let arguments = (ins Optional<PDL_Operation>:$target,
+                   OptionalAttr<SymbolRefAttr>:$targetMatcher,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
                    DefaultValuedAttr<BoolAttr, "false">:$pad,
@@ -67,7 +72,7 @@ def TileOp : Linalg_Transform_Operation<"tile", [TargetableOpTrait]> {
                   );
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "($op^)? (`when` $matcher^)? attr-dict";
+  let assemblyFormat = "($target^)? (`when` $targetMatcher^)? attr-dict";
 }
 
 def BufferizeOp : Linalg_Transform_Operation<"bufferize"> {
@@ -85,13 +90,13 @@ def VectorizeOp : Linalg_Transform_Operation<"vectorize", [TargetableOpTrait]> {
   let description = [{Indiactes that ops of a specific kind in the given
   function should be vectorized with the options provided as attributes.}];
 
-  let arguments = (ins Optional<PDL_Operation>:$op,
-                   OptionalAttr<SymbolRefAttr>:$matcher,
+  let arguments = (ins Optional<PDL_Operation>:$target,
+                   OptionalAttr<SymbolRefAttr>:$targetMatcher,
                    DefaultValuedAttr<BoolAttr, "false">:$vectorize_padding
                   );
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "($op^)? (`when` $matcher^)? attr-dict";
+  let assemblyFormat = "($target^)? (`when` $targetMatcher^)? attr-dict";
 }
 
 def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {

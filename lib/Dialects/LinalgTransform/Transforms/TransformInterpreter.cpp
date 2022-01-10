@@ -45,6 +45,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include <mlir/Rewrite/FrozenRewritePatternSet.h>
 
 #define DEBUG_TYPE "transform-interpreter"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
@@ -507,27 +508,6 @@ public:
 };
 } // namespace
 
-/// Apply at most one pattern from the given list to each operation nested in
-/// `parent`.
-static void applyPatternsOnce(Operation *parent,
-                              const FrozenRewritePatternSet &patterns) {
-  PatternApplicator applicator(patterns);
-  applicator.applyDefaultCostModel();
-
-  // This assumes that patterns are only used for matching so there is no need
-  // for worklists or any sort of insertion/deletion tracking. This may change
-  // later, at which point the IR transformations will have to notify this
-  // rewriter somehow. Alternatively, we could have only the matching part, but
-  // we would need directl access to PDLBytecode for that.
-  SimplePatternRewriter rewriter(parent->getContext());
-  parent->walk([&](Operation *op) {
-    rewriter.setInsertionPoint(op);
-    if (failed(applicator.matchAndRewrite(op, rewriter))) {
-      LLVM_DEBUG(DBGS() << "failed to match any pattern to " << *op << "\n");
-    }
-  });
-}
-
 /// Hook for PDL driver to check if an operation (`value`) is directly nested in
 /// a function with the name provided as constant parameter.
 static LogicalResult nestedInFunc(PDLValue value, ArrayAttr constantParams,
@@ -549,40 +529,19 @@ static LogicalResult nestedInFunc(PDLValue value, ArrayAttr constantParams,
 constexpr llvm::StringLiteral kInterpreterMatched = "linalg_transform.matched";
 #endif
 
-/// Factory for PDL driver rewrite hooks that do nothing but add matched
-/// operations to the `targets` list.
-static PDLRewriteFunction
-makePDLRewriter(SmallVectorImpl<Operation *> &targets) {
-  auto rewriter = [&targets](ArrayRef<PDLValue> args, ArrayAttr constantParams,
-                             PatternRewriter &rewriter, PDLResultList &) {
-    assert(args.size() == 1 && "expected one argument");
-
-    // Just add an attribute to the op that is selected as a transformation
-    // target, do nothing else. Separate code will find them and perform actual
-    // transformations, otherwise we risk having one (nested) rewriter modify
-    // the state known to another (outer PDL-level) rewriter.
-    targets.push_back(args.front().cast<Operation *>());
-#ifndef NDEBUG
-    args.front().cast<Operation *>()->setAttr(kInterpreterMatched,
-                                              rewriter.getUnitAttr());
-#endif
-  };
-  return rewriter;
-}
-
-/// Appends to `targets` the operations that `transformOp` should be run op.
+/// Appends to `targets` the operations that `transformOp` should be run on.
 /// The `transformOp` is expected to have the TargetableTransformOpTrait. Its
 /// target may be either an SSA value that corresponds to a list of ops
 /// produced by other transforms and stored in `operations` or a list of ops
 /// that match the PDL pattern specified by its name.
 template <typename OpTy>
-static LogicalResult findTransformTarget(
-    OpTy transformOp, ModuleOp module,
-    const DenseMap<Value, SmallVector<Operation *, 4>> &operations,
-    SmallVectorImpl<Operation *> &targets) {
-  if (transformOp.op()) {
+static LogicalResult
+findTransformTarget(OpTy transformOp, ModuleOp module,
+                    const TransformOpMapping &operations,
+                    SmallVectorImpl<Operation *> &targets) {
+  if (transformOp.target()) {
     size_t initialSize = targets.size();
-    llvm::append_range(targets, operations.lookup(transformOp.op()));
+    llvm::append_range(targets, operations.lookup(transformOp.target()));
     if (llvm::any_of(llvm::drop_begin(targets, initialSize),
                      [](Operation *op) { return !isa<LinalgOp>(op); })) {
       return failure();
@@ -590,10 +549,10 @@ static LogicalResult findTransformTarget(
     return success();
   }
 
-  assert(transformOp.matcher().hasValue() &&
+  assert(transformOp.targetMatcher().hasValue() &&
          "expected either an operand or a matcher attribute");
   auto patternOp = SymbolTable::lookupNearestSymbolFrom<pdl::PatternOp>(
-      transformOp, *transformOp.matcher());
+      transformOp, *transformOp.targetMatcher());
   if (!patternOp)
     return transformOp->emitError() << "could not find the pattern by name";
 
@@ -604,11 +563,49 @@ static LogicalResult findTransformTarget(
   PDLPatternModule pdlModule(std::move(pdlModuleOp));
   pdlModule.registerConstraintFunction("nestedInFunc", nestedInFunc);
 
+  /// Factory for PDL driver rewrite hooks that do nothing but add matched
+  /// operations to the `targets` list.
+  auto gatherOps =
+      [](SmallVectorImpl<Operation *> &targets) -> PDLRewriteFunction {
+    auto rewriter = [&targets](ArrayRef<PDLValue> args,
+                               ArrayAttr constantParams,
+                               PatternRewriter &rewriter, PDLResultList &) {
+      assert(args.size() == 1 && "expected one argument");
+
+      // Just add an attribute to the op that is selected as a transformation
+      // target, do nothing else. Separate code will find them and perform
+      // actual transformations, otherwise we risk having one (nested) rewriter
+      // modify the state known to another (outer PDL-level) rewriter.
+      targets.push_back(args.front().cast<Operation *>());
+#ifndef NDEBUG
+      args.front().cast<Operation *>()->setAttr(kInterpreterMatched,
+                                                rewriter.getUnitAttr());
+#endif
+    };
+    return rewriter;
+  };
+
   pdlModule.registerRewriteFunction("linalg_transform.apply",
-                                    makePDLRewriter(targets));
+                                    gatherOps(targets));
 
   RewritePatternSet patterns(std::move(pdlModule));
-  applyPatternsOnce(module, std::move(patterns));
+  FrozenRewritePatternSet frozen(std::move(patterns));
+  PatternApplicator applicator(frozen);
+  applicator.applyDefaultCostModel();
+
+  // This assumes that patterns are only used for matching so there is no need
+  // for worklists or any sort of insertion/deletion tracking. This may change
+  // later, at which point the IR transformations will have to notify this
+  // rewriter somehow. Alternatively, we could have only the matching part, but
+  // we would need directl access to PDLBytecode for that.
+  SimplePatternRewriter rewriter(module->getContext());
+  module->walk([&](Operation *op) {
+    rewriter.setInsertionPoint(op);
+    if (failed(applicator.matchAndRewrite(op, rewriter))) {
+      LLVM_DEBUG(DBGS() << "failed to match any pattern to " << *op << "\n");
+    }
+  });
+
   if (targets.empty()) {
     // TODO: better error reporting story.
     LLVM_DEBUG(DBGS() << "could not match any operation with " << transformOp
@@ -622,9 +619,9 @@ static LogicalResult findTransformTarget(
 /// Applies `transform` with options provided by `configOp` to all operations
 /// specified as targets by `configOp`.
 template <typename OpTy, typename FnTy>
-static LogicalResult executeTransformOnEach(
-    ModuleOp module, OpTy configOp, FnTy transform,
-    DenseMap<Value, SmallVector<Operation *, 4>> &operations) {
+static LogicalResult executeTransformOnEach(ModuleOp module, OpTy configOp,
+                                            FnTy transform,
+                                            TransformOpMapping &operations) {
   SmallVector<Operation *> targets;
   if (failed(findTransformTarget(configOp, module, operations, targets))) {
     LLVM_DEBUG(DBGS() << "could not find a linalg op target");
@@ -660,9 +657,8 @@ static LogicalResult executeTransformOnEach(
 /// mapping between SSA values that correspond to operation handles produced and
 /// used by Linalg Transform dialect operations, and the Operation* objects in
 /// the code.
-static LogicalResult
-executeTransform(Operation *operation, ModuleOp module,
-                 DenseMap<Value, SmallVector<Operation *, 4>> &operations) {
+static LogicalResult executeTransform(Operation *operation, ModuleOp module,
+                                      TransformOpMapping &operations) {
   if (auto tileOp = dyn_cast<linalg::transform::TileOp>(operation)) {
     return executeTransformOnEach(module, tileOp, &executeTileOp, operations);
   }
@@ -694,7 +690,7 @@ executeTransform(Operation *operation, ModuleOp module,
 /// Linalg Transform dialect.
 static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
                                      ModuleOp module) {
-  DenseMap<Value, SmallVector<Operation *, 4>> operations;
+  TransformOpMapping operations;
 
   MLIRContext *ctx = module->getContext();
   RewritePatternSet patternList(ctx);

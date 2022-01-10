@@ -9,6 +9,7 @@
 #ifndef MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGCSE_H
 #define MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGCSE_H
 
+#include "Dialects/LinalgTransform/TransformOpMapping.h"
 #include "mlir/Support/LLVM.h"
 
 namespace mlir {
@@ -18,7 +19,7 @@ class DominanceInfo;
 class Value;
 
 void eliminateCommonSubexpressionsWithTrackedOps(
-    Operation *root, DenseMap<Value, SmallVector<Operation *, 4>> &trackedOps,
+    Operation *root, TransformOpMapping &trackedOps,
     DominanceInfo *domInfo = nullptr);
 } // namespace mlir
 

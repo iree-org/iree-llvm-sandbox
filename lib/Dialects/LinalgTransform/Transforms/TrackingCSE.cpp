@@ -55,9 +55,8 @@ struct SimpleOperationInfo : public llvm::DenseMapInfo<Operation *> {
 // -------------------------------------------------------------------------- //
 
 struct TrackingCSE {
-  TrackingCSE(
-      DominanceInfo *domInfo,
-      const DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations)
+  TrackingCSE(DominanceInfo *domInfo,
+              const TransformOpMapping &trackedOperations)
       : domInfo(domInfo) {
     for (auto &pair : trackedOperations) {
       trackedOps.insert(pair.second.begin(), pair.second.end());
@@ -287,8 +286,7 @@ void TrackingCSE::simplify(Operation *root) {
 }
 
 void mlir::eliminateCommonSubexpressionsWithTrackedOps(
-    Operation *root, DenseMap<Value, SmallVector<Operation *, 4>> &trackedOps,
-    DominanceInfo *domInfo) {
+    Operation *root, TransformOpMapping &trackedOps, DominanceInfo *domInfo) {
   assert(root->hasTrait<OpTrait::IsIsolatedFromAbove>() &&
          "can only do CSE on isolated-from-above ops");
 

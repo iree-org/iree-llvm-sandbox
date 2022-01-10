@@ -25,8 +25,8 @@ class TargetableTransformOpTrait
     : public OpTrait::TraitBase<ConcreteOp, TargetableTransformOpTrait> {
 public:
   static LogicalResult verifyTrait(Operation *op) {
-    Optional<SymbolRefAttr> matcher = cast<ConcreteOp>(op).matcher();
-    Value input = cast<ConcreteOp>(op).op();
+    Optional<SymbolRefAttr> matcher = cast<ConcreteOp>(op).targetMatcher();
+    Value input = cast<ConcreteOp>(op).target();
     if (!((matcher.hasValue() && matcher.getValue() != nullptr) ^
           (input != nullptr)))
       return op->emitOpError()

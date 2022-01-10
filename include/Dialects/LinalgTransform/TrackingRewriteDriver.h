@@ -9,6 +9,7 @@
 #ifndef MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGREWRITEDRIVER_H
 #define MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGREWRITEDRIVER_H
 
+#include "Dialects/LinalgTransform/TransformOpMapping.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
@@ -21,8 +22,7 @@ namespace mlir {
 /// must be replaced with Linalg operations and must not be erased in the
 /// patterns.
 LogicalResult applyPatternsTrackAndFoldGreedily(
-    Operation *root,
-    DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations,
+    Operation *root, TransformOpMapping &trackedOperations,
     const FrozenRewritePatternSet &patterns,
     GreedyRewriteConfig config = GreedyRewriteConfig());
 } // namespace mlir

@@ -58,11 +58,10 @@ static LinalgOp findSingleLinalgOpDefiningAll(ValueRange range) {
 // it, but we have to copy for now.
 class TrackingRewriteDriver : public PatternRewriter {
 public:
-  explicit TrackingRewriteDriver(
-      MLIRContext *ctx,
-      DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations,
-      const FrozenRewritePatternSet &patterns,
-      const GreedyRewriteConfig &config)
+  explicit TrackingRewriteDriver(MLIRContext *ctx,
+                                 TransformOpMapping &trackedOperations,
+                                 const FrozenRewritePatternSet &patterns,
+                                 const GreedyRewriteConfig &config)
       : PatternRewriter(ctx), trackedOperations(trackedOperations),
         matcher(patterns), folder(ctx), config(config) {
     worklist.reserve(64);
@@ -113,7 +112,7 @@ public:
   }
 
 private:
-  DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations;
+  TransformOpMapping &trackedOperations;
   DenseMap<Operation *, Value> trackedOperationKeys;
 
   //--------------------------------------------------------------------------//
@@ -428,8 +427,7 @@ LogicalResult TrackingRewriteDriver::notifyMatchFailure(
 //--------------------------------------------------------------------------//
 
 LogicalResult mlir::applyPatternsTrackAndFoldGreedily(
-    Operation *root,
-    DenseMap<Value, SmallVector<Operation *, 4>> &trackedOperations,
+    Operation *root, TransformOpMapping &trackedOperations,
     const FrozenRewritePatternSet &patterns, GreedyRewriteConfig config) {
   assert(root->hasTrait<OpTrait::IsIsolatedFromAbove>() &&
          "can only apply patterns greedily to ops isolated form above");
