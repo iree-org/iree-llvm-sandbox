@@ -69,7 +69,7 @@ class Measurements:
     product = config.merge(results, how='cross')
     self.data = self.data.append(product)
 
-  def to_dict(self) -> Mapping[str, Any]:
+  def to_dict(self) -> dict[str, Any]:
     """Return a dictionary containing the aggregated data."""
     return self.data.to_dict()
 
@@ -469,7 +469,7 @@ def test_argparser(benchmark_name: str,
 
 
 def test_sizes(dim_names: Sequence[str],
-               problem_sizes: ProblemSizes) -> Mapping[str, ProblemSizes]:
+               problem_sizes: ProblemSizes) -> dict[str, ProblemSizes]:
   """Annotate the problem size arguments with the given dimension names."""
   return [{k: v for k, v in zip(dim_names, sizes)} for sizes in problem_sizes]
 
@@ -477,26 +477,23 @@ def test_sizes(dim_names: Sequence[str],
 def test_experts(
         all_experts: Sequence[TransformationList],
         all_names: Sequence[str] = [],
-        expert_list: Sequence[str] = []) -> Mapping[str, TransformationList]:
-  """Annotate the experts with either a provided or a generated name."""
-  # Generate the names if none are provided.
-  if len(all_experts) != len(all_names):
-    all_names = [str(expert) for expert in all_experts]
-  # Only filter if the expert list is non empty.
-  if not expert_list:
-    expert_list = all_names
-  return {k: v for k, v in zip(all_names, all_experts) if k in expert_list}
+        expert_list: Sequence[str] = []) -> dict[str, TransformationList]:
+  """Annotate the expert name and remove the experts not in expert list."""
+  assert len(all_experts) == len(all_names), "Expect one name per expert."
+  return {k: v for k, v in zip(all_names, all_experts)
+                  if not expert_list or k in expert_list}
 
 
 def test_harness(problem_factory: Callable[
-    [Mapping[str, Any], Sequence[np.dtype]], ProblemDefinition],
-                 np_types_list: Sequence[Sequence[np.dtype]],
-                 problem_sizes_list: Sequence[Mapping[str, Any]],
-                 experts: Mapping[str, TransformationList],
-                 n_iters: int = 1,
-                 function_name: str = 'tested_function',
-                 dynamic_at_compile_time_sizes: AbstractSet[str] = set(),
-                 **kwargs) -> Measurements:
+        [Mapping[str, Any], Sequence[np.dtype]], ProblemDefinition],
+        np_types_list: Sequence[Sequence[np.dtype]],
+        problem_sizes_list: Sequence[Mapping[str, Any]],
+        experts: Union[Sequence[TransformationList],
+                       Mapping[str, TransformationList]],
+        n_iters: int = 1,
+        function_name: str = 'tested_function',
+        dynamic_at_compile_time_sizes: AbstractSet[str] = set(),
+        **kwargs) -> Measurements:
   """Test runner facility.
 
   Compiles and runs the a test or a benchmark for a cross-product of possible
@@ -509,7 +506,7 @@ def test_harness(problem_factory: Callable[
   np_type_list: A list of elemental type lists to try (each inner list must have
     as many entries as the problem has arguments).
   problem_sizes_list: A list of size mappings to try.
-  experts: A dictionary of compilation experts to try.
+  experts: A sequence or dictionary of compilation experts to try.
   n_iters: Number of times to run the test.
   function_name: Name of the function in which the IR is emitted, this name can
    be used by compilation experts to target the transformation.
@@ -531,6 +528,9 @@ def test_harness(problem_factory: Callable[
 
   Returns: A dictionary of all collected benchmark results.
   """
+  # Generate expert names if none are provided.
+  if isinstance(experts, Sequence):
+    experts = {str(value): value for value in experts}
 
   measurements = Measurements()
 

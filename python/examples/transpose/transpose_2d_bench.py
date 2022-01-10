@@ -159,7 +159,7 @@ def main():
                                                  op_builder=transpose_2d),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
-                 test_experts(experts),
+                 experts,
                  n_iters=n_iters,
                  function_name=fun_name,
                  dump_ir_to_file='/tmp/abc.mlir',

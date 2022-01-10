@@ -39,7 +39,7 @@ def main():
 
   test_harness(lambda s, t: RowReduction2DProblem(), [[np.float32] * 2],
                test_sizes(keys, problem_size_list),
-               test_experts(all_experts),
+               all_experts,
                n_iters=n_iters,
                function_name='row_reduction_2d_on_tensors')
 

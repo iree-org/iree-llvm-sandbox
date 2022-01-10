@@ -60,7 +60,7 @@ def main():
                                                  op_builder=problem[2]),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem[0]]),
-                 test_experts([problem[3]]),
+                 [problem[3]],
                  n_iters=n_iters,
                  function_name=fun_name)
 

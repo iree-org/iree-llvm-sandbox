@@ -18,7 +18,7 @@ def main():
                    "l": 12,
                    "n": 14,
                    "p": 16
-               }], {'Expert': LoweringOnlyExpert('einsum', 'linalg.generic')},
+               }], [LoweringOnlyExpert('einsum', 'linalg.generic')],
                n_iters=1,
                function_name='einsum')
 

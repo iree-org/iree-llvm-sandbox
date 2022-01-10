@@ -88,7 +88,7 @@ def main():
   for problem_sizes in problem_size_list:
     test_harness(lambda s, t: RowReduction2DProblem(), [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
-                 test_experts(all_experts(problem_sizes)),
+                 all_experts(problem_sizes),
                  n_iters=n_iters,
                  function_name=fun_name)
 

@@ -44,7 +44,7 @@ def main():
   problem_size_list = [[3, 5, 7]]
   test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
-               test_experts(all_experts),
+               all_experts,
                n_iters=n_iters,
                function_name='matmul_on_tensors')
 

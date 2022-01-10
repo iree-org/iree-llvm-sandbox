@@ -154,7 +154,7 @@ def main():
   problem_size_list = [[24, 32], [27, 37]]
   test_harness(lambda s, t: EinsumProblem('mn,n'), [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
-               test_experts(all_experts),
+               all_experts,
                n_iters=n_iters,
                function_name='matvec_on_tensors')
 

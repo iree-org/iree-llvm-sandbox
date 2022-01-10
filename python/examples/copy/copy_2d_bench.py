@@ -102,7 +102,7 @@ def main():
         lambda s, t: Copy2DProblem(),
         [[np.float32] * 2],
         test_sizes(keys, [problem_sizes]),
-        test_experts(all_experts(fun_name, problem_sizes)),
+        all_experts(fun_name, problem_sizes),
         n_iters=n_iters,
         function_name=fun_name,
         dump_ir_to_file='/tmp/abc.mlir',
