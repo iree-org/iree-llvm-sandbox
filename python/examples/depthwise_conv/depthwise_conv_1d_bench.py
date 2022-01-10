@@ -15,6 +15,9 @@ op_name = 'linalg.depthwise_conv_1d_nwc_wc'
 # Compilation strategies.
 ################################################################################
 
+all_names = [
+  "DepthWiseConv1DExpert"
+]
 all_experts = [
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
         SingleTilingExpert(
@@ -33,10 +36,6 @@ all_experts = [
 keys = ['N', 'W', 'C', 'KW', 'strides', 'dilations']
 
 
-def make_size_list(keys: Sequence[str], sizes: Sequence):
-  return {k: v for k, v in zip(keys, sizes)}
-
-
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1000
@@ -53,9 +52,7 @@ def main():
       [8, 16, 32, 3, [2], [3]],
       [8, 16, 32, 3, [3], [2]]
     ],
-    default_expert_list = [
-      idx for idx, _ in enumerate(all_experts)
-    ],
+    default_expert_list = all_names,
     default_dynamic_at_compile_time_list = [],
     default_spec_list = [])
 
@@ -63,8 +60,8 @@ def main():
       lambda sizes, t: DepthwiseConvolutionProblem(
           'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
       [[np.float32] * 3],
-      map(lambda sizes: make_size_list(keys, sizes), args.problem_sizes_list),
-      [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
+      test_sizes(keys, args.problem_sizes_list),
+      test_experts(all_experts, all_names, args.expert_list),
       n_iters=n_iters,
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',

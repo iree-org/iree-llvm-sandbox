@@ -13,6 +13,13 @@ from ..contraction.definitions import EinsumProblem
 ### Compilation strategies.
 ################################################################################
 
+all_names = [
+  "SingleTiling2D",
+  "SingleTiling3D",
+  "DoubleTileAndDecompose2D",
+  "DoubleTileAndDecompose3D",
+  "DoubleTileAndDecompose2DLarge"
+]
 all_experts = [
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
     SingleTilingExpert('matmul_on_tensors',
@@ -72,17 +79,14 @@ all_experts = [
       .then(LoweringOnlyExpert('matmul_on_tensors',
                                 'linalg.generic',
                                 transpose_lowering='eltwise')),
-    ]]
+    ]
+]
 
 ################################################################################
 ### Problem instantiations.
 ################################################################################
 
 keys = ['m', 'n', 'k']
-
-
-def make_size_list(sizes: Sequence):
-  return {k: v for k, v in zip(keys, sizes)}
 
 
 # CHECK-NOT: FAILURE
@@ -105,9 +109,7 @@ def main():
       [1024, 1024, 1024],
       [2048, 2048, 347]
     ],
-    default_expert_list = [
-      idx for idx, _ in enumerate(all_experts)
-    ],
+    default_expert_list = all_names,
     default_dynamic_at_compile_time_list = [
         [],  # case 1: static at compile time
         ['m', 'k'],  # case 2: partially dynamic at compile time
@@ -142,8 +144,8 @@ def main():
         torch.mm(A, B, out=C)
 
       test_harness(lambda s, t: EinsumProblem(spec), [[np.float32] * 3],
-                   map(make_size_list, args.problem_sizes_list),
-                   [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
+                   test_sizes(keys, args.problem_sizes_list),
+                   test_experts(all_experts, all_names, args.expert_list),
                    n_iters=n_iters,
                    dynamic_at_compile_time_sizes=set(dynamic_at_compile_time).intersection(keys),
                    function_name='matmul_on_tensors',

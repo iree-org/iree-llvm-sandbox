@@ -38,16 +38,12 @@ all_experts = [
 keys = ['m', 'n', 'k']
 
 
-def make_size_list(sizes: Sequence[int]):
-  return {k: v for k, v in zip(keys, sizes)}
-
-
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
   problem_size_list = [[3, 5, 7]]
   test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
-               map(make_size_list, problem_size_list),
+               test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
                function_name='matmul_on_tensors')

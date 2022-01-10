@@ -152,15 +152,13 @@ def main():
       # [6912, 4608],
   ]
 
-  def make_size_list(keys: Sequence[str], sizes: Sequence):
-    return {k: v for k, v in zip(keys, sizes)}
-
   for problem_sizes in problem_size_list:
     experts = all_experts(problem_sizes, transpose_avx2_lowering=False) + \
               all_experts(problem_sizes, transpose_avx2_lowering=True)
     test_harness(lambda s, t: TransposeNDProblem(permutation=[1, 0],
                                                  op_builder=transpose_2d),
-                 [[np.float32] * 2], [make_size_list(keys, problem_sizes)],
+                 [[np.float32] * 2],
+                 test_sizes(keys, [problem_sizes]),
                  experts,
                  n_iters=n_iters,
                  function_name=fun_name,

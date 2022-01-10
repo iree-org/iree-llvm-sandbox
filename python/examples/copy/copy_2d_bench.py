@@ -91,10 +91,6 @@ copy_2D_perf_search_list = [
 ]
 
 
-def make_size_list(sizes: Sequence):
-  return {k: v for k, v in zip(keys, sizes)}
-
-
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 10000
@@ -105,7 +101,7 @@ def main():
     test_harness(
         lambda s, t: Copy2DProblem(),
         [[np.float32] * 2],
-        [make_size_list(problem_sizes)],
+        test_sizes(keys, [problem_sizes]),
         all_experts(fun_name, problem_sizes),
         n_iters=n_iters,
         function_name=fun_name,

@@ -40,10 +40,6 @@ def all_experts(problem_sizes: List[int]):
 keys = ['M']
 
 
-def make_size_list(sizes: Sequence):
-  return {k: v for k, v in zip(keys, sizes)}
-
-
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
@@ -67,7 +63,7 @@ def main():
 
   for problem_sizes in problem_size_list:
     test_harness(lambda s, t: Reduction1DProblem(), [[np.float32] * 2],
-                 map(make_size_list, [problem_sizes]),
+                 test_sizes(keys, [problem_sizes]),
                  all_experts(problem_sizes),
                  n_iters=n_iters,
                  function_name=fun_name)

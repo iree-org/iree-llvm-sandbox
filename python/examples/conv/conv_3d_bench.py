@@ -17,6 +17,9 @@ op_name = 'linalg.conv_3d_ndhwc_dhwcf'
 ### Compilation strategies.
 ################################################################################
 
+all_names = [
+  "Conv3DExpert"
+]
 all_experts = [
     e.print_ir(after_all=False) for e in [
         SingleTilingExpert(
@@ -32,10 +35,6 @@ all_experts = [
 ################################################################################
 
 keys = ['N', 'D', 'H', 'W', 'C', 'KD', 'KH', 'KW', 'F', 'strides', 'dilations']
-
-
-def make_size_list(keys: tp.Sequence[str], sizes: tp.Sequence):
-  return {k: v for k, v in zip(keys, sizes)}
 
 
 # CHECK-NOT: FAILURE
@@ -54,17 +53,15 @@ def main():
       [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 3], [3, 2, 2]],
       [8, 4, 16, 16, 32,  3,  3,  3, 64, [3, 2, 2], [1, 3, 2]],
     ],
-    default_expert_list = [
-      idx for idx, _ in enumerate(all_experts)
-    ],
+    default_expert_list = all_names,
     default_dynamic_at_compile_time_list = [],
     default_spec_list = [])
 
   test_harness(lambda sizes, types: ConvolutionProblem(
       'NDHWC', 'DHWCF', strides=sizes['strides'], dilations=sizes['dilations']),
                [[np.float32] * 3],
-               [make_size_list(keys, sizes) for sizes in args.problem_sizes_list],
-               [all_experts[idx] for idx in args.expert_list if idx < len(all_experts)],
+               test_sizes(keys, args.problem_sizes_list),
+               test_experts(all_experts, all_names, args.expert_list),
                n_iters=n_iters,
                function_name=fun_name)
 
