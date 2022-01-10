@@ -6,6 +6,7 @@
 from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
+from ..core.utils import *
 
 from .definitions import *
 
@@ -19,46 +20,12 @@ op_name = 'linalg.generic'
 ################################################################################
 
 
-def maxCandidateThatDivides(candidates: List[int], value_to_divide: int):
-  res = 0
-  for c in candidates:
-    if c > res and value_to_divide % c == 0:
-      res = c
-  return res
-
-
-def maxCandidateSmallerThan(candidates: List[int], ub: int):
-  res = 0
-  for c in candidates:
-    if c > res and c <= ub:
-      res = c
-  return res
-
-
-def maxMultipleOfSmallerThan(n: int, ub: List[int]):
-  return min(ub) - min(ub) % n
-
-
 def all_experts(fun_name: str, problem_sizes: List[int]):
-  candidateL1TileSizes1 = [
-      24, 30, 32, 36, 40, 42, 48, 54, 60, 64, 80, 96, 120, 128
-  ]
-  candidateL1TileSizes2 = [
-      24, 30, 32, 36, 40, 42, 48, 54, 60, 64, 80, 96, 120, 128
-  ]
-  sizes1 = [ \
-    maxCandidateThatDivides(candidateL1TileSizes1, problem_sizes[0]), \
-    maxCandidateThatDivides(candidateL1TileSizes2, problem_sizes[1])  \
-  ]
+  sizes1 = l1_2d_divisible_tile_sizes(problem_sizes)
   sizes_for_register_tiling = [ \
     ts if ts > 0 else s for (s, ts) in zip(problem_sizes, sizes1) \
   ]
-  candidateRegisterTileSizes1 = [1, 2, 4, 8]
-  candidateRegisterTileSizes2 = [1, 2, 4, 6, 8, 12, 16]
-  sizes2 = [ \
-    maxCandidateThatDivides(candidateRegisterTileSizes1, sizes_for_register_tiling[0]), \
-    maxCandidateThatDivides(candidateRegisterTileSizes2, sizes_for_register_tiling[1])  \
-  ]
+  sizes2 = register_2d_divisible_tile_sizes(sizes_for_register_tiling)
 
   # Before bufferization, the IR only has a tensor.extract_slice /
   #   tensor.insert_slice pair.
