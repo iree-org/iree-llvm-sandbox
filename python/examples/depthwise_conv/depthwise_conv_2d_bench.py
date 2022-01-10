@@ -17,23 +17,24 @@ op_name = 'linalg.depthwise_conv_2d_nhwc_hwc'
 
 all_names = ["DepthWiseConv2DExpert"]
 all_experts = [
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
-        Tile(
-            fun_name=fun_name,
-            op_name=op_name,
-            #           N   H   W   C KH, KW
-            tile_sizes=[1, 8, 14, 32],
-            peel=[0, 1, 2]).then(
-                Tile(
-                    fun_name=fun_name,
-                    op_name=op_name,
-                    #           N  H  W   C KH, KW
-                    tile_sizes=[1, 1, 7, 32, 1, 3],
-                    peel=[0, 1, 2])).then(
-                        DecomposeToLowerDimensionalNamedOp(fun_name=fun_name,
-                                                           op_name=op_name)).
-        then(Vectorize(fun_name, "linalg.depthwise_conv_1d_nwc_wc")).then(
-            Bufferize()).then(LowerVectors()).then(LowerToLLVM())
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [        \
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N   H   W   C KH, KW
+             tile_sizes=[1, 8, 14, 32],
+             peel=[0, 1, 2])
+        .then(Tile(fun_name=fun_name,
+                   op_name=op_name,
+                   #           N  H  W   C KH, KW
+                   tile_sizes=[1, 1, 7, 32, 1, 3],
+                   peel=[0, 1, 2]))
+        .then(DecomposeToLowerDimensionalNamedOp(fun_name=fun_name,
+                                                 op_name=op_name))
+        .then(Vectorize(fun_name, "linalg.depthwise_conv_1d_nwc_wc"))
+        .then(Bufferize())
+        .then(LowerVectors())
+        .then(LowerToLLVM())
     ]
 ]
 
