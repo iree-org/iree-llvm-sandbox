@@ -92,10 +92,12 @@ class Measurements:
       # Plot the selected data.
       plt = self._plot_data(config_key_to_plot, data_key,
                             data_label, data_to_plot)
-      fig = plt.get_figure()
-      fig.tight_layout()
+      plt.get_figure().set_size_inches(6, 3.75)
+      plt.get_figure().tight_layout()
       file_name = self._get_plot_file_name(plot_configuration.to_dict())
-      fig.savefig(os.path.join(path, file_name))
+      plt.get_figure().savefig(os.path.join(path, file_name))
+      plt.get_figure().clf()
+
 
   def _plot_data(self,
                  config_key_to_plot: str, data_key: str, data_label: str,
@@ -107,7 +109,8 @@ class Measurements:
         [text.get_text() for text in plt.xaxis.get_ticklabels()])
     plt.set(xticklabels=new_labels)
     plt.set(xlabel=str.format(
-        f"problem sizes [{','.join(keys)}]"), ylabel=data_label)
+        f"Problem Sizes [{','.join(keys)}]"), ylabel=data_label)
+    plt.set(ylim=(0, 150))
     plt.tick_params(axis='x', rotation=20)
     return plt
 
@@ -612,6 +615,6 @@ def test_harness(problem_factory: Callable[
         os.makedirs(plot_path)
       measurements.plot(plot_path,
                         'gflop_per_s_per_iter',
-                        'compute throughput [GFlop/s]')
+                        'Compute Throughput [GFlop/s]')
 
     return measurements
