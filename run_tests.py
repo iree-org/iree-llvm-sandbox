@@ -12,6 +12,8 @@ def _convert_path_to_module(test_script : str) -> str:
   if test_script.endswith(".py"):
     return test_script[:-3]
   return test_script
+
+
 def _run_test(test_script: str) -> bool:
   """Run the provided test script an return failure or success.
   A test succeeds if:
@@ -26,6 +28,8 @@ def _run_test(test_script: str) -> bool:
   env["PYTHONPATH"] = os.path.join(build_dir, "tools/sandbox/python_package")
   env["MLIR_RUNNER_UTILS_LIB"] = os.path.join(
       build_dir, "lib/libmlir_runner_utils.so")
+  env["MLIR_C_RUNNER_UTILS_LIB"] = os.path.join(
+      build_dir, "lib/libmlir_c_runner_utils.so")
   proc = subprocess.Popen(["python", "-m", module],
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                           env=env)
@@ -50,6 +54,8 @@ def _run_test(test_script: str) -> bool:
       return False
   print("\033[32m" + "SUCCESS" + "\033[m")
   return True
+
+
 def main():
   results = []
   for f in glob.glob("./python/**/*test.py", recursive=True):
