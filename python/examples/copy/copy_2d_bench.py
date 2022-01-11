@@ -55,7 +55,7 @@ keys = ['M', 'N']
 
 copy_2D_perf_search_list = [
     [32, 64],
-    [2 * 112 * 112, 32],  # approx. depthwise_conv_2d size
+    [int(112 / 2) * int(112 / 2), 32 * 4],  # approx. depthwise_conv_2d size
 ]
 
 

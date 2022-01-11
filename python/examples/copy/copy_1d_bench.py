@@ -49,7 +49,7 @@ keys = ['M']
 
 copy_1D_perf_search_list = [
     [200 * 16],  # sweet spot for prefetchers
-    [2 * 112 * 112 * 32],  # approx. depthwise_conv_2d size
+    [112 * 112 * 32],  # approx. depthwise_conv_2d size
 ]
 
 
