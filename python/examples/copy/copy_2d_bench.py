@@ -35,7 +35,7 @@ def all_experts(fun_name: str, problem_sizes: List[int]):
   # In the case of a single copy benchmark it is the one true thing to optimize.
   return [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=True, at_begin=False, llvm=False) for e in [         \
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
       Tile(fun_name=fun_name,
             op_name=op_name,
             tile_sizes=sizes2)
@@ -55,6 +55,7 @@ keys = ['M', 'N']
 
 copy_2D_perf_search_list = [
     [32, 64],
+    [2 * 112 * 112, 32],  # approx. depthwise_conv_2d size
 ]
 
 

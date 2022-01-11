@@ -29,7 +29,7 @@ op_name = 'linalg.generic'
 def all_experts(fun_name: str):
   return [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=True, at_begin=False, llvm=False) for e in [         \
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
       Tile(fun_name=fun_name,
             op_name=op_name,
             tile_sizes=[16])
@@ -49,6 +49,7 @@ keys = ['M']
 
 copy_1D_perf_search_list = [
     [200 * 16],  # sweet spot for prefetchers
+    [2 * 112 * 112 * 32],  # sweet spot for prefetchers
 ]
 
 
