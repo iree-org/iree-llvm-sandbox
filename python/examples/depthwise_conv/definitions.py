@@ -183,7 +183,7 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     # Shape relations on rank-related dimensions:
     #      iw = [(ow - 1) * sw + 1] + [(kw - 1) * dw + 1] - 1
     #   => iw = [(ow - 1) * sw] + [(kw - 1) * dw] + 1
-    #    => ow = [iw - (kw - 1) * dw - 1] / sw + 1
+    #   => ow = [iw - (kw - 1) * dw - 1] / sw + 1
     input_shape = []
     for char in self.__input_format:
       if char in RANK_RELATED_DIMS[-rank:]:
@@ -243,15 +243,13 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     tensors[-1].fill(0.)
     return tensors
 
-  def check_np(self, I: np.dtype, K: np.dtype, O: np.dtype):
-    """Checks whether the computation results correspond to the reference
-
-    implementation.
+  def reference_np(self, I: np.dtype, K: np.dtype, O: np.dtype):
+    """Reference numpy implementation, used for checking and benchmarking 
+    against.
 
     Given the list of NumPy arrays, computes the expected result and compares it
     with the actual result. Raises ValueError on mismatch.
     """
-    reference_O = np.zeros(O.shape)
 
     input_rank_dims_start, input_rank_dims_end = find_contiguous_rank_dims(
         self.__input_format)
@@ -323,7 +321,47 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
 
       # Starting from: O(n, w, c) += I(n, w + kw, c) * K(kw, c)
       # Unrolling on KW just gives O(n, w, c) += I(n, w, c) * K(c)
-      reference_O += slice_input * slice_kernel
+      O += slice_input * slice_kernel
+
+  # TODO: Here we have "I(N, H, W, C), K(H, W, C) O(N, H, W, C)" layout but
+  # Pytorch wants "I(N, C, H, W), K(C, 1, H, W) O(N, C, H, W)".
+  # Doing permute/reshape manipulations passes the assertions but perf is
+  # abysmal as only a `at::TensorIteratorBase::loop_2d_from_1d` is called.
+  # TODO: how do I pass a preallocated output?
+  def reference_pt(self, I, K, O):
+    import torch
+    import torch.nn.functional as F
+    if len(I.shape) == 3:
+      I = torch.permute(I, (0, 2, 1))
+      K = torch.reshape(K, (1, *K.shape))
+      K = torch.permute(K, (2, 0, 1))
+      F.conv1d(I,
+               K,
+               stride=tuple(self.__strides),
+               dilation=tuple(self.__dilations),
+               groups=K.shape[0])
+    elif len(I.shape) == 4:
+      I = torch.permute(I, (0, 3, 1, 2))
+      K = torch.reshape(K, (1, *K.shape))
+      K = torch.permute(K, (3, 0, 1, 2))
+      F.conv2d(I,
+               K,
+               stride=tuple(self.__strides),
+               dilation=tuple(self.__dilations),
+               groups=K.shape[0])
+    else:
+      assert False, f'NYI depthwise conv for: I={I.shape} * K={K.shape} -> O={O.shape}'
+
+  def check_np(self, I: np.dtype, K: np.dtype, O: np.dtype):
+    """Checks whether the computation results correspond to the reference
+    implementation.
+
+    Given the list of NumPy arrays, computes the expected result and compares it
+    with the actual result. Raises ValueError on mismatch.
+    """
+
+    reference_O = np.zeros(O.shape)
+    self.reference_np(I, K, reference_O)
 
     if not np.allclose(O, reference_O):
       delta = O - reference_O

@@ -13,26 +13,28 @@ from ..core.problem_definition import *
 from ..core.utils import *
 
 # TODO: Orthogonal configuration object.
-avx512 = False
+avx512 = True
 
-################################################################################
-### Copy
-################################################################################
-#   Op def: (     m,     n )
-#    Iters: ({Par(), Par()})
-#             I       O
-#   Layout: {{m, n}, {m, n}}
+DIMNAMES = 'MNKLPQRST'
 
 
-# TODO: fold OpDSL definition and inferences into ProblemDefinition.
-@linalg_structured_op
-def copy_2d(I=TensorDef(T, S.M, S.N), O=TensorDef(T, S.M, S.N, output=True)):
-  domain(D.m, D.n)
-  O[D.m, D.n] = I[D.m, D.n]
+class CopyNDProblem(ProblemDefinition):
+  """ Problem definition for an n-dimensional copy problem."""
 
+  def __init__(self, rank: int, op_builder: Callable):
+    """Creates a problem definition for an n-dimensional copy.
 
-class Copy2DProblem(ProblemDefinition):
-  """ Problem definition for a single copy_2d problem."""
+    """
+    self.__rank = rank
+    self.__op_builder = op_builder
+
+  @property
+  def rank(self) -> int:
+    return self.__rank
+
+  @property
+  def keys(self) -> List[str]:
+    return list(DIMNAMES[:self.rank])
 
   def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Shape builder function.
@@ -41,8 +43,8 @@ class Copy2DProblem(ProblemDefinition):
     values, return the list of lists of shapes of the FuncOp operands. The
     FuncOp is responsible for distinguishing between input operands and results.
     """
-    M, N = sizes["M"], sizes["N"]
-    return [[M, N], [M, N]]
+    linear = [sizes[d] for d in self.keys]
+    return [linear, linear]
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """GFlop builder function.
@@ -60,10 +62,9 @@ class Copy2DProblem(ProblemDefinition):
     values, and a list of data types, return the number of GBytes read or
     written.
     """
-    M, N = sizes["M"], sizes["N"]
-    inp_np_type, out_np_type = types
-    return float(M * N * np.dtype(inp_np_type).itemsize +
-                 M * N * np.dtype(out_np_type).itemsize) / float(1e9)
+    return float(
+        np.prod(list(sizes.values())) *
+        sum([np.dtype(ty).itemsize for ty in types])) / 1.e9
 
   def tensors_np_builder(self, sizes: Mapping[str, Any],
                          types: Sequence[np.dtype]) -> List[np.dtype]:
@@ -73,14 +74,18 @@ class Copy2DProblem(ProblemDefinition):
     values, and a list of NumPy elemental types, return constructed NP values of
     shapes given by `shape_builder` and specified elemental types.
     """
-    M, N = sizes["M"], sizes["N"]
     shapes = self.shapes_builder(sizes)
-    # For transpose it is better to use integer matrices and see what happens.
     tensors = [
-        realign(np.arange(0, M * N).reshape(s).astype(t), byte_alignment=64)
+        realign(np.random.rand(*s).astype(t), byte_alignment=64)
         for s, t in zip(shapes, types)
     ]
-    tensors[len(tensors) - 1].fill(0.)
+    # Uncomment to simplify debugging.
+    # tensors = [
+    #     realign(np.arange(1, np.prod(s) + 1).reshape(s).astype(t), \
+    #             byte_alignment=64) \
+    #     for s, t in zip(shapes, types)
+    # ]
+    tensors[-1].fill(0.)
     return tensors
 
   def check_np(self, I: np.dtype, O: np.dtype) -> None:
@@ -103,8 +108,7 @@ class Copy2DProblem(ProblemDefinition):
     shape expected by the function.
     """
     shapes = self.shapes_builder(sizes)
-    return [RankedTensorType.get(s, t) for s, t in \
-         zip(shapes, mlir_types)]
+    return [RankedTensorType.get(s, t) for s, t in zip(shapes, mlir_types)]
 
   def build_problem_under_context_manager(
       self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
@@ -123,7 +127,7 @@ class Copy2DProblem(ProblemDefinition):
 
     output_elem_type = types[-1].element_type
     with InsertionPoint(func.add_entry_block()):
-      result = copy_2d(func.arguments[0], outs=[func.arguments[1]])
+      result = self.__op_builder(func.arguments[0], outs=[func.arguments[1]])
       std.ReturnOp([result])
 
     return func

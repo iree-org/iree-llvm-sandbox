@@ -15,27 +15,26 @@ op_name = 'linalg.depthwise_conv_2d_nhwc_hwc'
 # Compilation strategies.
 ################################################################################
 
-all_names = [
-  "DepthWiseConv2DExpert"
-]
+all_names = ["DepthWiseConv2DExpert"]
 all_experts = [
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
-        Tile(
-            fun_name=fun_name,
-            op_name=op_name,
-            #           N   H   W   C KH, KW
-            tile_sizes=[1, 8, 14, 32],
-            peel=[0, 1, 2]).then(
-                Tile(
-                    fun_name=fun_name,
-                    op_name=op_name,
-                    #           N  H  W   C KH, KW
-                    tile_sizes=[1, 1, 7, 32, 1, 3],
-                    peel=[0, 1, 2])).then(
-                        DecomposeToLowerDimensionalNamedOp(fun_name=fun_name,
-                                                           op_name=op_name)).
-        then(Vectorize(fun_name, "linalg.depthwise_conv_1d_nwc_wc")).then(
-            Bufferize()).then(LowerVectors()).then(LowerToLLVM())
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [        \
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N   H   W   C KH, KW
+             tile_sizes=[1, 8, 14, 32],
+             peel=[0, 1, 2])
+        .then(Tile(fun_name=fun_name,
+                   op_name=op_name,
+                   #           N  H  W   C KH, KW
+                   tile_sizes=[1, 1, 7, 32, 1, 3],
+                   peel=[0, 1, 2]))
+        .then(DecomposeToLowerDimensionalNamedOp(fun_name=fun_name,
+                                                 op_name=op_name))
+        .then(Vectorize(fun_name, "linalg.depthwise_conv_1d_nwc_wc"))
+        .then(Bufferize())
+        .then(LowerVectors())
+        .then(LowerToLLVM())
     ]
 ]
 
@@ -84,13 +83,25 @@ def main():
   ]
 
   # Specify default configuration and parse command line.
-  args = test_argparser(
-    "depthwise conv 2d benchmark",
-    #   N   H   W   C  KH  KW      st      dil
-    default_problem_sizes_list = microbenchmark_problem_size_list,
-    default_expert_list = all_names,
-    default_dynamic_at_compile_time_list = [],
-    default_spec_list = [])
+  args = test_argparser("depthwise conv 2d benchmark",
+                        default_problem_sizes_list=benchmark_problem_size_list,
+                        default_expert_list=all_names,
+                        default_dynamic_at_compile_time_list=[],
+                        default_spec_list=[])
+
+  def numpy_kernel(args, sizes, types):
+    problem = DepthwiseConvolutionProblem('NHWC',
+                                          'HWC',
+                                          strides=sizes['strides'],
+                                          dilations=sizes['dilations'])
+    problem.reference_np(*args)
+
+  def pytorch_kernel(args, sizes, types):
+    problem = DepthwiseConvolutionProblem('NHWC',
+                                          'HWC',
+                                          strides=sizes['strides'],
+                                          dilations=sizes['dilations'])
+    problem.reference_pt(*args)
 
   test_harness(
       lambda sizes, t: DepthwiseConvolutionProblem(
@@ -103,6 +114,8 @@ def main():
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',
       dump_obj_to_file='/tmp/abcd.o',
+      numpy_benchmark=numpy_kernel,
+      pytorch_benchmark=pytorch_kernel,
       plot_path=args.plot_path)
 
 

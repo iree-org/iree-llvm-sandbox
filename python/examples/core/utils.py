@@ -1,4 +1,4 @@
-from typing import Any, Callable, Mapping, Optional, Sequence, Type
+from typing import Any, Callable, List, Mapping, Optional, Sequence, Type
 
 import numpy as np
 
@@ -31,6 +31,58 @@ def assert_runtime_sizes_compatible_with_compile_time_sizes(
     assert s == r or (
         s == -1 and r != -1
     ), f'non-matching compile_time and runtime problem size {s} vs {r}'
+
+
+################################################################################
+# Compilation strategy utils.
+################################################################################
+
+
+def maxCandidateThatDivides(candidates: List[int], value_to_divide: int):
+  res = 0
+  for c in candidates:
+    if c > res and value_to_divide % c == 0:
+      res = c
+  return res
+
+
+def maxCandidateSmallerThan(candidates: List[int], ub: int):
+  res = 0
+  for c in candidates:
+    if c > res and c <= ub:
+      res = c
+  return res
+
+
+def maxMultipleOfSmallerThan(n: int, ub: List[int]):
+  return min(ub) - min(ub) % n
+
+
+def l1_2d_divisible_tile_sizes(problem_sizes: List[int]):
+  """Return some heuristic 2-D tile sizes that divide the 2 leading dimensions 
+  of problem_sizes and fit within L1 (unchecked atm)."""
+
+  candidateL1TileSizes1 = [
+      24, 30, 32, 36, 40, 42, 48, 54, 60, 64, 80, 96, 120, 128
+  ]
+  candidateL1TileSizes2 = [
+      24, 30, 32, 36, 40, 42, 48, 54, 60, 64, 80, 96, 120, 128
+  ]
+  return [
+      maxCandidateThatDivides(candidateL1TileSizes1, problem_sizes[0]),
+      maxCandidateThatDivides(candidateL1TileSizes2, problem_sizes[1])
+  ]
+
+
+def register_2d_divisible_tile_sizes(problem_sizes: List[int]):
+  """Return some heuristic 2-D tile sizes that divide the 2 leading dimensions 
+  of problem_sizes and fit within registers (unchecked atm)."""
+  candidateRegisterTileSizes1 = [1, 2, 4, 8]
+  candidateRegisterTileSizes2 = [1, 2, 4, 6, 8, 12, 16]
+  return [
+      maxCandidateThatDivides(candidateRegisterTileSizes1, problem_sizes[0]),
+      maxCandidateThatDivides(candidateRegisterTileSizes2, problem_sizes[1])
+  ]
 
 
 ################################################################################

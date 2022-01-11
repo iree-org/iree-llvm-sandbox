@@ -15,9 +15,7 @@ op_name = 'linalg.depthwise_conv_1d_nwc_wc'
 # Compilation strategies.
 ################################################################################
 
-all_names = [
-  "DepthWiseConv1DExpert"
-]
+all_names = ["DepthWiseConv1DExpert"]
 all_experts = [
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
         SingleTilingExpert(
@@ -43,8 +41,9 @@ def main():
   # Specify default configuration and parse command line.
   args = test_argparser(
     "depthwise conv 2d benchmark",
+    default_problem_sizes_list = [ \
     #  N   W   C  KW   st  dil
-    default_problem_sizes_list = [
+
       [8, 16, 32, 3, [1], [1]],
       [8, 16, 32, 3, [1], [2]],
       [8, 16, 32, 3, [2], [1]],
@@ -56,6 +55,16 @@ def main():
     default_dynamic_at_compile_time_list = [],
     default_spec_list = [])
 
+  def numpy_kernel(args, sizes, types):
+    DepthwiseConvolutionProblem(
+        'NWC', 'WC', strides=sizes['strides'],
+        dilations=sizes['dilations']).reference_np(*args)
+
+  def pytorch_kernel(args, sizes, types):
+    DepthwiseConvolutionProblem(
+        'NWC', 'WC', strides=sizes['strides'],
+        dilations=sizes['dilations']).reference_pt(*args)
+
   test_harness(
       lambda sizes, t: DepthwiseConvolutionProblem(
           'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
@@ -66,6 +75,8 @@ def main():
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',
       dump_obj_to_file='/tmp/abcd.o',
+      numpy_benchmark=numpy_kernel,
+      pytorch_benchmark=pytorch_kernel,
       plot_path=args.plot_path)
 
 
