@@ -85,9 +85,8 @@ def main():
   # Specify default configuration and parse command line.
   args = test_argparser(
       "depthwise conv 2d benchmark",
-      #   N   H   W   C  KH  KW      st      dil
       default_problem_sizes_list=microbenchmark_problem_size_list,
-      default_expert_list=[idx for idx, _ in enumerate(all_experts)],
+      default_expert_list=all_names,
       default_dynamic_at_compile_time_list=[],
       default_spec_list=[])
 
