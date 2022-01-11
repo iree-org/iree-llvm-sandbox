@@ -16,6 +16,7 @@
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/TilingInterface.h"
+#include "mlir/Support/LLVM.h"
 
 #define GET_OP_CLASSES
 #include "Dialects/LinalgExt/LinalgExtOps.h.inc"

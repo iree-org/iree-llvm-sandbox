@@ -37,7 +37,8 @@ def LinalgExt_ReverseOp : LinalgExt_Op<"reverse", [
     DeclareOpInterfaceMethods<TilingInterface, [
         "getLoopIteratorTypes",
         "getIterationDomain",
-        "getTiledImplementation"]>]> {
+        "getTiledImplementation",
+        "getOutputTileSizes"]>]> {
   let summary = "Reverse operator";
   let description = [{
     Operation to reverse the values along specified dimension(s).
