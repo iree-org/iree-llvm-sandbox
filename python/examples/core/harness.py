@@ -465,6 +465,11 @@ def test_argparser(benchmark_name: str,
                       nargs='+',
                       help='problem specifications (e.g., -s mk,kn km,kn)',
                       default=default_spec_list)
+  parser.add_argument('--plot_path',
+                      type=str,
+                      nargs='?',
+                      help='plot path (e.g., --plot_path /tmp/matmul)',
+                      default='')
   return parser.parse_args(sys.argv[1:])
 
 
@@ -601,8 +606,11 @@ def test_harness(problem_factory: Callable[
         measurements.append('pytorch', np_types, dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
-    if 'plot_path' in kwargs:
-      measurements.plot(kwargs.get('plot_path'),
+    plot_path = kwargs.get('plot_path', '')
+    if plot_path != '':
+      if not os.path.exists(plot_path):
+        os.makedirs(plot_path)
+      measurements.plot(plot_path,
                         'gflop_per_s_per_iter',
                         'compute throughput [GFlop/s]')
 

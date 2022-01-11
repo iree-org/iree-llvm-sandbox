@@ -63,7 +63,8 @@ def main():
                test_sizes(keys, args.problem_sizes_list),
                test_experts(all_experts, all_names, args.expert_list),
                n_iters=n_iters,
-               function_name=fun_name)
+               function_name=fun_name,
+               plot_path=args.plot_path)
 
 
 if __name__ == '__main__':

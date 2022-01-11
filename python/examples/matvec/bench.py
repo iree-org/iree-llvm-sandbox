@@ -81,7 +81,8 @@ def main():
       n_iters=n_iters,
       function_name='matvec_on_tensors',
       numpy_benchmark=numpy_kernel,
-      pytorch_benchmark=pytorch_kernel)
+      pytorch_benchmark=pytorch_kernel,
+      plot_path=args.plot_path)
 
 if __name__ == '__main__':
   main()
