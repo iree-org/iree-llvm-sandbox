@@ -83,12 +83,11 @@ def main():
   ]
 
   # Specify default configuration and parse command line.
-  args = test_argparser(
-      "depthwise conv 2d benchmark",
-      default_problem_sizes_list=microbenchmark_problem_size_list,
-      default_expert_list=all_names,
-      default_dynamic_at_compile_time_list=[],
-      default_spec_list=[])
+  args = test_argparser("depthwise conv 2d benchmark",
+                        default_problem_sizes_list=benchmark_problem_size_list,
+                        default_expert_list=all_names,
+                        default_dynamic_at_compile_time_list=[],
+                        default_spec_list=[])
 
   def numpy_kernel(args, sizes, types):
     problem = DepthwiseConvolutionProblem('NHWC',
