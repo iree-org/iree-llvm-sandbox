@@ -70,7 +70,7 @@ def main():
                test_experts(all_experts, all_names, args.expert_list),
                n_iters=n_iters,
                function_name=fun_name,
-               plot_path=args.plot_path)
+               dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

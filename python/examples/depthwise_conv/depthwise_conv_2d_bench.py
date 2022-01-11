@@ -116,7 +116,7 @@ def main():
       dump_obj_to_file='/tmp/abcd.o',
       numpy_benchmark=numpy_kernel,
       pytorch_benchmark=pytorch_kernel,
-      plot_path=args.plot_path)
+      dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

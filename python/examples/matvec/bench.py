@@ -80,9 +80,9 @@ def main():
       test_experts(all_experts, all_names, args.expert_list),
       n_iters=n_iters,
       function_name='matvec_on_tensors',
+      dump_data_to_file=args.dump_data,
       numpy_benchmark=numpy_kernel,
-      pytorch_benchmark=pytorch_kernel,
-      plot_path=args.plot_path)
+      pytorch_benchmark=pytorch_kernel)
 
 if __name__ == '__main__':
   main()

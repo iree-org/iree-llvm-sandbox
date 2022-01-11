@@ -75,7 +75,7 @@ def main():
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',
       dump_obj_to_file='/tmp/abcd.o',
-      plot_path=args.plot_path)
+      dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':
