@@ -127,7 +127,7 @@ The following commands either run the lit tests only or all tests:
 # Run lit tests
 lit -v test
 # Run python and lit tests
-python ./run_tests
+python ./run_tests.py
 ```
 The lit configuration file `test/lit.cfg.py` contains a list of excluded tests.
 
