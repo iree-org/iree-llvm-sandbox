@@ -67,12 +67,14 @@ namespace mlir {
 namespace test_ext {
 void registerTestStagedPatternRewriteDriver();
 void registerTestVectorMaskingUtils();
+void registerTestListenerPasses();
 } // namespace test_ext
 } // namespace mlir
 
 void registerTestPasses() {
   mlir::test_ext::registerTestStagedPatternRewriteDriver();
   mlir::test_ext::registerTestVectorMaskingUtils();
+  mlir::test_ext::registerTestListenerPasses();
 }
 
 //===----------------------------------------------------------------------===//
