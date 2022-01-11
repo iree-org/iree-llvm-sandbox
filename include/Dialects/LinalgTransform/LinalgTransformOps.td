@@ -147,4 +147,20 @@ def LowerToLLVMOp : Linalg_Transform_Operation<"lower_to_llvm"> {
   let assemblyFormat = "attr-dict";
 }
 
+//===----------------------------------------------------------------------===//
+
+def ExpertOp : Linalg_Transform_Operation<"expert", [TargetableOpTrait]> {
+  let description = [{A "transformation expert" that can be lowered to a
+  sequence of transformations. The details of the lowering depend on the name
+  and are expressed declaratively.}];
+
+  let arguments = (ins Optional<PDL_Operation>:$target,
+                   OptionalAttr<SymbolRefAttr>:$targetMatcher,
+                   StrAttr:$expertName);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "`apply` $expertName (`to` $target^)? "
+                       "(`when` $targetMatcher^)? attr-dict";
+}
+
 #endif // LINALG_TRANSFORM_OPS
