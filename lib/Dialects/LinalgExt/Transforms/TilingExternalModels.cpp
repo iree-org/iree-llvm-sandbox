@@ -103,16 +103,40 @@ struct LinalgOpTilingInterface
                          ArrayRef<OpFoldResult> sizes,
                          bool tileDestOperands) const {
     LinalgOp linalgOp = cast<LinalgOp>(op);
+    if (op->getNumResults() != 1) {
+      // TODO: Need a failure message here, but `notifyMatchFailure` is only a
+      // method on `PatternRewriter`.
+      return {};
+    }
     Location loc = op->getLoc();
     AffineMap shapeSizesToLoopsMap = linalgOp.getShapesToLoopsMap();
     auto allShapeSizes = linalgOp.createFlatListOfOperandDims(b, loc);
     if (!shapeSizesToLoopsMap)
       return {};
 
-    SmallVector<Value> tileOffsets = getAsValues(b, loc, offsets);
-    SmallVector<Value> tileSizes = getAsValues(b, loc, sizes);
+    SmallVector<Value> offsetsVals = getAsValues(b, loc, offsets);
+    SmallVector<Value> sizeVals = getAsValues(b, loc, sizes);
     SmallVector<Value> sizeBounds =
         applyMapToValues(b, loc, shapeSizesToLoopsMap, allShapeSizes);
+
+    OpOperand *outOperand = linalgOp.getOutputOperand(0);
+    AffineMap indexingMap = linalgOp.getTiedIndexingMap(outOperand);
+    if (!indexingMap.isProjectedPermutation())
+      return {};
+
+    // The offsets and sizes form the slice operation only give you the tile
+    // size of the output. Use that compute the tile sizes and offsets of the
+    // loops. For loops not used to access the output, set the tile sizes to
+    // loop bounds and set the offset to 0.
+    Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+    SmallVector<Value> tileOffsets(sizeBounds.size(), zero);
+    SmallVector<Value> tileSizes = sizeBounds;
+    for (auto result : enumerate(indexingMap.getResults())) {
+      unsigned position = result.value().cast<AffineDimExpr>().getPosition();
+      tileOffsets[position] = offsetsVals[result.index()];
+      tileSizes[position] = sizeVals[result.index()];
+    }
+
     SmallVector<Value> valuesToTile = linalgOp.getInputOperands();
     SmallVector<Value> tiledOperands;
     if (tileDestOperands) {

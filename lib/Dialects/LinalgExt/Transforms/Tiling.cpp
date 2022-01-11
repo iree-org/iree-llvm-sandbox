@@ -32,31 +32,39 @@ SmallVector<Value> tileToSCF(PatternRewriter &rewriter, TilingInterface op,
                              TilingInterface clonedOp, ValueRange tileSizes) {
   // Compute lower and upper bounds of the loop nest.
   SmallVector<Range> ranges = clonedOp.getIterationDomain(rewriter);
-  assert(tileSizes.size() == ranges.size() &&
+  assert(tileSizes.size() <= ranges.size() &&
          "expected tile sizes to match the number of loops");
+
+  // Fill the tile sizes with zeros for the untiled dimensions.
+  Location loc = op->getLoc();
+  SmallVector<Value> tileSizesVec(tileSizes.begin(), tileSizes.end());
+  if (ranges.size() != tileSizes.size()) {
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    tileSizesVec.resize(ranges.size(), zero);
+  }
+
   SmallVector<Value> lbs, dims, allDims, steps;
   for (auto it : llvm::enumerate(ranges)) {
     allDims.push_back(it.value().size);
-    if (!isZero(tileSizes[it.index()])) {
+    if (!isZero(tileSizesVec[it.index()])) {
       lbs.push_back(it.value().offset);
       dims.push_back(it.value().size);
-      steps.push_back(tileSizes[it.index()]);
+      steps.push_back(tileSizesVec[it.index()]);
     }
   }
 
   // Generate loop nest: One loop per dimension.
   llvm::SmallPtrSet<Operation *, 1> preservedUses;
   SmallVector<Value> destOperand = clonedOp.getDestinationOperands(rewriter);
-  Location loc = op->getLoc();
   auto loopNest = mlir::scf::buildLoopNest(
       rewriter, loc, lbs, /*ubs=*/dims, steps, ValueRange(destOperand),
       [&](OpBuilder &b, Location loc, ValueRange localIvs,
           ValueRange iterArgs) -> scf::ValueVector {
         // Compute offsets and sizes of ExtractSliceOp.
         SmallVector<Value> offsets =
-            linalg::computeTileOffsets(b, loc, localIvs, tileSizes);
+            linalg::computeTileOffsets(b, loc, localIvs, tileSizesVec);
         SmallVector<Value> sizes =
-            linalg::computeTileSizes(b, loc, localIvs, tileSizes, allDims);
+            linalg::computeTileSizes(b, loc, localIvs, tileSizesVec, allDims);
         // Create ExtractSliceOp: Extract a tile from the PadTensorOp.
         // Note: The PadTensorOp is located outside of the loop nest. It is
         // later moved inside by ExtractSliceOfPadTensorSwapPattern.
@@ -64,7 +72,7 @@ SmallVector<Value> tileToSCF(PatternRewriter &rewriter, TilingInterface op,
             AffineMap::getMultiDimIdentityMap(ranges.size(), b.getContext());
         assert(clonedOp->getNumResults() == 1 && "expected single result op");
         Value tiledOutput =
-            linalg::makeTiledShape(b, loc, clonedOp->getResult(0), tileSizes,
+            linalg::makeTiledShape(b, loc, clonedOp->getResult(0), tileSizesVec,
                                    map, offsets, allDims, sizes);
         auto sliceOp = tiledOutput.getDefiningOp<tensor::ExtractSliceOp>();
         preservedUses.insert(sliceOp);
@@ -146,16 +154,23 @@ struct OpTilingPattern : public OpInterfaceRewritePattern<TilingInterface> {
     if (op->getNumResults() != 1)
       return failure();
 
-    /// Currently only handle operations with all parallel iterator types.
-    if (llvm::any_of(op.getLoopIteratorTypes(), [](StringRef iteratorType) {
-          return iteratorType != getParallelIteratorTypeName();
-        })) {
-      return failure();
-    }
-
+    Location loc = op->getLoc();
     // Get rank and tile sizes.
     SmallVector<Value> tileSizes =
         options.tileSizeComputationFunction(rewriter, op);
+    auto iteratorTypes = op.getLoopIteratorTypes();
+    Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    tileSizes.resize(iteratorTypes.size(), zero);
+
+    /// Currently only handle operations with all parallel iterator types.
+    for (auto iteratorType : enumerate(iteratorTypes)) {
+      if (iteratorType.value() != getParallelIteratorTypeName() &&
+          !isZero(tileSizes[iteratorType.index()])) {
+        return rewriter.notifyMatchFailure(
+            op, "unhandled tiling of non-parallel iterator");
+      }
+    }
+
     auto clonedOp = cast<TilingInterface>(rewriter.clone(*op.getOperation()));
     SmallVector<Value> results = tileToSCF(rewriter, op, clonedOp, tileSizes);
 
