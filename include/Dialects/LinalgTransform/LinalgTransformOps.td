@@ -17,6 +17,7 @@
 include "mlir/IR/OpBase.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/Dialect/PDL/IR/PDLTypes.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
 
 def Linalg_Transform_Dialect : Dialect {
   let name = "linalg_transform";
@@ -34,6 +35,29 @@ def Linalg_Transform_Dialect : Dialect {
 class Linalg_Transform_Operation<string name, list<OpTrait> props = []>
     : Op<Linalg_Transform_Dialect, name, props> {
   let cppNamespace = "::mlir::linalg::transform";
+}
+
+//===----------------------------------------------------------------------===//
+
+def ScopeOp : Linalg_Transform_Operation<"util.scope",
+    [IsolatedFromAbove, DeclareOpInterfaceMethods<RegionBranchOpInterface>]> {
+  let description = [{An operation to restrict transformation scopes.}];
+
+  let regions = (region AnyRegion:$body);
+  let arguments = (ins Variadic<AnyType>:$ins);
+  let results = (outs Variadic<AnyType>:$outs);
+  let assemblyFormat = "`(` operands `)` attr-dict-with-keyword $body `:` functional-type(operands, results)";
+
+  let verifier = [{ return RegionBranchOpInterface::verifyTypes(*this); }];
+}
+
+def ForwardOp : Linalg_Transform_Operation<"util.forward",
+                                           [Terminator, HasParent<"ScopeOp">]> {
+  let description = [{Terminator for a scope operation, indicating the results
+                      that should be forwarded out of the scope.}];
+
+  let arguments = (ins Variadic<AnyType>:$ins);
+  let assemblyFormat = "operands attr-dict `:` type(operands)";
 }
 
 //===----------------------------------------------------------------------===//
