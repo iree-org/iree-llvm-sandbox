@@ -9,8 +9,6 @@ from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence
 
 import numpy
 import pandas
-import seaborn
-import matplotlib
 
 from mlir.execution_engine import *
 from mlir.ir import *
@@ -77,115 +75,21 @@ class Measurements:
     """Return a data frame containing the aggregated data."""
     return self.data
 
-  def plot(self, path: os.path, data_key: str, data_label: str):
-    """Plot the provided measurement type for all problem sizes.
-
-    Plot the problem sizes for every expert, np_types, etc. combination.
-    """
-    config_key_to_plot = "runtime_problem_sizes_dict"
-    config_keys_to_fix = [
-        k for k in self.config_keys if k is not config_key_to_plot]
-    plot_configurations = self.data[config_keys_to_fix].drop_duplicates()
-    # Create a plot for every combination of expert, np_types, etc.
-    for _, plot_configuration in plot_configurations.iterrows():
-      data_to_plot = self._get_data_to_plot(plot_configuration.to_dict())
-      # Plot the selected data.
-      plt = self._plot_data(config_key_to_plot, data_key,
-                            data_label, data_to_plot)
-      plt.get_figure().set_size_inches(6, 3.75)
-      plt.get_figure().tight_layout()
-      file_name = self._get_plot_file_name(plot_configuration.to_dict())
-      plt.get_figure().savefig(os.path.join(path, file_name))
-      plt.get_figure().clf()
-
-
-  def _plot_data(self,
-                 config_key_to_plot: str, data_key: str, data_label: str,
-                 data_to_plot: pandas.DataFrame) -> matplotlib.axes.Axes:
-    """Plot the provided data and configuration combination."""
-    plt = seaborn.violinplot(
-        x=config_key_to_plot, y=data_key, data=data_to_plot)
-    keys, new_labels = self._compress_problem_sizes_label(
-        [text.get_text() for text in plt.xaxis.get_ticklabels()])
-    plt.set(xticklabels=new_labels)
-    plt.set(xlabel=str.format(
-        f"Problem Sizes [{','.join(keys)}]"), ylabel=data_label)
-    plt.set(ylim=(0, 150))
-    plt.tick_params(axis='x', rotation=20)
-    return plt
-
-  def _get_data_to_plot(self,
-              plot_configuration: Mapping[str, str]) -> pandas.DataFrame:
-    """Return the data points for the given plot configuration."""
-    data_to_plot = self.data
-    for k, v in plot_configuration.items():
-      data_to_plot = data_to_plot[data_to_plot[k] == v]
-    return data_to_plot
-
-  def _get_plot_file_name(self,
-              plot_configuration: Mapping[str, str]) -> str:
-    """"Return unique file name for the plot configuration.
-
-    Concat the plot configuration key value pairs and remove special
-    characters that may not be supported by the file system.
-
-    Example:
-    {'expert': 'SingleTilingExpert', 'np_types': 'float32,float32,float32'}
-    ->
-    'plot_expert_SingleTilingExpert_np_types_float32float32float32.pdf'
-    """
-    file_name = "plot"
-    for k, v in plot_configuration.items():
-      alphanumeric = ''.join([c for c in v if c.isalnum()])
-      file_name += str.format(f"_{k}_{alphanumeric}")
-    file_name += ".pdf"
-    return file_name
-
-  def _compress_problem_sizes_label(self,
-              labels: Sequence[str]) -> (Sequence[str], Sequence[str]):
-    """Shorten the problem size lables by removing redundant information.
-
-    Plotting the entire problem size configuration for every axis tick
-    requires a lot of space and results in overlapping labels. The method
-    identifies the dimensions that take different values and filters out
-    the dimensions that are constant for the entire plot. Additionally,
-    the dimension names (it suffices to plot them once) and sizes values
-    are returned seperately.
-
-    Example:
-    ["H=64,W=32", "H=64,W=64"]
-    ->
-    ["W"], ["32", "64"]
-    """
-    label_dicts = []
-    for label in labels:
-      groups = re.findall(r"""([a-zA-Z]+)=(\d+|\[[0-9, ]+\])""", label)
-      label_dicts.append(dict(groups))
-    # Collect all values for a specific key.
-    value_dict = {}
-    for label_dict in label_dicts:
-      for k, v in label_dict.items():
-        if k in value_dict:
-          value_dict[k].add(v)
-        else:
-          value_dict[k] = set([v])
-    # Collect the keys that have multiple values.
-    keys = []
-    for k, v in value_dict.items():
-      if len(v) != 1:
-        keys.append(k)
-    # Collect the keys for every label
-    new_labels = []
-    for label_dict in label_dicts:
-      new_labels.append(",".join([label_dict[k] for k in keys]))
-    return keys, new_labels
+  def dump_to_file(self, file_name: str):
+    """Dump the measurements to a jason file."""
+    # Create the path if needed.
+    directory = os.path.dirname(file_name)
+    if not os.path.exists(directory):
+      os.makedirs(directory)
+    self.data.reset_index(drop=True, inplace=True)
+    self.data.to_json(file_name)
 
   def _stringify_types(self, value: Sequence[np.dtype]) -> str:
     return ",".join([
       repr(dt).lstrip("<class 'numpy.").rstrip("'>") for dt in value])
 
   def _stringify_set(self, value: AbstractSet[str]) -> str:
-    return ",".join([k for k in value])
+    return ",".join([k for k in value]) if value else "[]"
 
   def _stringify_dict(self, value: Mapping[str, ProblemSizes]) -> str:
     return ",".join([
@@ -468,10 +372,10 @@ def test_argparser(benchmark_name: str,
                       nargs='+',
                       help='problem specifications (e.g., -s mk,kn km,kn)',
                       default=default_spec_list)
-  parser.add_argument('--plot_path',
+  parser.add_argument('--dump_data',
                       type=str,
                       nargs='?',
-                      help='plot path (e.g., --plot_path /tmp/matmul)',
+                      help='dump file (e.g., --dump_data /tmp/data.json)',
                       default='')
   return parser.parse_args(sys.argv[1:])
 
@@ -609,12 +513,8 @@ def test_harness(problem_factory: Callable[
         measurements.append('pytorch', np_types, dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
-    plot_path = kwargs.get('plot_path', '')
-    if plot_path != '':
-      if not os.path.exists(plot_path):
-        os.makedirs(plot_path)
-      measurements.plot(plot_path,
-                        'gflop_per_s_per_iter',
-                        'Compute Throughput [GFlop/s]')
+    file_name = kwargs.get('dump_data_to_file', '')
+    if file_name != '':
+      measurements.dump_to_file(file_name)
 
     return measurements
