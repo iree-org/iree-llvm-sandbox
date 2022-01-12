@@ -19,6 +19,7 @@ experiments = {
   "matmul" : {
     "module" : "python.examples.matmul.bench",
     "arguments" : {
+      "n_iters" : 100,
       "expert_list" : ["SingleTiling2D", "DoubleTileAndDecompose2D"],
       "problem_sizes_list" : [
         "18,32,96", "24,64,96", "48,64,128", "480,512,16", "384,256,256",
@@ -32,6 +33,7 @@ experiments = {
   "conv_1d" : {
     "module" : "python.examples.conv.conv_1d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "8,256,32,3,64,[1],[1]", "8,256,32,3,64,[2],[2]",
         "8,988,32,3,64,[1],[1]", "8,988,32,3,64,[2],[2]",
@@ -43,6 +45,7 @@ experiments = {
   "conv_2d" : {
     "module" : "python.examples.conv.conv_2d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "8,16,16,32,3,3,64,[1,1],[1,1]", "8,16,16,32,3,3,64,[2,2],[2,2]",
         "8,26,38,32,3,3,64,[1,1],[1,1]", "8,26,38,32,3,3,64,[2,2],[2,2]",
@@ -54,6 +57,7 @@ experiments = {
   "depthwise_conv_1d" : {
     "module" : "python.examples.depthwise_conv.depthwise_conv_1d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "8,256,32,3,[1],[1]", "8,256,32,3,[2],[2]",
         "8,988,32,3,[1],[1]", "8,988,32,3,[2],[2]",
@@ -65,6 +69,7 @@ experiments = {
   "depthwise_conv_2d" : {
     "module" : "python.examples.depthwise_conv.depthwise_conv_2d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "8,16,16,32,3,3,[1,1],[1,1]", "8,16,16,32,3,3,[2,2],[2,2]",
         "8,26,38,32,3,3,[1,1],[1,1]", "8,26,38,32,3,3,[2,2],[2,2]",
@@ -76,6 +81,7 @@ experiments = {
   "row_reduction_2d" : {
     "module" : "python.examples.reduction.row_reduction_2d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "100,256",
         "200,512",
@@ -90,6 +96,7 @@ experiments = {
   "column_reduction_2d" : {
     "module" : "python.examples.reduction.column_reduction_2d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "100,256",
         "200,512",
@@ -104,6 +111,7 @@ experiments = {
   "transpose_2d" : {
     "module" : "python.examples.transpose.transpose_2d_bench",
     "arguments" : {
+      "n_iters" : 100,
       "problem_sizes_list" : [
         "260,280", "270,280", "280,280", "300,280", "256,280",
         "260,256", "270,256", "280,256", "300,256", "256,256",
