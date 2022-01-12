@@ -77,7 +77,8 @@ class TileOp:
   """Specialization for the TileOp class."""
 
   def __init__(self,
-               target: Union[ir.Value, str, ir.FlatSymbolRefAttr],
+               target: Union[ir.Value, ir.Operation, ir.OpView, str,
+                             ir.FlatSymbolRefAttr],
                *,
                sizes: IntListArg = None,
                interchange: IntListArg = None,
@@ -99,35 +100,23 @@ class TileOp:
     # FIXME: don't rely on parsing when the PDL dialect is available in Python
     operation_type = ir.Type.parse("!pdl.operation")
 
-    if isinstance(target, ir.Value):
-      super().__init__(operation_type,
-                       target,
-                       None,
-                       sizes,
-                       interchange,
-                       pad,
-                       pack_paddings,
-                       hoist_paddings,
-                       scalarize_dyn_dims,
-                       generalize,
-                       loc=loc,
-                       ip=ip)
-      return
-
     if isinstance(target, str):
       target = ir.FlatSymbolRefAttr.get(target)
-    super().__init__(operation_type,
-                     None,
-                     target,
-                     sizes,
-                     interchange,
-                     pad,
-                     pack_paddings,
-                     hoist_paddings,
-                     scalarize_dyn_dims,
-                     generalize,
-                     loc=loc,
-                     ip=ip)
+
+      super().__init__(
+          operation_type,
+          target if not isinstance(target, ir.FlatSymbolRefAttr) else None,
+          target if isinstance(target, ir.FlatSymbolRefAttr) else None,
+          sizes,
+          interchange,
+          pad,
+          pack_paddings,
+          hoist_paddings,
+          scalarize_dyn_dims,
+          generalize,
+          loc=loc,
+          ip=ip)
+      return
 
 
 class VectorizeOp:
