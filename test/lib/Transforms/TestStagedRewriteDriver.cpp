@@ -12,10 +12,10 @@
 
 #include "Transforms/StagedPatternRewriteDriver.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Visitors.h"
 #include "mlir/Pass/Pass.h"
 #include "llvm/ADT/ScopeExit.h"
-#include <mlir/IR/MLIRContext.h>
 
 using namespace mlir;
 

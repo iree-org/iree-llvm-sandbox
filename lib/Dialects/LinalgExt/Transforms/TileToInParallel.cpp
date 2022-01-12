@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <mlir/IR/Builders.h>
-#include <mlir/IR/BuiltinOps.h>
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
 
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/PassDetail.h"

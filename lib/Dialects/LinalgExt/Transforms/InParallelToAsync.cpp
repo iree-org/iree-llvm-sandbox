@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/BuiltinOps.h"
 #include <cstdlib>
-#include <mlir/IR/BlockAndValueMapping.h>
-#include <mlir/IR/BuiltinOps.h>
 
 #include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/PassDetail.h"

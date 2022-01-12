@@ -14,7 +14,7 @@
 #include "mlir/IR/OpDefinition.h"
 
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.h.inc"
-#include <mlir/IR/BuiltinAttributes.h>
+#include "mlir/IR/BuiltinAttributes.h"
 
 namespace mlir {
 /// A trait for transform ops that can be targeted at either the result of a
