@@ -86,7 +86,7 @@ struct TestVectorMaskingUtils
       OpBuilder builder(funcOp);
       if (!predicateOp(builder, funcOp, &funcOp.body(),
                        createPredicateForFuncOp))
-        funcOp.emitError("Predication of function failed");
+        funcOp.emitRemark("Predication of function failed");
     }
   }
 

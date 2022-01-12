@@ -23,6 +23,7 @@ config.test_source_root = os.path.dirname(__file__)
 # test_exec_root: The path where tests shall execute.
 build_dir = os.environ["IREE_LLVM_SANDBOX_BUILD_DIR"]
 config.test_exec_root = os.path.join(build_dir, 'test')
+lib_dir = os.path.join(build_dir, 'lib')
 
 #config.use_default_substitutions()
 config.excludes = [
@@ -42,6 +43,8 @@ config.excludes = [
 
 config.substitutions.extend([
     ("%PYTHON", sys.executable),
+    ("%mlir_runner_utils_dir", lib_dir),
+    ("%shlibext", ".so"),
 ])
 
 # Add the build/bin directory to the path.

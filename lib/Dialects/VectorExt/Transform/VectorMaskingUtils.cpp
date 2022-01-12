@@ -80,6 +80,8 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
   OpBuilder::InsertionGuard guard(builder);
   builder.setInsertionPointToStart(&blockToPredicate);
   Value predicate = createPredicate(builder);
+  if (!predicate)
+    return llvm::None;
 
   // Generate the vector.predicate operation and move 'opsToMove' within its
   // truePredicateRegion. We have to rewire the def-use chain for those
