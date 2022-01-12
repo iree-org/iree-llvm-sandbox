@@ -14,6 +14,7 @@ include "Dialects/LinalgExt/LinalgExtInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/TilingInterface.td"
+include "mlir/Interfaces/ViewLikeInterface.td"
 
 class LinalgExt_PureOp<string mnemonic, list<OpTrait> traits = []> :
     Op<LinalgExt_Dialect, mnemonic, traits> {
@@ -286,7 +287,7 @@ def LinalgExt_EndPerformConcurrentlyOp : LinalgExt_PureOp<"end_perform_concurren
 }
 
 def LinalgExt_ParallelInsertSliceOp : LinalgExt_PureOp<"parallel_insert_slice", [
-       AttrSizedOperandSegments]> {
+       AttrSizedOperandSegments, OffsetSizeAndStrideOpInterface]> {
   let summary = "updates slices of a tensor concurrently";
   let description = [{
     Updates slices of a full tensor with multiple sub-slices concurrently.
@@ -313,16 +314,51 @@ def LinalgExt_ParallelInsertSliceOp : LinalgExt_PureOp<"parallel_insert_slice", 
     AnyRankedTensor:$dest,
     Variadic<Index>:$offsets,
     Variadic<Index>:$sizes,
-    Variadic<Index>:$strides
+    Variadic<Index>:$strides,
+    I64ArrayAttr:$static_offsets,
+    I64ArrayAttr:$static_sizes,
+    I64ArrayAttr:$static_strides
   );
   let assemblyFormat = [{
-    $source `into` $dest `[` $offsets `]` `[` $sizes `]` `[` $strides `]`
+    $source `into` $dest ``
+    custom<OperandsOrIntegersOffsetsOrStridesList>($offsets, $static_offsets)
+    custom<OperandsOrIntegersSizesList>($sizes, $static_sizes)
+    custom<OperandsOrIntegersOffsetsOrStridesList>($strides, $static_strides)
     attr-dict `:` type($source) `into` type($dest)
   }];
 
   let extraClassDeclaration = [{
     Type yieldedType() { return dest().getType(); }
+
+    RankedTensorType getSourceType() {
+      return source().getType().cast<RankedTensorType>();
+    }
+
+    /// Return the expected rank of each of the `static_offsets`, `static_sizes`
+    /// and `static_strides` attributes.
+    std::array<unsigned, 3> getArrayAttrMaxRanks() {
+      unsigned rank = getSourceType().getRank();
+      return {rank, rank, rank};
+    }
+
+    /// Return the number of leading operands before `offsets`, `sizes` and
+    /// `strides` operands.
+    static unsigned getOffsetSizeAndStrideStartOperandIndex() { return 1; }
   }];
+
+  let builders = [
+    // Build a ParallelInsertSliceOp with mixed static and dynamic entries.
+    OpBuilder<(ins "Value":$source, "Value":$dest,
+      "ArrayRef<OpFoldResult>":$offsets, "ArrayRef<OpFoldResult>":$sizes,
+      "ArrayRef<OpFoldResult>":$strides,
+      CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)>,
+    // Build a ParallelInsertSliceOp with dynamic entries.
+    OpBuilder<(ins "Value":$source, "Value":$dest,
+      "ValueRange":$offsets, "ValueRange":$sizes, "ValueRange":$strides,
+      CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)>
+  ];
+
+  let hasCanonicalizer = 1;
 }
 
 #endif // DIALECTS_LINALGEXT_LINALGEXTOPS
