@@ -45,7 +45,7 @@ keys = ['N', 'W', 'C', 'KW', 'F', 'strides', 'dilations']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1000
+  n_iters = 100
 
   # Specify default configuration and parse command line.
   args = test_argparser(
