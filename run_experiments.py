@@ -14,44 +14,65 @@ import pandas
 from typing import Any, Mapping, Sequence
 
 
-
 # Experimental setup.
 experiments = {
-  'matmul' : {
-    'module' : 'python.examples.matmul.bench',
-    'arguments' : {
-      'expert_list' : ['SingleTiling2D', 'DoubleTileAndDecompose2D'],
-      'problem_sizes_list' : [
-        '18,32,96', '24,64,96', '48,64,128', '480,512,16', '384,256,256',
-        '480,512,256', '784,128,512', '1020,1152,1152', '1920,2304,2304',
-        '2304,2304,2560'
+  "matmul" : {
+    "module" : "python.examples.matmul.bench",
+    "arguments" : {
+      "expert_list" : ["SingleTiling2D", "DoubleTileAndDecompose2D"],
+      "problem_sizes_list" : [
+        "18,32,96", "24,64,96", "48,64,128", "480,512,16", "384,256,256",
+        "480,512,256", "784,128,512", "1020,1152,1152", "1920,2304,2304",
+        "2304,2304,2560"
       ],
-      'spec_list' : ['mk,kn'],
-      'dynamic_at_compile_time_list': ['[]']
+      "spec_list" : ["mk,kn"],
+      "dynamic_at_compile_time_list": ["[]"]
     }
   },
-  'conv_1d' : {
-    'module' : 'python.examples.conv.conv_1d_bench',
-    'arguments' : {
-      'problem_sizes_list' : [
-        '8,256,32,3,64,[1],[1]', '8,256,32,3,64,[2],[2]',
-        '8,988,32,3,64,[1],[1]', '8,988,32,3,64,[2],[2]',
-        '8,4144,32,3,64,[1],[1]', '8,4144,32,3,64,[2],[2]',
-        '8,11300,32,3,64,[1],[1]', '8,11300,32,3,64,[2],[2]'
+  "conv_1d" : {
+    "module" : "python.examples.conv.conv_1d_bench",
+    "arguments" : {
+      "problem_sizes_list" : [
+        "8,256,32,3,64,[1],[1]", "8,256,32,3,64,[2],[2]",
+        "8,988,32,3,64,[1],[1]", "8,988,32,3,64,[2],[2]",
+        "8,4144,32,3,64,[1],[1]", "8,4144,32,3,64,[2],[2]",
+        "8,11300,32,3,64,[1],[1]", "8,11300,32,3,64,[2],[2]"
       ],
     }
   },
-  'conv_2d' : {
-    'module' : 'python.examples.conv.conv_2d_bench',
-    'arguments' : {
-      'problem_sizes_list' : [
-        '8,16,16,32,3,3,64,[1,1],[1,1]', '8,16,16,32,3,3,64,[2,2],[2,2]',
-        '8,26,38,32,3,3,64,[1,1],[1,1]', '8,26,38,32,3,3,64,[2,2],[2,2]',
-        '8,56,74,32,3,3,64,[1,1],[1,1]', '8,56,74,32,3,3,64,[2,2],[2,2]',
-        '8,100,113,32,3,3,64,[1,1],[1,1]', '8,100,113,32,3,3,64,[2,2],[2,2]'
+  "conv_2d" : {
+    "module" : "python.examples.conv.conv_2d_bench",
+    "arguments" : {
+      "problem_sizes_list" : [
+        "8,16,16,32,3,3,64,[1,1],[1,1]", "8,16,16,32,3,3,64,[2,2],[2,2]",
+        "8,26,38,32,3,3,64,[1,1],[1,1]", "8,26,38,32,3,3,64,[2,2],[2,2]",
+        "8,56,74,32,3,3,64,[1,1],[1,1]", "8,56,74,32,3,3,64,[2,2],[2,2]",
+        "8,100,113,32,3,3,64,[1,1],[1,1]", "8,100,113,32,3,3,64,[2,2],[2,2]"
       ],
     }
-  }
+  },
+  "depthwise_conv_1d" : {
+    "module" : "python.examples.depthwise_conv.depthwise_conv_1d_bench",
+    "arguments" : {
+      "problem_sizes_list" : [
+        "8,256,32,3,[1],[1]", "8,256,32,3,[2],[2]",
+        "8,988,32,3,[1],[1]", "8,988,32,3,[2],[2]",
+        "8,4144,32,3,[1],[1]", "8,4144,32,3,[2],[2]",
+        "8,11300,32,3,[1],[1]", "8,11300,32,3,[2],[2]"
+      ],
+    }
+  },
+  "depthwise_conv_2d" : {
+    "module" : "python.examples.depthwise_conv.depthwise_conv_2d_bench",
+    "arguments" : {
+      "problem_sizes_list" : [
+        "8,16,16,32,3,3,[1,1],[1,1]", "8,16,16,32,3,3,[2,2],[2,2]",
+        "8,26,38,32,3,3,[1,1],[1,1]", "8,26,38,32,3,3,[2,2],[2,2]",
+        "8,56,74,32,3,3,[1,1],[1,1]", "8,56,74,32,3,3,[2,2],[2,2]",
+        "8,100,113,32,3,3,[1,1],[1,1]", "8,100,113,32,3,3,[2,2],[2,2]"
+      ],
+    }
+  },
 }
 
 
@@ -95,8 +116,10 @@ def _compress_problem_sizes_label(
   return keys, new_labels
 
 
-def _plot_data(config_key_to_plot: str, data_key: str, data_label: str,
-        data_to_plot: pandas.DataFrame) -> matplotlib.axes.Axes:
+def _plot_data(config_key_to_plot: str,
+            data_key: str, data_label: str,
+            data_to_plot: pandas.DataFrame,
+            peak_value: int, peak_label: str) -> matplotlib.axes.Axes:
   """Plot the provided data and configuration combination."""
   plt = seaborn.violinplot(
       x=config_key_to_plot, y=data_key, data=data_to_plot)
@@ -105,8 +128,12 @@ def _plot_data(config_key_to_plot: str, data_key: str, data_label: str,
   plt.set(xticklabels=new_labels)
   plt.set(xlabel=str.format(
       f"Problem Sizes [{','.join(keys)}]"), ylabel=data_label)
-  plt.set(ylim=(0, 150))
-  plt.tick_params(axis='x', rotation=20)
+  plt.set(ylim=(0, round(1.02 * peak_value)))
+  roofline = plt.axhline(y=peak_value)
+  plt.text(-.4, peak_value * 0.99, peak_label,
+           horizontalalignment="left", verticalalignment="top",
+           color=roofline.get_color(), fontsize=9)
+  plt.tick_params(axis="x", rotation=20)
   return plt
 
 
@@ -133,14 +160,15 @@ def _get_plot_file_name(plot_name: str,
   """
   file_name = plot_name
   for k, v in plot_configuration.items():
-    alphanumeric = ''.join([c for c in v if c.isalnum()])
+    alphanumeric = "".join([c for c in v if c.isalnum()])
     file_name += str.format(f"_{k}_{alphanumeric}")
   file_name += ".pdf"
   return file_name
 
 
 def _plot_quantity(plot_name: str, path: os.path, data: pandas.DataFrame,
-            data_key: str, data_label: str):
+                   data_key: str, data_label: str,
+                   peak_value: int, peak_label: str):
   """Plot the provided quantity for all problem sizes.
 
   Plot the problem sizes for every expert, np_types, etc. combination.
@@ -152,7 +180,8 @@ def _plot_quantity(plot_name: str, path: os.path, data: pandas.DataFrame,
   for _, plot_configuration in plot_configurations.iterrows():
     data_to_plot = _get_data_to_plot(data, plot_configuration.to_dict())
     # Plot the selected data.
-    plt = _plot_data(config_key_to_plot, data_key, data_label, data_to_plot)
+    plt = _plot_data(config_key_to_plot, data_key,
+                     data_label, data_to_plot, peak_value, peak_label)
     plt.get_figure().set_size_inches(6, 3.75)
     plt.get_figure().tight_layout()
     file_name = _get_plot_file_name(plot_name, plot_configuration.to_dict())
@@ -195,20 +224,20 @@ def _parse_arguments() -> argparse.Namespace:
   peak_bandwidth: Peak bandwidth of the benchmark system.
   """
   parser = argparse.ArgumentParser(description="run experiments")
-  parser.add_argument('--base_path', '-p',
+  parser.add_argument("--base_path", "-p",
                       type=str,
-                      nargs='?',
-                      help='base path (e.g., -p benchmarks/)',
-                      default='benchmarks/')
-  parser.add_argument('--peak_throughput', '-t',
-                      type=float,
-                      nargs='?',
-                      help='peak throughput (e.g., -t 192)',
+                      nargs="?",
+                      help="base path (e.g., -p benchmarks/)",
+                      default="benchmarks/")
+  parser.add_argument("--peak_throughput", "-t",
+                      type=int,
+                      nargs="?",
+                      help="peak throughput (e.g., -t 192)",
                       default=192)
-  parser.add_argument('--peak_bandwidth', '-b',
-                      type=float,
-                      nargs='?',
-                      help='peak bandwidth (e.g., -b 100)',
+  parser.add_argument("--peak_bandwidth", "-b",
+                      type=int,
+                      nargs="?",
+                      help="peak bandwidth (e.g., -b 100)",
                       default=100)
   return parser.parse_args(sys.argv[1:])
 
@@ -219,7 +248,7 @@ def main():
   for name, experiment in experiments.items():
     print(str.format(f"- running {name}"))
     path = os.path.join(args.base_path, name)
-    _run_benchmark(name, experiment['module'], path, experiment['arguments'])
+    _run_benchmark(name, experiment["module"], path, experiment["arguments"])
   # Plot the compute throughputs.
   for name, experiment in experiments.items():
     print(str.format(f"- plotting {name}"))
@@ -227,10 +256,16 @@ def main():
     path = os.path.join(args.base_path, name)
     file_name = os.path.join(path, name + ".json")
     data = pandas.read_json(file_name)
-    # Plot the the throughput.
-    _plot_quantity('throughput', path, data, 'gflop_per_s_per_iter',
-                   'Compute Throughput [GFlop/s]')
-
+    # Plot the compute throughput.
+    _plot_quantity("throughput", path, data, "gflop_per_s_per_iter",
+                   "Compute Throughput [GFlop/s]",
+                   args.peak_throughput,
+                   str.format(f"Rpeak = {args.peak_throughput} GFlop/s"))
+    # Plot the memory bandwidth.
+    _plot_quantity("bandwidth", path, data, "gbyte_per_s_per_iter",
+                   "Bandwidth [GB/s]",
+                   args.peak_bandwidth,
+                   str.format(f"Max Bandwidth = {args.peak_bandwidth} GB/s"))
 
 if __name__ == '__main__':
   main()
