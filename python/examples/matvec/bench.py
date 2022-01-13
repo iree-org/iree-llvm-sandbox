@@ -47,12 +47,11 @@ keys = ['m', 'n']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 100
-
   # Specify default configuration and parse command line.
   args = test_argparser(
     "matvec benchmark",
-    default_problem_sizes_list = [
+    default_n_iters=100,
+    default_problem_sizes_list=[
       [192, 128],
       [260, 280],
       [1000, 1000],
@@ -60,9 +59,9 @@ def main():
       [2040, 2040],
       [4000, 4000],
     ],
-    default_expert_list = all_names,
-    default_dynamic_at_compile_time_list = [],
-    default_spec_list = [])
+    default_expert_list=all_names,
+    default_dynamic_at_compile_time_list=[],
+    default_spec_list=[])
 
   def numpy_kernel(args, sizes, types):
     A, y, x = args
@@ -78,7 +77,7 @@ def main():
       lambda s, t: EinsumProblem('mn,n'), [[np.float32] * 3],
       test_sizes(keys, args.problem_sizes_list),
       test_experts(all_experts, all_names, args.expert_list),
-      n_iters=n_iters,
+      n_iters=args.n_iters,
       function_name='matvec_on_tensors',
       dump_data_to_file=args.dump_data,
       numpy_benchmark=numpy_kernel,

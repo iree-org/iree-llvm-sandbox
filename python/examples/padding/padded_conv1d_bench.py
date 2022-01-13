@@ -35,18 +35,17 @@ keys = ['N', 'W', 'C', 'KW', 'F', 'WpadL', 'WpadR', 'stride', 'dilation']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1
-
   # Specify default configuration and parse command line.
   args = test_argparser(
     "padded conv 1d benchmark",
+    default_n_iters=1,
     #  N   W   C  KW   F  WpadL WpadR stride dilation
-    default_problem_sizes_list = [
+    default_problem_sizes_list=[
       [8, 16, 32,  3, 64,     0,    1,     1,       1], \
     ],
-    default_expert_list = all_names,
-    default_dynamic_at_compile_time_list = [],
-    default_spec_list = [])
+    default_expert_list=all_names,
+    default_dynamic_at_compile_time_list=[],
+    default_spec_list=[])
 
   test_harness(lambda sizes, t: Padded_Conv1d_NWC_WCF_Problem(
       WpadL=sizes['WpadL'],
@@ -55,7 +54,7 @@ def main():
       dilation=sizes['dilation']), [[np.float32] * 3],
                test_sizes(keys, args.problem_sizes_list),
                test_experts(all_experts, all_names, args.expert_list),
-               n_iters=n_iters,
+               n_iters=args.n_iters,
                function_name=fun_name,
                dump_data_to_file=args.dump_data)
 

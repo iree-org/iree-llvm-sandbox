@@ -91,12 +91,11 @@ keys = ['m', 'n', 'k']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 100
-
   # Specify default configuration and parse command line.
   args = test_argparser(
     "matmul benchmark",
-    default_problem_sizes_list = [
+    default_n_iters=100,
+    default_problem_sizes_list=[
       [1, 384, 384],
       [128, 384, 384],
       [128, 1536, 384],
@@ -109,13 +108,13 @@ def main():
       [1024, 1024, 1024],
       [2048, 2048, 347]
     ],
-    default_expert_list = all_names,
-    default_dynamic_at_compile_time_list = [
-        [],  # case 1: static at compile time
-        ['m', 'k'],  # case 2: partially dynamic at compile time
-        keys  # case 3: fully dynamic at compile time
+    default_expert_list=all_names,
+    default_dynamic_at_compile_time_list=[
+      [],  # case 1: static at compile time
+      ['m', 'k'],  # case 2: partially dynamic at compile time
+      keys  # case 3: fully dynamic at compile time
     ],
-    default_spec_list = [
+    default_spec_list=[
       'km,kn',  # C += A^T.B  fastest
       'mk,kn',  # C += A.B
       'mk,nk'   # C += A.B^T  slowest
@@ -146,7 +145,7 @@ def main():
       test_harness(lambda s, t: EinsumProblem(spec), [[np.float32] * 3],
                    test_sizes(keys, args.problem_sizes_list),
                    test_experts(all_experts, all_names, args.expert_list),
-                   n_iters=n_iters,
+                   n_iters=args.n_iters,
                    dynamic_at_compile_time_sizes=set(dynamic_at_compile_time).intersection(keys),
                    function_name='matmul_on_tensors',
                    dump_ir_to_file='/tmp/abc.mlir',

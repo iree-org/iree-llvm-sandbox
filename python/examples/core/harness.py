@@ -346,6 +346,7 @@ def _parse_dimension_list(argument: str) -> Sequence[str]:
 
 
 def test_argparser(benchmark_name: str,
+                   default_n_iters: int,
                    default_problem_sizes_list: Sequence[Sequence[int]],
                    default_expert_list: Sequence[str],
                    default_dynamic_at_compile_time_list: Sequence[Sequence[str]],
@@ -356,12 +357,18 @@ def test_argparser(benchmark_name: str,
 
   Arguments:
   benchmark_name: Benchmark name.
+  default_n_iters: Default number of iterations.
   default_problem_sizes_list: Default problem sizes.
   default_expert_list: Default experts.
   default_dynamic_at_compile_time_list: Default dynamic at compile time dimensions.
   default_spec_list: Default specification list.
   """
   parser = argparse.ArgumentParser(description=benchmark_name)
+  parser.add_argument('--n_iters', '-i',
+                      type=int,
+                      nargs='?',
+                      help='number of iterations (e.g., -i 100)',
+                      default=default_n_iters)
   parser.add_argument('--problem_sizes_list', '-p',
                       type=_parse_problem_sizes,
                       nargs='+',

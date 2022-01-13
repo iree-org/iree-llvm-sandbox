@@ -67,12 +67,11 @@ keys = ['M', 'N']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 1000
-
   # Specify default configuration and parse command line.
   args = test_argparser(
     "transpose 2d benchmark",
-    default_problem_sizes_list = [
+    default_n_iters=1000,
+    default_problem_sizes_list=[
       # The objective of these problem sizes is to run an experiment where we
       # control register tile sizes to stress test different implementations of
       # vector.transpose while isolating the cases with boundary conditions.
@@ -128,9 +127,9 @@ def main():
       # [4096, 4096],
       # [6912, 4608],
     ],
-    default_expert_list = [],
-    default_dynamic_at_compile_time_list = [],
-    default_spec_list = [])
+    default_expert_list=[],
+    default_dynamic_at_compile_time_list=[],
+    default_spec_list=[])
 
   for problem_sizes in args.problem_sizes_list:
     experts = all_experts(problem_sizes, transpose_avx2_lowering=False)
@@ -141,7 +140,7 @@ def main():
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  experts,
-                 n_iters=n_iters,
+                 n_iters=args.n_iters,
                  function_name=fun_name,
                  dump_ir_to_file='/tmp/abc.mlir',
                  dump_obj_to_file='/tmp/abc.o',

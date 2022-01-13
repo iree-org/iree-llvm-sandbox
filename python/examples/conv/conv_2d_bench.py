@@ -45,13 +45,12 @@ keys = ['N', 'H', 'W', 'C', 'KH', 'KW', 'F', 'strides', 'dilations']
 
 # CHECK-NOT: FAILURE
 def main():
-  n_iters = 100
-
   # Specify default configuration and parse command line.
   args = test_argparser(
     "conv 2d benchmark",
+    default_n_iters=100,
     #  N   H   W   C  KH  KW   F     st      dil
-    default_problem_sizes_list = [
+    default_problem_sizes_list=[
       [8, 16, 16, 32, 3, 3, 64, [1, 1], [1, 1]],
       [8, 16, 16, 32, 3, 3, 64, [1, 2], [1, 2]],
       [8, 16, 16, 32, 3, 3, 64, [2, 1], [1, 2]],
@@ -59,9 +58,9 @@ def main():
       [8, 16, 16, 32, 3, 3, 64, [2, 3], [3, 2]],
       [8, 16, 16, 32, 3, 3, 64, [3, 2], [2, 3]],
     ],
-    default_expert_list = all_names,
-    default_dynamic_at_compile_time_list = [],
-    default_spec_list = [])
+    default_expert_list=all_names,
+    default_dynamic_at_compile_time_list=[],
+    default_spec_list=[])
 
   test_harness(
       lambda sizes, types: ConvolutionProblem('NHWC',
@@ -71,7 +70,7 @@ def main():
       [[np.float32] * 3],
       test_sizes(keys, args.problem_sizes_list),
       test_experts(all_experts, all_names, args.expert_list),
-      n_iters=n_iters,
+      n_iters=args.n_iters,
       function_name=fun_name,
       dump_ir_to_file='/tmp/abcd.mlir',
       dump_obj_to_file='/tmp/abcd.o',
