@@ -22,7 +22,7 @@ struct GreedyRewriteConfig;
 LogicalResult applyPatternsAndFoldGreedily(
     MutableArrayRef<Region> regions, const FrozenRewritePatternSet &patterns,
     const GreedyRewriteConfig &config, RewriteListener *listener);
-LogicalResult applyPatternsAndFoldGreedily(
+inline LogicalResult applyPatternsAndFoldGreedily(
     Operation *op, const FrozenRewritePatternSet &patterns,
     const GreedyRewriteConfig &config, RewriteListener *listener) {
   return applyPatternsAndFoldGreedily(op->getRegions(), patterns, config,
