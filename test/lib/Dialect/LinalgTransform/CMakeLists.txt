@@ -3,6 +3,9 @@ add_mlir_library(MLIRLinalgTransformTestPasses
 
   EXCLUDE_FROM_LIBMLIR
 
+  DEPENDS
+  mlir-headers
+
   LINK_LIBS PUBLIC
   MLIRPass
   MLIRLinalgTransformTransforms

@@ -4,6 +4,7 @@ add_mlir_library(MLIRLinalgExt
   LinalgExtOps.cpp
 
   DEPENDS
+  mlir-headers
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
   MLIRLinalgExtPassIncGen

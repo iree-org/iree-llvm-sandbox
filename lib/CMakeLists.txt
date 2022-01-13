@@ -57,6 +57,7 @@ add_mlir_library(IREELinalgTensorSandboxDriver
   ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
 
   DEPENDS
+  mlir-headers
   ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
   MLIRLinalgOpsIncGen
 )
@@ -80,6 +81,7 @@ add_mlir_library(IREELinalgTensorSandboxRegistration
   MLIRVectorExtTestPasses
 
   DEPENDS
+  mlir-headers
   ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
   MLIRLinalgOpsIncGen
   MLIRLinalgTransformOpsIncGen
@@ -89,8 +91,13 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
   CAPI.cpp
 
   PARTIAL_SOURCES_INTENDED
+
+  DEPENDS
+  mlir-headers
+
   LINK_LIBS PRIVATE
   MLIRCAPIRegistration
+  MLIRIR
   MLIRPass
 
   # Sandbox libraries

@@ -3,6 +3,7 @@ add_mlir_library(MLIRVectorExtTransform
   VisitorUtils.cpp
 
   DEPENDS
+  mlir-headers
   MLIRVectorExt
 
   LINK_LIBS PUBLIC

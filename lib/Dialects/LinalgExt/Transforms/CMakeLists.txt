@@ -10,6 +10,7 @@ add_mlir_library(MLIRLinalgExtTransforms
 
   PARTIAL_SOURCES_INTENDED
   DEPENDS
+  mlir-headers
   MLIRLinalgExt
 
   LINK_LIBS PUBLIC

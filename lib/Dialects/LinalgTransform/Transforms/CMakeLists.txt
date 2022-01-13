@@ -5,6 +5,9 @@ add_mlir_library(MLIRLinalgTransformTransforms
   TransformInterpreter.cpp
   TrackingListener.cpp
 
+  DEPENDS
+  mlir-headers
+
   LINK_LIBS PUBLIC
   IREELinalgTensorSandboxTransforms
   MLIRAffineToStandard
