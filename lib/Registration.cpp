@@ -86,6 +86,7 @@ void registerTestPasses() {
 
 void mlir::registerOutsideOfDialectRegistry() {
   registerAllPasses();
+  registerDriverPasses();
   linalg_ext::registerLinalgExtPasses();
   registerExperimentalPasses();
   registerTestPasses();
