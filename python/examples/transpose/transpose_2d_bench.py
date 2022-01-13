@@ -40,12 +40,23 @@ def all_experts(problem_sizes: List[int], transpose_avx2_lowering):
                                 transpose_lowering='shuffle',
                                 transpose_avx2_lowering=transpose_avx2_lowering)
 
-  return [e.print_ir(after_all=False)
+  # Compute the expert names.
+  tile1_str = str.format(f"{sizes1[0]}x{sizes1[1]}")
+  tile2_str = str.format(f"{sizes2[0]}x{sizes2[1]}")
+  avx_str = "AVX2" if transpose_avx2_lowering else ""
+  all_names = [
+    str.format(f"Transpose2D{tile2_str}{avx_str}Expert"),
+    str.format(f"Transpose2D{tile1_str}{tile2_str}{avx_str}Expert")
+  ]
+
+  # Compute the experts.
+  all_experts = [e.print_ir(after_all=False)
       for e in [\
           tile1 + vectorize + lowering,\
           tile2 + vectorize + lowering,
                ]]
 
+  return dict(zip(all_names, all_experts))
 
 ################################################################################
 ### Problem instantiations.
@@ -57,7 +68,11 @@ keys = ['M', 'N']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1000
-  problem_size_list = [
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "transpose 2d benchmark",
+    default_problem_sizes_list = [
       # The objective of these problem sizes is to run an experiment where we
       # control register tile sizes to stress test different implementations of
       # vector.transpose while isolating the cases with boundary conditions.
@@ -112,11 +127,15 @@ def main():
       # TODO: this is too slow atm.
       # [4096, 4096],
       # [6912, 4608],
-  ]
+    ],
+    default_expert_list = [],
+    default_dynamic_at_compile_time_list = [],
+    default_spec_list = [])
 
-  for problem_sizes in problem_size_list:
-    experts = all_experts(problem_sizes, transpose_avx2_lowering=False) + \
-              all_experts(problem_sizes, transpose_avx2_lowering=True)
+  for problem_sizes in args.problem_sizes_list:
+    experts = all_experts(problem_sizes, transpose_avx2_lowering=False)
+    experts.update(all_experts(problem_sizes, transpose_avx2_lowering=True))
+
     test_harness(lambda s, t: TransposeNDProblem(permutation=[1, 0],
                                                  op_builder=transpose_2d),
                  [[np.float32] * 2],
@@ -125,7 +144,8 @@ def main():
                  n_iters=n_iters,
                  function_name=fun_name,
                  dump_ir_to_file='/tmp/abc.mlir',
-                 dump_obj_to_file='/tmp/abc.o')
+                 dump_obj_to_file='/tmp/abc.o',
+                 dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':
