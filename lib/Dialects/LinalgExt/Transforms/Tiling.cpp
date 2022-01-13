@@ -13,7 +13,6 @@
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/IR/Identifier.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
@@ -232,7 +231,7 @@ void LinalgExtTilingPass::runOnOperation() {
 
   auto options = linalg::LinalgTilingOptions().setTileSizes(tileSizes);
   auto filter = linalg::LinalgTransformationFilter(
-      ArrayRef<Identifier>{}, Identifier::get("tiled", context));
+      ArrayRef<StringAttr>{}, StringAttr::get(context, "tiled"));
   patterns.insert<OpTilingPattern, SliceOpTiledOpSwapPattern>(context, options,
                                                               filter);
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));

@@ -29,19 +29,21 @@ struct FuseFillOutputIntoGenericOpPattern
                                      LinalgTransformationFilter filter,
                                      MLIRContext *context,
                                      PatternBenefit benefit = 1)
-      : OpInterfaceRewritePattern<LinalgOp>(context, benefit),
-        filter(filter),
+      : OpInterfaceRewritePattern<LinalgOp>(context, benefit), filter(filter),
         options(options) {}
 
   LogicalResult matchAndRewrite(LinalgOp linalgOp,
                                 PatternRewriter &rewriter) const override {
-    if (failed(filter.checkAndNotify(rewriter, linalgOp))) return failure();
+    if (failed(filter.checkAndNotify(rewriter, linalgOp)))
+      return failure();
 
     auto tiledOp = tileLinalgOp(rewriter, linalgOp, options);
-    if (failed(tiledOp)) return failure();
+    if (failed(tiledOp))
+      return failure();
 
     auto outerLoop = dyn_cast<scf::ForOp>(tiledOp->loops.front());
-    if (!outerLoop) return failure();
+    if (!outerLoop)
+      return failure();
 
     if (failed(FuseFillOp(rewriter, outerLoop, tiledOp->op))) {
       return failure();
@@ -54,7 +56,7 @@ struct FuseFillOutputIntoGenericOpPattern
     return success();
   }
 
- private:
+private:
   // Replaces
   //
   // %0 = linalg.fill(%cst, %out)
@@ -83,21 +85,25 @@ struct FuseFillOutputIntoGenericOpPattern
   // the current value of the output tile.
   LogicalResult FuseFillOp(PatternRewriter &rewriter, scf::ForOp outerLoop,
                            LinalgOp tiledOp) const {
-    if (tiledOp.getNumOutputs() != 1) return failure();
+    if (tiledOp.getNumOutputs() != 1)
+      return failure();
 
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointAfter(tiledOp);
 
-    if (outerLoop.getNumIterOperands() == 0) return failure();
+    if (outerLoop.getNumIterOperands() == 0)
+      return failure();
     auto fillOp = outerLoop.getIterOperands().front().getDefiningOp<FillOp>();
-    if (!fillOp) return failure();
+    if (!fillOp)
+      return failure();
 
     auto fillOpChain = ChainFillOp(rewriter, fillOp);
 
     Optional<linalg::FusionInfo> fusionInfo =
         linalg::fuseProducerOfTensor(rewriter, fillOpChain.second->getResult(0),
                                      *tiledOp.getOutputOperands().front());
-    if (!fusionInfo.hasValue()) return failure();
+    if (!fusionInfo.hasValue())
+      return failure();
 
     rewriter.replaceOp(fillOpChain.second, fillOpChain.first.getResult(0));
 
@@ -107,7 +113,8 @@ struct FuseFillOutputIntoGenericOpPattern
 
     // Find insert_slice that inserts the result back to the output.
     auto insert = dyn_cast<InsertSliceOp>(*partialResult.getUsers().begin());
-    if (!insert) return failure();
+    if (!insert)
+      return failure();
 
     // Create operation that accumulates the partial result into the output.
     auto numParallelLoops = tiledOp.getNumParallelLoops();
@@ -150,10 +157,12 @@ struct FillOfExtractSlice : public OpRewritePattern<FillOp> {
 
   LogicalResult matchAndRewrite(FillOp fill,
                                 PatternRewriter &rewriter) const override {
-    if (!fill.hasTensorSemantics()) return failure();
+    if (!fill.hasTensorSemantics())
+      return failure();
 
     auto fillTensorType = fill.getOutputTensorTypes().back();
-    if (!fillTensorType.hasStaticShape()) return failure();
+    if (!fillTensorType.hasStaticShape())
+      return failure();
 
     if (auto extract = fill.output().getDefiningOp<ExtractSliceOp>()) {
       llvm::SmallVector<int64_t, 4> staticSizes = llvm::to_vector<4>(
@@ -176,20 +185,21 @@ struct FillOfExtractSlice : public OpRewritePattern<FillOp> {
 // types.
 bool is2DRowReduction(Operation *op) {
   auto reduction = dyn_cast<GenericOp>(op);
-  if (!reduction) return false;
+  if (!reduction)
+    return false;
 
   if (reduction.getNumOutputs() != 1 || reduction.getNumLoops() != 2)
     return false;
   return reduction.getNumReductionLoops() == 1;
 }
 
-}  // namespace
+} // namespace
 
 void populateFuseFillIntoReductionPatterns(OwningRewritePatternList &patterns,
                                            const LinalgTilingOptions &opts) {
   auto *ctx = patterns.getContext();
   auto filter =
-      LinalgTransformationFilter(llvm::None, {Identifier::get("tiled", ctx)})
+      LinalgTransformationFilter(llvm::None, {StringAttr::get(ctx, "tiled")})
           .addFilter(
               [](Operation *op) { return success(is2DRowReduction(op)); });
   patterns.insert<linalg::FuseFillOutputIntoGenericOpPattern>(opts, filter,
@@ -197,5 +207,5 @@ void populateFuseFillIntoReductionPatterns(OwningRewritePatternList &patterns,
   patterns.insert<FillOfExtractSlice>(patterns.getContext());
 }
 
-}  // namespace linalg
-}  // namespace mlir
+} // namespace linalg
+} // namespace mlir
