@@ -1,3 +1,5 @@
+# Make dict a generic (type-subscriptable) type for Python <3.9.
+from __future__ import annotations
 import argparse
 import re
 import sys
