@@ -367,6 +367,82 @@ PerformConcurrentlyOp InParallelOp::getTerminator() {
 }
 
 //===----------------------------------------------------------------------===//
+// ParallelInsertSliceOp
+//===----------------------------------------------------------------------===//
+
+// Build a ParallelInsertSliceOp with mixed static and dynamic entries.
+void ParallelInsertSliceOp::build(
+    OpBuilder &b, OperationState &result, Value source, Value dest,
+    ArrayRef<OpFoldResult> offsets, ArrayRef<OpFoldResult> sizes,
+    ArrayRef<OpFoldResult> strides, ArrayRef<NamedAttribute> attrs) {
+  SmallVector<int64_t> staticOffsets, staticSizes, staticStrides;
+  SmallVector<Value> dynamicOffsets, dynamicSizes, dynamicStrides;
+  dispatchIndexOpFoldResults(offsets, dynamicOffsets, staticOffsets,
+                             ShapedType::kDynamicStrideOrOffset);
+  dispatchIndexOpFoldResults(sizes, dynamicSizes, staticSizes,
+                             ShapedType::kDynamicSize);
+  dispatchIndexOpFoldResults(strides, dynamicStrides, staticStrides,
+                             ShapedType::kDynamicStrideOrOffset);
+  build(b, result, {}, source, dest, dynamicOffsets, dynamicSizes,
+        dynamicStrides, b.getI64ArrayAttr(staticOffsets),
+        b.getI64ArrayAttr(staticSizes), b.getI64ArrayAttr(staticStrides));
+  result.addAttributes(attrs);
+}
+
+// Build a ParallelInsertSliceOp with dynamic entries.
+void ParallelInsertSliceOp::build(
+    OpBuilder &b, OperationState &result, Value source, Value dest,
+    ValueRange offsets, ValueRange sizes, ValueRange strides,
+    ArrayRef<NamedAttribute> attrs) {
+  SmallVector<OpFoldResult> offsetValues = llvm::to_vector<4>(
+      llvm::map_range(offsets, [](Value v) -> OpFoldResult { return v; }));
+  SmallVector<OpFoldResult> sizeValues = llvm::to_vector<4>(
+      llvm::map_range(sizes, [](Value v) -> OpFoldResult { return v; }));
+  SmallVector<OpFoldResult> strideValues = llvm::to_vector<4>(
+      llvm::map_range(strides, [](Value v) -> OpFoldResult { return v; }));
+  build(b, result, source, dest, offsetValues, sizeValues, strideValues);
+}
+
+namespace {
+/// Pattern to rewrite a parallel_insert_slice op with constant arguments.
+class ParallelInsertSliceOpConstantArgumentFolder final
+    : public OpRewritePattern<ParallelInsertSliceOp> {
+public:
+  using OpRewritePattern<ParallelInsertSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ParallelInsertSliceOp insertSliceOp,
+                                PatternRewriter &rewriter) const override {
+    // No constant operand, just return.
+    if (llvm::none_of(insertSliceOp.getOperands(), [](Value operand) {
+          return matchPattern(operand, matchConstantIndex());
+        }))
+      return failure();
+
+    // At least one of offsets/sizes/strides is a new constant.
+    // Form the new list of operands and constant attributes from the
+    // existing.
+    SmallVector<OpFoldResult> mixedOffsets(insertSliceOp.getMixedOffsets());
+    SmallVector<OpFoldResult> mixedSizes(insertSliceOp.getMixedSizes());
+    SmallVector<OpFoldResult> mixedStrides(insertSliceOp.getMixedStrides());
+    canonicalizeSubViewPart(mixedOffsets, ShapedType::isDynamicStrideOrOffset);
+    canonicalizeSubViewPart(mixedSizes, ShapedType::isDynamic);
+    canonicalizeSubViewPart(mixedStrides, ShapedType::isDynamicStrideOrOffset);
+
+    // Create the new op in canonical form.
+    rewriter.replaceOpWithNewOp<ParallelInsertSliceOp>(
+        insertSliceOp, insertSliceOp.source(), insertSliceOp.dest(),
+        mixedOffsets, mixedSizes, mixedStrides);
+    return success();
+  }
+};
+} // namespace
+
+void ParallelInsertSliceOp::getCanonicalizationPatterns(
+    RewritePatternSet &results, MLIRContext *context) {
+  results.add<ParallelInsertSliceOpConstantArgumentFolder>(context);
+}
+
+//===----------------------------------------------------------------------===//
 // PerformConcurrentlyOp
 //===----------------------------------------------------------------------===//
 

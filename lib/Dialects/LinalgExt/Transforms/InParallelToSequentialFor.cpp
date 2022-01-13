@@ -77,8 +77,8 @@ struct InParallelOpToSCFRewriter
     rewriter.setInsertionPoint(performConcurrentlyOp);
     for (ParallelInsertSliceOp op : performConcurrentlyOp.yieldingOps()) {
       toYield.push_back(rewriter.createOrFold<tensor::InsertSliceOp>(
-          loc, op.source(), bvm.lookup(op.dest()), op.offsets(), op.sizes(),
-          op.strides()));
+          loc, op.source(), bvm.lookup(op.dest()), op.getMixedOffsets(),
+          op.getMixedSizes(), op.getMixedStrides()));
     }
 
     // performConcurrentlyOp.yieldedValues come from above, not from bbArgs.
