@@ -5,11 +5,6 @@ add_mlir_library(MLIRLinalgTransformTransforms
   TransformInterpreter.cpp
   TrackingListener.cpp
 
-  DEPENDS
-  MLIRLinalgOpsIncGen
-  MLIRLinalgInterfacesIncGen
-  MLIRLinalgPassIncGen
-
   LINK_LIBS PUBLIC
   IREELinalgTensorSandboxTransforms
   MLIRAffineToStandard
