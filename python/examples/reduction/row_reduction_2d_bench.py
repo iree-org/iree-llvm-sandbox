@@ -41,6 +41,9 @@ experimental_tile_and_fuse_expert = \
     ])
 
 
+all_names = [
+  "RowReduction2DExpert"
+]
 def all_experts(problem_sizes: List[int]):
   return [
       TileAndDecompose(
@@ -67,13 +70,20 @@ keys = ['M', 'K']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
-  problem_size_list = [
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "row reduction 2d benchmark",
+    default_problem_sizes_list = [
       [128, 256],
       [104, 128],
       [256, 256],
       [1000, 1024],
       [8000, 6144],
-  ]
+    ],
+    default_expert_list = all_names,
+    default_dynamic_at_compile_time_list = [],
+    default_spec_list = [])
 
   def numpy_kernel(args, sizes, types):
     A, B = args
@@ -85,12 +95,13 @@ def main():
     B.fill_(0.)
     torch.sum(A, dim=1, out=B)
 
-  for problem_sizes in problem_size_list:
+  for problem_sizes in args.problem_sizes_list:
     test_harness(lambda s, t: RowReduction2DProblem(), [[np.float32] * 2],
-                 test_sizes(keys, [problem_sizes]),
-                 all_experts(problem_sizes),
-                 n_iters=n_iters,
-                 function_name=fun_name)
+        test_sizes(keys, [problem_sizes]),
+        test_experts(all_experts(problem_sizes), all_names, args.expert_list),
+        n_iters=n_iters,
+        function_name=fun_name,
+        dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

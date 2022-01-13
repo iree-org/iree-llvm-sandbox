@@ -18,7 +18,9 @@ op_name = 'linalg.generic'
 ### Compilation strategies.
 ################################################################################
 
-
+all_names = [
+  "Reduction1dExpert"
+]
 def all_experts(problem_sizes: List[int]):
   return [
       TileAndDecompose(
@@ -43,13 +45,20 @@ keys = ['M']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 100
-  problem_size_list = [
+
+  # Specify default configuration and parse command line.
+  args = test_argparser(
+    "reduction 1d benchmark",
+    default_problem_sizes_list = [
       [128],
       [104],
       [256],
       [1000],
       [8000],
-  ]
+    ],
+    default_expert_list = all_names,
+    default_dynamic_at_compile_time_list = [],
+    default_spec_list = [])
 
   def numpy_kernel(args, sizes, types):
     A, B = args
@@ -61,12 +70,12 @@ def main():
     B.fill_(0.)
     torch.sum(A, out=B)
 
-  for problem_sizes in problem_size_list:
+  for problem_sizes in args.problem_sizes_list:
     test_harness(lambda s, t: Reduction1DProblem(), [[np.float32] * 2],
-                 test_sizes(keys, [problem_sizes]),
-                 all_experts(problem_sizes),
-                 n_iters=n_iters,
-                 function_name=fun_name)
+          test_sizes(keys, [problem_sizes]),
+          test_experts(all_experts(problem_sizes), all_names, args.expert_list),
+          n_iters=n_iters,
+          dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

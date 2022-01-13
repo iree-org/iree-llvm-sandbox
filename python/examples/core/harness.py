@@ -81,6 +81,10 @@ class Measurements:
 
   def dump_to_file(self, file_name: str):
     """Dump the measurements to a jason file."""
+    # Load existing data.
+    if os.path.exists(file_name):
+      existing_data = pandas.read_json(file_name)
+      self.data = existing_data.append(self.data)
     # Create the path if needed.
     directory = os.path.dirname(file_name)
     if not os.path.exists(directory):

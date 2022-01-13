@@ -73,6 +73,34 @@ experiments = {
       ],
     }
   },
+  "row_reduction_2d" : {
+    "module" : "python.examples.reduction.row_reduction_2d_bench",
+    "arguments" : {
+      "problem_sizes_list" : [
+        "100,256",
+        "200,512",
+        "500,512",
+        "500,1024",
+        "1000,1024",
+        "4000,6144",
+        "8000,6144"
+      ],
+    }
+  },
+  "column_reduction_2d" : {
+    "module" : "python.examples.reduction.column_reduction_2d_bench",
+    "arguments" : {
+      "problem_sizes_list" : [
+        "100,256",
+        "200,512",
+        "500,512",
+        "500,1024",
+        "1000,1024",
+        "4000,6144",
+        "8000,6144"
+      ],
+    }
+  },
 }
 
 
@@ -205,8 +233,10 @@ def _run_benchmark(name: str, module: str, path: str, arguments: Mapping[str, An
       build_dir, "lib/libmlir_runner_utils.so")
   env["MLIR_C_RUNNER_UTILS_LIB"] = os.path.join(
       build_dir, "lib/libmlir_c_runner_utils.so")
-  args = ["python", "-m", module, "--dump_data",
-          os.path.join(path, name + ".json")]
+  file_name = os.path.join(path, name + ".json")
+  if os.path.exists(file_name):
+    os.remove(file_name)
+  args = ["python", "-m", module, "--dump_data", file_name]
   for argument, value in arguments.items():
     args.append(str.format(f"--{argument}"))
     if not isinstance(value, Sequence):
