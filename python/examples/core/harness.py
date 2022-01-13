@@ -64,7 +64,11 @@ class Measurements:
               [self._stringify_dict(runtime_problem_sizes_dict)]])))
     results = pandas.DataFrame(dict(
       [(k, timing_results_dict[k]) for k in self.data_keys]))
-    product = config.merge(results, how='cross')
+    # Cross-product: add an identical fake key to both data frames,
+    # merge on that key, and delete it.
+    config['_fake_key'] = 1
+    results['_fake_key'] = 1
+    product = config.merge(results, on='_fake_key').drop('_fake_key', 1)
     self.data = self.data.append(product)
 
   def to_dict(self) -> dict[str, Any]:
