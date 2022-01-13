@@ -20,24 +20,6 @@ def parse_arguments():
       "--target",
       help="Semicolumn-separated list of targets to build with LLVM",
       default="X86")
-  parser.add_argument("--lld",
-                      help="Build with ENABLE_LLD=ON (optional)",
-                      dest="enable_lld",
-                      default=False)
-  parser.add_argument("--asan",
-                      help="Build with LLVM_USE_SANITIZER=Address (optional)",
-                      dest="enable_asan",
-                      default=False)
-  parser.add_argument("--enable-alp",
-                      help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
-                      dest="enable_alp",
-                      action="store_true",
-                      default=False)
-  parser.add_argument("--no-ccache",
-                      help="Disables ccache (if available)",
-                      dest="enable_ccache",
-                      action="store_false",
-                      default=True)
   parser.add_argument("--build-dir",
                       help="Build directory",
                       type=str,
@@ -46,12 +28,52 @@ def parse_arguments():
                       help="Build mode (Release, Debug or RelWithDebInfo)",
                       type=str,
                       default="Release")
+  # Boolean flags: all deactivated by default
+  # Activate with e.g. --lld.
+  # Also supports e.g. --no-lld.
+  parser.add_argument(
+      "--lld",
+      help="Build with ENABLE_LLD=ON (optional)",
+      dest="enable_lld",
+      default=True,
+      action=argparse.BooleanOptionalAction,
+  )
+  parser.add_argument(
+      "--asan",
+      help="Build with LLVM_USE_SANITIZER=Address (optional)",
+      dest="enable_asan",
+      default=False,
+      action=argparse.BooleanOptionalAction,
+  )
+  parser.add_argument(
+      "--alp",
+      help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
+      dest="enable_alp",
+      default=False,
+      action=argparse.BooleanOptionalAction,
+  )
+  parser.add_argument(
+      "--ccache",
+      help="Enable ccache (if available)",
+      dest="enable_ccache",
+      default=True,
+      action=argparse.BooleanOptionalAction,
+  )
   parser.add_argument(
       "--use-system-cc",
       help="Use the default system compiler" +
       "\n[warning] Setting to false seems to trigger spurious rebuilds",
-      default=True)
+      dest="enable_system_cc",
+      default=False,
+      action=argparse.BooleanOptionalAction,
+  )
   return parser.parse_args()
+
+
+def read_through_symlink(link):
+  p = subprocess.Popen(['readlink', '-f', link], stdout=subprocess.PIPE)
+  p.wait()
+  return p.communicate()[0].rstrip().decode("utf-8")
 
 
 def main(args):
@@ -101,18 +123,34 @@ def main(args):
     return 1
 
   # Detect clang.
-  # Adding DCMAKE_C_COMPILER / DCMAKE_CXX_COMPILER seems to trigger spurious
-  # rebuilds everywhere ..
-  if not args.use_system_cc:
+  if not bool(args.enable_system_cc):
     clang_path = shutil.which("clang")
     clangpp_path = shutil.which("clang++")
     if clang_path and clangpp_path:
+      # Adding DCMAKE_C_COMPILER / DCMAKE_CXX_COMPILER to symlinks triggers
+      # spurious rebuilds everywhere.
+      # Instead, read through the symlinks.
+      # TOD: Reenable because atm this still fails with:
+      # -- Check for working C compiler: /usr/lib/llvm-11/bin/clang - skipped
+      # -- Check for working CXX compiler: /usr/lib/llvm-11/bin/clang - skipped
+      # -- Performing Test LLVM_LIBSTDCXX_MIN
+      # -- Performing Test LLVM_LIBSTDCXX_MIN - Failed
+      # CMake Error at cmake/modules/CheckCompilerVersion.cmake:97 (message):
+      #   libstdc++ version must be at least 5.1.
+      # Call Stack (most recent call first):
+      #   cmake/config-ix.cmake:14 (include)
+      #   CMakeLists.txt:726 (include)
+      # clang_path = read_through_symlink(clang_path)
+      # clangpp_path = read_through_symlink(clangpp_path)
       llvm_configure_args.append(f"-DCMAKE_C_COMPILER={clang_path}")
       llvm_configure_args.append(f"-DCMAKE_CXX_COMPILER={clangpp_path}")
+      print("-- Building with clang")
     else:
       print(
           "WARNING: Could not find clang. Building with default system compiler"
       )
+  else:
+    print("-- Building with default system compiler")
 
   # Detect lld.
   if args.enable_lld:
