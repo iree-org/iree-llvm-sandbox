@@ -211,7 +211,7 @@ def main(args):
   # Also build all the relevant tools to disassemble and run analyses.
   cmake_args = ["cmake", "--build", build_dir, "--target", \
                 "tools/sandbox/all", "mlir-opt", "mlir-translate", \
-                "mlir_runner_utils", "mlir_c_runner_utils", \
+                "mlir-cpu-runner", "mlir_runner_utils", "mlir_c_runner_utils", \
                 "llvm-mca", "llvm-objdump", "llc", "opt", "FileCheck"]
   print(f"-- Performing initial build: {' '.join(cmake_args)}")
   subprocess.check_call(cmake_args, cwd=build_dir)
