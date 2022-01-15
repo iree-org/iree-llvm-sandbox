@@ -4,6 +4,7 @@ set(LLVM_OPTIONAL_SOURCES
 
 add_mlir_library(MLIRVectorExtTransform
   VectorMaskingUtils.cpp
+  VectorWarpUtils.cpp
 
   DEPENDS
   mlir-headers

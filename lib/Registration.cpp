@@ -71,6 +71,7 @@ void registerTestStagedPatternRewriteDriver();
 void registerTestVectorMaskingUtils();
 void registerTestListenerPasses();
 void registerTestLinalgTransformWrapScope();
+void registerTestVectorWarps();
 } // namespace test_ext
 } // namespace mlir
 
@@ -79,6 +80,7 @@ void registerTestPasses() {
   mlir::test_ext::registerTestVectorMaskingUtils();
   mlir::test_ext::registerTestListenerPasses();
   mlir::test_ext::registerTestLinalgTransformWrapScope();
+  mlir::test_ext::registerTestVectorWarps();
 }
 
 //===----------------------------------------------------------------------===//
