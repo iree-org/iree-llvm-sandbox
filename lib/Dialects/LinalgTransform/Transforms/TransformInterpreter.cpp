@@ -105,7 +105,7 @@ static FailureOr<LinalgOp> forwardOp(LinalgOp op, PatternRewriter &rewriter) {
 
 /// Wrap a pattern into a functional call to `returningMatchAndRewrite`.
 template <typename FunctionalLinalgPattern, typename... Args>
-static auto callFunctional(Args &&...args) {
+static auto callFunctional(Args &&... args) {
   FunctionalLinalgPattern pattern(std::forward<Args>(args)...);
   return
       [pattern = std::move(pattern)](LinalgOp op, PatternRewriter &rewriter) {
@@ -283,7 +283,7 @@ executeVectorizeOp(LinalgOp target,
 }
 
 /// Returns true of the numbered vector lowering stage is included into the list
-/// of stages specified on the given lowerVectors opreation.
+/// of stages specified on the given lowerVectors operation.
 static bool stageIncluded(int stage, transform::LowerVectorsOp lowerVectorsOp) {
   for (auto s : lowerVectorsOp.stages().getAsValueRange<IntegerAttr>()) {
     if (s.getSExtValue() == stage)
@@ -292,7 +292,7 @@ static bool stageIncluded(int stage, transform::LowerVectorsOp lowerVectorsOp) {
   return false;
 }
 
-/// Appplies the transformation specified by the given lower vectors operation
+/// Applies the transformation specified by the given lower vectors operation
 /// to the given function.
 static LogicalResult
 executeLowerVectorsOp(ModuleOp module,
@@ -383,7 +383,7 @@ executeLowerVectorsOp(ModuleOp module,
   return success();
 }
 
-/// Appplies the transformation specified by the given bufferize operation to
+/// Applies the transformation specified by the given bufferize operation to
 /// the module containing the given function.
 static LogicalResult
 executeBufferizeOp(ModuleOp module,
@@ -399,7 +399,7 @@ executeBufferizeOp(ModuleOp module,
   return success();
 }
 
-/// Appplies the transformation specified by the given Lower to LLVM operation
+/// Applies the transformation specified by the given Lower to LLVM operation
 /// to the module containing the given function.
 static LogicalResult
 executeLowerToLLVMOp(ModuleOp module,
@@ -481,10 +481,11 @@ static void noOpRewriter(ArrayRef<PDLValue> args, ArrayAttr constantParams,
 #endif
 }
 
-/// Returns the operations that `transformOp` should be run on. The `transformOp` is expected to have the TargetableTransformOpTrait. Its
-/// target may be either an SSA value that corresponds to a list of ops
-/// produced by other transforms and stored in `operations` or a list of ops
-/// that match the PDL pattern specified by its name.
+/// Returns the operations that `transformOp` should be run on. The
+/// `transformOp` is expected to have the TargetableTransformOpTrait. Its target
+/// may be either an SSA value that corresponds to a list of ops produced by
+/// other transforms and stored in `operations` or a list of ops that match the
+/// PDL pattern specified by its name.
 template <typename OpTy>
 static FailureOr<SmallVector<LinalgOp>>
 findTransformTarget(OpTy transformOp, ModuleOp module,
@@ -542,7 +543,7 @@ executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
   return success();
 }
 
-/// Appplies the transformation specified by the given Linalg Transform dialect
+/// Applies the transformation specified by the given Linalg Transform dialect
 /// operation to the given target operation. The `operations` table contains the
 /// mapping between SSA values that correspond to operation handles produced and
 /// used by Linalg Transform dialect operations, and the Operation* objects in
