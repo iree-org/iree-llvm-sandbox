@@ -12,12 +12,22 @@ from ..contraction.definitions import *
 
 
 def main():
-  test_harness(lambda sizes, types: EinsumProblem("klnp,nk->pl"),
+  # Test two-operand problem.
+  test_harness(lambda sizes, types: EinsumProblem("klnp,nk->pl", 2.0),
                [[np.float32] * 3], [{
                    "k": 10,
                    "l": 12,
                    "n": 14,
                    "p": 16
+               }], [LoweringOnlyExpert('einsum', 'linalg.generic')],
+               n_iters=1,
+               function_name='einsum')
+
+  # Test one-operand problem with scalar output.
+  test_harness(lambda sizes, types: EinsumProblem("nk->", 1.0),
+               [[np.float32] * 3], [{
+                   "k": 10,
+                   "n": 14,
                }], [LoweringOnlyExpert('einsum', 'linalg.generic')],
                n_iters=1,
                function_name='einsum')

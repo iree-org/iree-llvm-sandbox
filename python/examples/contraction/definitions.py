@@ -17,25 +17,29 @@ avx512 = True
 class EinsumProblem(ProblemDefinition):
   """Benchmarking problem definition for einsum.
 
-  Currently only supports two-operand contractions. The textual specification of
-  the contraction to perform is similar to that of np.einsum.
+  Supports one-operand and two-operand einsum specifications. The textual
+  specification of the operation is similar to that of np.einsum.
   """
 
-  def __init__(self, specification: str):
+  def __init__(self, specification: str, flop_count: float):
     """Creates a new EinsumProblem with the given specification.
 
-    The specification is a string of the format `<lhs> ',' <rhs> ('->' <out>)?`
+    The specification is a string of the format:
+    `<lhs> ',' (<rhs>)? ('->' <out>)?`
     where <lhs>, <rhs> and <out> are contiguous lists of lowercase letters
-    indicating dimensions. Dimensions that appear in both lhs and rhs are
+    indicating dimensions. One-operand specifications define only a lhs operand
+    and skip the rhs operand. Dimensions that appear in both lhs and rhs are
     reduction dimensions and must not appear in the output. The remaining
-    dimensions must appear in the output. If the output is omitted, it is
-    inferred by taking all non-reduction lhs and rhs dimensions and sorting them
-    alphabetically.
+    dimensions must appear in the output. Two-operand specifications may omit
+    the output. In this case, the output dimensions are inferred by taking all
+    non-reduction lhs and rhs dimensions and sorting them alphabetically.
 
     Arguments:
     specification: textual specification of the einsum.
+    flop_count: floating-point operations executed per iteration.
     """
     self.specification = EinsumSpecification(specification)
+    self.flop_count = flop_count
 
   @property
   def keys(self) -> List[str]:
@@ -45,33 +49,37 @@ class EinsumProblem(ProblemDefinition):
 
   def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Constructs the tensor shapes given problem parameters."""
+    operand_dims = [
+      self.specification.lhs_dims,
+      self.specification.rhs_dims,
+      self.specification.output_dims]
 
-    def shape_of_tensor(name: str):
-      return [sizes[d] for d in getattr(self.specification, name)]
+    def shape_of_tensor(dims: str):
+      return [sizes[k] for k in dims]
 
-    return [
-        shape_of_tensor(name)
-        for name in ['lhs_dims', 'rhs_dims', 'output_dims']
-    ]
+    return [shape_of_tensor(d) for d in operand_dims if d is not None]
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """Returns the GFLOp count given problem parameters."""
-    return 2.0 * np.prod(list(sizes.values())) / 1.e9
+    return self.flop_count * np.prod(list(sizes.values())) / 1.e9
 
   def gbyte_count_builder(self, sizes: Mapping[str, Any],
                           types: Sequence[np.dtype]) -> float:
     """Return the GByte count given problem parameters."""
-    lhs_type, rhs_type, output_type = types
-    lhs_shape, rhs_shape, output_shape = self.shapes_builder(sizes)
-    ro_gbytes = 1.e-9 * (np.prod(lhs_shape) * np.dtype(lhs_type).itemsize +
-                         np.prod(rhs_shape) * np.dtype(rhs_type).itemsize)
-    rw_gbytes = 2.e-9 * np.prod(output_shape) * np.dtype(output_type).itemsize
-    return ro_gbytes + rw_gbytes
+    shapes = self.shapes_builder(sizes)
+    gbyte_count = 0
+    for type, shape in zip(types, shapes):
+      gbyte_count += 1.e-9 * (np.prod(shape) * np.dtype(type).itemsize)
+    # Reduction operators read and write the output.
+    if self.specification.reduction_dims:
+      gbyte_count += 1.e-9 * \
+          (np.prod(shapes[-1]) * np.dtype(types[-1]).itemsize)
+    return gbyte_count
 
   def tensors_np_builder(self, sizes: Mapping[str, Any],
                          types: Sequence[np.dtype]) -> List[np.dtype]:
     """Returns random NumPy suitable for calling the kernel."""
-    shapes = self.shapes_builder(sizes)
+    shapes = [s if s else [1] for s in self.shapes_builder(sizes)]
     tensors = [
         realign(np.random.rand(*s).astype(t), byte_alignment=64)
         for s, t in zip(shapes, types)
@@ -103,7 +111,7 @@ class EinsumProblem(ProblemDefinition):
 
   def build_problem_under_context_manager(self, name: str,
                                           types: Sequence[Type]):
-    """Constructs MLIR that implements the current convolution.
+    """Constructs MLIR that implements the einsum specification.
 
     Expects to operate under MLIR's context manager.
 
@@ -115,16 +123,20 @@ class EinsumProblem(ProblemDefinition):
     global avx512
 
     func = builtin.FuncOp(name, (types, [types[-1]]))
+    inplaceable_attributes = [False] * len(types)
+    inplaceable_attributes[-1] = True
     # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=[False, False, True])
+    attach_inplaceable_attributes(func, inplaceable=inplaceable_attributes)
     attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
 
     with InsertionPoint(func.add_entry_block()):
-      zero = arith.ConstantOp(types[-1].element_type, 0.0)
-      tensor_zero = linalg.FillOp(output=func.arguments[-1], value=zero)
+      output_tensor = func.arguments[-1]
+      if self.specification.reduction_dims:
+        zero = arith.ConstantOp(types[-1].element_type, 0.0)
+        output_tensor = linalg.FillOp(output=func.arguments[-1], value=zero)
       print('Einsum spec: ', str(self.specification))
-      contraction = make_einsum(str(self.specification))(*func.arguments[:-1],
-                                                         outs=[tensor_zero])
-      std.ReturnOp([contraction])
+      einsum_op = make_einsum(str(self.specification))(*func.arguments[:-1],
+                                                         outs=[output_tensor])
+      std.ReturnOp([einsum_op])
 
     return func
