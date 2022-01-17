@@ -9,8 +9,7 @@ from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
 
-from .definitions import *
-from .ops import *
+from ..contraction.definitions import EinsumProblem
 
 fun_name = 'transpose_2d_on_tensors'
 op_name = 'linalg.generic'
@@ -62,7 +61,7 @@ def all_experts(problem_sizes: List[int], transpose_avx2_lowering):
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M', 'N']
+keys = ['m', 'n']
 
 
 # CHECK-NOT: FAILURE
@@ -135,8 +134,7 @@ def main():
     experts = all_experts(problem_sizes, transpose_avx2_lowering=False)
     experts.update(all_experts(problem_sizes, transpose_avx2_lowering=True))
 
-    test_harness(lambda s, t: TransposeNDProblem(permutation=[1, 0],
-                                                 op_builder=transpose_2d),
+    test_harness(lambda s, t: EinsumProblem('nm->mn', 0.0),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  experts,
