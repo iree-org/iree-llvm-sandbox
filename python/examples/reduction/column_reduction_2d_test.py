@@ -7,7 +7,7 @@ from ..core.harness import *
 from ..core.problem_definition import *
 from ..core.transforms import *
 
-from .definitions import *
+from ..contraction.definitions import *
 
 ################################################################################
 ### Compilation strategies.
@@ -25,7 +25,7 @@ all_experts = [expert_no_tiling]
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M', 'K']
+keys = ['n', 'm']
 
 
 # CHECK-NOT: FAILURE
@@ -33,7 +33,7 @@ def main():
   n_iters = 1
   problem_size_list = [[48, 16], [49, 17]]
 
-  test_harness(lambda s, t: ColumnReduction2DProblem(), [[np.float32] * 2],
+  test_harness(lambda s, t: EinsumProblem('mn->n', 1.0), [[np.float32] * 2],
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
