@@ -10,6 +10,7 @@
 #define DIALECT_VECTOREXT_VECTORMASKINGUTILS_H_
 
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 class FuncOp;
@@ -45,7 +46,8 @@ LogicalResult predicateTiledLoop(OpBuilder &builder,
 
 /// Function signature of a masking strategy for generic operations.
 using GenericOpMaskingStrategy = llvm::function_ref<void(
-    OpBuilder &, Operation *, Value, const WalkStage &)>;
+    OpBuilder &, Operation *, Value, const WalkStage &,
+    llvm::SmallVectorImpl<Operation *> &)>;
 
 /// Traverse `op` and apply masking on all the vector.predicate ops and their
 /// enclosing operations using the strategy `maskGenericOp` to mask generic
@@ -59,9 +61,9 @@ LogicalResult maskVectorPredicateOps(OpBuilder &builder, Operation *op,
 
 /// Masking strategy that only masks vector transfer operations and operations
 /// with side effects. Non-side-effecting ops are left unmasked.
-void maskGenericOpWithSideEffects(OpBuilder &builder, Operation *op,
-                                         Value activeMask,
-                                         const WalkStage &stage);
+void maskGenericOpWithSideEffects(
+    OpBuilder &builder, Operation *op, Value activeMask,
+    const WalkStage &stage, llvm::SmallVectorImpl<Operation *> &erasedOps);
 
 // TODO: Implement full masking strategy.
 

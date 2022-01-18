@@ -8,10 +8,10 @@
 
 #include "Dialects/VectorExt/VectorMaskingUtils.h"
 #include "Dialects/VectorExt/VectorExtOps.h"
-#include "VisitorUtils.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
+#include "mlir/IR/Visitors.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
@@ -162,7 +162,8 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(OpBuilder &builder,
 /// inlining its enclosing operations into its parent region.
 static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
                              SmallVectorImpl<Value> &activeMasks,
-                             const WalkStage &stage) {
+                             const WalkStage &stage,
+                             SmallVectorImpl<Operation *> &erasedOps) {
   // Actions before visiting the TruePredicateRegion: Update active mask to be
   // the predicate mask.
   if (stage.isBeforeAllRegions()) {
@@ -198,7 +199,7 @@ static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
     moveOperationsBefore(
         llvm::make_range(opsToMove.begin(), std::prev(opsToMove.end())),
         predOp);
-    predOp.erase();
+    erasedOps.push_back(predOp);
     return;
   }
 }
@@ -216,12 +217,19 @@ LogicalResult mlir::vector_ext::maskVectorPredicateOps(
   SmallVector<Value, 8> activeMasks;
   activeMasks.push_back(Value());
 
-  genericWalk(op, [&](Operation *op, const WalkStage &stage) {
+  // Gather ops for deletion after the walk.
+  SmallVector<Operation *> erasedOps;
+
+  op->walk([&](Operation *op, const WalkStage &stage) {
     if (auto predOp = dyn_cast<PredicateOp>(op))
-      maskPredicateOp(builder, predOp, activeMasks, stage);
+      maskPredicateOp(builder, predOp, activeMasks, stage, erasedOps);
     else
-      maskGenericOp(builder, op, activeMasks.back(), stage);
+      maskGenericOp(builder, op, activeMasks.back(), stage, erasedOps);
   });
+
+  // Erase ops.
+  for (Operation *op : erasedOps)
+    op->erase();
 
   return success();
 }
@@ -230,7 +238,7 @@ LogicalResult mlir::vector_ext::maskVectorPredicateOps(
 /// with side effects. Non-side-effecting ops are left unmasked.
 void mlir::vector_ext::maskGenericOpWithSideEffects(
     OpBuilder &builder, Operation *op, Value activeMask,
-    const WalkStage &stage) {
+    const WalkStage &stage, SmallVectorImpl<Operation *> &erasedOps) {
   // Nothing to do. All-ones mask to apply.
   if (!activeMask)
     return;
@@ -246,7 +254,7 @@ void mlir::vector_ext::maskGenericOpWithSideEffects(
           xferReadOp.indices(), xferReadOp.permutation_map(),
           xferReadOp.padding(), activeMask, xferReadOp.in_boundsAttr());
       xferReadOp.replaceAllUsesWith(newXferOp.getResult());
-      xferReadOp.erase();
+      erasedOps.push_back(xferReadOp);
       return;
     }
 
@@ -257,7 +265,7 @@ void mlir::vector_ext::maskGenericOpWithSideEffects(
           op->getLoc(), xferWriteOp.vector(), xferWriteOp.source(),
           xferWriteOp.indices(), xferWriteOp.permutation_mapAttr(), activeMask,
           xferWriteOp.in_boundsAttr());
-      xferWriteOp.erase();
+      erasedOps.push_back(xferWriteOp);
       return;
     }
   }
