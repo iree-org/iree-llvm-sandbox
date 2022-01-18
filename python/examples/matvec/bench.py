@@ -74,7 +74,7 @@ def main():
     torch.mv(A, y, out=x)
 
   test_harness(
-      lambda s, t: EinsumProblem('mn,n', 2.0), [[np.float32] * 3],
+      lambda s, t: EinsumProblem('mn,n', 2), [[np.float32] * 3],
       test_sizes(keys, args.problem_sizes_list),
       test_experts(all_experts, all_names, args.expert_list),
       n_iters=args.n_iters,

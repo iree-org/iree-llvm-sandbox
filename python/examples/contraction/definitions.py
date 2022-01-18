@@ -21,7 +21,7 @@ class EinsumProblem(ProblemDefinition):
   specification of the operation is similar to that of np.einsum.
   """
 
-  def __init__(self, specification: str, flop_count: float):
+  def __init__(self, specification: str, flop_count_per_iter: int):
     """Creates a new EinsumProblem with the given specification.
 
     The specification is a string of the format:
@@ -36,10 +36,10 @@ class EinsumProblem(ProblemDefinition):
 
     Arguments:
     specification: textual specification of the einsum.
-    flop_count: floating-point operations executed per iteration.
+    flop_count_per_iter: floating-point operations executed per iteration.
     """
     self.specification = EinsumSpecification(specification)
-    self.flop_count = flop_count
+    self.flop_count_per_iter = flop_count_per_iter
 
   @property
   def keys(self) -> List[str]:
@@ -61,7 +61,7 @@ class EinsumProblem(ProblemDefinition):
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """Returns the GFLOp count given problem parameters."""
-    return self.flop_count * np.prod(list(sizes.values())) / 1.e9
+    return self.flop_count_per_iter * np.prod(list(sizes.values())) / 1.e9
 
   def gbyte_count_builder(self, sizes: Mapping[str, Any],
                           types: Sequence[np.dtype]) -> float:
