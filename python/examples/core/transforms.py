@@ -221,7 +221,8 @@ class LinalgExtTileToInParallel(Transform):
     self._parse_variables_in_kwargs(kwargs)
 
     pipeline = (f'linalg-tile-to-in-parallel,'
-                f'linalg-in-parallel-to-sequential-for,'
+                # TODO: when bufferization works, no more need to go through sequential for
+                # f'linalg-in-parallel-to-sequential-for,'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
