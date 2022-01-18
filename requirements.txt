@@ -8,8 +8,9 @@ pybind11
 PyYAML
 
 # IREE Python API.
-iree-compiler-snapshot
-iree-runtime-snapshot
+# TODO: Enable once available again.
+# iree-compiler-snapshot
+# iree-runtime-snapshot
 torch
 torchvision
 torchaudio
