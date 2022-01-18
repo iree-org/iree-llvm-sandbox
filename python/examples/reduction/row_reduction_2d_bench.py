@@ -95,7 +95,7 @@ def main():
     torch.sum(A, dim=1, out=B)
 
   for problem_sizes in args.problem_sizes_list:
-    test_harness(lambda s, t: EinsumProblem('mn->m', 1.0), [[np.float32] * 2],
+    test_harness(lambda s, t: EinsumProblem('mn->m', 1), [[np.float32] * 2],
         test_sizes(keys, [problem_sizes]),
         test_experts(all_experts(problem_sizes), all_names, args.expert_list),
         n_iters=args.n_iters,
