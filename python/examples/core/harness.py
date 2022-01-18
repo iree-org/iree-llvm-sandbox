@@ -70,7 +70,7 @@ class Measurements:
     # merge on that key, and delete it.
     config['_fake_key'] = 1
     results['_fake_key'] = 1
-    product = config.merge(results, on='_fake_key').drop('_fake_key', 1)
+    product = config.merge(results, on='_fake_key').drop(labels='_fake_key', axis=1)
     self.data = self.data.append(product)
 
   def to_dict(self) -> dict[str, Any]:

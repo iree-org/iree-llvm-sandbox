@@ -182,7 +182,7 @@ def main():
   n_iters = 1
   problem_size_list = [[24, 32, 48], [27, 37, 43]]
 
-  test_harness(lambda s, t: EinsumProblem('mk,kn'), [[np.float32] * 3],
+  test_harness(lambda s, t: EinsumProblem('mk,kn', 2), [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,

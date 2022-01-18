@@ -142,7 +142,7 @@ def main():
           B = np.transpose(B)
         torch.mm(A, B, out=C)
 
-      test_harness(lambda s, t: EinsumProblem(spec), [[np.float32] * 3],
+      test_harness(lambda s, t: EinsumProblem(spec, 2), [[np.float32] * 3],
                    test_sizes(keys, args.problem_sizes_list),
                    test_experts(all_experts, all_names, args.expert_list),
                    n_iters=args.n_iters,
