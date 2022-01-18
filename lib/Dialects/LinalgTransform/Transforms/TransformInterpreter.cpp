@@ -15,6 +15,7 @@
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgTransform/Passes.h"
 #include "Dialects/LinalgTransform/ScopedTransform.h"
+#include "Dialects/LinalgTransform/SimplePatternRewriter.h"
 #include "Dialects/LinalgTransform/TrackingCSE.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
 #include "Transforms/Functional.h"
