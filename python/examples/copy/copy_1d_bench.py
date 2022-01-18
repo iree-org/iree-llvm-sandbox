@@ -58,7 +58,7 @@ def main():
   for problem_sizes in copy_1D_perf_search_list:
     fun_name = base_fun_name + '_offset_0' + \
           '_sizes' + ''.join('_' + str(sz) for sz in problem_sizes)
-    test_harness(lambda s, t: EinsumProblem('n->n', 0.0),
+    test_harness(lambda s, t: EinsumProblem('n->n', 0),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  all_experts(fun_name),

@@ -65,7 +65,7 @@ def main():
     fun_name = base_fun_name + '_offset_0' + \
           '_sizes' + ''.join('_' + str(sz) for sz in problem_sizes) + \
           '_strides_' + str(problem_sizes[1]) + '_1'
-    test_harness(lambda s, t: EinsumProblem('mn->mn', 0.0),
+    test_harness(lambda s, t: EinsumProblem('mn->mn', 0),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  all_experts(fun_name, problem_sizes),
