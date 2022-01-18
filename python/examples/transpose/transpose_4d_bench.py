@@ -4,8 +4,7 @@ from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
 
-from .definitions import *
-from .ops import *
+from ..contraction.definitions import EinsumProblem
 
 import typing as tp
 
@@ -43,37 +42,32 @@ expert_transpose_4d_1302 = tiling_shuffle_lowering(                           \
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 25
-  keys = ['M', 'N', 'K', 'L']
+  keys = ['k', 'l', 'm', 'n']
 
-  # List of problems (sizes, permutation, op, expert strategy).
+  # List of problems (sizes, einsum spec, expert strategy).
   problem_list = [
       # [16, 100, 8, 128] -> [16, 8, 100, 128]
-      ([16, 100, 8, 128], \
-        [0, 2, 1, 3],
-        transpose_4d_0213,
+      ([16, 8, 100, 128], \
+        'kmln->klmn',
         expert_transpose_4d_0213),
       # [64, 224, 224, 3] -> [224, 3, 64, 224]
-      ([64, 224, 224, 3], \
-        [1, 3, 0, 2],
-        transpose_4d_1302,
+      ([224, 3, 64, 224], \
+        'mknl->klmn',
         expert_transpose_4d_1302),
       # [128, 224, 224, 3] -> [224, 3, 224, 128]
-      ([128, 224, 224, 3], \
-        [1, 3, 0, 2],
-        transpose_4d_1302,
+      ([224, 3, 224, 128], \
+        'mknl->klmn',
         expert_transpose_4d_1302),
       # [8, 224, 224, 3] -> [224, 3, 8, 224]
-      ([8, 224, 224, 3], \
-        [1, 3, 0, 2],
-        transpose_4d_1302,
+      ([224, 3, 8, 224], \
+        'mknl->klmn',
         expert_transpose_4d_1302),
   ]
 
   for problem in problem_list:
-    test_harness(lambda s, t: TransposeNDProblem(permutation=problem[1],
-                                                 op_builder=problem[2]),
+    test_harness(lambda s, t: EinsumProblem(problem[1], 0),
                  [[np.float32] * 2],
-                 test_sizes(keys, [problem[0]]), [problem[3]],
+                 test_sizes(keys, [problem[0]]), [problem[2]],
                  n_iters=n_iters,
                  function_name=fun_name)
 
