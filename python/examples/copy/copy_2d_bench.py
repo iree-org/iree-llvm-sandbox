@@ -8,8 +8,7 @@ from ..core.harness import *
 from ..core.transforms import *
 from ..core.utils import *
 
-from .definitions import *
-from .ops import *
+from ..contraction.definitions import EinsumProblem
 
 from typing import List
 
@@ -51,7 +50,7 @@ def all_experts(fun_name: str, problem_sizes: List[int]):
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M', 'N']
+keys = ['m', 'n']
 
 copy_2D_perf_search_list = [
     [32, 64],
@@ -66,7 +65,7 @@ def main():
     fun_name = base_fun_name + '_offset_0' + \
           '_sizes' + ''.join('_' + str(sz) for sz in problem_sizes) + \
           '_strides_' + str(problem_sizes[1]) + '_1'
-    test_harness(lambda s, t: CopyNDProblem(rank=2, op_builder=copy_2d),
+    test_harness(lambda s, t: EinsumProblem('mn->mn', 0),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  all_experts(fun_name, problem_sizes),
