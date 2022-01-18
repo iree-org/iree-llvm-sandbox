@@ -134,7 +134,7 @@ def main():
     experts = all_experts(problem_sizes, transpose_avx2_lowering=False)
     experts.update(all_experts(problem_sizes, transpose_avx2_lowering=True))
 
-    test_harness(lambda s, t: EinsumProblem('nm->mn', 0.0),
+    test_harness(lambda s, t: EinsumProblem('nm->mn', 0),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  experts,
