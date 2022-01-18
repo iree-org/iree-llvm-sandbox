@@ -14,6 +14,19 @@ def _convert_path_to_module(test_script : str) -> str:
   return test_script
 
 
+def _configure_env():
+  env = os.environ
+  build_dir = env["IREE_LLVM_SANDBOX_BUILD_DIR"]
+  env["PYTHONPATH"] = (
+      os.path.join(build_dir, "tools/sandbox/python_package") +
+      ((":" + env["PYTHONPATH"]) if "PYTHONPATH" in env else ""))
+  env["MLIR_RUNNER_UTILS_LIB"] = os.path.join(build_dir,
+                                              "lib/libmlir_runner_utils.so")
+  env["MLIR_C_RUNNER_UTILS_LIB"] = os.path.join(
+      build_dir, "lib/libmlir_c_runner_utils.so")
+  return env
+
+
 def _run_test(test_script: str) -> bool:
   """Run the provided test script an return failure or success.
   A test succeeds if:
@@ -23,15 +36,10 @@ def _run_test(test_script: str) -> bool:
   """
   print(f"- running {test_script}: ", end="")
   module = _convert_path_to_module(test_script)
-  env = os.environ
-  build_dir = env["IREE_LLVM_SANDBOX_BUILD_DIR"]
-  env["PYTHONPATH"] = os.path.join(build_dir, "tools/sandbox/python_package")
-  env["MLIR_RUNNER_UTILS_LIB"] = os.path.join(
-      build_dir, "lib/libmlir_runner_utils.so")
-  env["MLIR_C_RUNNER_UTILS_LIB"] = os.path.join(
-      build_dir, "lib/libmlir_c_runner_utils.so")
+  env = _configure_env()
   proc = subprocess.Popen(["python", "-m", module],
-                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                          stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE,
                           env=env)
   try:
     outs, errs = proc.communicate(timeout=20)
@@ -43,6 +51,7 @@ def _run_test(test_script: str) -> bool:
   if proc.returncode != 0:
     print("\033[31m" + "FAILED" + "\033[m")
     print(f"  -> test returned code {proc.returncode}")
+    print(errs.decode("utf-8"))
     return False
   # Check the output for numerical failures.
   outs = outs.decode("utf-8")
@@ -65,7 +74,7 @@ def main():
     print(f"-> {errors} tests failed!")
   # Additionally run the lit tests.
   print(f"- running lit tests:")
-  returncode = subprocess.call(["lit",  "-v",  "test"])
+  returncode = subprocess.call(["lit", "-v", "test"], env=_configure_env())
   if returncode != 0:
     print(f"-> lit tests failed!")
   if returncode != 0 or errors:
