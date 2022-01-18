@@ -9,7 +9,7 @@ from ..core.harness import *
 from ..core.transforms import *
 from ..core.transform import *
 
-from .definitions import *
+from ..contraction.definitions import *
 
 fun_name = 'reduction_1d_on_tensors'
 op_name = 'linalg.generic'
@@ -39,7 +39,7 @@ def all_experts(problem_sizes: List[int]):
 ### Problem instantiations.
 ################################################################################
 
-keys = ['M']
+keys = ['m']
 
 
 # CHECK-NOT: FAILURE
@@ -70,7 +70,7 @@ def main():
     torch.sum(A, out=B)
 
   for problem_sizes in args.problem_sizes_list:
-    test_harness(lambda s, t: Reduction1DProblem(), [[np.float32] * 2],
+    test_harness(lambda s, t: EinsumProblem('m->', 1.0), [[np.float32] * 2],
           test_sizes(keys, [problem_sizes]),
           test_experts(all_experts(problem_sizes), all_names, args.expert_list),
           n_iters=args.n_iters,
