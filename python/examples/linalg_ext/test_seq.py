@@ -14,17 +14,12 @@ import typing as tp
 # Compilation strategies.
 ################################################################################
 
-
-def TestExpert(transforms: tp.Sequence[tp.Union[Transform,
-                                                TransformationList]]):
-  return (TransformationList(transforms=transforms) + Bufferize() +
-          LoweringOnlyExpert('matmul', 'linalg.generic'))
-
-
-expert_linalg_ext_tile = TestExpert([
-    LinalgExtTile('matmul', 'linalg.generic', tile_sizes=[2]),
-    LinalgExtTileToSequentialFor('matmul', 'linalg.generic'),
-    Vectorize('matmul', 'linalg.generic'),
+expert_linalg_ext_tile = TransformationList(transforms=[
+    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[2]),
+    LinalgExtTileToSequentialFor('matmul_on_tensors', 'linalg.generic'),
+    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    Bufferize(),
+    LowerToLLVM(),
 ])
 
 all_experts = [

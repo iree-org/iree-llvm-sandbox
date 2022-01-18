@@ -31,6 +31,7 @@ _MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
 _MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
 _MLIR_C_RUNNER_UTILS_LIB_ENV = "MLIR_C_RUNNER_UTILS_LIB"
 _MLIR_C_RUNNER_UTILS_LIB_DEFAULT = "libmlir_c_runner_utils.so"
+_MLIR_RUNNER_EXTRA_LIBS_ENV = "MLIR_RUNNER_EXTRA_LIBS"
 
 
 def numpy_type(scalar_type):
@@ -153,12 +154,14 @@ def compile_to_execution_engine(module,
                                 transform: Callable,
                                 opt_level: int = 3):
   transformed_module = transform(module)
-  execution_engine = ExecutionEngine(
-      transformed_module,
-      opt_level,
-      shared_libs=[
-          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
-          os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV,
-                    _MLIR_C_RUNNER_UTILS_LIB_DEFAULT)
-      ])
+  shared_libs = [
+      os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
+      os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV, _MLIR_C_RUNNER_UTILS_LIB_DEFAULT)
+  ]
+  extra_libs = os.getenv(_MLIR_RUNNER_EXTRA_LIBS_ENV)
+  if extra_libs is not None:
+    shared_libs.append(*(str(extra_libs).split(',')))
+  execution_engine = ExecutionEngine(transformed_module,
+                                     opt_level,
+                                     shared_libs=shared_libs)
   return transformed_module, execution_engine
