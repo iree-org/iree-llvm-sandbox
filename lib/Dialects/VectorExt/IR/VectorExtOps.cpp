@@ -94,6 +94,7 @@ static void print(OpAsmPrinter &p, PredicateOp op) {
     // Print yield explicitly if the op defines values.
     printBlockTerminators = true;
   }
+  p << " ";
   p.printRegion(op.truePredicateRegion(),
                 /*printEntryBlockArgs=*/false,
                 /*printBlockTerminators=*/printBlockTerminators);
@@ -131,6 +132,7 @@ static void print(OpAsmPrinter &p, WarpSingleLaneOp op) {
     p << " args(" << op.args() << " : " << op.args().getTypes() << ")";
   if (!op.results().empty())
     p << " -> (" << op.results().getTypes() << ')';
+  p << " ";
   p.printRegion(op.getRegion(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/!op.results().empty());

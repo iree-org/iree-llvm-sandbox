@@ -125,7 +125,8 @@ struct InParallelOpInterface
     auto performConcurrentlyOp = cast<PerformConcurrentlyOp>(
         newInParallelOp.getBody()->getTerminator());
     b.setInsertionPoint(performConcurrentlyOp);
-    performConcurrentlyOp.walk([&](ParallelInsertSliceOp insertOp) {
+    WalkResult walkResult = performConcurrentlyOp.walk([&](ParallelInsertSliceOp
+                                                               insertOp) {
       Location loc = insertOp.getLoc();
       Type srcType = getDynamicMemRefType(
           insertOp.source().getType().cast<RankedTensorType>());
@@ -140,9 +141,14 @@ struct InParallelOpInterface
         loc, destMemref, insertOp.getMixedOffsets(), insertOp.getMixedSizes(),
         insertOp.getMixedStrides());
       // This memcpy will fold away if everything bufferizes in-place.
-      state.createMemCpy(b, insertOp.getLoc(), srcMemref, subview);
+      if (failed(createMemCpy(b, insertOp.getLoc(), srcMemref, subview,
+                              state.getOptions())))
+        return WalkResult::interrupt();
       b.eraseOp(insertOp);
+      return WalkResult::advance();
     });
+    if (walkResult.wasInterrupted())
+      return failure();
 
     // Replace the op.
     replaceOpWithBufferizedValues(b, op, newResults);

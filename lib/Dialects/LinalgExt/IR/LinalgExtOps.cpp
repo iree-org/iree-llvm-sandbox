@@ -189,7 +189,7 @@ static void print(OpAsmPrinter &p, TileOp op) {
                           [&p](Value v) { p << v << ": " << v.getType(); });
     p << ')';
   }
-  p << " -> (" << op.getResultTypes() << ')';
+  p << " -> (" << op.getResultTypes() << ") ";
   p.printRegion(op.region(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/true);
@@ -216,7 +216,7 @@ static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
     bool _1;
     SmallVector<NamedAttrList> _2;
     outputsOperandsLoc = parser.getCurrentLocation();
-    if (mlir::function_like_impl::parseFunctionArgumentList(
+    if (mlir::function_interface_impl::parseFunctionArgumentList(
             parser,
             /*allowAttributes=*/false, /*allowVariadic=*/false, outsOperands,
             outsTypes, /*argAttrs=*/_2, /*isVariadic=*/_1) ||
@@ -279,7 +279,7 @@ static LogicalResult verify(InParallelOp op) {
 
 static void print(OpAsmPrinter &p, InParallelOp op) {
   p << ' ' << op.num_threads() << ' ';
-  p << " -> (" << op.getResultTypes() << ')';
+  p << " -> (" << op.getResultTypes() << ") ";
   p.printRegion(op.region(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/true);
@@ -450,6 +450,7 @@ void ParallelInsertSliceOp::getCanonicalizationPatterns(
 static LogicalResult verify(PerformConcurrentlyOp op) { return success(); }
 
 static void print(OpAsmPrinter &p, PerformConcurrentlyOp op) {
+  p << " ";
   p.printRegion(op.region(),
                 /*printEntryBlockArgs=*/false,
                 /*printBlockTerminators=*/false);
