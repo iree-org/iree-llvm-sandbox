@@ -290,33 +290,50 @@ def _parse_arguments() -> argparse.Namespace:
                       nargs="?",
                       help="peak bandwidth (e.g., -b 100)",
                       default=100)
+  parser.add_argument("--benchmark",
+                      default=True,
+                      action='store_true')
+  parser.add_argument("--no-benchmark",
+                      dest="benchmark",
+                      action='store_false')
+  parser.add_argument("--plotting",
+                      default=True,
+                      action='store_true')
+  parser.add_argument("--no-plotting",
+                      dest="plotting",
+                      action='store_false')
   return parser.parse_args(sys.argv[1:])
 
 
 def main():
   args = _parse_arguments()
   # Store the experimental data.
-  for name, experiment in experiments.items():
-    print(str.format(f"- running {name}"))
-    path = os.path.join(args.base_path, name)
-    _run_benchmark(name, experiment["module"], path, experiment["arguments"])
+  if args.benchmark:
+    for name, experiment in experiments.items():
+      print(str.format(f"- running {name}"))
+      path = os.path.join(args.base_path, name)
+      _run_benchmark(name, experiment["module"], path, experiment["arguments"])
   # Plot the compute throughputs.
-  for name, experiment in experiments.items():
-    print(str.format(f"- plotting {name}"))
-    # Obtain the data.
-    path = os.path.join(args.base_path, name)
-    file_name = os.path.join(path, name + ".json")
-    data = pandas.read_json(file_name)
-    # Plot the compute throughput.
-    _plot_quantity("throughput", path, data, "gflop_per_s_per_iter",
-                   "Compute Throughput [GFlop/s]",
-                   args.peak_throughput,
-                   str.format(f"Rpeak = {args.peak_throughput} GFlop/s"))
-    # Plot the memory bandwidth.
-    _plot_quantity("bandwidth", path, data, "gbyte_per_s_per_iter",
-                   "Bandwidth [GB/s]",
-                   args.peak_bandwidth,
-                   str.format(f"Max Bandwidth = {args.peak_bandwidth} GB/s"))
+  if args.plotting:
+    for name, experiment in experiments.items():
+      print(str.format(f"- plotting {name}"))
+      # Obtain the data.
+      path = os.path.join(args.base_path, name)
+      file_name = os.path.join(path, name + ".json")
+      if not os.path.exists(file_name):
+        print(str.format(f"  -> cannot find {file_name}"))
+        continue
+      data = pandas.read_json(file_name)
+      # Plot the compute throughput.
+      _plot_quantity("throughput", path, data, "gflop_per_s_per_iter",
+                    "Compute Throughput [GFlop/s]",
+                    args.peak_throughput,
+                    str.format(f"Rpeak = {args.peak_throughput} GFlop/s"))
+      # Plot the memory bandwidth.
+      _plot_quantity("bandwidth", path, data, "gbyte_per_s_per_iter",
+                    "Bandwidth [GB/s]",
+                    args.peak_bandwidth,
+                    str.format(f"Max Bandwidth = {args.peak_bandwidth} GB/s"))
 
 if __name__ == '__main__':
   main()
