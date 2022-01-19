@@ -220,10 +220,22 @@ void LinalgFusePass::runOnOperation() {
                ? hoistPaddings[opOperand.getOperandNumber()]
                : 0;
   };
+  auto transposeFunc = [&](OpOperand &opOperand) {
+    SmallVector<int64_t> transposeVector = {};
+    if (opOperand.getOperandNumber() >= transposePaddings.size())
+      return transposeVector;
+    SmallVector<StringRef> elems;
+    StringRef(transposePaddings[opOperand.getOperandNumber()])
+        .split(elems, ':');
+    for (StringRef elem : elems)
+      transposeVector.push_back(std::stoi(elem.str()));
+    return transposeVector;
+  };
   LinalgPaddingOptions paddingOptions;
   paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
   paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
   paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
+  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
 
   CodegenStrategy strategy;
   strategy.tileAndFuseIf(!tileSizes.empty(), anchorOpName, tilingOptions)
@@ -293,10 +305,22 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
                ? hoistPaddings[opOperand.getOperandNumber()]
                : 0;
   };
+  auto transposeFunc = [&](OpOperand &opOperand) {
+    SmallVector<int64_t> transposeVector = {};
+    if (opOperand.getOperandNumber() >= transposePaddings.size())
+      return transposeVector;
+    SmallVector<StringRef> elems;
+    StringRef(transposePaddings[opOperand.getOperandNumber()])
+        .split(elems, ':');
+    for (StringRef elem : elems)
+      transposeVector.push_back(std::stoi(elem.str()));
+    return transposeVector;
+  };
   LinalgPaddingOptions paddingOptions;
   paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
   paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
   paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
+  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
 
   CodegenStrategy strategy;
   StringRef genericOpName = GenericOp::getOperationName();
