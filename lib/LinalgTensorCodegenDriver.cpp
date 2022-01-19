@@ -320,7 +320,8 @@ void LinalgBufferizationDriverPass::runOnOperation() {
   OpPassManager dynamicPM(ModuleOp::getOperationName());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
-  dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass());
+  dynamicPM.addPass(
+      createLinalgComprehensiveModuleBufferizePass(/*useLinalgCopy=*/true));
   if (failed(runPipeline(dynamicPM, getOperation())))
     return signalPassFailure();
   // Perform buffer-level hoistings.

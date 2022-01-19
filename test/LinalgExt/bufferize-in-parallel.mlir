@@ -58,18 +58,24 @@ func @parallel_insert_slice_with_conflict(
       // Another alloc for the extract_slice op.
       // CHECK: %[[alloc2:.*]] = memref.alloc
       // CHECK: %[[subview2:.*]] = memref.subview %[[arg2]][5] [%[[idx]]] [1]
-      // CHECK: memref.copy %[[subview2]], %[[alloc2]]
+      //
+      // TODO: memeref.copy currently horrendously slow, just use linalg.generic
+      // CHECK: linalg.generic {{.*}} ins(%[[subview2]]{{.*}}outs(%[[alloc2]]
       %6 = tensor.extract_slice %arg2[5] [%idx] [%c1] : tensor<?xf32> to tensor<?xf32>
 
       // CHECK: linalg.fill(%{{.*}}, %[[alloc2]])
       %8 = linalg.fill (%cst, %6) : f32, tensor<?xf32> -> tensor<?xf32>
 
       // parallel_insert_slice buffer was already allocated but not copied yet.
-      // CHECK: memref.copy %[[arg2]], %[[alloc1]]
+      //
+      // TODO: memeref.copy currently horrendously slow, just use linalg.generic
+      // CHECK: linalg.generic {{.*}} ins(%[[arg2]]{{.*}}outs(%[[alloc1]]
 
       // Now the copy of the actual insert_slice.
       // CHECK: %[[subview1:.*]] = memref.subview %[[alloc1]][5] [%[[idx]]] [1]
-      // CHECK: memref.copy %[[alloc2]], %[[subview1]]
+      //
+      // TODO: memeref.copy currently horrendously slow, just use linalg.generic
+      // CHECK: linalg.generic {{.*}} ins(%[[alloc2]]{{.*}}outs(%[[subview1]]
       // CHECK: memref.dealloc %[[alloc2]]
 
       // The terminator is empty.
