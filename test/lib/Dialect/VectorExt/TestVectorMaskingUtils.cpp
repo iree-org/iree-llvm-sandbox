@@ -25,7 +25,7 @@ using namespace mlir::vector_ext;
 namespace {
 
 struct TestVectorMaskingUtils
-    : public PassWrapper<TestVectorMaskingUtils, FunctionPass> {
+    : public PassWrapper<TestVectorMaskingUtils, OperationPass<FuncOp>> {
 
   TestVectorMaskingUtils() = default;
   TestVectorMaskingUtils(const TestVectorMaskingUtils &pass) {}
@@ -53,7 +53,7 @@ struct TestVectorMaskingUtils
 
     // Test tiled loop body predication.
     if (!predicationSucceeded) {
-      getFunction().walk([&](TiledLoopOp loopOp) {
+      getOperation().walk([&](TiledLoopOp loopOp) {
         predicationSucceeded = true;
         OpBuilder builder(loopOp);
         if (failed(predicateTiledLoop(builder, loopOp)))
@@ -63,7 +63,7 @@ struct TestVectorMaskingUtils
 
     // Test function body predication.
     if (!predicationSucceeded) {
-      FuncOp funcOp = getFunction();
+      FuncOp funcOp = getOperation();
       predicationSucceeded = true;
 
       // Return the mask from the last argument position in the function, if
@@ -91,14 +91,14 @@ struct TestVectorMaskingUtils
   }
 
   void testMasking() {
-    FuncOp funcOp = getFunction();
+    FuncOp funcOp = getOperation();
     OpBuilder builder(funcOp);
     if (failed(maskVectorPredicateOps(builder, funcOp,
                                       maskGenericOpWithSideEffects)))
       funcOp.emitError("Masking of function failed");
   }
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     if (predicationEnabled)
       testPredication();
     if (maskingEnabled)
