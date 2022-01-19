@@ -21,24 +21,25 @@ class VectorExt_Op<string mnemonic, list<OpTrait> traits = []> :
 
 def VectorExt_PredicateOp : VectorExt_Op<"predicate",
       [DeclareOpInterfaceMethods<RegionBranchOpInterface>,
-       SingleBlockImplicitTerminator<"vector_ext::YieldOp">, RecursiveSideEffects,
-       NoRegionArguments]> {
+       SingleBlockImplicitTerminator<"vector_ext::YieldOp">, RecursiveSideEffects]> {
   let summary = "vector.predicate operation";
   let description = [{ TODO }];
 
-  let arguments = (ins VectorOf<[I1]>:$predicate);
+  let arguments = (ins VectorOf<[I1]>:$predicateMask, Variadic<Index>:$indices,
+                       VectorOf<[I1]>:$incomingMask);
   let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$truePredicateRegion);
 
-// TODO(diegocaballero): Add falsePredicateRegion.
+  // TODO: Add falsePredicateRegion.
 
   let skipDefaultBuilders = 1;
   let builders = [
-    OpBuilder<(ins "Value":$predicate)>,
-    //OpBuilder<(ins "TypeRange":$resultTypes, "Value":$predicate)>,
-    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$predicate,
-     CArg<"function_ref<void(OpBuilder &, Location)>",
-          "buildTerminatedBody">:$truePredicateBuilder)>
+    OpBuilder<(ins "Value":$predicateMask, "ValueRange":$indices,
+                   "Value":$incomingMask)>,
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$predicateMask,
+                   "ValueRange":$indices, "Value":$incomingMask,
+                   CArg<"function_ref<void(OpBuilder &, Location)>",
+                        "buildTerminatedBody">:$truePredicateBuilder)>
   ];
 }
 

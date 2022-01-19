@@ -56,7 +56,8 @@ struct TestVectorMaskingUtils
       getOperation().walk([&](TiledLoopOp loopOp) {
         predicationSucceeded = true;
         OpBuilder builder(loopOp);
-        if (failed(predicateTiledLoop(builder, loopOp)))
+        if (failed(predicateTiledLoop(builder, loopOp,
+                                      /*incomingMask=*/llvm::None)))
           loopOp.emitError("Predication of tiled loop failed");
       });
     }
@@ -64,29 +65,35 @@ struct TestVectorMaskingUtils
     // Test function body predication.
     if (!predicationSucceeded) {
       FuncOp funcOp = getOperation();
-      predicationSucceeded = true;
+      ValueRange funcArgs = funcOp.body().getArguments();
 
-      // Return the mask from the last argument position in the function, if
-      // found. Otherwise, return a null value.
-      auto createPredicateForFuncOp = [&](OpBuilder &builder) -> Value {
-        Region *funcBody = &funcOp.body();
-        if (funcBody->args_empty())
+      if (funcArgs.size() >= 3) {
+        predicationSucceeded = true;
+
+        // Return the mask from the third argument position starting from the
+        // end, if found. Otherwise, return a null value.
+        auto createPredicateMaskForFuncOp = [&](OpBuilder &builder) -> Value {
+          if (funcArgs.size() < 3)
+            return Value();
+
+          // Predicate mask is the third argument starting from the end.
+          Value mask = *std::prev(funcArgs.end(), 3);
+          if (auto vecType = mask.getType().dyn_cast<VectorType>()) {
+            Type elemType = vecType.getElementType();
+            if (elemType.isInteger(1))
+              return mask;
+          }
+
           return Value();
+        };
 
-        Value mask = funcBody->getArguments().back();
-        if (auto vecType = mask.getType().dyn_cast<VectorType>()) {
-          Type elemType = vecType.getElementType();
-          if (elemType.isInteger(1))
-            return mask;
-        }
-
-        return Value();
-      };
-
-      OpBuilder builder(funcOp);
-      if (!predicateOp(builder, funcOp, &funcOp.body(),
-                       createPredicateForFuncOp))
-        funcOp.emitRemark("Predication of function failed");
+        OpBuilder builder(funcOp);
+        Value idx = *std::prev(funcArgs.end(), 2);
+        Value incoming = funcArgs.back();
+        if (!predicateOp(builder, funcOp, &funcOp.body(),
+                         createPredicateMaskForFuncOp, idx, incoming))
+          funcOp.emitRemark("Predication of function failed");
+      }
     }
   }
 

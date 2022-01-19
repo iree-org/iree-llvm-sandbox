@@ -19,6 +19,7 @@ class Region;
 class OpBuilder;
 class Operation;
 class Value;
+class ValueRange;
 class WalkStage;
 
 namespace linalg {
@@ -36,13 +37,14 @@ class PredicateOp;
 /// generating the predicate.
 llvm::Optional<PredicateOp>
 predicateOp(OpBuilder &builder, Operation *op, Region *regionToPredicate,
-            llvm::function_ref<Value(OpBuilder &)> createPredicate);
+            llvm::function_ref<Value(OpBuilder &)> createPredicateMask,
+            ValueRange indexes, llvm::Optional<Value> maybeIncomingMask);
 
 /// Utility that predicates the body a tiled loop with a vector.predicate
 /// operation. The vectorization factor used for predication is assumed to be
 /// the step of the tiled loop.
-LogicalResult predicateTiledLoop(OpBuilder &builder,
-                                 linalg::TiledLoopOp loopOp);
+LogicalResult predicateTiledLoop(OpBuilder &builder, linalg::TiledLoopOp loopOp,
+                                 llvm::Optional<Value> maybeIncomingMask);
 
 /// Function signature of a masking strategy for generic operations.
 using GenericOpMaskingStrategy = llvm::function_ref<void(

@@ -52,15 +52,28 @@ getDefsWithUsesOutside(llvm::iterator_range<Block::iterator> opRange,
         }
 }
 
+/// Return a valid incoming mask. If 'maybeIncomingMask' has a value, return it.
+/// Otherwise, return an all-one mask.
+static Value getIncomingMask(OpBuilder &builder, Location loc,
+                             Optional<Value> maybeIncomingMask, Type maskType) {
+  if (maybeIncomingMask)
+    return *maybeIncomingMask;
+
+  return builder.create<arith::ConstantOp>(
+      loc, maskType,
+      DenseElementsAttr::get(maskType, builder.getBoolAttr(true)));
+}
+
 /// Introduce a vector.predicate op that encloses all the operations in
-/// `regionToPredicate` (except its terminator). `createPredicate` is used to
-/// create the operations that generate the predicate used by vector.predicate.
-/// These operations will be inserted at the beginning of `regionToPredicate`.
-/// The new vector.predicate will be inserted right after the operations
-/// generating the predicate.
+/// `regionToPredicate` (except its terminator). `createPredicateMask` is used
+/// to create the operations that generate the predicate used by
+/// vector.predicate. These operations will be inserted at the beginning of
+/// `regionToPredicate`. The new vector.predicate will be inserted right after
+/// the operations generating the predicate.
 Optional<PredicateOp> mlir::vector_ext::predicateOp(
     OpBuilder &builder, Operation *op, Region *regionToPredicate,
-    function_ref<Value(OpBuilder &)> createPredicate) {
+    function_ref<Value(OpBuilder &)> createPredicateMask, ValueRange indices,
+    Optional<Value> maybeIncomingMask) {
   // TODO: Support multi-block regions.
   if (!regionToPredicate->hasOneBlock())
     return llvm::None;
@@ -79,8 +92,8 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
   // the predicate computation and the vector.predicate.
   OpBuilder::InsertionGuard guard(builder);
   builder.setInsertionPointToStart(&blockToPredicate);
-  Value predicate = createPredicate(builder);
-  if (!predicate)
+  Value predicateMask = createPredicateMask(builder);
+  if (!predicateMask)
     return llvm::None;
 
   // Generate the vector.predicate operation and move 'opsToMove' within its
@@ -88,7 +101,11 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
   // definitions within the range that have external uses. Those uses are
   // rewired to the results of the vector.predicate.
   Location loc = op->getLoc();
-  auto vecPredOp = builder.create<PredicateOp>(loc, defTypes, predicate);
+  Value incomingMask =
+      getIncomingMask(builder, loc, maybeIncomingMask, predicateMask.getType());
+  auto vecPredOp = builder.create<PredicateOp>(loc, defTypes, predicateMask,
+                                               indices, incomingMask);
+
   assert(defsWithUsesOutside.size() == vecPredOp.getNumResults() &&
          "Expected same size");
   for (auto &en : llvm::enumerate(defsWithUsesOutside))
@@ -113,8 +130,9 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
 /// Utility that predicates the body a tiled loop with a vector.predicate
 /// operation. The vectorization factor used for predication is assumed to be
 /// the step of the tiled loop.
-LogicalResult mlir::vector_ext::predicateTiledLoop(OpBuilder &builder,
-                                                   TiledLoopOp loopOp) {
+LogicalResult
+mlir::vector_ext::predicateTiledLoop(OpBuilder &builder, TiledLoopOp loopOp,
+                                     Optional<Value> maybeIncomingMask) {
   if (loopOp.lowerBound().size() > 1)
     // TODO: Support multi-dim tiled loops.
     return failure();
@@ -124,9 +142,12 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(OpBuilder &builder,
   auto maybeVecFactor = getConstantIntValue(step);
   if (!maybeVecFactor)
     return failure();
-  int64_t vecFactor = *maybeVecFactor;
 
-  auto createPredicate = [&](OpBuilder &builder) -> Value {
+  Location loc = loopOp.getLoc();
+  int64_t vecFactor = *maybeVecFactor;
+  auto maskType = VectorType::get({vecFactor}, builder.getI1Type());
+
+  auto createPredicateMask = [&](OpBuilder &builder) -> Value {
     // Generate the predicate to be used by the vector.predicate operation:
     //   %min = affine.min affine_map<(d0)[s0] -> (vecFactor, -d0 +
     //   s0)>(%iv)[%ub] %vec_pred = vector.create_mask %min : vector<8xi1>
@@ -137,18 +158,17 @@ LogicalResult mlir::vector_ext::predicateTiledLoop(OpBuilder &builder,
     SmallVector<AffineMap, 4> maps = AffineMap::inferFromExprList(
         ExprList{{builder.getAffineConstantExpr(vecFactor), i - j}});
 
-    Location loc = loopOp.getLoc();
     auto minOp = builder.create<AffineMinOp>(
         loc, loopOp.step()[0].getType(), maps[0],
         ValueRange{loopOp.upperBound()[0], loopOp.getInductionVars()[0]});
 
-    auto maskType = VectorType::get({vecFactor}, builder.getI1Type());
     return builder.create<CreateMaskOp>(loc, maskType, ValueRange{minOp});
   };
 
-  auto mayPredicate =
-      predicateOp(builder, loopOp, &loopOp.getLoopBody(), createPredicate);
-  if (!mayPredicate)
+  auto maybePredicate =
+      predicateOp(builder, loopOp, &loopOp.getLoopBody(), createPredicateMask,
+                  loopOp.getInductionVars(), maybeIncomingMask);
+  if (!maybePredicate)
     return failure();
 
   // TODO: Canonicalize affine.min ops feeding extract/insert slices guarded by
@@ -164,10 +184,15 @@ static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
                              SmallVectorImpl<Value> &activeMasks,
                              const WalkStage &stage,
                              SmallVectorImpl<Operation *> &erasedOps) {
-  // Actions before visiting the TruePredicateRegion: Update active mask to be
-  // the predicate mask.
+  OpBuilder::InsertionGuard guard(builder);
+
+  // Actions before visiting the TruePredicateRegion: Generate the new active
+  // mask (= predicate_mask & incoming_mask) influencing the region.
   if (stage.isBeforeAllRegions()) {
-    activeMasks.push_back(predOp.predicate());
+    builder.setInsertionPointToStart(&predOp.truePredicateRegion().front());
+    Value trueMask = builder.create<arith::AndIOp>(
+        predOp.getLoc(), predOp.incomingMask(), predOp.predicateMask());
+    activeMasks.push_back(trueMask);
     return;
   }
 
