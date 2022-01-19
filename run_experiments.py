@@ -168,7 +168,7 @@ def _compress_problem_sizes_label(
 def _plot_data(config_key_to_plot: str,
             data_key: str, data_label: str,
             data_to_plot: pandas.DataFrame,
-            peak_value: int, peak_label: str) -> matplotlib.axes.Axes:
+            peak_lines_to_plot : Mapping[str, int]) -> matplotlib.axes.Axes:
   """Plot the provided data and configuration combination."""
   plt = seaborn.violinplot(
       x=config_key_to_plot, y=data_key, data=data_to_plot)
@@ -177,11 +177,14 @@ def _plot_data(config_key_to_plot: str,
   plt.set(xticklabels=new_labels)
   plt.set(xlabel=str.format(
       f"Problem Sizes [{','.join(keys)}]"), ylabel=data_label)
-  plt.set(ylim=(0, round(1.02 * peak_value)))
-  roofline = plt.axhline(y=peak_value)
-  plt.text(-.4, peak_value * 0.99, peak_label,
-           horizontalalignment="left", verticalalignment="top",
-           color=roofline.get_color(), fontsize=9)
+  max_peak_value = max(peak_lines_to_plot.values())
+  offset = max_peak_value * 0.01
+  for peak_label, peak_value in peak_lines_to_plot.items():
+    roofline = plt.axhline(y=peak_value)
+    plt.text(-.4, peak_value - offset, peak_label,
+            horizontalalignment="left", verticalalignment="top",
+            color=roofline.get_color(), fontsize=9)
+  plt.set(ylim=(0, round(max_peak_value + 2 * offset)))
   plt.tick_params(axis="x", rotation=20)
   return plt
 
@@ -217,7 +220,7 @@ def _get_plot_file_name(plot_name: str,
 
 def _plot_quantity(plot_name: str, path: os.path, data: pandas.DataFrame,
                    data_key: str, data_label: str,
-                   peak_value: int, peak_label: str):
+                   peak_lines_to_plot : Mapping[str, int]):
   """Plot the provided quantity for all problem sizes.
 
   Plot the problem sizes for every expert, np_types, etc. combination.
@@ -230,7 +233,7 @@ def _plot_quantity(plot_name: str, path: os.path, data: pandas.DataFrame,
     data_to_plot = _get_data_to_plot(data, plot_configuration.to_dict())
     # Plot the selected data.
     plt = _plot_data(config_key_to_plot, data_key,
-                     data_label, data_to_plot, peak_value, peak_label)
+                     data_label, data_to_plot, peak_lines_to_plot)
     plt.get_figure().set_size_inches(6, 3.75)
     plt.get_figure().tight_layout()
     file_name = _get_plot_file_name(plot_name, plot_configuration.to_dict())
@@ -285,11 +288,6 @@ def _parse_arguments() -> argparse.Namespace:
                       nargs="?",
                       help="peak throughput (e.g., -t 192)",
                       default=192)
-  parser.add_argument("--peak_bandwidth", "-b",
-                      type=int,
-                      nargs="?",
-                      help="peak bandwidth (e.g., -b 100)",
-                      default=100)
   parser.add_argument("--benchmark",
                       default=True,
                       action='store_true')
@@ -325,15 +323,18 @@ def main():
         continue
       data = pandas.read_json(file_name)
       # Plot the compute throughput.
+      r_peak_label = str.format(f"Rpeak = {args.peak_throughput} GFlop/s")
+      r_peak_value = args.peak_throughput
       _plot_quantity("throughput", path, data, "gflop_per_s_per_iter",
                     "Compute Throughput [GFlop/s]",
-                    args.peak_throughput,
-                    str.format(f"Rpeak = {args.peak_throughput} GFlop/s"))
+                    {r_peak_label: r_peak_value})
       # Plot the memory bandwidth.
       _plot_quantity("bandwidth", path, data, "gbyte_per_s_per_iter",
-                    "Bandwidth [GB/s]",
-                    args.peak_bandwidth,
-                    str.format(f"Max Bandwidth = {args.peak_bandwidth} GB/s"))
+                     "Bandwidth [GB/s]",
+                     {
+                         "L2 max = 85 GB/s": 85,
+                         "L3 max = 23 GB/s": 23,
+                     })
 
 if __name__ == '__main__':
   main()
