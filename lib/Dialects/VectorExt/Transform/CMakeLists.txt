@@ -1,7 +1,3 @@
-set(LLVM_OPTIONAL_SOURCES
-  VisitorUtils.cpp
-)
-
 add_mlir_library(MLIRVectorExtTransform
   VectorMaskingUtils.cpp
 
