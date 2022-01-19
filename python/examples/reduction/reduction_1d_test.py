@@ -31,7 +31,7 @@ def main():
   n_iters = 1
   problem_size_list = [[48], [49]]
 
-  test_harness(lambda s, t: EinsumProblem('m->', 1), [[np.float32] * 2],
+  test_harness(lambda s, t: EinsumProblem('m->', 'm', 1), [[np.float32] * 2],
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,

@@ -7,7 +7,7 @@ import itertools
 class EinsumSpecification:
   """Structured representation of a string einsum specification."""
 
-  def __init__(self, specification: str):
+  def __init__(self, specification: str, domain: str):
     """Creates a specification given its string format."""
     # Split out the operands and the result part of the specification.
     specification_split = specification.split("->")
@@ -54,9 +54,16 @@ class EinsumSpecification:
       assert inferred_output_dims is not None, "Expected output specification."
       output_dims = "".join(inferred_output_dims)
 
+    # Use the specified iteration domain or order the dimensions alphabetically.
+    domain_dims = [dim for dim in domain]
+    spec_dims = set(lhs_dims + output_dims)
+    assert set(domain_dims) == spec_dims, str.format(
+      f"Expected domain dimensions to match specification {spec_dims}")
+
     self.__lhs_dims = lhs_dims
     self.__rhs_dims = rhs_dims
     self.__output_dims = output_dims
+    self.__domain_dims = domain_dims
 
   @property
   def lhs_dims(self):
@@ -74,6 +81,11 @@ class EinsumSpecification:
     return self.__output_dims
 
   @property
+  def domain_dims(self):
+    """Dimensions of the iteration domain, as string and in order."""
+    return self.__domain_dims
+
+  @property
   def reduction_dims(self):
     """Reduction dimensions, as string and in order of LHS operand."""
     return "".join([d for d in self.lhs_dims if d not in self.output_dims])
@@ -84,7 +96,7 @@ class EinsumSpecification:
     return format(f"{','.join(operand_dims)}->{self.output_dims}")
 
 
-def make_einsum(specification: str):
+def make_einsum(specification: EinsumSpecification):
   """Creates a Linalg structured op builder from einsum specification.
 
   The specification is similar to numpy.einsum and has the format:
@@ -102,11 +114,11 @@ def make_einsum(specification: str):
   either a LHS or an LHS and a RHS tensor must be present, and the result must
   not have repeated dimensions.
   """
-  spec = EinsumSpecification(specification)
-  lhs_dims = spec.lhs_dims
-  rhs_dims = spec.rhs_dims
-  output_dims = spec.output_dims
-  reduction_dims = spec.reduction_dims
+  lhs_dims = specification.lhs_dims
+  rhs_dims = specification.rhs_dims
+  output_dims = specification.output_dims
+  reduction_dims = specification.reduction_dims
+  domain_dims = specification.domain_dims
 
   def symbols(dimensions: str):
     """Return a tuple of OpDSL symbols that corresponds to dimensions."""
@@ -126,14 +138,14 @@ def make_einsum(specification: str):
       @linalg_structured_op(op_name="einsum_contraction_" + op_dims)
       def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                     O=TensorDef(U, *symbols(output_dims), output=True)):
-        domain(*dims(output_dims + reduction_dims))
+        domain(*dims(domain_dims))
         O[dims(output_dims)] += TypeFn.cast(U, LHS[dims(lhs_dims)])
       return einsum_op
     else:
       @linalg_structured_op(op_name="einsum_transpose_" + op_dims)
       def einsum_op(LHS=TensorDef(U, *symbols(lhs_dims)),
                     O=TensorDef(U, *symbols(output_dims), output=True)):
-        domain(*dims(output_dims))
+        domain(*dims(domain_dims))
         O[dims(output_dims)] = TypeFn.cast(U, LHS[dims(lhs_dims)])
       return einsum_op
 
@@ -145,7 +157,7 @@ def make_einsum(specification: str):
     def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                   RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
                   O=TensorDef(U, *symbols(output_dims), output=True)):
-      domain(*dims(output_dims + reduction_dims))
+      domain(*dims(domain_dims))
       implements(ContractionOpInterface)
       O[dims(output_dims)] += TypeFn.cast(U,
           LHS[dims(lhs_dims)]) * TypeFn.cast(U, RHS[dims(rhs_dims)])
@@ -155,7 +167,7 @@ def make_einsum(specification: str):
     def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                   RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
                   O=TensorDef(U, *symbols(output_dims), output=True)):
-      domain(*dims(output_dims))
+      domain(*dims(domain_dims))
       O[dims(output_dims)] = TypeFn.cast(U,
           LHS[dims(lhs_dims)]) * TypeFn.cast(U, RHS[dims(rhs_dims)])
     return einsum_op

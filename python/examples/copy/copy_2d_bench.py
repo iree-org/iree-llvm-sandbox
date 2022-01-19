@@ -84,7 +84,7 @@ def main():
     default_spec_list=[])
 
   for problem_sizes in args.problem_sizes_list:
-    test_harness(lambda s, t: EinsumProblem('mn->mn', 0), [[np.float32] * 2],
+    test_harness(lambda s, t: EinsumProblem('mn->mn', 'mn', 0), [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  test_experts(all_experts(problem_sizes), all_names,
                               args.expert_list),
