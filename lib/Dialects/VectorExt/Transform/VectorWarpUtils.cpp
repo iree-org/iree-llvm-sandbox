@@ -72,8 +72,8 @@ moveRegionToNewWarpOpAndAppendReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
   return newWarpOp;
 }
 
-llvm::Optional<std::pair<Operation *, unsigned>>
-getWarpResult(WarpSingleLaneOp warpOp, std::function<bool(Operation *)> fn) {
+OpOperand *getWarpResult(WarpSingleLaneOp warpOp,
+                         std::function<bool(Operation *)> fn) {
   auto yield = cast<vector_ext::YieldOp>(
       warpOp.getBodyRegion().getBlocks().begin()->getTerminator());
   for (OpOperand &yieldOperand : yield->getOpOperands()) {
@@ -81,7 +81,7 @@ getWarpResult(WarpSingleLaneOp warpOp, std::function<bool(Operation *)> fn) {
     Operation *definedOp = yieldValues.getDefiningOp();
     if (definedOp && fn(definedOp)) {
       if (!warpOp.getResult(yieldOperand.getOperandNumber()).use_empty())
-        return std::make_pair(definedOp, yieldOperand.getOperandNumber());
+        return &yieldOperand;
     }
   }
   return {};
@@ -134,13 +134,14 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
   using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
                                 PatternRewriter &rewriter) const override {
-    auto yieldOperand = getWarpResult(warpOp, [](Operation *op) {
+    OpOperand *yieldOperand = getWarpResult(warpOp, [](Operation *op) {
       return OpTrait::hasElementwiseMappableTraits(op);
     });
     if (!yieldOperand)
       return failure();
-    Operation *elementWise = yieldOperand->first;
-    Value distributedVal = warpOp.getResult(yieldOperand->second);
+    Operation *elementWise = yieldOperand->get().getDefiningOp();
+    unsigned operandIndex = yieldOperand->getOperandNumber();
+    Value distributedVal = warpOp.getResult(operandIndex);
     SmallVector<Value> yieldValues;
     SmallVector<Type> retTypes;
     for (OpOperand &operand : elementWise->getOpOperands()) {
@@ -161,9 +162,8 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
     rewriter.setInsertionPointAfter(newWarpOp);
     Operation *newOp = cloneOpWithOperandsAndTypes(
         rewriter, warpOp.getLoc(), elementWise, newOperands,
-        {warpOp.getResult(yieldOperand->second).getType()});
-    newWarpOp.getResult(yieldOperand->second)
-        .replaceAllUsesWith(newOp->getResult(0));
+        {warpOp.getResult(operandIndex).getType()});
+    newWarpOp.getResult(operandIndex).replaceAllUsesWith(newOp->getResult(0));
     rewriter.eraseOp(warpOp);
     return success();
   }
@@ -191,12 +191,13 @@ struct WarpOpTransferRead : public OpRewritePattern<WarpSingleLaneOp> {
   using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
                                 PatternRewriter &rewriter) const override {
-    auto operand = getWarpResult(
+    OpOperand *operand = getWarpResult(
         warpOp, [](Operation *op) { return isa<vector::TransferReadOp>(op); });
     if (!operand)
       return failure();
-    auto read = cast<vector::TransferReadOp>(operand->first);
-    Value distributedVal = warpOp.getResult(operand->second);
+    auto read = operand->get().getDefiningOp<vector::TransferReadOp>();
+    unsigned operandIndex = operand->getOperandNumber();
+    Value distributedVal = warpOp.getResult(operandIndex);
 
     SmallVector<Value, 4> indices(read.indices().begin(), read.indices().end());
     AffineMap map = calculateImplicitMap(read.getResult(), distributedVal);
