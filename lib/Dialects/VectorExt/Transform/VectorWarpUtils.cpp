@@ -31,9 +31,9 @@ static Operation *cloneOpWithOperandsAndTypes(OpBuilder &builder, Location loc,
 
 /// Helper to create a new WarpSingleLaneOp regions with different signature.
 static WarpSingleLaneOp
-moveRegionToNewWarpOpAndOverrideReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
-                                        ValueRange newYieldedValues,
-                                        TypeRange newReturnTypes) {
+moveRegionToNewWarpOpAndReplaceReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
+                                       ValueRange newYieldedValues,
+                                       TypeRange newReturnTypes) {
   // Create a new op before the existing one, with the extra operands.
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(warpOp);
@@ -64,7 +64,7 @@ moveRegionToNewWarpOpAndAppendReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
                                  yield.getOperands().end());
   yieldValues.append(newYieldedValues.begin(), newYieldedValues.end());
   WarpSingleLaneOp newWarpOp =
-      moveRegionToNewWarpOpAndOverrideReturns(b, warpOp, yieldValues, types);
+      moveRegionToNewWarpOpAndReplaceReturns(b, warpOp, yieldValues, types);
   for (auto it :
        llvm::zip(warpOp.getResults(),
                  newWarpOp.getResults().take_front(warpOp.getNumResults())))
@@ -245,7 +245,7 @@ struct WarpOpDeadResult : public OpRewritePattern<WarpSingleLaneOp> {
     }
     if (yield.getNumOperands() == yieldValues.size())
       return failure();
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndOverrideReturns(
+    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndReplaceReturns(
         rewriter, warpOp, yieldValues, resultTypes);
     unsigned resultIndex = 0;
     for (OpResult result : warpOp.getResults()) {
