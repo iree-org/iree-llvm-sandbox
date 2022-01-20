@@ -83,7 +83,7 @@ class Measurements:
     return self.data
 
   def dump_to_file(self, file_name: str):
-    """Dump the measurements to a jason file."""
+    """Dump the measurements to a json file."""
     # Load existing data.
     if os.path.exists(file_name):
       existing_data = pandas.read_json(file_name)
@@ -94,6 +94,19 @@ class Measurements:
       os.makedirs(directory)
     self.data.reset_index(drop=True, inplace=True)
     self.data.to_json(file_name)
+
+  def dump_raw_to_file(self,
+                       file_name: str,
+                       name: str = 'runtime_problem_sizes_dict',
+                       value_column_name: str = 'gflop_per_s_per_iter'):
+    """Dump the measurements to a raw file by appending."""
+    all_data = None
+    if os.path.exists(file_name):
+      all_data = pandas.read_json(file_name)
+      all_data = pandas.concat((all_data, self.data[[name, value_column_name]]))
+    else:
+      all_data = self.data[[name, value_column_name]]
+    all_data.to_json(file_name, orient='records')
 
   def _stringify_types(self, value: Sequence[np.dtype]) -> str:
     return ",".join(
@@ -545,6 +558,7 @@ def test_harness(problem_factory: Callable[
 
     file_name = kwargs.get('dump_data_to_file', '')
     if file_name != '':
-      measurements.dump_to_file(file_name)
+      # measurements.dump_to_file(file_name)
+      measurements.dump_raw_to_file(file_name)
 
     return measurements
