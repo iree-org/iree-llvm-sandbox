@@ -116,6 +116,8 @@ static AffineMap calculateImplicitMap(Value yield, Value ret) {
   return map;
 }
 
+namespace {
+
 /// Sink out elementwise op feeding into a warp op yield.
 /// ```
 /// %0 = vector_ext.warp_execute_on_lane_0(%arg0) -> (vector<1xf32>) {
@@ -207,7 +209,7 @@ struct WarpOpTransferRead : public OpRewritePattern<WarpSingleLaneOp> {
     AffineMap map = calculateImplicitMap(read.getResult(), distributedVal);
     AffineMap indexMap = map.compose(read.permutation_map());
     OpBuilder::InsertionGuard g(rewriter);
-    rewriter.setInsertionPoint(warpOp);
+    rewriter.setInsertionPointAfter(warpOp);
     for (auto it : llvm::zip(indexMap.getResults(), map.getResults())) {
       AffineExpr d0, d1;
       bindDims(read.getContext(), d0, d1);
@@ -261,6 +263,89 @@ struct WarpOpDeadResult : public OpRewritePattern<WarpSingleLaneOp> {
     return success();
   }
 };
+
+} // namespace
+
+/// Helper to figure out if an op has side effects or recursive side-effects.
+static bool hasSideEffect(Operation &op) {
+  // If we find an op with side effect before finding a transfer_write we
+  // cannot hoist out the transfer write.
+  if (auto memInterface = dyn_cast<MemoryEffectOpInterface>(op)) {
+    if (!memInterface.hasNoEffect())
+      return true;
+    if (op.hasTrait<OpTrait::HasRecursiveSideEffects>())
+      return true;
+  }
+  if (op.hasTrait<OpTrait::HasRecursiveSideEffects>())
+    return true;
+  return false;
+}
+
+// TODO: Move to the op.
+static unsigned distributionRatio = 32;
+
+void mlir::vector_ext::distributeTransferWrite(
+    OpBuilder &builder, WarpSingleLaneOp op,
+    std::function<AffineMap(vector::TransferWriteOp)> distributionMapFn) {
+  vector::TransferWriteOp writeOp;
+  while (1) {
+    // Find the first transfer_write from the end of the block.
+    for (Operation &elementOp : llvm::reverse(op.getBody()->getOperations())) {
+      writeOp = dyn_cast<vector::TransferWriteOp>(elementOp);
+      if (writeOp)
+        break;
+      if (hasSideEffect(elementOp))
+        return;
+    }
+    if (!writeOp)
+      return;
+    if (!llvm::all_of(writeOp->getOperands(), [&](Value value) {
+          return writeOp.vector() == value ||
+                 op.isDefinedOutsideOfRegion(value);
+        }))
+      return;
+    AffineMap map = distributionMapFn(writeOp);
+    SmallVector<int64_t> targetShape(writeOp.getVectorType().getShape().begin(),
+                                     writeOp.getVectorType().getShape().end());
+    assert(map.getNumResults() == 1 &&
+           "multi-dim distribution not implemented yet");
+    for (unsigned i = 0, e = map.getNumResults(); i < e; i++) {
+      unsigned position = map.getDimPosition(i);
+      targetShape[position] = targetShape[position] / distributionRatio;
+    }
+    VectorType targeType =
+        VectorType::get(targetShape, writeOp.getVectorType().getElementType());
+    SmallVector<Value> yieldValues = {writeOp.vector()};
+    SmallVector<Type> retTypes = {targeType};
+    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+        builder, op, yieldValues, retTypes);
+    writeOp->moveAfter(newWarpOp);
+    OpBuilder::InsertionGuard g(builder);
+    builder.setInsertionPoint(writeOp);
+
+    AffineMap indexMap = map.compose(writeOp.permutation_map());
+    Location loc = writeOp.getLoc();
+    SmallVector<Value> indices(writeOp.indices().begin(),
+                               writeOp.indices().end());
+    for (auto it : llvm::zip(indexMap.getResults(), map.getResults())) {
+      AffineExpr d0, d1;
+      bindDims(op.getContext(), d0, d1);
+      auto indexExpr = std::get<0>(it).dyn_cast<AffineDimExpr>();
+      if (!indexExpr)
+        continue;
+      unsigned indexPos = indexExpr.getPosition();
+      unsigned vectorPos = std::get<1>(it).cast<AffineDimExpr>().getPosition();
+      auto scale =
+          getAffineConstantExpr(targetShape[vectorPos], op.getContext());
+      indices[indexPos] = makeComposedAffineApply(
+          builder, loc, d0 + scale * d1, {indices[indexPos], op.laneid()});
+    }
+    writeOp.vectorMutable().assign(newWarpOp.getResults().back());
+    writeOp.indicesMutable().assign(indices);
+    op->erase();
+    op = newWarpOp;
+  }
+}
 
 void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
@@ -367,6 +452,8 @@ static LogicalResult rewriteWarpOpToScfFor(
   return success();
 }
 
+namespace {
+
 struct WarpOpToScfForPattern : public OpRewritePattern<WarpSingleLaneOp> {
   using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
@@ -423,7 +510,44 @@ struct WarpOpToScfForPattern : public OpRewritePattern<WarpSingleLaneOp> {
   }
 };
 
+}
+
 void mlir::vector_ext::populateWarpSingleLaneOpToScfForPattern(
     RewritePatternSet &patterns) {
   patterns.add<WarpOpToScfForPattern>(patterns.getContext());
+}
+
+/// Helper to know if an op can be hoisted out of the region.
+static bool canBeHoisted(Operation *op,
+                         function_ref<bool(Value)> definedOutside) {
+  return llvm::all_of(op->getOperands(), definedOutside) &&
+         !hasSideEffect(*op) && op->getNumRegions() == 0;
+}
+
+void mlir::vector_ext::moveScalarUniformCode(WarpSingleLaneOp warpOp) {
+  Block *body = warpOp.getBody();
+
+  // Keep track of the ops we want to hoist.
+  llvm::SmallSetVector<Operation *, 8> opsToMove;
+
+  // Helper to check if a value is or will be defined outside of the region.
+  auto isDefinedOutsideOfBody = [&](Value value) {
+    auto *definingOp = value.getDefiningOp();
+    return (definingOp && opsToMove.count(definingOp)) ||
+           warpOp.isDefinedOutsideOfRegion(value);
+  };
+
+  // Do not use walk here, as we do not want to go into nested regions and hoist
+  // operations from there.
+  for (auto &op : body->without_terminator()) {
+    bool hasVectorResult = llvm::any_of(op.getResults(), [](Value result) {
+      return result.getType().isa<VectorType>();
+    });
+    if (!hasVectorResult && canBeHoisted(&op, isDefinedOutsideOfBody))
+      opsToMove.insert(&op);
+  }
+
+  // Move all the ops marked as uniform outside of the region.
+  for (Operation *op : opsToMove)
+    op->moveBefore(warpOp);
 }
