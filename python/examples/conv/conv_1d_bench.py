@@ -25,7 +25,7 @@ all_names = [ \
             ]
 
 all_experts = [
-    e.print_ir(after_all=False, llvm=False) for e in [ \
+    e.print_ir(after_all=True, llvm=False) for e in [ \
         SingleTilingExpert(
             fun_name,
             op_name,
