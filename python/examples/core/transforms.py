@@ -220,11 +220,12 @@ class LinalgExtTileToInParallel(Transform):
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
 
-    pipeline = (f'linalg-tile-to-in-parallel,'
-                # TODO: when bufferization works, no more need to go through sequential for
-                # f'linalg-in-parallel-to-sequential-for,'
-                f'canonicalize,'
-                f'cse')
+    pipeline = (
+        f'linalg-tile-to-in-parallel,'
+        # TODO: when bufferization works, no more need to go through sequential for
+        # f'linalg-in-parallel-to-sequential-for,'
+        f'canonicalize,'
+        f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
 
 
@@ -320,15 +321,12 @@ class LowerVectors(Transform):
     options = ("none", "linalg-copy", "vector-transfers")
 
   variables = {
-      'contraction_lowering':
-          (ContractionLoweringChoice, ContractionLoweringChoice.options[0]),
+      'contraction_lowering': (ContractionLoweringChoice, 'outerproduct'),
       'max_transfer_rank': (IntVariable, 1),
-      'multi_reduction_lowering': (MultiReductionLoweringChoice,
-                                   MultiReductionLoweringChoice.options[0]),
-      'split_transfers':
-          (VectorTransferSplitChoice, VectorTransferSplitChoice.options[1]),
-      'transpose_lowering':
-          (TransposeLoweringChoice, TransposeLoweringChoice.options[0]),
+      'multi_reduction_lowering':
+          (MultiReductionLoweringChoice, 'innerparallel'),
+      'split_transfers': (VectorTransferSplitChoice, 'linalg-copy'),
+      'transpose_lowering': (TransposeLoweringChoice, 'eltwise'),
       'transpose_avx2_lowering': (BoolVariable, False),
       'unroll_vector_transfers': (BoolVariable, True)
   }
