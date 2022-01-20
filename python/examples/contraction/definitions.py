@@ -50,9 +50,9 @@ class EinsumProblem(ProblemDefinition):
   def shapes_builder(self, sizes: Mapping[str, Any]) -> List[List[int]]:
     """Constructs the tensor shapes given problem parameters."""
     operand_dims = [
-      self.specification.lhs_dims,
-      self.specification.rhs_dims,
-      self.specification.output_dims]
+        self.specification.lhs_dims, self.specification.rhs_dims,
+        self.specification.output_dims
+    ]
 
     def shape_of_tensor(dims: str):
       return [sizes[k] for k in dims]
@@ -110,7 +110,8 @@ class EinsumProblem(ProblemDefinition):
             zip(shapes, types)]
 
   def build_problem_under_context_manager(self, name: str,
-                                          types: Sequence[Type]):
+                                          types: Sequence[Type],
+                                          zero_at_each_iteration: bool):
     """Constructs MLIR that implements the einsum specification.
 
     Expects to operate under MLIR's context manager.
@@ -131,12 +132,12 @@ class EinsumProblem(ProblemDefinition):
 
     with InsertionPoint(func.add_entry_block()):
       output_tensor = func.arguments[-1]
-      if self.specification.reduction_dims:
+      if self.specification.reduction_dims and zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, 0.0)
         output_tensor = linalg.FillOp(output=func.arguments[-1], value=zero)
       print('Einsum spec: ', str(self.specification))
       einsum_op = make_einsum(str(self.specification))(*func.arguments[:-1],
-                                                         outs=[output_tensor])
+                                                       outs=[output_tensor])
       std.ReturnOp([einsum_op])
 
     return func

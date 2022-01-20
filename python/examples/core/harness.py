@@ -37,17 +37,17 @@ ProblemSizes = Sequence[Union[int, Sequence[int]]]
 
 class Measurements:
   """Class storing measurement configuration and results in data frame."""
-  config_keys = [
+  config_keys = [ \
     "expert",
     "np_types",
     "dynamic_at_compile_time",
     "runtime_problem_sizes_dict"
-  ]
-  data_keys = [
-    "elapsed_s_per_iter",
-    "gbyte_per_s_per_iter",
-    "gflop_per_s_per_iter"
-  ]
+                ]
+  data_keys = [ \
+      "elapsed_s_per_iter",
+      "gbyte_per_s_per_iter",
+      "gflop_per_s_per_iter"
+              ]
 
   def __init__(self):
     self.data = pandas.DataFrame(
@@ -58,19 +58,20 @@ class Measurements:
              runtime_problem_sizes_dict: Mapping[str, ProblemSizes],
              timing_results_dict: TimingResults):
     """Append measurement results."""
-    config = pandas.DataFrame(dict(
-      zip(self.config_keys,
-          [[expert],
-            [self._stringify_types(np_types)],
-              [self._stringify_set(dynamic_at_compile_time_sizes)],
-              [self._stringify_dict(runtime_problem_sizes_dict)]])))
-    results = pandas.DataFrame(dict(
-      [(k, timing_results_dict[k]) for k in self.data_keys]))
+    config = pandas.DataFrame(
+        dict(
+            zip(self.config_keys,
+                [[expert], [self._stringify_types(np_types)],
+                 [self._stringify_set(dynamic_at_compile_time_sizes)],
+                 [self._stringify_dict(runtime_problem_sizes_dict)]])))
+    results = pandas.DataFrame(
+        dict([(k, timing_results_dict[k]) for k in self.data_keys]))
     # Cross-product: add an identical fake key to both data frames,
     # merge on that key, and delete it.
     config['_fake_key'] = 1
     results['_fake_key'] = 1
-    product = config.merge(results, on='_fake_key').drop(labels='_fake_key', axis=1)
+    product = config.merge(results, on='_fake_key') \
+      .drop(labels='_fake_key', axis=1)
     self.data = self.data.append(product)
 
   def to_dict(self) -> dict[str, Any]:
@@ -95,30 +96,29 @@ class Measurements:
     self.data.to_json(file_name)
 
   def _stringify_types(self, value: Sequence[np.dtype]) -> str:
-    return ",".join([
-      repr(dt).lstrip("<class 'numpy.").rstrip("'>") for dt in value])
+    return ",".join(
+        [repr(dt).lstrip("<class 'numpy.").rstrip("'>") for dt in value])
 
   def _stringify_set(self, value: AbstractSet[str]) -> str:
     return ",".join([k for k in value]) if value else "[]"
 
   def _stringify_dict(self, value: Mapping[str, ProblemSizes]) -> str:
-    return ",".join([
-      str.format(f"{k}={v}") for k, v in value.items()])
+    return ",".join([str.format(f"{k}={v}") for k, v in value.items()])
 
 
 def _compute_quantiles(measurements: Sequence[float],
                        n_iters: int) -> Sequence[float]:
-  return [
-    measurements[0],
-    measurements[((n_iters * 1) // 100)],
-    measurements[((n_iters * 10) // 100)],
-    measurements[((n_iters * 25) // 100)],
-    measurements[((n_iters * 50) // 100)],
-    measurements[((n_iters * 75) // 100)],
-    measurements[((n_iters * 90) // 100)],
-    measurements[((n_iters * 99) // 100)],
-    measurements[-1]
-  ]
+  return [ \
+      measurements[0],
+      measurements[((n_iters * 1) // 100)],
+      measurements[((n_iters * 10) // 100)],
+      measurements[((n_iters * 25) // 100)],
+      measurements[((n_iters * 50) // 100)],
+      measurements[((n_iters * 75) // 100)],
+      measurements[((n_iters * 90) // 100)],
+      measurements[((n_iters * 99) // 100)],
+      measurements[-1]
+         ]
 
 
 def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
@@ -212,7 +212,8 @@ class ProblemInstance:
       compile_time_problem_sizes_dict: dict,
       # TODO: Better type than Callable.
       transform: Callable,
-      dump_ir_to_file: str = ''):
+      dump_ir_to_file: str = '',
+      zero_at_each_iteration: bool = False):
     assert self.compile_time_problem_sizes_dict is None, \
         f'Problem already compiled, please instantiate a new problem'
     self.__assert_matching_mapping_keys(compile_time_problem_sizes_dict)
@@ -229,7 +230,7 @@ class ProblemInstance:
             compiled_function_element_types_mlir_builder(self.np_types))
 
         func = self.problem_definition.build_problem_under_context_manager(
-            fun_to_benchmark_name, types)
+            fun_to_benchmark_name, types, zero_at_each_iteration)
         wrapper = emit_benchmarking_function(entry_point_name, func)
 
       def apply_transform_to_entry_point_name(module):
@@ -347,7 +348,7 @@ def _parse_dimension_list(argument: str) -> Sequence[str]:
   return argument.split(',')
 
 
-def test_argparser(benchmark_name: str,
+def test_argparser(benchmark_name: str, \
                    default_n_iters: int,
                    default_problem_sizes_list: Sequence[Sequence[int]],
                    default_expert_list: Sequence[str],
@@ -366,25 +367,33 @@ def test_argparser(benchmark_name: str,
   default_spec_list: Default specification list.
   """
   parser = argparse.ArgumentParser(description=benchmark_name)
-  parser.add_argument('--n_iters', '-i',
+  parser.add_argument('--n_iters',
+                      '-i',
                       type=int,
                       nargs='?',
                       help='number of iterations (e.g., -i 100)',
                       default=default_n_iters)
-  parser.add_argument('--problem_sizes_list', '-p',
+  parser.add_argument('--problem_sizes_list',
+                      '-p',
                       type=_parse_problem_sizes,
                       nargs='+',
                       help='problem sizes (e.g., -p 32,32,64 8,8,8)',
                       default=default_problem_sizes_list)
-  parser.add_argument('--expert_list', '-e', type=str, nargs='+',
+  parser.add_argument('--expert_list',
+                      '-e',
+                      type=str,
+                      nargs='+',
                       help='experts (e.g., -e Expert1 Expert2)',
                       default=default_expert_list)
-  parser.add_argument('--dynamic_at_compile_time_list', '-r',
-                      type=_parse_dimension_list,
-                      nargs='+',
-                      help='dynamic at compile time dimensions (e.g., -r k,m k [])',
-                      default=default_dynamic_at_compile_time_list)
-  parser.add_argument('--spec_list', '-s',
+  parser.add_argument(
+      '--dynamic_at_compile_time_list',
+      '-r',
+      type=_parse_dimension_list,
+      nargs='+',
+      help='dynamic at compile time dimensions (e.g., -r k,m k [])',
+      default=default_dynamic_at_compile_time_list)
+  parser.add_argument('--spec_list',
+                      '-s',
                       type=str,
                       nargs='+',
                       help='problem specifications (e.g., -s mk,kn km,kn)',
@@ -404,25 +413,28 @@ def test_sizes(dim_names: Sequence[str],
 
 
 def test_experts(
-        all_experts: Sequence[TransformationList],
-        all_names: Sequence[str] = [],
-        expert_list: Sequence[str] = []) -> dict[str, TransformationList]:
+    all_experts: Sequence[TransformationList],
+    all_names: Sequence[str] = [],
+    expert_list: Sequence[str] = []) -> dict[str, TransformationList]:
   """Annotate the expert name and remove the experts not in expert list."""
   assert len(all_experts) == len(all_names), "Expect one name per expert."
-  return {k: v for k, v in zip(all_names, all_experts)
-                  if not expert_list or k in expert_list}
+  return {
+      k: v
+      for k, v in zip(all_names, all_experts)
+      if not expert_list or k in expert_list
+  }
 
 
 def test_harness(problem_factory: Callable[
-        [Mapping[str, Any], Sequence[np.dtype]], ProblemDefinition],
-        np_types_list: Sequence[Sequence[np.dtype]],
-        problem_sizes_list: Sequence[Mapping[str, Any]],
-        experts: Union[Sequence[TransformationList],
-                       Mapping[str, TransformationList]],
-        n_iters: int = 1,
-        function_name: str = 'tested_function',
-        dynamic_at_compile_time_sizes: AbstractSet[str] = set(),
-        **kwargs) -> Measurements:
+    [Mapping[str, Any], Sequence[np.dtype]], ProblemDefinition],
+                 np_types_list: Sequence[Sequence[np.dtype]],
+                 problem_sizes_list: Sequence[Mapping[str, Any]],
+                 experts: Union[Sequence[TransformationList],
+                                Mapping[str, TransformationList]],
+                 n_iters: int = 1,
+                 function_name: str = 'tested_function',
+                 dynamic_at_compile_time_sizes: AbstractSet[str] = set(),
+                 **kwargs) -> Measurements:
   """Test runner facility.
 
   Compiles and runs the a test or a benchmark for a cross-product of possible
@@ -487,7 +499,8 @@ def test_harness(problem_factory: Callable[
             fun_to_benchmark_name=function_name,
             compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
             transform=expert,
-            dump_ir_to_file=kwargs.get('dump_ir_to_file', ''))
+            dump_ir_to_file=kwargs.get('dump_ir_to_file', ''),
+            zero_at_each_iteration=kwargs.get('zero_at_each_iteration', False))
 
         timing_results = problem.run(
             n_iters=n_iters,

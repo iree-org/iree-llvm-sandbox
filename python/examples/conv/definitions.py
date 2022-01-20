@@ -340,7 +340,8 @@ class ConvolutionProblem(ProblemDefinition):
     return [RankedTensorType.get(s, t) for s, t in zip(shapes, types)]
 
   def build_problem_under_context_manager(
-      self, name: str, mlir_types: Sequence[Type]) -> builtin.FuncOp:
+      self, name: str, mlir_types: Sequence[Type],
+      zero_at_each_iteration: bool) -> builtin.FuncOp:
     """Constructs MLIR that implements the current convolution.
 
     Expects to operate under MLIR's context manager.
@@ -359,8 +360,10 @@ class ConvolutionProblem(ProblemDefinition):
     attach_passthrough(func, [StringAttr.get("noinline")], avx512=avx512)
 
     with InsertionPoint(func.add_entry_block()):
-      zero = arith.ConstantOp(output_type.element_type, 0.0)
-      tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
+      tensor_zero = func.arguments[-1]
+      if zero_at_each_iteration:
+        zero = arith.ConstantOp(output_type.element_type, 0.0)
+        tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
       conv = self.__op_builder(func.arguments[0],
                                func.arguments[1],
                                outs=[tensor_zero],

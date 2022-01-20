@@ -155,7 +155,8 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     return func_types + [padded_input_type]
 
   def build_problem_under_context_manager(
-      self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
+      self, name: str, types: Sequence[Type],
+      zero_at_each_iteration: bool) -> builtin.FuncOp:
     """MLIR problem builder.
 
     Given a list of MLIR shaped types, build and return the MLIR FuncOp that
@@ -178,8 +179,10 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     wpadr_attr = IntegerAttr.get(i64_type, self.WpadR)
 
     with InsertionPoint(func.add_entry_block()):
-      zero = arith.ConstantOp(output_element_type, 0.0)
-      tensor_zero = linalg.FillOp(output=func.arguments[2], value=zero)
+      tensor_zero = func.arguments[-1]
+      if zero_at_each_iteration:
+        zero = arith.ConstantOp(output_element_type, 0.0)
+        tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
 
       padded_input = linalg.PadTensorOp(
           result=types[-1],
