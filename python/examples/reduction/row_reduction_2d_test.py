@@ -41,7 +41,8 @@ def main():
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
-               function_name='row_reduction_2d_on_tensors')
+               function_name='row_reduction_2d_on_tensors',
+               zero_at_each_iteration=True)
 
 
 if __name__ == '__main__':
