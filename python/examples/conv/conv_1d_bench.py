@@ -85,7 +85,7 @@ def main():
   # Specify default configuration and parse command line.
   args = test_argparser(
       "conv 1d benchmark",
-      default_n_iters=10,
+      default_n_iters=100,
       #  N   W   C  KW   F  st  dil
       default_problem_sizes_list=[
           [8, 16, 32, 3, 64, [1], [1]],
