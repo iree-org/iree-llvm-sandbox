@@ -38,8 +38,8 @@ keys = ['N', 'W', 'C', 'KW', 'strides', 'dilations']
 def main():
   # Specify default configuration and parse command line.
   args = test_argparser(
-    "depthwise conv 2d benchmark",
-    default_n_iters=1000,
+    "depthwise conv 1d benchmark",
+    default_n_iters=100,
     #  N   W   C  KW   st  dil
     default_problem_sizes_list=[ \
       [8, 16, 32, 3, [1], [1]],
@@ -63,19 +63,18 @@ def main():
         'NWC', 'WC', strides=sizes['strides'],
         dilations=sizes['dilations']).reference_pt(*args)
 
-  test_harness(
-      lambda sizes, t: DepthwiseConvolutionProblem(
-          'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
-      [[np.float32] * 3],
-      test_sizes(keys, args.problem_sizes_list),
-      test_experts(all_experts, all_names, args.expert_list),
-      n_iters=args.n_iters,
-      function_name=fun_name,
-      dump_ir_to_file='/tmp/abcd.mlir',
-      dump_obj_to_file='/tmp/abcd.o',
-      dump_data_to_file=args.dump_data,
-      numpy_benchmark=numpy_kernel,
-      pytorch_benchmark=pytorch_kernel)
+  test_harness(lambda sizes, t: DepthwiseConvolutionProblem(
+      'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
+               [[np.float32] * 3],
+               test_sizes(keys, args.problem_sizes_list),
+               test_experts(all_experts, all_names, args.expert_list),
+               n_iters=args.n_iters,
+               function_name=fun_name,
+               dump_ir_to_file='/tmp/abcd.mlir',
+               dump_obj_to_file='/tmp/abcd.o',
+               dump_data_to_file=args.dump_data,
+               numpy_benchmark=numpy_kernel,
+               pytorch_benchmark=pytorch_kernel)
 
 
 if __name__ == '__main__':

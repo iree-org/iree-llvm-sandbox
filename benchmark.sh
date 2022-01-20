@@ -214,36 +214,94 @@ function conv_1d_static_large_stride_1_dilation_2() {
 ###############################################################################
 
 # Batch size 1, 32 -> 64 channels, stride [1, 1], dilation [1, 1].
-# 180 GFlop/s
-# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,16,16,32,3,3,64,[1,1],[1,1]
-# 173 GFlop/s
-# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,26,38,32,3,3,64,[1,1],[1,1]
-# 163 GFlop/s
-# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,56,74,32,3,3,64,[1,1],[1,1]
-# 165 GFlop/s
-# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,100,113,32,3,3,64,[1,1],[1,1]
+function conv_2d_static_small_stride_1_dilation_1() {
+  check_usage $1 $2
+  # 180 GFlop/s
+  cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,16,16,32,3,3,64,[1,1],[1,1] --dump_data $1
+  # 173 GFlop/s
+  cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,26,38,32,3,3,64,[1,1],[1,1] --dump_data $1
+  # 163 GFlop/s
+  cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,56,74,32,3,3,64,[1,1],[1,1] --dump_data $1
+  # 165 GFlop/s
+  cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,100,113,32,3,3,64,[1,1],[1,1] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "2D Convolution Performance (Small Static Sizes)"
+}
 
 # Batch size 1, 128 -> 256 channels, stride [1, 1], dilation [1, 1].
-##### TODO
-# 75 GFlop/s -> NYI perf bug
-# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list DoubleTile3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,16,16,128,3,3,256,[1,1],[1,1]
-# 74 GFlop/s -> NYI perf bug
-# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,26,38,128,3,3,256,[1,1],[1,1]
+function conv_2d_static_medium_stride_1_dilation_1() {
+  check_usage $1 $2
+  # 75 GFlop/s -> NYI perf bug
+  cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list DoubleTile3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,16,16,128,3,3,256,[1,1],[1,1] --dump_data $1
+  # 74 GFlop/s -> NYI perf bug
+  cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,26,38,128,3,3,256,[1,1],[1,1] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "2D Convolution Performance (Medium Static Sizes)"
+}
 
 
 
-  # "depthwise_conv_1d" : {
-  #   "module" : "python.examples.depthwise_conv.depthwise_conv_1d_bench",
-  #   "arguments" : {
-  #     "n_iters" : 100,
-  #     "problem_sizes_list" : [
-  #       "8,256,32,3,[1],[1]", "8,256,32,3,[2],[2]",
-  #       "8,988,32,3,[1],[1]", "8,988,32,3,[2],[2]",
-  #       "8,4144,32,3,[1],[1]", "8,4144,32,3,[2],[2]",
-  #       "8,11300,32,3,[1],[1]", "8,11300,32,3,[2],[2]"
-  #     ],
-  #   }
-  # },
+###############################################################################
+# Some static depthwise_conv_1d nhwc benchmarks.
+###############################################################################
+# Batch size 1, 32 channels, stride 1, dilation 1.
+function depthwise_conv_1d_static_small_stride_1_dilation_1() {
+  check_usage $1 $2
+  # 53 GFlop/s 107 GB/s
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,32,3,[1],[1] --dump_data $1
+  # 59 GFlop/s 118 GB/s
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,32,3,[1],[1] --dump_data $1
+  # 37 GFlop/s 75 GB/s
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,32,3,[1],[1] --dump_data $1
+  # 19 GFlop/s 38 GB/s
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,32,3,[1],[1] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "1D Depthwise Convolution Performance (Small Static Sizes)"
+}
+# Batch size 1, 32 channels, stride 2, dilation 1.
+function depthwise_conv_1d_static_small_stride_2_dilation_1() {
+  check_usage $1 $2
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,32,3,[2],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,32,3,[2],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,32,3,[2],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,32,3,[2],[1] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "1D Depthwise Convolution Performance (Small Static Sizes)"
+}
+# Batch size 1, 32 channels, stride 1, dilation 2.
+function depthwise_conv_1d_static_small_stride_1_dilation_2() {
+  check_usage $1 $2
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,32,3,[1],[2] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,32,3,[1],[2] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,32,3,[1],[2] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,32,3,[1],[2] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "1D Depthwise Convolution Performance (Small Static Sizes)"
+}
+
+# Batch size 1, 128 channels, stride 1, dilation 1.
+function depthwise_conv_1d_static_medium_stride_1_dilation_1() {
+  check_usage $1 $2
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,128,3,[1],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,128,3,[1],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,128,3,[1],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,128,3,[1],[1] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "1D Depthwise Convolution Performance (Medium Static Sizes)"
+}
+# Batch size 1, 128 channels, stride 2, dilation 1.
+function depthwise_conv_1d_static_medium_stride_2_dilation_1() {
+  check_usage $1 $2
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,128,3,[2],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,128,3,[2],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,128,3,[2],[1] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,128,3,[2],[1] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "1D Depthwise Convolution Performance (Medium Static Sizes)"
+}
+# Batch size 1, 128 channels, stride 1, dilation 2.
+function depthwise_conv_1d_static_medium_stride_1_dilation_2() {
+  check_usage $1 $2
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,128,3,[1],[2] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,128,3,[1],[2] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,128,3,[1],[2] --dump_data $1
+  cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,128,3,[1],[2] --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "1D Depthwise Convolution Performance (Medium Static Sizes)"
+}
+
   # "depthwise_conv_2d" : {
   #   "module" : "python.examples.depthwise_conv.depthwise_conv_2d_bench",
   #   "arguments" : {
@@ -306,4 +364,15 @@ function run_all() {
   conv_1d_static_small_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_2.pdf
   conv_1d_static_medium_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_2.pdf
   conv_1d_static_large_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_2.pdf
+
+  conv_2d_static_small_stride_1_dilation_1 ${BENCH_DIR}/conv_2d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/conv_2d_static_small_stride_1_dilation_1.pdf
+  conv_2d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/conv_2d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/conv_2d_static_medium_stride_1_dilation_1.pdf
+
+  depthwise_conv_1d_static_small_stride_1_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_1.data depthwise_conv_1d_static_small_stride_1_dilation_1.pdf
+  depthwise_conv_1d_static_small_stride_2_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_2_dilation_1.data depthwise_conv_1d_static_small_stride_2_dilation_1.pdf
+  depthwise_conv_1d_static_small_stride_1_dilation_2 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_2.data depthwise_conv_1d_static_small_stride_1_dilation_2.pdf
+
+  depthwise_conv_1d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_1.data depthwise_conv_1d_static_medium_stride_1_dilation_1.pdf
+  depthwise_conv_1d_static_medium_stride_2_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_2_dilation_1.data depthwise_conv_1d_static_medium_stride_2_dilation_1.pdf
+  depthwise_conv_1d_static_medium_stride_1_dilation_2 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_2.data depthwise_conv_1d_static_medium_stride_1_dilation_2.pdf
 }

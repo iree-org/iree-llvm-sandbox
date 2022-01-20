@@ -50,6 +50,7 @@ def main():
   args = _parse_arguments()
   all_data = pandas.read_json(args.input)
 
+  # Filter the slowest to isolate the compulsory miss effects.
   # Drop the first index matching every key_value (i.e. the first measurement)
   key = all_data.keys()[0]
   val = all_data.keys()[1]
@@ -60,12 +61,10 @@ def main():
     index_to_drop = first_loc_with_key_value.index.values[0]
     all_data = all_data.drop(index_to_drop)
 
-  plot = seaborn.violinplot(
-      x=all_data.keys()[0],
-      y=all_data.keys()[1],
-      # TODO, filter the slowest to isolate the compulsory miss effects
-      data=all_data,
-      width=1.25)
+  plot = seaborn.violinplot(x=all_data.keys()[0],
+                            y=all_data.keys()[1],
+                            data=all_data,
+                            width=1.25)
 
   if all_data.keys()[1] == 'gflop_per_s_per_iter':
     plot.set(ylim=(0, args.peak_compute + 10))
@@ -83,10 +82,10 @@ def main():
   plot.set_title(args.name)
   plot.set_xlabel(names[all_data.keys()[0]])
   plot.set_ylabel(names[all_data.keys()[1]])
-  plot.set_xticklabels(plot.get_xticklabels(), rotation=30)
+  plot.set_xticklabels(plot.get_xticklabels(), rotation=15)
   plot.legend(bbox_to_anchor=(1.0, 1), loc='upper center')
   fig = plot.get_figure()
-  fig.set_size_inches(12, 12)
+  fig.set_size_inches(16, 16)
   fig.savefig(args.output)
 
 
