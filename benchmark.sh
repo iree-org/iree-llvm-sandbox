@@ -82,7 +82,6 @@ export PATH=$PATH:$(dirname ~ntv)/.venv/mlirdev/bin/
 # 95 GFlop/s -> NYI perf bug
 # cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,512,3,1024,[1],[1] 
 
-
 # Batch size 1, 32 -> 64 channels, stride 2, dilation 1.
 # 136 GFlop/s
 # cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,32,3,64,[2],[1]
@@ -112,3 +111,109 @@ export PATH=$PATH:$(dirname ~ntv)/.venv/mlirdev/bin/
 # cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list  DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,512,3,1024,[2],[1] 
 # 80 GFlop/s
 # cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list  DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,512,3,1024,[2],[1] 
+
+# Batch size 1, 32 -> 64 channels, stride 1, dilation 2.
+# 168 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,32,3,64,[1],[2]
+# 167 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,32,3,64,[1],[2] 
+# 149 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,32,3,64,[1],[2] 
+# 145 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,32,3,64,[1],[2] 
+
+# Batch size 1, 128 -> 256 channels, stride 1, dilation 2.
+# 156 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,128,3,256,[1],[2]
+# 154 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,128,3,256,[1],[2] 
+# 151 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,128,3,256,[1],[2] 
+# 150 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,128,3,256,[1],[2] 
+
+# Batch size 1, 512 -> 1024 channels, stride 1, dilation 2.
+# 103 GFlop/s -> NYI perf bug
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list DoubleTile3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,256,512,3,1024,[1],[2]
+# 99 GFlop/s -> NYI perf bug
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench  --expert_list  DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,988,512,3,1024,[1],[2] 
+# 101 GFlop/s -> NYI perf bug
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list  DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,4144,512,3,1024,[1],[2] 
+# 97 GFlop/s -> NYI perf bug
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench --expert_list  DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,11300,512,3,1024,[1],[2] 
+
+###############################################################################
+# Some static conv2d nhwc benchmarks.
+###############################################################################
+
+# Batch size 1, 32 -> 64 channels, stride [1, 1], dilation [1, 1].
+# 180 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,16,16,32,3,3,64,[1,1],[1,1]
+# 173 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,26,38,32,3,3,64,[1,1],[1,1]
+# 163 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,56,74,32,3,3,64,[1,1],[1,1]
+# 165 GFlop/s
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list SingleTiling3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,100,113,32,3,3,64,[1,1],[1,1]
+
+# Batch size 1, 128 -> 256 channels, stride [1, 1], dilation [1, 1].
+##### TODO
+# 75 GFlop/s -> NYI perf bug
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list DoubleTile3DPeel --dynamic_at_compile_time_list [] --problem_sizes_list 1,16,16,128,3,3,256,[1,1],[1,1]
+# 74 GFlop/s -> NYI perf bug
+# cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench --expert_list DoubleTile3DPad --dynamic_at_compile_time_list [] --problem_sizes_list 1,26,38,128,3,3,256,[1,1],[1,1]
+
+
+
+  # "depthwise_conv_1d" : {
+  #   "module" : "python.examples.depthwise_conv.depthwise_conv_1d_bench",
+  #   "arguments" : {
+  #     "n_iters" : 100,
+  #     "problem_sizes_list" : [
+  #       "8,256,32,3,[1],[1]", "8,256,32,3,[2],[2]",
+  #       "8,988,32,3,[1],[1]", "8,988,32,3,[2],[2]",
+  #       "8,4144,32,3,[1],[1]", "8,4144,32,3,[2],[2]",
+  #       "8,11300,32,3,[1],[1]", "8,11300,32,3,[2],[2]"
+  #     ],
+  #   }
+  # },
+  # "depthwise_conv_2d" : {
+  #   "module" : "python.examples.depthwise_conv.depthwise_conv_2d_bench",
+  #   "arguments" : {
+  #     "n_iters" : 100,
+  #     "problem_sizes_list" : [
+  #       "8,16,16,32,3,3,[1,1],[1,1]", "8,16,16,32,3,3,[2,2],[2,2]",
+  #       "8,26,38,32,3,3,[1,1],[1,1]", "8,26,38,32,3,3,[2,2],[2,2]",
+  #       "8,56,74,32,3,3,[1,1],[1,1]", "8,56,74,32,3,3,[2,2],[2,2]",
+  #       "8,100,113,32,3,3,[1,1],[1,1]", "8,100,113,32,3,3,[2,2],[2,2]"
+  #     ],
+  #   }
+  # },
+  # "row_reduction_2d" : {
+  #   "module" : "python.examples.reduction.row_reduction_2d_bench",
+  #   "arguments" : {
+  #     "n_iters" : 100,
+  #     "problem_sizes_list" : [
+  #       "100,256",
+  #       "200,512",
+  #       "500,512",
+  #       "500,1024",
+  #       "1000,1024",
+  #       "4000,6144",
+  #       "8000,6144"
+  #     ],
+  #   }
+  # },
+  # "column_reduction_2d" : {
+  #   "module" : "python.examples.reduction.column_reduction_2d_bench",
+  #   "arguments" : {
+  #     "n_iters" : 100,
+  #     "problem_sizes_list" : [
+  #       "100,256",
+  #       "200,512",
+  #       "500,512",
+  #       "500,1024",
+  #       "1000,1024",
+  #       "4000,6144",
+  #       "8000,6144"
+  #     ],
