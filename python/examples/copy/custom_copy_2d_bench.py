@@ -73,6 +73,7 @@ copy_2D_perf_search_list = [ \
     [10000, 272],  # 80% L3 load
     [15000, 272],  # 120% L3 load
 
+    [30000, 272],  # DRAM (2.4x L3 load)
     [300000, 272],  # DRAM (24x L3 load)
                            ]
 

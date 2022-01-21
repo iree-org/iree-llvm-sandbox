@@ -1,8 +1,9 @@
 import argparse, pandas, seaborn, sys
 from unicodedata import name
 
-names = {
+names_to_translate = {
     'gflop_per_s_per_iter': 'gflops / s / iter',
+    'gbyte_per_s_per_iter': 'gbytes / s / iter',
     'runtime_problem_sizes_dict': 'problem sizes',
 }
 
@@ -39,10 +40,10 @@ def _parse_arguments() -> argparse.Namespace:
                       default=192)
   parser.add_argument("--peak_bandwidth",
                       "-b",
-                      type=str,
+                      type=int,
                       nargs="?",
-                      help="peak bandwidth (e.g., -t 87,26.4,12)",
-                      default='87,26.4,12')
+                      help="peak bandwidth (e.g., -t 281)",
+                      default=281)
   return parser.parse_args(sys.argv[1:])
 
 
@@ -53,7 +54,6 @@ def main():
   # Filter the slowest to isolate the compulsory miss effects.
   # Drop the first index matching every key_value (i.e. the first measurement)
   key = all_data.keys()[0]
-  val = all_data.keys()[1]
   x = all_data[key].drop_duplicates()
   for key_value in x:
     locs_with_key_value = all_data.loc[all_data[key] == key_value]
@@ -61,32 +61,31 @@ def main():
     index_to_drop = first_loc_with_key_value.index.values[0]
     all_data = all_data.drop(index_to_drop)
 
-  plot = seaborn.violinplot(x=all_data.keys()[0],
-                            y=all_data.keys()[1],
-                            data=all_data,
-                            width=1.25)
+  for key in all_data.keys():
+    if key not in ['gflop_per_s_per_iter', 'gbyte_per_s_per_iter']:
+      continue
+    plot = seaborn.violinplot(x=all_data.keys()[0],
+                              y=key,
+                              data=all_data,
+                              width=1.25)
 
-  if all_data.keys()[1] == 'gflop_per_s_per_iter':
-    plot.set(ylim=(0, args.peak_compute + 10))
-    plot.axhline(args.peak_compute,
-                 label=f'Peak Compute ({args.peak_compute} GFlop/s)')
-  if all_data.keys()[1] == 'gbyte_per_s_per_iter':
-    plot.set(ylim=(0, args.peak_bandwidth_l1 + 10))
-    plot.axhline(args.peak_bandwidth.split(',')[0],
-                 label=f'Peak L2 ({args.peak_bandwidth[0]} GB/s)')
-    plot.axhline(args.peak_bandwidth.split(',')[1],
-                 label=f'Peak L3 ({args.peak_bandwidth[1]} GB/s)')
-    plot.axhline(args.peak_bandwidth.split(',')[2],
-                 label=f'Peak DRAM ({args.peak_bandwidth[2]} GB/s)')
+    if key == 'gflop_per_s_per_iter':
+      plot.set(ylim=(0, args.peak_compute + 10))
+      plot.axhline(args.peak_compute,
+                   label=f'Peak Compute ({args.peak_compute} GFlop/s)')
+    elif key == 'gbyte_per_s_per_iter':
+      plot.set(ylim=(0, args.peak_bandwidth * 1.1))
+      plot.axhline(args.peak_bandwidth,
+                   label=f'Peak BW ({args.peak_bandwidth} GB/s)')
 
-  plot.set_title(args.name)
-  plot.set_xlabel(names[all_data.keys()[0]])
-  plot.set_ylabel(names[all_data.keys()[1]])
-  plot.set_xticklabels(plot.get_xticklabels(), rotation=15)
-  plot.legend(bbox_to_anchor=(1.0, 1), loc='upper center')
-  fig = plot.get_figure()
-  fig.set_size_inches(16, 16)
-  fig.savefig(args.output)
+    plot.set_title(args.name)
+    plot.set_xlabel(names_to_translate[all_data.keys()[0]])
+    plot.set_ylabel(names_to_translate[key])
+    plot.set_xticklabels(plot.get_xticklabels(), rotation=15)
+    plot.legend(bbox_to_anchor=(1.0, 1), loc='upper center')
+    fig = plot.get_figure()
+    fig.set_size_inches(12, 12)
+    fig.savefig(args.output.replace('.pdf', '_' + key + '.pdf'))
 
 
 if __name__ == '__main__':

@@ -97,15 +97,18 @@ class Measurements:
 
   def dump_raw_to_file(self,
                        file_name: str,
-                       name: str = 'runtime_problem_sizes_dict',
-                       value_column_name: str = 'gflop_per_s_per_iter'):
+                       name: str = 'runtime_problem_sizes_dict'):
     """Dump the measurements to a raw file by appending."""
     all_data = None
+    value_column_names = [
+        'elapsed_s_per_iter', 'gbyte_per_s_per_iter', 'gflop_per_s_per_iter'
+    ]
     if os.path.exists(file_name):
       all_data = pandas.read_json(file_name)
-      all_data = pandas.concat((all_data, self.data[[name, value_column_name]]))
+      all_data = pandas.concat((all_data, self.data[[name,
+                                                     *value_column_names]]))
     else:
-      all_data = self.data[[name, value_column_name]]
+      all_data = self.data[[name, *value_column_names]]
     all_data.to_json(file_name, orient='records')
 
   def _stringify_types(self, value: Sequence[np.dtype]) -> str:
