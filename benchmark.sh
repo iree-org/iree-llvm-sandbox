@@ -157,6 +157,8 @@ function copy_1d_static_small() {
 # away since the result tensor is not used.
 # TODO: add a fake noop use after the timer in the timing loop to avoid this.
 function copy_2d_static_small() {
+  # Passing alwaysinline reduces the variance that is otherwise too high for 
+  # small L1 copies.
   ENV_VARS="SANDBOX_INLINING=alwaysinline"
   COMMAND="${ENV_VARS} cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 1,256
@@ -175,6 +177,8 @@ function copy_2d_static_small() {
   ${COMMAND} --problem_sizes_list 14,256
 }
 function copy_2d_static_small_2() {
+  # Passing alwaysinline reduces the variance that is otherwise too high for 
+  # small L1 copies.
   ENV_VARS="SANDBOX_INLINING=alwaysinline"
   COMMAND="${ENV_VARS} cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 1,272
@@ -193,6 +197,8 @@ function copy_2d_static_small_2() {
   ${COMMAND} --problem_sizes_list 14,272
 }
 function copy_2d_static_small_3() {
+  # Passing alwaysinline reduces the variance that is otherwise too high for 
+  # small L1 copies.
   ENV_VARS="SANDBOX_INLINING=alwaysinline"
   COMMAND="${ENV_VARS} cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 1,288
