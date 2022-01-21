@@ -1,8 +1,9 @@
 #!/bin/bash
 
+# set -ex
+
 ###############################################################################
-# Approximate performance numbers that are specified in comments were generated
-# on a machine with the following characteristics.
+# Ran on a machine with the following characteristics.
 # Note the SMT pair of CPU 4 (i.e. CPU 40) is disabled.
 ###############################################################################
 # > lscpu
@@ -138,8 +139,7 @@ function copy_bandwidth_benchmark() {
 # away since the result tensor is not used.
 # TODO: add a fake noop use after the timer in the timing loop to avoid this.
 function copy_1d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_1d_bench ${DUMP_DATA_FLAG}"
-  #  GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 32
 }
 
@@ -150,8 +150,7 @@ function copy_1d_static_small() {
 # away since the result tensor is not used.
 # TODO: add a fake noop use after the timer in the timing loop to avoid this.
 function copy_2d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG}"
-  #  GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 16,16
 }
 
@@ -159,8 +158,7 @@ function copy_2d_static_small() {
 # Static 2D transpose benchmarks.
 ###############################################################################
 function transpose_2d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG}"
-  #  GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --expert_list SingleTiling2DPeel --problem_sizes_list 8,8
 }
 
@@ -168,77 +166,68 @@ function transpose_2d_static_small() {
 # Static 1D reduction benchmarks.
 ###############################################################################
 function reduction_1d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG}"
-  #  GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 100
+  ${COMMAND} --problem_sizes_list 1000
+  ${COMMAND} --problem_sizes_list 2048
+  ${COMMAND} --problem_sizes_list 3333
+  ${COMMAND} --problem_sizes_list 4567
 }
 
 ###############################################################################
 # Static 2D row reduction benchmarks.
 ###############################################################################
-#       "200,512",
-#       "500,512",
-#       "500,1024",
-#       "1000,1024",
-#       "4000,6144",
-#       "8000,6144"
 function row_reduction_2d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG}"
-  #  GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 100,256
+  ${COMMAND} --problem_sizes_list 200,512
+  ${COMMAND} --problem_sizes_list 500,512
+  ${COMMAND} --problem_sizes_list 500,1024
+  ${COMMAND} --problem_sizes_list 1000,1024
+  ${COMMAND} --problem_sizes_list 4000,6144
+  ${COMMAND} --problem_sizes_list 8000,6144
 }
 
 ###############################################################################
 # Static 2D column reduction benchmarks.
 ###############################################################################
-#       "200,512",
-#       "500,512",
-#       "500,1024",
-#       "1000,1024",
-#       "4000,6144",
-#       "8000,6144"
 function column_reduction_2d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG}"
-  #  GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --problem_sizes_list 100,256
+  ${COMMAND} --problem_sizes_list 200,512
+  ${COMMAND} --problem_sizes_list 500,512
+  ${COMMAND} --problem_sizes_list 500,1024
+  ${COMMAND} --problem_sizes_list 1000,1024
+  ${COMMAND} --problem_sizes_list 4000,6144
+  ${COMMAND} --problem_sizes_list 8000,6144
 }
 
 ###############################################################################
 # Static matmul mk,kn benchmarks.
 ###############################################################################
 function matmul_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG}"
-  # 179 GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --expert_list SingleTiling2DPeel  --spec_list mk,kn --problem_sizes_list 18,32,96 
-  # 170 GFlop/s
   ${COMMAND} --expert_list SingleTiling2DPeel  --spec_list mk,kn --problem_sizes_list 24,64,96 
-  # 172 GFlop/s
   ${COMMAND} --expert_list SingleTiling3DPeel  --spec_list mk,kn --problem_sizes_list 48,64,128 
 }
 
 function matmul_static_small_reduction_dimension() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG}"
-  # 93 GFlop/s -> NYI perf bug
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --expert_list SingleTiling2DPeel  --spec_list mk,kn --problem_sizes_list 480,512,16 
 }
 
 function matmul_static_medium() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG}"
-  # 151 GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --expert_list SingleTiling3DPad  --spec_list mk,kn --problem_sizes_list  384,256,256 
-  # 145 GFlop/s
   ${COMMAND} --expert_list SingleTiling3DPad  --spec_list mk,kn --problem_sizes_list  480,512,256 
-  # 157 GFlop/s
   ${COMMAND} --expert_list SingleTiling2DPeel  --spec_list mk,kn --problem_sizes_list  784,128,512 
 }
 
 function matmul_static_large() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG}"
-  # 158 GFlop/s
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.matmul.bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
   ${COMMAND} --expert_list DoubleTile2DPadAndHoist  --spec_list mk,kn --problem_sizes_list  1020,1152,1152 
-  # 148 GFlop/s
   ${COMMAND} --expert_list DoubleTile2DPadAndHoist  --spec_list mk,kn --problem_sizes_list  1920,2304,2304 
-  # 151 GFlop/s
   ${COMMAND} --expert_list DoubleTile2DPadAndHoist  --spec_list mk,kn --problem_sizes_list  2304,2304,2560 
 }
 
@@ -247,119 +236,113 @@ function matmul_static_large() {
 ###############################################################################
 # Batch size 1, 32 -> 64 channels, stride 1, dilation 1.
 function conv_1d_static_small_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 166 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,[1],[1] 
-  # 167 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,[1],[1]  
-  # 150 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,[1],[1]  
-  # 142 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,[1],[1]  
+  STRIDES_AND_DILATIONS='[1],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 -> 64 channels, stride 2, dilation 1.
+function conv_1d_static_small_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 -> 64 channels, stride 1, dilation 2.
+function conv_1d_static_small_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 -> 64 channels, stride 2, dilation 2.
+function conv_1d_static_small_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,[2],[2]
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,${STRIDES_AND_DILATIONS} 
 }
 
 # Batch size 1, 128 -> 256 channels, stride 1, dilation 1.
 function conv_1d_static_medium_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 166 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,[1],[1] 
-  # 152 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,128,3,256,[1],[1]  
-  # 141 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPad  --problem_sizes_list 1,4144,128,3,256,[1],[1]  
-  # 150 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,128,3,256,[1],[1]  
+  STRIDES_AND_DILATIONS='[1],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPad  --problem_sizes_list 1,4144,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,128,3,256,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 128 -> 256 channels, stride 2, dilation 1.
+function conv_1d_static_medium_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPad  --problem_sizes_list 1,988,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPad  --problem_sizes_list 1,11300,128,3,256,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 128 -> 256 channels, stride 1, dilation 2.
+function conv_1d_static_medium_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,128,3,256,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 128 -> 256 channels, stride 2, dilation 2.
+function conv_1d_static_medium_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,128,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,128,3,256,${STRIDES_AND_DILATIONS} 
 }
 
 # Batch size 1, 512 -> 1024 channels, stride 1, dilation 1.
 function conv_1d_static_large_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 101 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,[1],[1] 
-  # 98 GFlop/s -> NYI perf bug
-  ${COMMAND}  --expert_list DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,[1],[1]  
-  # 97 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,[1],[1]  
-  # 95 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,[1],[1]  
+  STRIDES_AND_DILATIONS='[1],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,${STRIDES_AND_DILATIONS} 
 }
-
-# Batch size 1, 32 -> 64 channels, stride 2, dilation 1.
-function conv_1d_static_small_stride_2_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 136 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,[2],[1] 
-  # 136 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,[2],[1]  
-  # 120 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,[2],[1]  
-  # 118 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,[2],[1]  
-}
-
-# Batch size 1, 128 -> 256 channels, stride 2, dilation 1.
-function conv_1d_static_medium_stride_2_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 125 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,[2],[1] 
-  # 118 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPad  --problem_sizes_list 1,988,128,3,256,[2],[1]  
-  # 125 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,128,3,256,[2],[1]  
-  # 123 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPad  --problem_sizes_list 1,11300,128,3,256,[2],[1]  
-}
-
 # Batch size 1, 512 -> 1024 channels, stride 2, dilation 1.
 function conv_1d_static_large_stride_2_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 80 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,[2],[1] 
-  # 81 GFlop/s -> NYI perf bug
-  ${COMMAND}  --expert_list  DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,[2],[1]  
-  # 80 GFlop/s
-  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,[2],[1]  
-  # 80 GFlop/s
-  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,[2],[1]  
+  STRIDES_AND_DILATIONS='[2],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,${STRIDES_AND_DILATIONS} 
 }
-
-# Batch size 1, 32 -> 64 channels, stride 1, dilation 2.
-function conv_1d_static_small_stride_1_dilation_2() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 168 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,32,3,64,[1],[2] 
-  # 167 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,32,3,64,[1],[2]  
-  # 149 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,32,3,64,[1],[2]  
-  # 145 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,32,3,64,[1],[2]  
-}
-
-# Batch size 1, 128 -> 256 channels, stride 1, dilation 2.
-function conv_1d_static_medium_stride_1_dilation_2() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 156 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,256,128,3,256,[1],[2] 
-  # 154 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,988,128,3,256,[1],[2]  
-  # 151 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,4144,128,3,256,[1],[2]  
-  # 150 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,11300,128,3,256,[1],[2]  
-}
-
 # Batch size 1, 512 -> 1024 channels, stride 1, dilation 2.
 function conv_1d_static_large_stride_1_dilation_2() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 103 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,[1],[2] 
-  # 99 GFlop/s -> NYI perf bug
-  ${COMMAND}  --expert_list  DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,[1],[2]  
-  # 101 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,[1],[2]  
-  # 97 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,[1],[2]  
+  STRIDES_AND_DILATIONS='[1],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 512 -> 1024 channels, stride 1, dilation 2.
+function conv_1d_static_large_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,256,512,3,1024,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,988,512,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,4144,512,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list  DoubleTile3DPad  --problem_sizes_list 1,11300,512,3,1024,${STRIDES_AND_DILATIONS} 
 }
 
 ###############################################################################
@@ -367,98 +350,342 @@ function conv_1d_static_large_stride_1_dilation_2() {
 ###############################################################################
 # Batch size 1, 32 -> 64 channels, stride [1, 1], dilation [1, 1].
 function conv_2d_static_small_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG}"
-  # 180 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,32,3,3,64,[1,1],[1,1] 
-  # 173 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,32,3,3,64,[1,1],[1,1] 
-  # 163 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,32,3,3,64,[1,1],[1,1] 
-  # 165 GFlop/s
-  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,32,3,3,64,[1,1],[1,1] 
+  STRIDES_AND_DILATIONS='[1,1],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,32,3,3,64,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 -> 64 channels, stride [2, 2], dilation [1, 1].
+function conv_2d_static_small_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2,2],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,32,3,3,64,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 -> 64 channels, stride [1, 1], dilation [2, 2].
+function conv_2d_static_small_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1,1],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,32,3,3,64,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 -> 64 channels, stride [2, 2], dilation [2, 2].
+function conv_2d_static_small_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2,2],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,32,3,3,64,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,32,3,3,64,${STRIDES_AND_DILATIONS} 
 }
 
 # Batch size 1, 128 -> 256 channels, stride [1, 1], dilation [1, 1].
 function conv_2d_static_medium_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG}"
-  # 75 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPeel  --problem_sizes_list 1,16,16,128,3,3,256,[1,1],[1,1] 
-  # 74 GFlop/s -> NYI perf bug
-  ${COMMAND} --expert_list DoubleTile3DPad  --problem_sizes_list 1,26,38,128,3,3,256,[1,1],[1,1] 
+  STRIDES_AND_DILATIONS='[1,1],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,128,3,3,256,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 128 -> 256 channels, stride [2, 2], dilation [1, 1].
+function conv_2d_static_medium_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2,2],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,128,3,3,256,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 128 -> 256 channels, stride [1, 1], dilation [2, 2].
+function conv_2d_static_medium_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1,1],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,128,3,3,256,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 128 -> 256 channels, stride [2, 2], dilation [2, 2].
+function conv_2d_static_medium_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2,2],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,128,3,3,256,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,128,3,3,256,${STRIDES_AND_DILATIONS} 
 }
 
+# Batch size 1, 512 -> 1024 channels, stride [1, 1], dilation [1, 1].
+function conv_2d_static_large_stride_1_dilation_1() {
+  STRIDES_AND_DILATIONS='[1,1],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 512 -> 1024 channels, stride [2, 2], dilation [1, 1].
+function conv_2d_static_large_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2,2],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 512 -> 1024 channels, stride [1, 1], dilation [2, 2].
+function conv_2d_static_large_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1,1],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 512 -> 1024 channels, stride [2, 2], dilation [2, 2].
+function conv_2d_static_large_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2,2],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,16,16,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,26,38,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,56,74,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+  ${COMMAND} --expert_list SingleTiling3DPeel  --problem_sizes_list 1,100,113,512,3,3,1024,${STRIDES_AND_DILATIONS} 
+
+}
 ###############################################################################
 # Static depthwise_conv_1d nwc benchmarks.
 ###############################################################################
 # Batch size 1, 32 channels, stride 1, dilation 1.
 function depthwise_conv_1d_static_small_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG}"
-  # 53 GFlop/s 107 GB/s
-  ${COMMAND} --problem_sizes_list 1,256,32,3,[1],[1] 
-  # 59 GFlop/s 118 GB/s
-  ${COMMAND} --problem_sizes_list 1,988,32,3,[1],[1] 
-  # 37 GFlop/s 75 GB/s
-  ${COMMAND} --problem_sizes_list 1,4144,32,3,[1],[1] 
-  # 19 GFlop/s 38 GB/s
-  ${COMMAND} --problem_sizes_list 1,11300,32,3,[1],[1] 
+  STRIDES_AND_DILATIONS='[1],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,32,3,${STRIDES_AND_DILATIONS}
 }
 # Batch size 1, 32 channels, stride 2, dilation 1.
 function depthwise_conv_1d_static_small_stride_2_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG}"
-  ${COMMAND} --problem_sizes_list 1,256,32,3,[2],[1] 
-  ${COMMAND} --problem_sizes_list 1,988,32,3,[2],[1] 
-  ${COMMAND} --problem_sizes_list 1,4144,32,3,[2],[1] 
-  ${COMMAND} --problem_sizes_list 1,11300,32,3,[2],[1] 
+  STRIDES_AND_DILATIONS='[2],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,32,3,${STRIDES_AND_DILATIONS}
 }
 # Batch size 1, 32 channels, stride 1, dilation 2.
 function depthwise_conv_1d_static_small_stride_1_dilation_2() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG}"
-  ${COMMAND} --problem_sizes_list 1,256,32,3,[1],[2] 
-  ${COMMAND} --problem_sizes_list 1,988,32,3,[1],[2] 
-  ${COMMAND} --problem_sizes_list 1,4144,32,3,[1],[2] 
-  ${COMMAND} --problem_sizes_list 1,11300,32,3,[1],[2] 
+  STRIDES_AND_DILATIONS='[1],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,32,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 32 channels, stride 2, dilation 2.
+function depthwise_conv_1d_static_small_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,32,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,32,3,${STRIDES_AND_DILATIONS}
 }
 
 # Batch size 1, 128 channels, stride 1, dilation 1.
 function depthwise_conv_1d_static_medium_stride_1_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG}"
-  ${COMMAND} --problem_sizes_list 1,256,128,3,[1],[1] 
-  ${COMMAND} --problem_sizes_list 1,988,128,3,[1],[1] 
-  ${COMMAND} --problem_sizes_list 1,4144,128,3,[1],[1] 
-  ${COMMAND} --problem_sizes_list 1,11300,128,3,[1],[1] 
+  STRIDES_AND_DILATIONS='[1],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,128,3,${STRIDES_AND_DILATIONS}
 }
 # Batch size 1, 128 channels, stride 2, dilation 1.
 function depthwise_conv_1d_static_medium_stride_2_dilation_1() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG}"
-  ${COMMAND} --problem_sizes_list 1,256,128,3,[2],[1] 
-  ${COMMAND} --problem_sizes_list 1,988,128,3,[2],[1] 
-  ${COMMAND} --problem_sizes_list 1,4144,128,3,[2],[1] 
-  ${COMMAND} --problem_sizes_list 1,11300,128,3,[2],[1] 
+  STRIDES_AND_DILATIONS='[2],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,128,3,${STRIDES_AND_DILATIONS}
 }
 # Batch size 1, 128 channels, stride 1, dilation 2.
 function depthwise_conv_1d_static_medium_stride_1_dilation_2() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG}"
-  ${COMMAND} --problem_sizes_list 1,256,128,3,[1],[2] 
-  ${COMMAND} --problem_sizes_list 1,988,128,3,[1],[2] 
-  ${COMMAND} --problem_sizes_list 1,4144,128,3,[1],[2] 
-  ${COMMAND} --problem_sizes_list 1,11300,128,3,[1],[2] 
+  STRIDES_AND_DILATIONS='[1],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,128,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 128 channels, stride 1, dilation 2.
+function depthwise_conv_1d_static_medium_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,128,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,128,3,${STRIDES_AND_DILATIONS}
+}
+
+# Batch size 1, 1024 channels, stride 1, dilation 1.
+function depthwise_conv_1d_static_large_stride_1_dilation_1() {
+  STRIDES_AND_DILATIONS='[1],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,1024,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 1024 channels, stride 2, dilation 1.
+function depthwise_conv_1d_static_large_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2],[1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,1024,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 1024 channels, stride 1, dilation 2.
+function depthwise_conv_1d_static_large_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,1024,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 1024 channels, stride 1, dilation 2.
+function depthwise_conv_1d_static_large_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2],[2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,256,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,988,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,4144,1024,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,11300,1024,3,${STRIDES_AND_DILATIONS}
 }
 
 ###############################################################################
 # Static depthwise_conv_2d nhwc benchmarks.
 ###############################################################################
-  # "depthwise_conv_2d" : {
-  #   "module" : "python.examples.depthwise_conv.depthwise_conv_2d_bench",
-  #   "arguments" : {
-  #     "n_iters" : 100,
-  #     "problem_sizes_list" : [
-  #       "8,16,16,32,3,3,[1,1],[1,1]", "8,16,16,32,3,3,[2,2],[2,2]",
-  #       "8,26,38,32,3,3,[1,1],[1,1]", "8,26,38,32,3,3,[2,2],[2,2]",
-  #       "8,56,74,32,3,3,[1,1],[1,1]", "8,56,74,32,3,3,[2,2],[2,2]",
-  #       "8,100,113,32,3,3,[1,1],[1,1]", "8,100,113,32,3,3,[2,2],[2,2]"
-  #     ],
-  #   }
-  # },
+# Batch size 1, 32 channels, stride 1, dilation 1.
+function depthwise_conv_2d_static_small_stride_1_dilation_1() {
+  STRIDES_AND_DILATIONS='[1,1],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,32,3,3,${STRIDES_AND_DILATIONS} 
+}
+# Batch size 1, 32 channels, stride 2, dilation 1.
+function depthwise_conv_2d_static_small_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2,2],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,32,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 32 channels, stride 1, dilation 2.
+function depthwise_conv_2d_static_small_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1,1],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,32,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 32 channels, stride 2, dilation 2.
+function depthwise_conv_2d_static_small_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2,2],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,32,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,32,3,3,${STRIDES_AND_DILATIONS}
+}
+
+# Batch size 1, 128 channels, stride 1, dilation 1.
+function depthwise_conv_2d_static_medium_stride_1_dilation_1() {
+  STRIDES_AND_DILATIONS='[1,1],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,128,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 128 channels, stride 2, dilation 1.
+function depthwise_conv_2d_static_medium_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2,2],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,128,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 128 channels, stride 1, dilation 2.
+function depthwise_conv_2d_static_medium_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1,1],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,128,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 128 channels, stride 1, dilation 2.
+function depthwise_conv_2d_static_medium_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2,2],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,128,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,128,3,3,${STRIDES_AND_DILATIONS}
+}
+
+# Batch size 1, 1024 channels, stride 1, dilation 1.
+function depthwise_conv_2d_static_large_stride_1_dilation_1() {
+  STRIDES_AND_DILATIONS='[1,1],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,1024,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 1024 channels, stride 2, dilation 1.
+function depthwise_conv_2d_static_large_stride_2_dilation_1() {
+  STRIDES_AND_DILATIONS='[2,2],[1,1]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,1024,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 1024 channels, stride 1, dilation 2.
+function depthwise_conv_2d_static_large_stride_1_dilation_2() {
+  STRIDES_AND_DILATIONS='[1,1],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,1024,3,3,${STRIDES_AND_DILATIONS}
+}
+# Batch size 1, 1024 channels, stride 1, dilation 2.
+function depthwise_conv_2d_static_large_stride_2_dilation_2() {
+  STRIDES_AND_DILATIONS='[2,2],[2,2]'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --n_iters 2 --dynamic_at_compile_time_list []"
+  ${COMMAND} --problem_sizes_list 1,16,16,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,26,38,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,56,74,1024,3,3,${STRIDES_AND_DILATIONS}
+  ${COMMAND} --problem_sizes_list 1,100,113,1024,3,3,${STRIDES_AND_DILATIONS}
+}
 
 ###############################################################################
 # Entry points.
@@ -468,16 +695,65 @@ function run_all() {
   BENCH_DIR=${BENCH_ROOT_DIR}/results_$(ls -l ${BENCH_ROOT_DIR} | wc -l)
   mkdir -p ${BENCH_DIR}
 
-  for benchmark in  copy_1d_static_small copy_2d_static_small \
+  for benchmark in \
+    copy_1d_static_small \
+      copy_2d_static_small \
     transpose_2d_static_small \
-    reduction_1d_static_small row_reduction_2d_static_small column_reduction_2d_static_small \
-    matmul_static_small matmul_static_small_reduction_dimension matmul_static_medium matmul_static_large \
-    conv_1d_static_small_stride_1_dilation_1 conv_1d_static_medium_stride_1_dilation_1 conv_1d_static_large_stride_1_dilation_1 \
-    conv_1d_static_small_stride_2_dilation_1 conv_1d_static_medium_stride_2_dilation_1 conv_1d_static_large_stride_2_dilation_1 \
-    conv_1d_static_small_stride_1_dilation_2 conv_1d_static_medium_stride_1_dilation_2 conv_1d_static_large_stride_1_dilation_2 \
-    conv_2d_static_small_stride_1_dilation_1 conv_2d_static_medium_stride_1_dilation_1 \
-    depthwise_conv_1d_static_small_stride_1_dilation_1 depthwise_conv_1d_static_small_stride_2_dilation_1 depthwise_conv_1d_static_small_stride_1_dilation_2 \
-    depthwise_conv_1d_static_medium_stride_1_dilation_1 depthwise_conv_1d_static_medium_stride_2_dilation_1 depthwise_conv_1d_static_medium_stride_1_dilation_2
+    reduction_1d_static_small \
+        row_reduction_2d_static_small \
+        column_reduction_2d_static_small \
+    matmul_static_small \
+        matmul_static_small_reduction_dimension \
+        matmul_static_medium \
+        matmul_static_large \
+    conv_1d_static_small_stride_1_dilation_1 \
+        conv_1d_static_small_stride_2_dilation_1 \
+        conv_1d_static_small_stride_1_dilation_2 \
+        conv_1d_static_small_stride_2_dilation_2 \
+    conv_1d_static_medium_stride_1_dilation_1 \
+        conv_1d_static_medium_stride_2_dilation_1 \
+        conv_1d_static_medium_stride_1_dilation_2 \
+        conv_1d_static_medium_stride_2_dilation_2 \
+    conv_1d_static_large_stride_1_dilation_1 \
+        conv_1d_static_large_stride_2_dilation_1 \
+        conv_1d_static_large_stride_1_dilation_2 \
+        conv_1d_static_large_stride_2_dilation_2 \
+    conv_2d_static_small_stride_1_dilation_1 \
+        conv_2d_static_small_stride_2_dilation_1 \
+        conv_2d_static_small_stride_1_dilation_2 \
+        conv_2d_static_small_stride_2_dilation_2 \
+    conv_2d_static_medium_stride_1_dilation_1 \
+      conv_2d_static_medium_stride_2_dilation_1 \
+      conv_2d_static_medium_stride_1_dilation_2 \
+      conv_2d_static_medium_stride_2_dilation_2 \
+    conv_2d_static_large_stride_1_dilation_1 \
+      conv_2d_static_large_stride_2_dilation_1 \
+      conv_2d_static_large_stride_1_dilation_2 \
+      conv_2d_static_large_stride_2_dilation_2 \
+    depthwise_conv_1d_static_small_stride_1_dilation_1 \
+        depthwise_conv_1d_static_small_stride_2_dilation_1 \
+        depthwise_conv_1d_static_small_stride_1_dilation_2 \
+        depthwise_conv_1d_static_small_stride_2_dilation_2 \
+    depthwise_conv_1d_static_medium_stride_1_dilation_1 \
+        depthwise_conv_1d_static_medium_stride_2_dilation_1 \
+        depthwise_conv_1d_static_medium_stride_1_dilation_2 \
+        depthwise_conv_1d_static_medium_stride_2_dilation_2 \
+    depthwise_conv_1d_static_large_stride_1_dilation_1 \
+        depthwise_conv_1d_static_large_stride_2_dilation_1 \
+        depthwise_conv_1d_static_large_stride_1_dilation_2 \
+        depthwise_conv_1d_static_large_stride_2_dilation_2 \
+    depthwise_conv_2d_static_small_stride_1_dilation_1 \
+        depthwise_conv_2d_static_small_stride_2_dilation_1 \
+        depthwise_conv_2d_static_small_stride_1_dilation_2 \
+        depthwise_conv_2d_static_small_stride_2_dilation_2 \
+    depthwise_conv_2d_static_medium_stride_1_dilation_1 \
+        depthwise_conv_2d_static_medium_stride_2_dilation_1 \
+        depthwise_conv_2d_static_medium_stride_1_dilation_2 \
+        depthwise_conv_2d_static_medium_stride_2_dilation_2 \
+    depthwise_conv_2d_static_large_stride_1_dilation_1 \
+        depthwise_conv_2d_static_large_stride_2_dilation_1 \
+        depthwise_conv_2d_static_large_stride_1_dilation_2 \
+        depthwise_conv_2d_static_large_stride_2_dilation_2
   do
       PLOT_NAME=""
       echo ${benchmark} ${BENCH_DIR}/${benchmark}.data ${BENCH_DIR}/${benchmark}.pdf

@@ -56,31 +56,44 @@ def main():
       [8, 16, 32, 3, [3], [2]]
     ],
     default_expert_list=all_names,
-    default_dynamic_at_compile_time_list=[],
+    default_dynamic_at_compile_time_list=[
+          # case 1: static at compile time
+          [],
+          # case 2: partially dynamic at compile time
+          ['W'],
+          # case 3: partially dynamic at compile time
+          ['C'],
+          # case 4: fully dynamic at compile time (except KW)
+          ['N', 'W', 'C'],
+    ],
     default_spec_list=[])
 
-  def numpy_kernel(args, sizes, types):
-    DepthwiseConvolutionProblem(
-        'NWC', 'WC', strides=sizes['strides'],
-        dilations=sizes['dilations']).reference_np(*args)
+  for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
 
-  def pytorch_kernel(args, sizes, types):
-    DepthwiseConvolutionProblem(
-        'NWC', 'WC', strides=sizes['strides'],
-        dilations=sizes['dilations']).reference_pt(*args)
+    def numpy_kernel(args, sizes, types):
+      DepthwiseConvolutionProblem(
+          'NWC', 'WC', strides=sizes['strides'],
+          dilations=sizes['dilations']).reference_np(*args)
 
-  test_harness(lambda sizes, t: DepthwiseConvolutionProblem(
-      'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
-               [[np.float32] * 3],
-               test_sizes(keys, args.problem_sizes_list),
-               test_experts(all_experts, all_names, args.expert_list),
-               n_iters=args.n_iters,
-               function_name=fun_name,
-               dump_ir_to_file='/tmp/abcd.mlir',
-               dump_obj_to_file='/tmp/abcd.o',
-               dump_data_to_file=args.dump_data,
-               numpy_benchmark=numpy_kernel,
-               pytorch_benchmark=pytorch_kernel)
+    def pytorch_kernel(args, sizes, types):
+      DepthwiseConvolutionProblem(
+          'NWC', 'WC', strides=sizes['strides'],
+          dilations=sizes['dilations']).reference_pt(*args)
+
+    test_harness(lambda sizes, t: DepthwiseConvolutionProblem(
+        'NWC', 'WC', strides=sizes['strides'], dilations=sizes['dilations']),
+                 [[np.float32] * 3],
+                 test_sizes(keys, args.problem_sizes_list),
+                 test_experts(all_experts, all_names, args.expert_list),
+                 n_iters=args.n_iters,
+                 dynamic_at_compile_time_sizes=set(
+                     dynamic_at_compile_time).intersection(keys),
+                 function_name=fun_name,
+                 dump_ir_to_file='/tmp/abcd.mlir',
+                 dump_obj_to_file='/tmp/abcd.o',
+                 dump_data_to_file=args.dump_data,
+                 numpy_benchmark=numpy_kernel,
+                 pytorch_benchmark=pytorch_kernel)
 
 
 if __name__ == '__main__':
