@@ -7,21 +7,24 @@ export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/pyt
 export PATH=$PATH:$(dirname ~ntv)/.venv/mlirdev/bin/
 
 # On my machine (theoretical peak 384 GB/s L1 BW) I see:
-# [100, 32],  # sweet spot for prefetchers, seems to maximize L1 BW @ 295GB/s
-# [100, 272],  # 10% L2 load, L2 BW @ 87GB/s
-# [200, 272],  # 20% L2 load, L2 BW @ 84GB/s
-# [300, 272],  # 30% L2 load, L2 BW @ 79GB/s
-# [400, 272],  # 40% L2 load, L2 BW @ 73GB/s
-# [500, 272],  # 50% L2 load, L2 BW @ 52GB/s
-# [600, 272],  # 60% L2 load, L2 BW @ 35GB/s
-# [700, 272],  # 70% L2 load, L2 BW @ 30GB/s
-# [800, 272],  # 80% L2 load, L2 BW @ 30GB/s
-# [900, 272],  # 90% L2 load, L2 BW @ 26.6GB/s
-# [1000, 272],  # 100% L2 load, L2 BW @ 26.4GB/s
-# [10000, 272],  # 40% L3 load, L3 BW @ 23.4GB/s
-# [20000, 272],  # 80% L3 load, L3 BW @ 14.4GB/s
-# [30000, 272],  # 120% L3 load, L3 BW @ 13GB/s
-# [300000, 272],  # 12x L3 load, L3 BW @ 12GB/s
+# [100,  32],    # sweet spot for prefetchers, seems to maximize L1 BW @ 281GB/s
+#
+# [ 50, 272],    # 10% L2 load, L2 BW @ 71.6GB/s
+# [100, 272],    # 20% L2 load, L2 BW @ 80.8GB/s
+# [150, 272],    # 30% L2 load, L2 BW @ 69.3GB/s
+# [200, 272],    # 40% L2 load, L2 BW @ 82GB/s
+# [250, 272],    # 50% L2 load, L2 BW @ 81GB/s
+# [300, 272],    # 60% L2 load, L2 BW @ 76GB/s
+# [350, 272],    # 70% L2 load, L2 BW @ 65.3GB/s
+# [400, 272],    # 80% L2 load, L2 BW @ 56.5GB/s
+# [450, 272],    # 90% L2 load, L2 BW @ 54.8GB/s
+# [500, 272],    # 100% L2 load, L2 BW @ 47.7GB/s
+#
+# [5000, 272],   # 40% L3 load, L3 BW @ 25.7GB/s
+# [10000, 272],  # 80% L3 load, L3 BW @ 17.2GB/s
+# [15000, 272],  # 120% L3 load, L3 BW @ 10.8GB/s
+#
+# [300000, 272], # DRAM (24x L3 load), L3 BW @ 12GB/s
 function copy_benchmark() {
   cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench
 }
