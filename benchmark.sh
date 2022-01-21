@@ -6,6 +6,19 @@ export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runn
 export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package 
 export PATH=$PATH:$(dirname ~ntv)/.venv/mlirdev/bin/
 
+function check_usage() {
+  echo $1
+  echo $2
+  if (test -z "$1" ) || (test -z "$2" )
+  then
+    echo "Usage benchmark.sh data_filename plot_filename.pdf"
+    exit
+  fi
+}
+
+###############################################################################
+# Copy benchmarks.
+###############################################################################
 # On my machine (theoretical peak 384 GB/s L1 BW) I see:
 # [100,  32],    # sweet spot for prefetchers, seems to maximize L1 BW @ 281GB/s
 #
@@ -30,19 +43,18 @@ function copy_benchmark() {
 }
 
 ###############################################################################
-# Some static matmul mk,kn benchmarks.
+# Static transpose.
 ###############################################################################
-
-function check_usage() {
-  echo $1
-  echo $2
-  if (test -z "$1" ) || (test -z "$2" )
-  then
-    echo "Usage benchmark.sh data_filename plot_filename.pdf"
-    exit
-  fi
+function transpose_2d_static_small() {
+  check_usage $1 $2
+  # 179 GFlop/s
+  cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench --expert_list SingleTiling2DPeel --problem_sizes_list 8,8 --dump_data $1
+  python ./tools/plot_benchmark.py -i $1 -o $2 -n "2D Transpose Performance (Small Static Sizes)"
 }
 
+###############################################################################
+# Static matmul mk,kn benchmarks.
+###############################################################################
 function matmul_static_small() {
   check_usage $1 $2
   # 179 GFlop/s
@@ -84,7 +96,7 @@ function matmul_static_large() {
 }
 
 ###############################################################################
-# Some static conv1d nwc benchmarks.
+# Static conv1d nwc benchmarks.
 ###############################################################################
 # Batch size 1, 32 -> 64 channels, stride 1, dilation 1.
 function conv_1d_static_small_stride_1_dilation_1() {
@@ -213,9 +225,8 @@ function conv_1d_static_large_stride_1_dilation_2() {
 }
 
 ###############################################################################
-# Some static conv2d nhwc benchmarks.
+# Static conv2d nhwc benchmarks.
 ###############################################################################
-
 # Batch size 1, 32 -> 64 channels, stride [1, 1], dilation [1, 1].
 function conv_2d_static_small_stride_1_dilation_1() {
   check_usage $1 $2
@@ -240,10 +251,8 @@ function conv_2d_static_medium_stride_1_dilation_1() {
   python ./tools/plot_benchmark.py -i $1 -o $2 -n "2D Convolution Performance (Medium Static Sizes)"
 }
 
-
-
 ###############################################################################
-# Some static depthwise_conv_1d nhwc benchmarks.
+# Static depthwise_conv_1d nhwc benchmarks.
 ###############################################################################
 # Batch size 1, 32 channels, stride 1, dilation 1.
 function depthwise_conv_1d_static_small_stride_1_dilation_1() {
@@ -351,31 +360,33 @@ function run_all() {
   BENCH_DIR=${BENCH_ROOT_DIR}/results_$(ls -l ${BENCH_ROOT_DIR} | wc -l)
   mkdir -p ${BENCH_DIR}
 
-  matmul_static_small ${BENCH_DIR}/matmul_static_small.data ${BENCH_DIR}/matmul_static_small.pdf
-  matmul_static_small_reduction_dimension ${BENCH_DIR}/matmul_static_small_reduction_dimension.data ${BENCH_DIR}/matmul_static_small_reduction_dimension.pdf
-  matmul_static_medium ${BENCH_DIR}/matmul_static_medium.data ${BENCH_DIR}/matmul_static_medium.pdf
-  matmul_static_large ${BENCH_DIR}/matmul_static_large.data ${BENCH_DIR}/matmul_static_large.pdf
+  transpose_2d_static_small ${BENCH_DIR}/transpose_2d_static_small.data ${BENCH_DIR}/transpose_2d_static_small.pdf
+
+  # matmul_static_small ${BENCH_DIR}/matmul_static_small.data ${BENCH_DIR}/matmul_static_small.pdf
+  # matmul_static_small_reduction_dimension ${BENCH_DIR}/matmul_static_small_reduction_dimension.data ${BENCH_DIR}/matmul_static_small_reduction_dimension.pdf
+  # matmul_static_medium ${BENCH_DIR}/matmul_static_medium.data ${BENCH_DIR}/matmul_static_medium.pdf
+  # matmul_static_large ${BENCH_DIR}/matmul_static_large.data ${BENCH_DIR}/matmul_static_large.pdf
   
-  conv_1d_static_small_stride_1_dilation_1 ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_1.pdf
-  conv_1d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_1.pdf
-  conv_1d_static_large_stride_1_dilation_1 ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_1.data ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_1.pdf
+  # conv_1d_static_small_stride_1_dilation_1 ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_1.pdf
+  # conv_1d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_1.pdf
+  # conv_1d_static_large_stride_1_dilation_1 ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_1.data ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_1.pdf
 
-  conv_1d_static_small_stride_2_dilation_1 ${BENCH_DIR}/conv_1d_static_small_stride_2_dilation_1.data ${BENCH_DIR}/conv_1d_static_small_stride_2_dilation_1.pdf
-  conv_1d_static_medium_stride_2_dilation_1 ${BENCH_DIR}/conv_1d_static_medium_stride_2_dilation_1.data ${BENCH_DIR}/conv_1d_static_medium_stride_2_dilation_1.pdf
-  conv_1d_static_large_stride_2_dilation_1 ${BENCH_DIR}/conv_1d_static_large_stride_2_dilation_1.data ${BENCH_DIR}/conv_1d_static_large_stride_2_dilation_1.pdf
+  # conv_1d_static_small_stride_2_dilation_1 ${BENCH_DIR}/conv_1d_static_small_stride_2_dilation_1.data ${BENCH_DIR}/conv_1d_static_small_stride_2_dilation_1.pdf
+  # conv_1d_static_medium_stride_2_dilation_1 ${BENCH_DIR}/conv_1d_static_medium_stride_2_dilation_1.data ${BENCH_DIR}/conv_1d_static_medium_stride_2_dilation_1.pdf
+  # conv_1d_static_large_stride_2_dilation_1 ${BENCH_DIR}/conv_1d_static_large_stride_2_dilation_1.data ${BENCH_DIR}/conv_1d_static_large_stride_2_dilation_1.pdf
 
-  conv_1d_static_small_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_2.pdf
-  conv_1d_static_medium_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_2.pdf
-  conv_1d_static_large_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_2.pdf
+  # conv_1d_static_small_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_small_stride_1_dilation_2.pdf
+  # conv_1d_static_medium_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_medium_stride_1_dilation_2.pdf
+  # conv_1d_static_large_stride_1_dilation_2 ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_2.data ${BENCH_DIR}/conv_1d_static_large_stride_1_dilation_2.pdf
 
-  conv_2d_static_small_stride_1_dilation_1 ${BENCH_DIR}/conv_2d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/conv_2d_static_small_stride_1_dilation_1.pdf
-  conv_2d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/conv_2d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/conv_2d_static_medium_stride_1_dilation_1.pdf
+  # conv_2d_static_small_stride_1_dilation_1 ${BENCH_DIR}/conv_2d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/conv_2d_static_small_stride_1_dilation_1.pdf
+  # conv_2d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/conv_2d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/conv_2d_static_medium_stride_1_dilation_1.pdf
 
-  depthwise_conv_1d_static_small_stride_1_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_1.pdf
-  depthwise_conv_1d_static_small_stride_2_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_2_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_2_dilation_1.pdf
-  depthwise_conv_1d_static_small_stride_1_dilation_2 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_2.data ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_2.pdf
+  # depthwise_conv_1d_static_small_stride_1_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_1.pdf
+  # depthwise_conv_1d_static_small_stride_2_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_2_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_2_dilation_1.pdf
+  # depthwise_conv_1d_static_small_stride_1_dilation_2 ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_2.data ${BENCH_DIR}/depthwise_conv_1d_static_small_stride_1_dilation_2.pdf
 
-  depthwise_conv_1d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_1.pdf
-  depthwise_conv_1d_static_medium_stride_2_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_2_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_2_dilation_1.pdf
-  depthwise_conv_1d_static_medium_stride_1_dilation_2 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_2.data ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_2.pdf
+  # depthwise_conv_1d_static_medium_stride_1_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_1.pdf
+  # depthwise_conv_1d_static_medium_stride_2_dilation_1 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_2_dilation_1.data ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_2_dilation_1.pdf
+  # depthwise_conv_1d_static_medium_stride_1_dilation_2 ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_2.data ${BENCH_DIR}/depthwise_conv_1d_static_medium_stride_1_dilation_2.pdf
 }
