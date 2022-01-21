@@ -12,23 +12,28 @@ from ..contraction.definitions import EinsumProblem
 
 from typing import List
 
+fun_name = 'copy_1d'
+op_name = 'linalg.generic'
+
 ################################################################################
 ### Compilation strategies.
 ################################################################################
 
 # Before bufferization, the IR only has a tensor.extract_slice /
 #   tensor.insert_slice pair.
-# Bufferization then properly introduces copy ops on buffers.
-# We want to make more these copy more efficient.
+# Bufferization then properly introduces copy ops (implemented with
+# linalg.generic)
+# We want to make more these copies more efficient.
 # In the case of a single copy benchmark it is the one true thing to optimize.
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
-      Tile(fun_name='copy_1d',
-            op_name='linalg.generic',
-            tile_sizes=[16]) # Fixed tile size
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            tile_sizes=[16],
+            peel=[0])
       .then(Bufferize())
-      .then(Vectorize(fun_name='copy_1d', op_name='linalg.generic'))
+      .then(Vectorize(fun_name=fun_name, op_name=op_name))
       .then(LowerVectors())
       .then(LowerToLLVM())
     ]
@@ -81,7 +86,7 @@ def main():
           n_iters=args.n_iters,
           dynamic_at_compile_time_sizes=set(
               dynamic_at_compile_time).intersection(keys),
-          function_name='copy_1d',
+          function_name=fun_name,
           dump_ir_to_file='/tmp/abc.mlir',
           dump_obj_to_file='/tmp/abc.o',
           dump_data_to_file=args.dump_data,

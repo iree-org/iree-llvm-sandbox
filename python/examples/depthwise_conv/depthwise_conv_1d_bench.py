@@ -15,15 +15,21 @@ op_name = 'linalg.depthwise_conv_1d_nwc_wc'
 # Compilation strategies.
 ################################################################################
 
-all_names = ["DepthWiseConv1DExpert"]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_names = [ \
+  "DepthWiseConv1DExpert"
+            ]
+
 all_experts = [
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [
-        SingleTilingExpert(
-            fun_name=fun_name,
-            op_name=op_name,
-            #           N  W   C  KW
-            # tile_sizes=[1, 4, 16, 3]
-            tile_sizes=[4, 4, 16, 3])
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N  W   C  KW
+             # tile_sizes=[1, 4, 16, 3]
+             tile_sizes=[4, 4, 16, 3])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name))
     ]
 ]
 

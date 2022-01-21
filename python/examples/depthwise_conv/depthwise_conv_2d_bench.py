@@ -15,23 +15,24 @@ op_name = 'linalg.depthwise_conv_2d_nhwc_hwc'
 # Compilation strategies.
 ################################################################################
 
-all_names = ["DepthWiseConv2DExpert"]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_names = [  \
+  "DepthWiseConv2DExpert"
+            ]
+
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [        \
-        Tile(fun_name=fun_name,
+        DoubleTileAndDecompose(
+             fun_name=fun_name,
              op_name=op_name,
              #           N   H   W   C KH, KW
              tile_sizes=[1, 8, 14, 32],
-             peel=[0, 1, 2])
-        .then(Tile(fun_name=fun_name,
-                   op_name=op_name,
-                   #           N  H  W   C KH, KW
-                   tile_sizes=[1, 1, 7, 32, 1, 3],
-                   peel=[0, 1, 2]))
-        .then(DecomposeToLowerDimensionalNamedOp(fun_name=fun_name,
-                                                 op_name=op_name))
-        .then(Vectorize(fun_name, "linalg.depthwise_conv_1d_nwc_wc"))
+             peel=[0, 1, 2],
+             #           N  H  W   C KH, KW
+             tile_sizes2=[1, 1, 7, 32, 1, 3],
+             peel2=[0, 1, 2])
+        .then(Vectorize(fun_name, ''))
         .then(Bufferize())
         .then(LowerVectors())
         .then(LowerToLLVM())
@@ -84,11 +85,11 @@ def main():
 
   # Specify default configuration and parse command line.
   args = test_argparser("depthwise conv 2d benchmark",
-    default_n_iters=1000,
-    default_problem_sizes_list=benchmark_problem_size_list,
-    default_expert_list=all_names,
-    default_dynamic_at_compile_time_list=[],
-    default_spec_list=[])
+                        default_n_iters=1000,
+                        default_problem_sizes_list=benchmark_problem_size_list,
+                        default_expert_list=all_names,
+                        default_dynamic_at_compile_time_list=[],
+                        default_spec_list=[])
 
   def numpy_kernel(args, sizes, types):
     problem = DepthwiseConvolutionProblem('NHWC',
@@ -104,20 +105,18 @@ def main():
                                           dilations=sizes['dilations'])
     problem.reference_pt(*args)
 
-  test_harness(
-      lambda sizes, t: DepthwiseConvolutionProblem(
-          'NHWC', 'HWC', strides=sizes['strides'], dilations=sizes['dilations'
-                                                                  ]),
-      [[np.float32] * 3],
-      test_sizes(keys, args.problem_sizes_list),
-      test_experts(all_experts, all_names, args.expert_list),
-      n_iters=args.n_iters,
-      function_name=fun_name,
-      dump_ir_to_file='/tmp/abcd.mlir',
-      dump_obj_to_file='/tmp/abcd.o',
-      numpy_benchmark=numpy_kernel,
-      pytorch_benchmark=pytorch_kernel,
-      dump_data_to_file=args.dump_data)
+  test_harness(lambda sizes, t: DepthwiseConvolutionProblem(
+      'NHWC', 'HWC', strides=sizes['strides'], dilations=sizes['dilations']),
+               [[np.float32] * 3],
+               test_sizes(keys, args.problem_sizes_list),
+               test_experts(all_experts, all_names, args.expert_list),
+               n_iters=args.n_iters,
+               function_name=fun_name,
+               dump_ir_to_file='/tmp/abcd.mlir',
+               dump_obj_to_file='/tmp/abcd.o',
+               numpy_benchmark=numpy_kernel,
+               pytorch_benchmark=pytorch_kernel,
+               dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

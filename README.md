@@ -141,24 +141,24 @@ Run the following as root.
 numactl --hardware
 
 ################################################################
-# prepare to run on cpu 4.
+# Prepare to run on CPU 4 only
 ################################################################
 # Disable address space randomization.
 echo 0 > /proc/sys/kernel/randomize_va_space
 
 # Disable the sibling of CPU 4.
 cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list 
-# E.g. this may return 4,10
-echo 0 > /sys/devices/system/cpu/cpu10/online
+# E.g. this may return 4,40
+echo 0 > /sys/devices/system/cpu/cpu40/online
 
 ################################################################
-# cpuset manipulation.
+# Perform cpuset manipulation.
 ################################################################
 # For reference, cset shield does not seem to run as expected on at least 2 systems.
 # cset shield -c 4 --user=${RUN_AS_USER} -k on --userset=${RUN_AS_USER}
 # Instead, reproduce the follwing: https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 #
-cset set -c 0-3 -s system
+# cset set -c 0-3,5-39,41-71 -s system -s system
 cset set -s sandbox -c 4 -m 0 --cpu_exclusive
 cset proc -m -f root -t system
 

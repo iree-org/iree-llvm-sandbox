@@ -15,8 +15,13 @@ op_name = 'linalg.generic'
 # Compilation strategies.
 ################################################################################
 
-all_names = ["SingleTiling2DPeel"]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_names = [  \
+  "SingleTiling2DPeel" \
+  ]
+
 all_experts = [
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
         SingleTilingExpert(
             fun_name,

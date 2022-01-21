@@ -17,6 +17,7 @@ op_name = 'linalg.conv_1d_nwc_wcf'
 ### Compilation strategies.
 ################################################################################
 
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
 all_names = [ \
     "SingleTiling3DPeel",
     "SingleTiling3DPad",
@@ -25,50 +26,49 @@ all_names = [ \
             ]
 
 all_experts = [
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, llvm=False) for e in [ \
-        SingleTilingExpert(
-            fun_name,
-            op_name,
-            #           N  W   C  KW  F
-            tile_sizes=[1, 8, 32, 1, 8],
-            peel=[0, 1, 2, 3, 4])
+        Tile(fun_name,
+             op_name,
+             #           N  W   C  KW  F
+             tile_sizes=[1, 8, 32, 1, 8],
+             peel=[0, 1, 2, 3, 4])
           .then(Vectorize(fun_name, op_name))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
-        SingleTilingExpert(
-            fun_name,
-            op_name,
-            #           N  W   C  KW  F
-            tile_sizes=[1, 8, 32, 1, 8],
-            pad=True,
-            pack_paddings=[1, 1, 0],
-            hoist_paddings=[3, 0, 0])
+        Tile(fun_name,
+             op_name,
+             #           N  W   C  KW  F
+             tile_sizes=[1, 8, 32, 1, 8],
+             pad=True,
+             pack_paddings=[1, 1, 0],
+             hoist_paddings=[3, 0, 0])
           .then(Vectorize(fun_name, op_name))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
-        DoubleTilingExpert(fun_name,
-                           op_name,
-                           #            N    W    C KW    F
-                           tile_sizes1=[1,  32, 128, 3,  32],
-                           tile_sizes2=[1,   8,  32, 1,   8],
-                           peel2=[0, 1, 2, 3, 4])
+        DoubleTile(fun_name,
+                   op_name,
+                   #            N    W    C KW    F
+                   tile_sizes1=[1,  32, 128, 3,  32],
+                   tile_sizes2=[1,   8,  32, 1,   8],
+                   peel2=[0, 1, 2, 3, 4])
           .then(Vectorize(fun_name, op_name))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
-        DoubleTilingExpert(fun_name,
-                           op_name,
-                           #            N    W    C KW    F
-                           tile_sizes1=[1,  32, 128, 3,  32],
-                           tile_sizes2=[1,   8,  32, 1,   8],
-                           pad2=True,
-                           pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[3, 0, 0])
+        DoubleTile(fun_name,
+                   op_name,
+                   #            N    W    C KW    F
+                   tile_sizes1=[1,  32, 128, 3,  32],
+                   tile_sizes2=[1,   8,  32, 1,   8],
+                   pad2=True,
+                   pack_paddings2=[1, 1, 0],
+                   hoist_paddings2=[3, 0, 0])
           .then(Vectorize(fun_name, op_name))
           .then(Bufferize())
-          .then(LowerVectors(split_transfers='vector-transfers'))
+          .then(LowerVectors())
           .then(LowerToLLVM()),
     ]
 ]

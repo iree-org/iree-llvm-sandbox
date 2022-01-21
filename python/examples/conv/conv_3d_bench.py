@@ -17,11 +17,14 @@ op_name = 'linalg.conv_3d_ndhwc_dhwcf'
 ### Compilation strategies.
 ################################################################################
 
-all_names = [
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_names = [ \
   "Conv3DExpert"
-]
+            ]
+
 all_experts = [
-    e.print_ir(after_all=False) for e in [
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+    e.print_ir(after_all=False) for e in [ \
         SingleTilingExpert(
             fun_name=fun_name,
             op_name=op_name,
@@ -41,20 +44,20 @@ keys = ['N', 'D', 'H', 'W', 'C', 'KD', 'KH', 'KW', 'F', 'strides', 'dilations']
 def main():
   # Specify default configuration and parse command line.
   args = test_argparser(
-    "conv 3d benchmark",
-    default_n_iters=1,
-    #  N  D   H   W   C  KD  KH  KW   F     st      dil
-    default_problem_sizes_list=[
-      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 1, 1], [1, 1, 1]],
-      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 1, 2], [1, 1, 2]],
-      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 1], [1, 1, 2]],
-      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 2], [1, 2, 2]],
-      [8, 4, 16, 16, 32,  3,  3,  3, 64, [1, 2, 3], [3, 2, 2]],
-      [8, 4, 16, 16, 32,  3,  3,  3, 64, [3, 2, 2], [1, 3, 2]],
-    ],
-    default_expert_list=all_names,
-    default_dynamic_at_compile_time_list=[],
-    default_spec_list=[])
+      "conv 3d benchmark",
+      default_n_iters=1,
+      #  N  D   H   W   C  KD  KH  KW   F     st      dil
+      default_problem_sizes_list=[
+          [8, 4, 16, 16, 32, 3, 3, 3, 64, [1, 1, 1], [1, 1, 1]],
+          [8, 4, 16, 16, 32, 3, 3, 3, 64, [1, 1, 2], [1, 1, 2]],
+          [8, 4, 16, 16, 32, 3, 3, 3, 64, [1, 2, 1], [1, 1, 2]],
+          [8, 4, 16, 16, 32, 3, 3, 3, 64, [1, 2, 2], [1, 2, 2]],
+          [8, 4, 16, 16, 32, 3, 3, 3, 64, [1, 2, 3], [3, 2, 2]],
+          [8, 4, 16, 16, 32, 3, 3, 3, 64, [3, 2, 2], [1, 3, 2]],
+      ],
+      default_expert_list=all_names,
+      default_dynamic_at_compile_time_list=[],
+      default_spec_list=[])
 
   test_harness(lambda sizes, types: ConvolutionProblem(
       'NDHWC', 'DHWCF', strides=sizes['strides'], dilations=sizes['dilations']),

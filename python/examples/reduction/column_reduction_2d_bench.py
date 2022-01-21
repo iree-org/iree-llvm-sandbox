@@ -16,22 +16,26 @@ op_name = 'linalg.generic'
 ### Compilation strategies.
 ################################################################################
 
-all_names = [
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_names = [  \
   "ColumnReduction2DExpert"
-]
+            ]
+
+
 def all_experts(problem_sizes: List[int]):
   return [
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
       TileAndDecompose(
           fun_name=fun_name,
           op_name=op_name,
-          # Little trick avoids tiling small dimensions and otherwise tile by 128.
-          tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4])\
-          .then(Vectorize(fun_name, op_name))\
-          .then(Bufferize())\
-          .then(LowerVectors(
-            multi_reduction_lowering='innerparallel'))\
-          .then(LowerToLLVM())\
-          .print_ir(after_all=False),
+          # Trick avoids tiling small dimensions and otherwise tile by 128.
+          tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4])
+        .then(Vectorize(fun_name, op_name))
+        .then(LoweringOnlyExpert(fun_name,
+                                 op_name,
+                                 multi_reduction_lowering='innerparallel')),
+    ]
   ]
 
 
@@ -45,7 +49,8 @@ keys = ['n', 'm']
 # CHECK-NOT: FAILURE
 def main():
   # Specify default configuration and parse command line.
-  args = test_argparser(
+  # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+  args = test_argparser(  \
     "column reduction 2d benchmark",
     default_n_iters=100,
     default_problem_sizes_list=[
@@ -71,11 +76,12 @@ def main():
 
   for problem_sizes in args.problem_sizes_list:
     test_harness(lambda s, t: EinsumProblem('mn->n', 1), [[np.float32] * 2],
-        test_sizes(keys, [problem_sizes]),
-        test_experts(all_experts(problem_sizes), all_names, args.expert_list),
-        n_iters=args.n_iters,
-        function_name=fun_name,
-        dump_data_to_file=args.dump_data)
+                 test_sizes(keys, [problem_sizes]),
+                 test_experts(all_experts(problem_sizes), all_names,
+                              args.expert_list),
+                 n_iters=args.n_iters,
+                 function_name=fun_name,
+                 dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

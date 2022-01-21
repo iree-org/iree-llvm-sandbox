@@ -18,6 +18,7 @@ op_name = 'linalg.conv_2d_nhwc_hwcf'
 # Compilation strategies.
 ################################################################################
 
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
 all_names = [ \
     "SingleTiling3DPeel",
     "SingleTiling3DPad",
@@ -26,6 +27,7 @@ all_names = [ \
             ]
 
 all_experts = [
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
         TileAndDecompose(
             fun_name=fun_name,

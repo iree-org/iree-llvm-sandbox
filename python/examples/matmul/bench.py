@@ -9,88 +9,101 @@ from ..core.transforms import *
 
 from ..contraction.definitions import EinsumProblem
 
+fun_name = 'matmul_on_tensors'
+op_name = 'linalg.generic'
+
 ################################################################################
 ### Compilation strategies.
 ################################################################################
 
-all_names = [                     \
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_names = [                    \
   "SingleTiling2DPeel",          \
   "SingleTiling3DPeel",          \
-  "SingleTiling2DPad",               \
-  "SingleTiling3DPad",               \
+  "SingleTiling2DPad",           \
+  "SingleTiling3DPad",           \
   "DoubleTile2DPadAndHoist",     \
   "DoubleTile3DPadAndHoist",     \
   "DoubleTile2DPadAndHoistLarge" \
 ]
 
 all_experts = [
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-        SingleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes=[6, 32, 1],
-                           tile_interchange=[0, 1, 2],
-                           peel=[0, 1, 2]),
-        SingleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes=[12, 32, 16],
-                           tile_interchange=[0, 1, 2],
-                           peel=[0, 1, 2]),
-        SingleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes=[12, 32, 1],
-                           tile_interchange=[0, 1, 2],
-                           pad=True,
-                           pack_paddings=[1, 1, 0],
-                           hoist_paddings=[2, 3, 0]),
-        SingleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes=[12, 32, 16],
-                           tile_interchange=[0, 1, 2],
-                           pad=True,
-                           pack_paddings=[1, 1, 0],
-                           hoist_paddings=[2, 3, 0]),
-        DoubleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes1=[288, 128, 512],
-                           tile_interchange1=[0, 2, 1],
-                           tile_sizes2=[12, 32, 1],
-                           tile_interchange2=[0, 1, 2],
-                           pad2=True,
-                           pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[5, 6, 0])
-          .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
-          .then(UnrollOneParentLoop('matmul_on_tensors',
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[6, 32, 1],
+             tile_interchange=[0, 1, 2],
+             peel=[0, 1, 2])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[12, 32, 16],
+             tile_interchange=[0, 1, 2],
+             peel=[0, 1, 2])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[12, 32, 1],
+             tile_interchange=[0, 1, 2],
+             pad=True,
+             pack_paddings=[1, 1, 0],
+             hoist_paddings=[2, 3, 0])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[12, 32, 16],
+             tile_interchange=[0, 1, 2],
+             pad=True,
+             pack_paddings=[1, 1, 0],
+             hoist_paddings=[2, 3, 0])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        DoubleTile(fun_name,
+                   op_name,
+                   tile_sizes1=[288, 128, 512],
+                   tile_interchange1=[0, 2, 1],
+                   tile_sizes2=[12, 32, 1],
+                   tile_interchange2=[0, 1, 2],
+                   pad2=True,
+                   pack_paddings2=[1, 1, 0],
+                   hoist_paddings2=[5, 6, 0])
+          .then(Vectorize(fun_name, ''))
+          .then(UnrollOneParentLoop(fun_name,
                                     'vector.contract',
                                     parent_loop_num=1,
                                     unroll_factor=4))
-          .then(LoweringOnlyExpert('matmul_on_tensors',
-                                   'linalg.generic',
+          .then(LoweringOnlyExpert(fun_name,
+                                   op_name,
                                    transpose_lowering='eltwise')),
-        DoubleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes1=[288, 128, 512],
-                           tile_interchange1=[0, 2, 1],
-                           tile_sizes2=[12, 32, 16],
-                           tile_interchange2=[0, 1, 2],
-                           pad2=True,
-                           pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[5, 6, 0])
-          .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
-          .then(LoweringOnlyExpert('matmul_on_tensors',
-                                   'linalg.generic',
+        DoubleTile(fun_name,
+                   op_name,
+                   tile_sizes1=[288, 128, 512],
+                   tile_interchange1=[0, 2, 1],
+                   tile_sizes2=[12, 32, 16],
+                   tile_interchange2=[0, 1, 2],
+                   pad2=True,
+                   pack_paddings2=[1, 1, 0],
+                   hoist_paddings2=[5, 6, 0])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name,
+                                   op_name,
                                    transpose_lowering='eltwise')),
-        DoubleTilingExpert('matmul_on_tensors',
-                           'linalg.generic',
-                           tile_sizes1=[128, 384, 512],
-                           tile_interchange1=[0, 1, 2],
-                           tile_sizes2=[12, 32, 1],
-                           tile_interchange2=[1, 0, 2],
-                           pad2=True,
-                           pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[3, 2, 0])
-          .then(Vectorize('matmul_on_tensors', 'linalg.generic'))
-          .then(LoweringOnlyExpert('matmul_on_tensors',
-                                   'linalg.generic',
+        DoubleTile(fun_name,
+                   op_name,
+                   tile_sizes1=[128, 384, 512],
+                   tile_interchange1=[0, 1, 2],
+                   tile_sizes2=[12, 32, 1],
+                   tile_interchange2=[1, 0, 2],
+                   pad2=True,
+                   pack_paddings2=[1, 1, 0],
+                   hoist_paddings2=[3, 2, 0])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name,
+                                   op_name,
                                    transpose_lowering='eltwise')),
     ]
 ]
@@ -160,7 +173,7 @@ def main():
                    n_iters=args.n_iters,
                    dynamic_at_compile_time_sizes=set(
                        dynamic_at_compile_time).intersection(keys),
-                   function_name='matmul_on_tensors',
+                   function_name=fun_name,
                    dump_ir_to_file='/tmp/abc.mlir',
                    dump_obj_to_file='/tmp/abc.o',
                    dump_data_to_file=args.dump_data,
