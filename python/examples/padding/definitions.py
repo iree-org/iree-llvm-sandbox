@@ -1,4 +1,4 @@
-import sys, time
+import os, sys, time
 
 from typing import Any, List, Mapping, Optional, Sequence
 
@@ -168,7 +168,9 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     func = builtin.FuncOp(name, (types[:-1], [types[-2]]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=[False, False, True])
-    attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
+    attach_passthrough(
+        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        avx512=avx512)
 
     output_element_type = types[-2].element_type
 

@@ -1,4 +1,4 @@
-import itertools
+import os, itertools
 
 from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
@@ -392,7 +392,9 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     func = builtin.FuncOp(name, (mlir_types, [output_type]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=[False, False, True])
-    attach_passthrough(func, [StringAttr.get("noinline")], avx512=avx512)
+    attach_passthrough(
+        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        avx512=avx512)
 
     with InsertionPoint(func.add_entry_block()):
       tensor_zero = func.arguments[-1]

@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 from typing import Any, List, Mapping, Sequence, Tuple, Union
@@ -128,7 +129,9 @@ class EinsumProblem(ProblemDefinition):
     inplaceable_attributes[-1] = True
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=inplaceable_attributes)
-    attach_passthrough(func, [StringAttr.get('noinline')], avx512=avx512)
+    attach_passthrough(
+        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        avx512=avx512)
 
     with InsertionPoint(func.add_entry_block()):
       output_tensor = func.arguments[-1]

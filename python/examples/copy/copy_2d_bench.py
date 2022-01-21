@@ -27,12 +27,6 @@ all_names = [  \
 # Problem size-specific transformation parameters: the tile size is the max
 # divisible entry that fits within
 def all_experts(problem_sizes: List[int]):
-  sizes1 = l1_2d_divisible_tile_sizes(problem_sizes)
-  sizes_for_register_tiling = [ \
-    ts if ts > 0 else s for (s, ts) in zip(problem_sizes, sizes1) \
-  ]
-  sizes2 = register_2d_divisible_tile_sizes(sizes_for_register_tiling)
-
   # Before bufferization, the IR only has a tensor.extract_slice /
   #   tensor.insert_slice pair.
   # Bufferization then properly introduces copy ops (implemented with
@@ -41,15 +35,23 @@ def all_experts(problem_sizes: List[int]):
   # In the case of a single copy benchmark it is the one true thing to optimize.
   return [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
+    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
       Tile(fun_name=fun_name,
             op_name=op_name,
-            tile_sizes=sizes2,
+            tile_sizes=[4, 16],
             peel=[0, 1])
         # Bufferize first
         .then(Bufferize())
         # Then vectorize and lower.
         .then(Vectorize(fun_name=fun_name, op_name=op_name))
+        .then(UnrollOneParentLoop(fun_name=fun_name,
+                                  op_name='vector.transfer_read',
+                                  parent_loop_num=1,
+                                  unroll_factor=1))
+        .then(UnrollOneParentLoop(fun_name=fun_name,
+                                  op_name='vector.transfer_read',
+                                  parent_loop_num=2,
+                                  unroll_factor=1))
         .then(LowerVectors())
         .then(LowerToLLVM())
     ]
