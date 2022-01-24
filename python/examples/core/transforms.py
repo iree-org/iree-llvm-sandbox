@@ -23,10 +23,16 @@ def _get_pad_str(transform: Transform) -> str:
   pad_str = f'pad'
   pack_paddings = [str(pp) for pp in transform.pack_paddings]
   hoist_paddings = [str(hd) for hd in transform.hoist_paddings]
+  transpose_paddings = [':'.join([str(dim) for dim in ip])
+                          for ip in transform.transpose_paddings]
+
   if pack_paddings:
     pad_str = pad_str + f' pack-paddings={",".join(pack_paddings)}'
   if hoist_paddings:
     pad_str = pad_str + f' hoist-paddings={",".join(hoist_paddings)}'
+  if transpose_paddings:
+    pad_str = pad_str + f' transpose-paddings={",".join(transpose_paddings)}'
+  print(pad_str)
   return pad_str
 
 
@@ -74,7 +80,14 @@ class Fuse(Transform):
   * `pack_paddings`: Pack the padded operand if the packing flag is set. `pad`
      must also be specified.
   * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
-     pad` must also be specified.
+     `pad` must also be specified.
+  * `transpose_paddings`: Transpose the padded operands by the specified
+    interchange vectors:
+    transpose_paddings=[[1, 0, 2], [0, 1], [0, 1]]
+    It defines the interchange [1, 0, 2] for operand one and the
+    interchange [0, 1] (no transpose) for the remaining operands.
+    An interchange vector has to be a permutation matching the
+    operand rank. `pad` must also be specified.
   * `vectorize`: Vectorize the fused operations.
   * `vectorize_padding`: Vectorize the pad tensor operations.
   """
@@ -85,6 +98,7 @@ class Fuse(Transform):
       'pad': (BoolVariable, False),
       'pack_paddings': (PackPaddingVariable, []),
       'hoist_paddings': (HoistPaddingVariable, []),
+      'transpose_paddings': (TransposePaddingVariable, []),
       'vectorize': (BoolVariable, False),
       'vectorize_paddings': (BoolVariable, False),
   }
@@ -125,6 +139,13 @@ class Tile(Transform):
     must also be specified.
   * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
     pad` must also be specified.
+  * `transpose_paddings`: Transpose the padded operands by the specified
+    interchange vectors:
+    transpose_paddings=[[1, 0, 2], [0, 1], [0, 1]]
+    It defines the interchange [1, 0, 2] for operand one and the
+    interchange [0, 1] (no transpose) for the remaining operands.
+    An interchange vector has to be a permutation matching the
+    operand rank. `pad` must also be specified.
   * `scalarize_dyn_dims`: Scalarize all dimensions that have statically
     unknown size. Either `tile_sizes` or `scalarize_dyn_dims` must be specified.
     Cannot use both at the same time. Cannot be used together with `pad` or
@@ -138,6 +159,7 @@ class Tile(Transform):
       'peel': (PeelingVariable, []),
       'pack_paddings': (PackPaddingVariable, []),
       'hoist_paddings': (HoistPaddingVariable, []),
+      'transpose_paddings': (TransposePaddingVariable, []),
       'scalarize_dyn_dims': (BoolVariable, False),
   }
 

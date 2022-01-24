@@ -132,6 +132,24 @@ class HoistPaddingVariable(IntVariable):
     return f'HoistPaddingVariable({self.name}, {self.length_range}, {self.value_range})'
 
 
+class TransposePaddingVariable(InterchangeVariable):
+  'Variable that corresponds to interchange padding.'
+
+  def __init__(self, name, length_ranges, value_ranges):
+    Variable.__init__(self, name)
+    if name in length_ranges:
+      self.length_range = length_ranges[name]
+    else:
+      self.length_range = length_ranges['default']
+    if name in value_ranges:
+      self.value_range = value_ranges[name]
+    else:
+      self.value_range = value_ranges['default']
+
+  def __repr__(self):
+    return f'TransposePaddingVariable({self.name}, {self.length_range}, {self.value_range})'
+
+
 class ChoiceVariableBase(Variable):
   """Base class for choice variables.
 
