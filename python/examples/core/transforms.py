@@ -328,7 +328,8 @@ class LowerVectors(Transform):
       'split_transfers': (VectorTransferSplitChoice, 'linalg-copy'),
       'transpose_lowering': (TransposeLoweringChoice, 'eltwise'),
       'transpose_avx2_lowering': (BoolVariable, False),
-      'unroll_vector_transfers': (BoolVariable, True)
+      'unroll_vector_transfers': (BoolVariable, True),
+      'print_after_all': (BoolVariable, False),
   }
 
   def __init__(self,
@@ -357,6 +358,8 @@ class LowerVectors(Transform):
   def __call__(self, module: Module, fun_name: str):
     for pipeline in self.pipelines:
       PassManager.parse(pipeline).run(module)
+      if self.print_after_all:
+        print(module)
     return module
 
 
