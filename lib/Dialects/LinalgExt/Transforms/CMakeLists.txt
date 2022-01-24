@@ -36,6 +36,7 @@ add_mlir_library(MLIRLinalgExtOpInterfaceImpl
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PUBLIC
-  MLIRBufferizableOpInterface
+  MLIRBufferization
   MLIRLinalgExt
+  MLIRTensorTransforms
 )
