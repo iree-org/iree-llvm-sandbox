@@ -26,7 +26,9 @@ linalg::transform::ScopeOp linalg::transform::wrapInScope(Operation *op) {
   Region &body = scope.body();
   rewriter.setInsertionPointToStart(&body.emplaceBlock());
   BlockAndValueMapping bv;
-  bv.map(op->getOperands(), body.addArguments(op->getOperandTypes()));
+  SmallVector<Location> locs(op->getOperandTypes().size(), op->getLoc());
+  bv.map(op->getOperands(),
+         body.addArguments(op->getOperandTypes(), locs));
 
   Operation *cloneInScope = rewriter.clone(*op, bv);
   rewriter.create<ForwardOp>(op->getLoc(), cloneInScope->getResults());

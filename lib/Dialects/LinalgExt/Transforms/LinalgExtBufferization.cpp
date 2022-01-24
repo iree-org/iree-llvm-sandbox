@@ -10,18 +10,18 @@
 
 #include "Dialects/LinalgExt/LinalgExtBufferization.h"
 #include "Dialects/LinalgExt/LinalgExtOps.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/BufferizableOpInterface.h"
+#include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
 
-using linalg::comprehensive_bufferize::BufferizableOpInterface;
-using linalg::comprehensive_bufferize::BufferizationState;
-using linalg::comprehensive_bufferize::BufferRelation;
-using linalg::comprehensive_bufferize::replaceOpWithBufferizedValues;
-using linalg::comprehensive_bufferize::replaceOpWithNewBufferizedOp;
-using linalg::comprehensive_bufferize::getDynamicMemRefType;
+using bufferization::BufferizableOpInterface;
+using bufferization::BufferizationState;
+using bufferization::BufferRelation;
+using bufferization::replaceOpWithBufferizedValues;
+using bufferization::replaceOpWithNewBufferizedOp;
+using bufferization::getDynamicMemRefType;
 using tensor::ExtractSliceOp;
 
 namespace linalg_ext {
