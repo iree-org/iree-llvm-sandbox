@@ -36,13 +36,13 @@
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/StdInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/TensorInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/VectorInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
+#include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Rewrite/PatternApplicator.h"
@@ -656,8 +656,7 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
         registerBufferizableOpInterfaceExternalModels(registry);
     linalg::comprehensive_bufferize::std_ext::
         registerModuleBufferizationExternalModels(registry);
-    linalg::comprehensive_bufferize::tensor_ext::
-        registerBufferizableOpInterfaceExternalModels(registry);
+    tensor::registerBufferizableOpInterfaceExternalModels(registry);
     linalg::comprehensive_bufferize::vector_ext::
         registerBufferizableOpInterfaceExternalModels(registry);
   }
