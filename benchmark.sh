@@ -93,19 +93,6 @@ function prepare_data_collection() {
   fi
 }
 
-function plot() {
-  if (test -z "$1" ) || (test -z "$2" ) || (test -z "$3" ) 
-  then
-    return
-  fi
-  echo "Start plotting: python ./tools/plot_benchmark.py -i $1 -o $2 -n \"$3\""
-  python ./tools/plot_benchmark.py -i $1 -o $2 -n "$3"
-  echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-  echo "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-  echo ""
-  echo ""
-}
-
 ###############################################################################
 # Copy benchmarks.
 ###############################################################################
@@ -191,6 +178,89 @@ function transpose_2d_static_small_repro_median() {
   (${COMMAND} --expert_list Tile16x16Shuffle --problem_sizes_list 32,32)
   (${COMMAND} --expert_list Tile8x8AVX2 --problem_sizes_list 32,32)
   (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,32)
+}
+
+function transpose_2d_static_l1_repro() {
+  export SANDBOX_INLINING='alwaysinline'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+   # 512B R + 512B W -> @3.125% L1
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,4)
+   # 2048B R + 2048B W -> @6.25% L1
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,8)
+   # 2048B R + 2048B W -> @12.5% L1
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,16)
+   # 4096B R + 4096B W -> @25% L1
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,32)
+  #(${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,48)
+   # 8192B R + 8192B W -> @50% L1
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,64)
+  #(${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,80)
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,96)
+  #(${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,112)
+   # 16KB R + 16KB W -> @100% L1
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,128)
+}
+
+function transpose_2d_static_l2_repro() {
+  export SANDBOX_INLINING='alwaysinline'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+
+   # 32KB R + 32KB W -> @6.4% L2
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,256)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,128)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,64)
+  
+   # 64KB R + 64KB W -> @12.8% L2
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,512)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,256)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,128)
+  
+   # 128KB R + 128KB W -> @25.6% L2
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,1024)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,512)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,256)
+
+   # 128KB R + 128KB W -> @51.0% L2
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,2048)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,1024)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,512)
+
+   # 128KB R + 128KB W -> @102.0% L2
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,4096)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,2048)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,1024)
+}
+
+function transpose_2d_static_l3_repro() {
+  export SANDBOX_INLINING='alwaysinline'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  # 2MB R + 2MB W -> @16.0% L3
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,16384)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,8192)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,4096)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,2048)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,1024)
+
+  # 4MB R + 4MB W -> @32.0% L3
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,32768)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,16384)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,8192)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,4096)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,2048)
+
+  # 8MB R + 8MB W -> @64.0% L3
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,65536)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,32768)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,16384)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,8192)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,4096)
+
+  # 12MB R + 12MB W -> @96.0% L3
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 48,65536)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 96,32768)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 192,16384)
+  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 384,8192)
+  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 768,4096)
 }
 
 ###############################################################################
@@ -794,8 +864,10 @@ function run_all() {
       echo ${benchmark} ${BENCH_DIR}/${benchmark}.data ${BENCH_DIR}/${benchmark}.pdf
       prepare_data_collection ${BENCH_DIR}/${benchmark}.data
       ${benchmark}
-      plot ${BENCH_DIR}/${benchmark}.data ${BENCH_DIR}/${benchmark}.pdf "${benchmark}" \
-        --peak_compute ${PEAK_COMPUTE} --peak_bandwidth ${PEAK_BANDWIDTH}
+      python ./tools/plot_benchmark.py --input ${BENCH_DIR}/${benchmark}.data \
+        --output ${BENCH_DIR}/${benchmark}.pdf --name "${benchmark}" \
+        --peak_compute ${PEAK_COMPUTE} --peak_bandwidth_hi ${PEAK_BANDWIDTH} \
+        --peak_bandwidth_lo ${PEAK_BANDWIDTH}
   done
 }
 
@@ -807,11 +879,21 @@ function run_and_plot_one() {
   unset SANDBOX_INLINING
   PLOT_NAME=""
   PEAK_COMPUTE="192"
-  PEAK_BANDWIDTH="281"
+  # L1 values
+  PEAK_BANDWIDTH_HI="281"
+  PEAK_BANDWIDTH_LO="281"
+  # L2 values
+  # PEAK_BANDWIDTH_HI="81"
+  # PEAK_BANDWIDTH_LO="48"
+  # L3 values
+  # PEAK_BANDWIDTH_HI="26"
+  # PEAK_BANDWIDTH_LO="16"
   benchmark=$1
   echo ${benchmark} ${BENCH_DIR}/${benchmark}.data ${BENCH_DIR}/${benchmark}.pdf
   prepare_data_collection ${BENCH_DIR}/${benchmark}.data
   ${benchmark}
-  plot ${BENCH_DIR}/${benchmark}.data ${BENCH_DIR}/${benchmark}.pdf "${benchmark}" \
-    --peak_compute ${PEAK_COMPUTE} --peak_bandwidth ${PEAK_BANDWIDTH}
+  python ./tools/plot_benchmark.py --input ${BENCH_DIR}/${benchmark}.data \
+    --output ${BENCH_DIR}/${benchmark}.pdf --name "${benchmark}" \
+    --peak_compute ${PEAK_COMPUTE} --peak_bandwidth_hi ${PEAK_BANDWIDTH_HI} \
+    --peak_bandwidth_lo ${PEAK_BANDWIDTH_LO}
 }

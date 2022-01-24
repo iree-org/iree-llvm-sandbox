@@ -17,47 +17,16 @@ op_name = 'linalg.generic'
 
 # Note: `\` char at the end of next line prevents formatter reflows, keep it.
 all_names = [  \
-  "Tile8x8Eltwise", \
-  "Tile16x16Eltwise", \
-  "Tile4x8AVX2", \
   "Tile8x8AVX2", \
   "Tile4x8Shuffle", \
-  "Tile8x4Shuffle", \
   "Tile8x8Shuffle", \
-  "Tile4x16Shuffle", \
   "Tile16x16Shuffle", \
+  "TripleTile4x8Shuffle", \
   ]
 
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[8, 8],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='eltwise')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[16, 16],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='eltwise')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[8, 4],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_avx2_lowering=True)),
         Tile(fun_name,
              op_name,
              #           M  N
@@ -79,25 +48,7 @@ all_experts = [
         Tile(fun_name,
              op_name,
              #           M  N
-             tile_sizes=[8, 4],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='shuffle')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
              tile_sizes=[8, 8],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='shuffle')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[4, 16],
              peel=[0, 1])
           .then(Vectorize(fun_name, op_name))
           .then(LoweringOnlyExpert(fun_name,
@@ -108,6 +59,20 @@ all_experts = [
              #           M  N
              tile_sizes=[16, 16],
              peel=[0, 1])
+          .then(Vectorize(fun_name, op_name))
+          .then(LoweringOnlyExpert(fun_name,
+                                   op_name,
+                                   transpose_lowering='shuffle')),
+        TripleTile(fun_name,
+                   op_name,
+                   #           M  N
+                   tile_sizes1=[32, 512],
+                   peel1=[0, 1],
+                   tile_sizes2=[32, 32],
+                   peel2=[0, 1],
+                   tile_sizes3=[4, 8],
+                   tile_interchange3=[1, 0],
+                   peel3=[0, 1],)
           .then(Vectorize(fun_name, op_name))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,

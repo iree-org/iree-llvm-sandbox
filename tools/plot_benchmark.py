@@ -18,31 +18,31 @@ def _parse_arguments() -> argparse.Namespace:
   """
   parser = argparse.ArgumentParser(description="Plot")
   parser.add_argument("--input",
-                      "-i",
                       type=str,
                       required=True,
                       help="input data filename (e.g., -i input)")
   parser.add_argument("--output",
-                      "-o",
                       type=str,
                       required=True,
                       help="output plot filename (e.g., -o output)")
   parser.add_argument("--name",
-                      "-n",
                       type=str,
                       required=True,
                       help="plot name (e.g., -n name)")
   parser.add_argument("--peak_compute",
-                      "-t",
                       type=int,
                       nargs="?",
                       help="peak compute (e.g., -t 192)",
                       default=192)
-  parser.add_argument("--peak_bandwidth",
-                      "-b",
+  parser.add_argument("--peak_bandwidth_hi",
                       type=int,
                       nargs="?",
-                      help="peak bandwidth (e.g., -t 281)",
+                      help="high peak bandwidth (e.g., -t 281)",
+                      default=281)
+  parser.add_argument("--peak_bandwidth_lo",
+                      type=int,
+                      nargs="?",
+                      help="low peak bandwidth (e.g., -t 281)",
                       default=281)
   return parser.parse_args(sys.argv[1:])
 
@@ -74,9 +74,13 @@ def main():
       plot.axhline(args.peak_compute,
                    label=f'Peak Compute ({args.peak_compute} GFlop/s)')
     elif key == 'gbyte_per_s_per_iter':
-      plot.set(ylim=(0, args.peak_bandwidth * 1.1))
-      plot.axhline(args.peak_bandwidth,
-                   label=f'Peak BW ({args.peak_bandwidth} GB/s)')
+      plot.set(ylim=(0, args.peak_bandwidth_hi * 1.1))
+      plot.axhline(args.peak_bandwidth_hi,
+                   label=f'Peak BW ({args.peak_bandwidth_hi} GB/s)')
+      if args.peak_bandwidth_lo != args.peak_bandwidth_hi:
+        plot.axhline(
+            args.peak_bandwidth_lo,
+            label=f'Peak BW ({args.peak_bandwidth_lo} GB/s (low range))')
 
     plot.set_title(args.name)
     plot.set_xlabel(names_to_translate[all_data.keys()[0]])
