@@ -156,27 +156,7 @@ function copy_1d_static_small() {
 # Careful here, static problem size smaller than the tile sizes completely folds
 # away since the result tensor is not used.
 # TODO: add a fake noop use after the timer in the timing loop to avoid this.
-function copy_2d_static_small() {
-  # Passing alwaysinline reduces the variance that is otherwise too high for 
-  # small L1 copies.
-  export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-  (${COMMAND} --problem_sizes_list 1,256)
-  (${COMMAND} --problem_sizes_list 2,256)
-  (${COMMAND} --problem_sizes_list 3,256)
-  (${COMMAND} --problem_sizes_list 4,256)
-  (${COMMAND} --problem_sizes_list 5,256)
-  (${COMMAND} --problem_sizes_list 6,256)
-  (${COMMAND} --problem_sizes_list 7,256)
-  (${COMMAND} --problem_sizes_list 8,256)
-  (${COMMAND} --problem_sizes_list 9,256)
-  (${COMMAND} --problem_sizes_list 10,256)
-  (${COMMAND} --problem_sizes_list 11,256)
-  (${COMMAND} --problem_sizes_list 12,256)
-  (${COMMAND} --problem_sizes_list 13,256)
-  (${COMMAND} --problem_sizes_list 14,256)
-}
-function copy_2d_static_small_2() {
+function copy_2d_static_small_repro() {
   # Passing alwaysinline reduces the variance that is otherwise too high for 
   # small L1 copies.
   export SANDBOX_INLINING='alwaysinline'
@@ -196,33 +176,21 @@ function copy_2d_static_small_2() {
   (${COMMAND} --problem_sizes_list 13,272)
   (${COMMAND} --problem_sizes_list 14,272)
 }
-function copy_2d_static_small_3() {
-  # Passing alwaysinline reduces the variance that is otherwise too high for 
-  # small L1 copies.
-  export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-  (${COMMAND} --problem_sizes_list 1,288)
-  (${COMMAND} --problem_sizes_list 2,288)
-  (${COMMAND} --problem_sizes_list 3,288)
-  (${COMMAND} --problem_sizes_list 4,288)
-  (${COMMAND} --problem_sizes_list 5,288)
-  (${COMMAND} --problem_sizes_list 6,288)
-  (${COMMAND} --problem_sizes_list 7,288)
-  (${COMMAND} --problem_sizes_list 8,288)
-  (${COMMAND} --problem_sizes_list 9,288)
-  (${COMMAND} --problem_sizes_list 10,288)
-  (${COMMAND} --problem_sizes_list 11,288)
-  (${COMMAND} --problem_sizes_list 12,288)
-  (${COMMAND} --problem_sizes_list 13,288)
-  (${COMMAND} --problem_sizes_list 14,288)
-}
-
 ###############################################################################
 # Static 2D transpose benchmarks.
 ###############################################################################
-function transpose_2d_static_small() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-  (${COMMAND} --expert_list SingleTiling2DPeel --problem_sizes_list 8,8)
+function transpose_2d_static_small_repro_median() {
+  export SANDBOX_INLINING='alwaysinline'
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench --dynamic_at_compile_time_list []"
+  (${COMMAND} --expert_list Tile8x8Shuffle --problem_sizes_list 16,16)
+  (${COMMAND} --expert_list Tile16x16Shuffle --problem_sizes_list 16,16)
+  (${COMMAND} --expert_list Tile8x8AVX2 --problem_sizes_list 16,16)
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,16)
+
+  (${COMMAND} --expert_list Tile8x8Shuffle --problem_sizes_list 32,32)
+  (${COMMAND} --expert_list Tile16x16Shuffle --problem_sizes_list 32,32)
+  (${COMMAND} --expert_list Tile8x8AVX2 --problem_sizes_list 32,32)
+  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,32)
 }
 
 ###############################################################################
