@@ -12,8 +12,8 @@ add_mlir_library(MLIRLinalgTransformTransforms
   LINK_LIBS PUBLIC
   IREELinalgTensorSandboxTransforms
   MLIRAffineToStandard
+  MLIRBufferizableOpInterface
   MLIRBufferization
-  MLIRComprehensiveBufferize
   MLIRIR
   MLIRLinalg
   MLIRLinalgToLLVM

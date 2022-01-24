@@ -259,7 +259,7 @@ executeVectorizeOp(LinalgOp target,
                linalg::LinalgCopyVTWForwardingPattern>(ctx,
                                                        /*benefit=*/2);
   if (vectorizeOp.vectorize_padding())
-    linalg::populatePadTensorOpVectorizationPatterns(patterns);
+    linalg::populatePadOpVectorizationPatterns(patterns);
   LinalgVectorizationPattern pattern(vectorizeOp.getContext());
   auto functionalVectorize = [&](LinalgOp op, PatternRewriter &rewriter) {
     return pattern.matchAndRewrite(op, rewriter);

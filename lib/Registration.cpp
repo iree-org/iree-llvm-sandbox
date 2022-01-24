@@ -12,10 +12,10 @@
 #include "Dialects/LinalgTransform/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "Transforms/Passes.h"
+#include "mlir/Dialect/Bufferization/IR/BufferizationInterfaceImpl.h"
+#include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ArithInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/BufferizationInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/ComprehensiveBufferize.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
@@ -110,7 +110,7 @@ void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::arith_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::bufferization_ext::
+  bufferization::bufferization_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);

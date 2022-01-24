@@ -156,8 +156,10 @@ void TileOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
   Region *bodyRegion = result.addRegion();
   bodyRegion->push_back(new Block);
   Block &bodyBlock = bodyRegion->front();
-  bodyBlock.addArgument(builder.getIndexType());
-  bodyBlock.addArgument(builder.getIndexType());
+  // TODO: Pass a better location here.
+  Location loc = tileSize.getLoc();
+  bodyBlock.addArgument(builder.getIndexType(), loc);
+  bodyBlock.addArgument(builder.getIndexType(), loc);
   // Handle the sliced out types in a conservative fashion: all dimensions
   // become dynamic and a later canonicalization is expected to recover static
   // types.
@@ -170,7 +172,8 @@ void TileOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
                                           ShapedType::kDynamicSize);
         return rttb.setShape(dynamicShape);
       }));
-  bodyBlock.addArguments(dynamicTypes);
+  SmallVector<Location> locs(dynamicTypes.size(), loc);
+  bodyBlock.addArguments(dynamicTypes, locs);
 
   OpBuilder::InsertionGuard guard(builder);
   builder.setInsertionPointToStart(&bodyBlock);
@@ -215,11 +218,13 @@ static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
   if (succeeded(parser.parseOptionalKeyword("outs"))) {
     bool _1;
     SmallVector<NamedAttrList> _2;
+    SmallVector<Location> _3;
     outputsOperandsLoc = parser.getCurrentLocation();
     if (mlir::function_interface_impl::parseFunctionArgumentList(
             parser,
             /*allowAttributes=*/false, /*allowVariadic=*/false, outsOperands,
-            outsTypes, /*argAttrs=*/_2, /*isVariadic=*/_1) ||
+            outsTypes, /*argAttrs=*/_2, /*argLocations=*/_3,
+            /*isVariadic=*/_1) ||
         parser.resolveOperands(outsOperands, outsTypes, outputsOperandsLoc,
                                result.operands))
       return failure();
@@ -316,12 +321,14 @@ static ParseResult parseInParallelOp(OpAsmParser &parser,
 // Bodyless builder, result types must be specified.
 void InParallelOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
                          TypeRange resultTypes, Value numThreads) {
+  // TODO: Pass better location.
+  Location loc = numThreads.getLoc();
   result.addOperands(numThreads);
 
   Region *bodyRegion = result.addRegion();
   bodyRegion->push_back(new Block);
   Block &bodyBlock = bodyRegion->front();
-  bodyBlock.addArgument(builder.getIndexType());
+  bodyBlock.addArgument(builder.getIndexType(), loc);
 
   // Create the default terminator if the builder is not provided and if the
   // iteration arguments are not provided. Otherwise, leave this to the caller
@@ -335,12 +342,14 @@ void InParallelOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
 void InParallelOp::build(
     mlir::OpBuilder &builder, mlir::OperationState &result, Value numThreads,
     function_ref<void(OpBuilder &, Location, Value)> bodyBuilder) {
+  // TODO: Pass better location.
+  Location loc = numThreads.getLoc();
   result.addOperands(numThreads);
 
   Region *bodyRegion = result.addRegion();
   bodyRegion->push_back(new Block);
   Block &bodyBlock = bodyRegion->front();
-  bodyBlock.addArgument(builder.getIndexType());
+  bodyBlock.addArgument(builder.getIndexType(), loc);
 
   OpBuilder::InsertionGuard guard(builder);
   builder.setInsertionPointToStart(&bodyBlock);
