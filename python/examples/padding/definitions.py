@@ -186,7 +186,7 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
         zero = arith.ConstantOp(output_element_type, 0.0)
         tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
 
-      padded_input = linalg.PadTensorOp(
+      padded_input = tensor.PadOp(
           result=types[-1],
           source=func.arguments[0],
           low=[],
@@ -196,7 +196,8 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
           nofold=False)
       block = Block.create_at_start(padded_input.region, [index_type] * 3)
       with InsertionPoint(block):
-        linalg.YieldOp(zero)
+        zero = arith.ConstantOp(output_element_type, 0.0)
+        tensor.YieldOp(zero)
 
       conv = linalg.conv_1d_nwc_wcf(padded_input,
                                     func.arguments[1],
