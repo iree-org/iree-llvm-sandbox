@@ -20,11 +20,8 @@ op_name = 'linalg.generic'
 all_names = [                    \
   "SingleTiling2DPeel",          \
   "SingleTiling3DPeel",          \
-  "SingleTiling2DPad",           \
   "SingleTiling3DPad",           \
   "DoubleTile2DPadAndHoist",     \
-  "DoubleTile3DPadAndHoist",     \
-  "DoubleTile2DPadAndHoistLarge" \
 ]
 
 all_experts = [
@@ -46,15 +43,6 @@ all_experts = [
           .then(LoweringOnlyExpert(fun_name, op_name)),
         Tile(fun_name,
              op_name,
-             tile_sizes=[12, 32, 1],
-             tile_interchange=[0, 1, 2],
-             pad=True,
-             pack_paddings=[1, 1, 0],
-             hoist_paddings=[2, 3, 0])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-        Tile(fun_name,
-             op_name,
              tile_sizes=[12, 32, 16],
              tile_interchange=[0, 1, 2],
              pad=True,
@@ -70,38 +58,14 @@ all_experts = [
                    tile_interchange2=[0, 1, 2],
                    pad2=True,
                    pack_paddings2=[1, 1, 0],
-                   hoist_paddings2=[5, 6, 0])
+                   hoist_paddings2=[5, 6, 0],
+                   transpose_paddings2=[[1, 0], [0, 1], [0, 1]],
+                   )
           .then(Vectorize(fun_name, ''))
           .then(UnrollOneParentLoop(fun_name,
                                     'vector.contract',
                                     parent_loop_num=1,
                                     unroll_factor=4))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='eltwise')),
-        DoubleTile(fun_name,
-                   op_name,
-                   tile_sizes1=[288, 128, 512],
-                   tile_interchange1=[0, 2, 1],
-                   tile_sizes2=[12, 32, 16],
-                   tile_interchange2=[0, 1, 2],
-                   pad2=True,
-                   pack_paddings2=[1, 1, 0],
-                   hoist_paddings2=[5, 6, 0])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='eltwise')),
-        DoubleTile(fun_name,
-                   op_name,
-                   tile_sizes1=[128, 384, 512],
-                   tile_interchange1=[0, 1, 2],
-                   tile_sizes2=[12, 32, 1],
-                   tile_interchange2=[1, 0, 2],
-                   pad2=True,
-                   pack_paddings2=[1, 1, 0],
-                   hoist_paddings2=[3, 2, 0])
-          .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_lowering='eltwise')),
@@ -167,7 +131,8 @@ def main():
           B = np.transpose(B)
         torch.mm(A, B, out=C)
 
-      test_harness(lambda s, t: EinsumProblem(spec, 'mnk', 2), [[np.float32] * 3],
+      test_harness(lambda s, t: EinsumProblem(spec, 'mnk', 2),
+                   [[np.float32] * 3],
                    test_sizes(keys, args.problem_sizes_list),
                    test_experts(all_experts, all_names, args.expert_list),
                    n_iters=args.n_iters,
