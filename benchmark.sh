@@ -181,7 +181,7 @@ function copy_2d_static_small_repro() {
 ###############################################################################
 function transpose_2d_static_small_repro_median() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   (${COMMAND} --expert_list Tile8x8Shuffle --problem_sizes_list 16,16)
   (${COMMAND} --expert_list Tile16x16Shuffle --problem_sizes_list 16,16)
   (${COMMAND} --expert_list Tile8x8AVX2 --problem_sizes_list 16,16)
