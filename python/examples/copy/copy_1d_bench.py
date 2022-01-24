@@ -79,7 +79,7 @@ def main():
   for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
     for spec in args.spec_list:
       test_harness(
-          lambda s, t: EinsumProblem('n->n', 0),
+          lambda s, t: EinsumProblem('n->n', 'n', 0),
           [[np.float32] * 2],
           test_sizes(keys, args.problem_sizes_list),
           test_experts(all_experts, ["Default"], args.expert_list),

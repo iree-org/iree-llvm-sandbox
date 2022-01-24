@@ -65,7 +65,7 @@ def main():
   ]
 
   for problem in problem_list:
-    test_harness(lambda s, t: EinsumProblem(problem[1], 0),
+    test_harness(lambda s, t: EinsumProblem(problem[1], 'klmn', 0),
                  [[np.float32] * 2],
                  test_sizes(keys, [problem[0]]), [problem[2]],
                  n_iters=n_iters,

@@ -59,7 +59,7 @@ def main():
     default_dynamic_at_compile_time_list=[],
     default_spec_list=[])
 
-  test_harness(lambda sizes, t: EinsumProblem('mn->nm', 0), \
+  test_harness(lambda sizes, t: EinsumProblem('nm->mn', 'mn', 0), \
                [[np.float32] * 2],
                test_sizes(keys, args.problem_sizes_list),
                test_experts(all_experts, all_names, args.expert_list),

@@ -13,7 +13,7 @@ from ..contraction.definitions import *
 
 def main():
   # Test two-operand problem.
-  test_harness(lambda sizes, types: EinsumProblem("klnp,nk->pl", 2),
+  test_harness(lambda sizes, types: EinsumProblem('klnp,nk->pl', 'klnp', 2),
                [[np.float32] * 3], [{
                    "k": 10,
                    "l": 12,
@@ -24,7 +24,7 @@ def main():
                function_name='einsum')
 
   # Test one-operand problem with scalar output.
-  test_harness(lambda sizes, types: EinsumProblem("nk->", 1),
+  test_harness(lambda sizes, types: EinsumProblem('nk->', 'nk', 1),
                [[np.float32] * 3], [{
                    "k": 10,
                    "n": 14,

@@ -22,7 +22,8 @@ class EinsumProblem(ProblemDefinition):
   specification of the operation is similar to that of np.einsum.
   """
 
-  def __init__(self, specification: str, flop_count_per_iter: int):
+  def __init__(self, specification: str, domain: str,
+               flop_count_per_iter: int):
     """Creates a new EinsumProblem with the given specification.
 
     The specification is a string of the format:
@@ -37,9 +38,10 @@ class EinsumProblem(ProblemDefinition):
 
     Arguments:
     specification: textual specification of the einsum.
+    domain: textual specification of the einsum dimension in iteration order.
     flop_count_per_iter: floating-point operations executed per iteration.
     """
-    self.specification = EinsumSpecification(specification)
+    self.specification = EinsumSpecification(specification, domain)
     self.flop_count_per_iter = flop_count_per_iter
 
   @property
@@ -139,8 +141,8 @@ class EinsumProblem(ProblemDefinition):
         zero = arith.ConstantOp(types[-1].element_type, 0.0)
         output_tensor = linalg.FillOp(output=func.arguments[-1], value=zero)
       print('Einsum spec: ', str(self.specification))
-      einsum_op = make_einsum(str(self.specification))(*func.arguments[:-1],
-                                                       outs=[output_tensor])
+      einsum_op = make_einsum(self.specification)(*func.arguments[:-1],
+                                                  outs=[output_tensor])
       std.ReturnOp([einsum_op])
 
     return func
