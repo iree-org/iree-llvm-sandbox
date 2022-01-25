@@ -38,6 +38,7 @@ ProblemSizes = Sequence[Union[int, Sequence[int]]]
 class Measurements:
   """Class storing measurement configuration and results in data frame."""
   config_keys = [ \
+    "function_name",
     "expert",
     "np_types",
     "dynamic_at_compile_time",
@@ -53,7 +54,8 @@ class Measurements:
     self.data = pandas.DataFrame(
         dict([(col, []) for col in self.config_keys + self.data_keys]))
 
-  def append(self, expert: str, np_types: Sequence[np.dtype],
+  def append(self, function_name: str, expert_name: str,
+             np_types: Sequence[np.dtype],
              dynamic_at_compile_time_sizes: AbstractSet[str],
              runtime_problem_sizes_dict: Mapping[str, ProblemSizes],
              timing_results_dict: TimingResults):
@@ -61,7 +63,8 @@ class Measurements:
     config = pandas.DataFrame(
         dict(
             zip(self.config_keys,
-                [[expert], [self._stringify_types(np_types)],
+                [[function_name], [expert_name],
+                 [self._stringify_types(np_types)],
                  [self._stringify_set(dynamic_at_compile_time_sizes)],
                  [self._stringify_dict(runtime_problem_sizes_dict)]])))
     results = pandas.DataFrame(
@@ -95,20 +98,22 @@ class Measurements:
     self.data.reset_index(drop=True, inplace=True)
     self.data.to_json(file_name)
 
-  def dump_raw_to_file(self,
-                       file_name: str,
-                       name: str = 'runtime_problem_sizes_dict'):
+  def dump_raw_to_file(self, file_name: str):
     """Dump the measurements to a raw file by appending."""
     all_data = None
     value_column_names = [
-        'elapsed_s_per_iter', 'gbyte_per_s_per_iter', 'gflop_per_s_per_iter'
+        'runtime_problem_sizes_dict', 'elapsed_s_per_iter',
+        'gbyte_per_s_per_iter', 'gflop_per_s_per_iter'
     ]
+    # Filter the slowest to isolate the compulsory miss effects.
+    # Drop the first index matching every key_value (i.e. the first measurement)
+    self.data = self.data.iloc[1:, :]
     if os.path.exists(file_name):
       all_data = pandas.read_json(file_name)
-      all_data = pandas.concat((all_data, self.data[[name,
-                                                     *value_column_names]]))
+      all_data = pandas.concat(
+          [all_data, self.data[['function_name', *value_column_names]]])
     else:
-      all_data = self.data[[name, *value_column_names]]
+      all_data = self.data[['function_name', *value_column_names]]
     all_data.to_json(file_name, orient='records')
 
   def _stringify_types(self, value: Sequence[np.dtype]) -> str:
@@ -505,8 +510,8 @@ def test_harness(problem_factory: Callable[
           f'Compile-time problem size {compile_time_problem_sizes_dict}\n'
           f'Runtime problem size {runtime_problem_sizes_dict}\n'
           f'Problem types {np_types}')
-      for name, expert in experts.items():
-        print(f'\nCompilation expert {name}')
+      for expert_name, expert in experts.items():
+        print(f'\nCompilation expert {expert_name}')
         problem_definition = problem_factory(problem_sizes_dict, np_types)
         problem = ProblemInstance(problem_definition, np_types)
 
@@ -524,7 +529,8 @@ def test_harness(problem_factory: Callable[
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
 
-        measurements.append(name, np_types, dynamic_at_compile_time_sizes,
+        measurements.append(function_name, expert_name, np_types,
+                            dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
       problem_definition = problem_factory(problem_sizes_dict, np_types)
@@ -541,7 +547,8 @@ def test_harness(problem_factory: Callable[
                                              problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-        measurements.append('numpy', np_types, dynamic_at_compile_time_sizes,
+        measurements.append(function_name, 'numpy', np_types,
+                            dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
       if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
@@ -556,7 +563,8 @@ def test_harness(problem_factory: Callable[
                 'pytorch_benchmark'], n, args, problem_sizes_dict, np_types),
             gflops, gbytes, n_iters)
 
-        measurements.append('pytorch', np_types, dynamic_at_compile_time_sizes,
+        measurements.append(function_name, 'pytorch', np_types,
+                            dynamic_at_compile_time_sizes,
                             runtime_problem_sizes_dict, timing_results)
 
     file_name = kwargs.get('dump_data_to_file', '')

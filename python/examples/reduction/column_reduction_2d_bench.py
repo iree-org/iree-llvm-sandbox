@@ -54,7 +54,7 @@ def all_experts(problem_sizes: List[int]):
 ### Problem instantiations.
 ################################################################################
 
-keys = ['n', 'm']
+keys = ['m', 'n']
 
 
 # CHECK-NOT: FAILURE

@@ -20,8 +20,22 @@ op_name = 'linalg.generic'
 ################################################################################
 
 all_names = [  \
-  "ColumnReduction2DExpert"
+  "Tile4x16Peel", \
+  "Tile6x16Peel", \
+  "Tile8x16Peel", \
+  "Tile4x32Peel", \
+  "Tile6x32Peel", \
+  "Tile8x32Peel", \
             ]
+
+all_tile_sizes = [
+    [4, 16],
+    [6, 16],
+    [8, 16],
+    [4, 32],
+    [6, 32],
+    [8, 32],
+]
 
 
 # Problem size-specific transformation parameters: the tile size is the max
@@ -33,28 +47,23 @@ def all_experts(problem_sizes: List[int]):
   # linalg.generic)
   # We want to make more these copies more efficient.
   # In the case of a single copy benchmark it is the one true thing to optimize.
-  return [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-      Tile(fun_name=fun_name,
+  results = []
+  for n, tile_sizes in zip(all_names, all_tile_sizes):
+    results.append(
+      # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+      Tile(fun_name=fun_name,                                          \
             op_name=op_name,
-            tile_sizes=[4, 16],
+            tile_sizes=tile_sizes,
             peel=[0, 1])
         # Bufferize first
         .then(Bufferize())
         # Then vectorize and lower.
         .then(Vectorize(fun_name=fun_name, op_name=op_name))
-        .then(UnrollOneParentLoop(fun_name=fun_name,
-                                  op_name='vector.transfer_read',
-                                  parent_loop_num=1,
-                                  unroll_factor=1))
-        .then(UnrollOneParentLoop(fun_name=fun_name,
-                                  op_name='vector.transfer_read',
-                                  parent_loop_num=2,
-                                  unroll_factor=1))
         .then(LowerVectors())
         .then(LowerToLLVM())
-    ]
+    )
+  return [
+      e.print_ir(after_all=False, at_begin=False, llvm=False) for e in results
   ]
 
 
@@ -84,7 +93,8 @@ def main():
     default_spec_list=[])
 
   for problem_sizes in args.problem_sizes_list:
-    test_harness(lambda s, t: EinsumProblem('mn->mn', 'mn', 0), [[np.float32] * 2],
+    test_harness(lambda s, t: EinsumProblem('mn->mn', 'mn', 0),
+                 [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  test_experts(all_experts(problem_sizes), all_names,
                               args.expert_list),

@@ -22,8 +22,7 @@ class EinsumProblem(ProblemDefinition):
   specification of the operation is similar to that of np.einsum.
   """
 
-  def __init__(self, specification: str, domain: str,
-               flop_count_per_iter: int):
+  def __init__(self, specification: str, domain: str, flop_count_per_iter: int):
     """Creates a new EinsumProblem with the given specification.
 
     The specification is a string of the format:
