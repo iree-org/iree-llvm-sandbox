@@ -18,25 +18,40 @@ op_name = 'linalg.generic'
 
 # Note: `\` char at the end of next line prevents formatter reflows, keep it.
 all_names = [ \
-  "Tile8x256PeelInnerReduction" \
+  # Note: tried small 1, 2 and 4 sizes, never resulted in better perf. \
+  "Tile4x16PeelInnerReduction", \
+  "Tile6x16PeelInnerReduction", \
+  "Tile8x16PeelInnerReduction", \
+  "Tile4x64PeelInnerReduction", \
+  "Tile6x64PeelInnerReduction", \
+  "Tile8x64PeelInnerReduction", \
+  "Tile4x128PeelInnerReduction", \
+  "Tile6x128PeelInnerReduction", \
+  "Tile8x128PeelInnerReduction", \
   ]
 
 
 def all_experts(problem_sizes: List[int]):
-  return [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-      Tile(fun_name=fun_name,
-           op_name=op_name,
-           # Little trick avoids tiling small dimensions and otherwise tile by 128.
-           tile_sizes=[8, 256] if problem_sizes[1] > 128 else [8],
-           peel=[0, 1] if problem_sizes[1] > 128 else [0])
+  tile_sizes = [
+    [4, 16], [6, 16], [8, 16], \
+    [4, 64], [6, 64], [8, 64], \
+    [4, 128], [6, 128], [8, 128]
+  ]
+  res = []
+  for ts in tile_sizes:
+    res.append(
+      # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+      Tile(fun_name=fun_name, \
+          op_name=op_name,
+          # Avoid tiling small dimensions and otherwise tile by ts[0].
+          tile_sizes=[ts[0], ts[1]] if problem_sizes[1] > ts[1] else [ts[0]],
+          peel=[0, 1] if problem_sizes[1] > ts[1] else [0])
         .then(Vectorize(fun_name, op_name))
         .then(LoweringOnlyExpert(fun_name,
                                  op_name,
                                  multi_reduction_lowering='innerreduction')),
-    ]
-  ]
+    )
+  return res
 
 
 ################################################################################

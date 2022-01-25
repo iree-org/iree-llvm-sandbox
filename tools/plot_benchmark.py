@@ -34,6 +34,12 @@ def _parse_arguments() -> argparse.Namespace:
                       required=False,
                       help="comma-separated names of benchmarks to plot",
                       default='all')
+  parser.add_argument("--sizes_to_plot",
+                      type=str,
+                      required=False,
+                      help="semi-column-separated list of "
+                      "(comma-separated sizes of benchmarks to plot)",
+                      default='all')
   parser.add_argument("--metric_to_plot",
                       type=str,
                       required=True,
@@ -80,16 +86,13 @@ def add_peak_lines(args, plot, key):
 ###############################################################################
 
 
-def available_benchmark_key(data):
+#### Tools to query benchmarks info from dataframe
+def benchmark_key(data):
   return data.keys()[0]
 
 
-def problem_size_key(data):
-  return data.keys()[1]
-
-
 def get_unique_benchmarks(data):
-  return np.unique(data[available_benchmark_key(data)].values)
+  return np.unique(data[benchmark_key(data)].values)
 
 
 def print_available_benchmarks_and_exit(data, args):
@@ -100,12 +103,38 @@ def print_available_benchmarks_and_exit(data, args):
 def get_benchmarks_to_plot(data, args):
   if args.benchmarks_to_plot != 'all':
     specified_benchmarks = args.benchmarks_to_plot.split(',')
+    print(f'Specified benchmark filter: {specified_benchmarks}')
     available_benchmarks = get_unique_benchmarks(data)
+    print(f'Available benchmarks in the data set: {available_benchmarks}')
     return list(
         filter(lambda x: x in available_benchmarks, specified_benchmarks))
   return get_unique_benchmarks(data)
 
 
+#### Tools to query problem_size info from dataframe
+def problem_size_key(data):
+  return data.keys()[1]
+
+
+def get_unique_sizes(data):
+  return np.unique(data[problem_size_key(data)].values)
+
+
+def print_available_sizes_and_exit(data, args):
+  print(get_unique_sizes(data))
+
+
+def get_sizes_to_plot(data, args):
+  if args.sizes_to_plot != 'all':
+    specified_sizes = args.sizes_to_plot.split(';')
+    print(f'Specified size filter: {specified_sizes}')
+    available_sizes = get_unique_sizes(data)
+    print(f'Available sizes in the data set: {available_sizes}')
+    return list(filter(lambda x: x in available_sizes, specified_sizes))
+  return get_unique_sizes(data)
+
+
+#### Start
 def main():
   args = _parse_arguments()
   data = pandas.read_json(args.input)
@@ -114,18 +143,25 @@ def main():
     print_available_benchmarks_and_exit(data, args)
 
   benchmarks_to_plot = get_benchmarks_to_plot(data, args)
+  print(f'Benchmarks to plot: {benchmarks_to_plot}')
+
+  sizes_to_plot = get_sizes_to_plot(data, args)
+  print(f'Sizes to plot: {sizes_to_plot}')
 
   ordering_dict = {
       benchmarks_to_plot[i]: i for i in range(len(benchmarks_to_plot))
   }
-  data_to_plot = data[data[available_benchmark_key(data)].isin(
+  data_to_plot = data
+  data_to_plot = data_to_plot[data_to_plot[benchmark_key(data_to_plot)].isin(
       benchmarks_to_plot)]
-  data_to_plot = data_to_plot.sort_values(by=[available_benchmark_key(data)],
+  data_to_plot = data_to_plot[data_to_plot[problem_size_key(data_to_plot)].isin(
+      sizes_to_plot)]
+  data_to_plot = data_to_plot.sort_values(by=[benchmark_key(data)],
                                           kind='stable',
                                           key=lambda x: x.map(ordering_dict))
   facetgrid = seaborn.catplot(x=problem_size_key(data_to_plot),
                               y=args.metric_to_plot,
-                              hue=available_benchmark_key(data_to_plot),
+                              hue=benchmark_key(data_to_plot),
                               data=data_to_plot,
                               kind="bar")
 
@@ -145,12 +181,8 @@ def main():
 
   fig = facetgrid.fig
   fig.set_size_inches(12, 12)
-  output_file = args.output.replace(
-      '.pdf', '-'.join(x for x in benchmarks_to_plot) + '-' +
-      args.metric_to_plot + '.pdf')
-
-  print(f'Save plot to {output_file}')
-  fig.savefig(output_file)
+  print(f'Save plot to {args.output}')
+  fig.savefig(args.output)
 
 
 if __name__ == '__main__':

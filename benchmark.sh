@@ -78,7 +78,8 @@ set -ex
 # echo performance > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
 ###############################################################################
 
-export IREE_LLVM_SANDBOX_BUILD_DIR=$(dirname $0)/build 
+export BASE_SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+export IREE_LLVM_SANDBOX_BUILD_DIR=${BASE_SCRIPT_PATH}/build 
 export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so 
 export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so 
 export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package 
@@ -141,50 +142,6 @@ function copy_1d_static_small() {
 ###############################################################################
 # Static 2D copy benchmarks.
 ###############################################################################
-function copy_2d_static_l1_repro() {
-  # Passing alwaysinline reduces the variance that is otherwise too high for 
-  # small L1 copies.
-  export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,32)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 10,48)
-  (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 10,64)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,96)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,128)
-  
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,32)
-  # (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 16,48)
-  # (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 16,64)
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,96)
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,128)
-
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,32)
-  # (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 20,48)
-  # (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 20,64)
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,96)
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,128)
-
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 32,32)
-  # (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 32,48)
-  # (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 32,64)
-  # (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 32,96)
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 32,128)
-
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 40,32)
-  # (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 40,48)
-  # (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 40,64)
-  # (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 40,96)
-
-  # (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 64,32)
-  # (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 64,48)
-  # (${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 64,64)
-
-  # (${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 8,144)
-  # (${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 12,144)
-  # (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 16,144)
-  # (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 20,144)
-}
 
 ###############################################################################
 # Static 2D transpose benchmarks.
@@ -204,79 +161,67 @@ function transpose_2d_static_small_repro_median() {
   (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,32)
 }
 
-function transpose_2d_static_l1_repro() {
-  export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-
-  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,32)
-  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,48)
-  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,64)
-  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,96)
-  (${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,128)
-
-}
-
 function transpose_2d_static_l2_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-   # 32KB R + 32KB W -> @6.4% L2
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,256)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,128)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,64)
+  #  # 32KB R + 32KB W -> @6.4% L2
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,256)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,128)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,64)
   
-   # 64KB R + 64KB W -> @12.8% L2
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,512)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,256)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,128)
+  #  # 64KB R + 64KB W -> @12.8% L2
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,512)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,256)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,128)
   
-   # 128KB R + 128KB W -> @25.6% L2
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,1024)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,512)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,256)
+  #  # 128KB R + 128KB W -> @25.6% L2
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,1024)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,512)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,256)
 
-   # 128KB R + 128KB W -> @51.0% L2
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,2048)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,1024)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,512)
+  #  # 128KB R + 128KB W -> @51.0% L2
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,2048)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,1024)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,512)
 
-   # 128KB R + 128KB W -> @102.0% L2
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,4096)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,2048)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,1024)
+  #  # 128KB R + 128KB W -> @102.0% L2
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,4096)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,2048)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,1024)
 }
 
 function transpose_2d_static_l3_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  # 2MB R + 2MB W -> @16.0% L3
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,16384)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,8192)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,4096)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,2048)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,1024)
+  # # 2MB R + 2MB W -> @16.0% L3
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,16384)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,8192)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,4096)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,2048)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,1024)
 
-  # 4MB R + 4MB W -> @32.0% L3
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,32768)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,16384)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,8192)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,4096)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,2048)
+  # # 4MB R + 4MB W -> @32.0% L3
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,32768)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,16384)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,8192)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,4096)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,2048)
 
-  # 8MB R + 8MB W -> @64.0% L3
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,65536)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,32768)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,16384)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,8192)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,4096)
+  # # 8MB R + 8MB W -> @64.0% L3
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,65536)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 64,32768)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 128,16384)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 256,8192)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 512,4096)
 
-  # 12MB R + 12MB W -> @96.0% L3
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 48,65536)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 96,32768)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 192,16384)
-  #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 384,8192)
-  (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 768,4096)
+  # # 12MB R + 12MB W -> @96.0% L3
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 48,65536)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 96,32768)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 192,16384)
+  # #(${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 384,8192)
+  # (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 768,4096)
 }
 
 ###############################################################################
@@ -328,48 +273,22 @@ function reduction_1d_static_dram_repro() {
 ###############################################################################
 # Static 2D row reduction benchmarks.
 ###############################################################################
-function row_reduction_2d_static_l1_repro() {
-  export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  (${COMMAND} --problem_sizes_list 10,32)
-  (${COMMAND} --problem_sizes_list 10,48)
-  (${COMMAND} --problem_sizes_list 10,64)
-  (${COMMAND} --problem_sizes_list 10,96)
-  (${COMMAND} --problem_sizes_list 10,128)
-}
 function row_reduction_2d_static_l2_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  (${COMMAND} --problem_sizes_list 200,512)
-  (${COMMAND} --problem_sizes_list 250,547)
-  (${COMMAND} --problem_sizes_list 250,1000)
-  (${COMMAND} --problem_sizes_list 300,866)
 }
 function row_reduction_2d_static_l3_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  (${COMMAND} --problem_sizes_list 1000,1024)
-  (${COMMAND} --problem_sizes_list 2000,2024)
-  (${COMMAND} --problem_sizes_list 2000,3024)
-  (${COMMAND} --problem_sizes_list 3000,2024)
 }
 
 ###############################################################################
 # Static 2D column reduction benchmarks.
 ###############################################################################
-function column_reduction_2d_static_l1_repro() {
-  export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  (${COMMAND} --problem_sizes_list 10,32)
-  (${COMMAND} --problem_sizes_list 10,48)
-  (${COMMAND} --problem_sizes_list 10,64)
-  (${COMMAND} --problem_sizes_list 10,96)
-  (${COMMAND} --problem_sizes_list 10,128)
-}
 function column_reduction_2d_static_l2_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
@@ -933,7 +852,7 @@ function depthwise_conv_2d_static_large_stride_2_dilation_2() {
 function run_one_and_append_results_to_data() {
   benchmark=$1
 
-  BENCH_ROOT_DIR=$(dirname $0)/benchmarks
+  BENCH_ROOT_DIR=${BASE_SCRIPT_PATH}/benchmarks
   if !(test -z "$2" ) 
   then
     BENCH_DIR=${BENCH_ROOT_DIR}/$2
@@ -946,8 +865,4 @@ function run_one_and_append_results_to_data() {
 
   prepare_data_collection ${BENCH_DIR}/all.data
   ${benchmark}
-
-  echo To create plots of the results run
-  echo python ./tools/plot_benchmark.py --input ${BENCH_DIR}/all.data \
-    --output ${BENCH_DIR}/all.pdf --plot_name ...
 }

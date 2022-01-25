@@ -18,36 +18,46 @@ op_name = 'linalg.generic'
 
 # Note: `\` char at the end of next line prevents formatter reflows, keep it.
 all_names = [  \
-  "Tile8x64PeelInnerParallel", \
+  "Tile4x8PeelInnerParallel", \
+  "Tile6x8PeelInnerParallel", \
+  "Tile8x8PeelInnerParallel", \
+  "Tile4x16PeelInnerParallel", \
+  "Tile6x16PeelInnerParallel", \
+  "Tile8x16PeelInnerParallel", \
+  "Tile4x32PeelInnerParallel", \
+  "Tile6x32PeelInnerParallel", \
+  "Tile8x32PeelInnerParallel", \
   "Tile16x32PeelInnerParallel", \
+  "Tile4x64PeelInnerParallel", \
+  "Tile6x64PeelInnerParallel", \
+  "Tile8x64PeelInnerParallel", \
+  "Tile16x64PeelInnerParallel", \
             ]
 
 
 def all_experts(problem_sizes: List[int]):
-  inner_tile_size = 64
-  return [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-      Tile(fun_name=fun_name,
-           op_name=op_name,
-           # Don't tile too small dimensions.
-           tile_sizes=[8, 64] if problem_sizes[1] > 64 else [8],
-           peel=[0, 1] if problem_sizes[1] > 64 else [0])
-        .then(Vectorize(fun_name, op_name))
-        .then(LoweringOnlyExpert(fun_name,
-                                 op_name,
-                                 multi_reduction_lowering='innerparallel')),
-      Tile(fun_name=fun_name,
-           op_name=op_name,
-           # Don't tile too small dimensions.
-           tile_sizes=[16, 32] if problem_sizes[1] > 32 else [16],
-           peel=[0, 1] if problem_sizes[1] > 32 else [0])
-        .then(Vectorize(fun_name, op_name))
-        .then(LoweringOnlyExpert(fun_name,
-                                 op_name,
-                                 multi_reduction_lowering='innerparallel')),
-    ]
+  tile_sizes = [
+    [4, 8], [6, 8], [8, 8], \
+    [4, 16], [6, 16], [8, 16], \
+    [4, 32], [6, 32], [8, 32], [16, 32], \
+    [4, 64], [6, 64], [8, 64], [16, 64], \
   ]
+
+  res = []
+  for ts in tile_sizes:
+    res.append(
+    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+      Tile(fun_name=fun_name, \
+           op_name=op_name,
+           # Don't tile too small dimensions.
+           tile_sizes=[ts[0], ts[1]] if problem_sizes[1] > ts[1] else [ts[0]],
+           peel=[0, 1] if problem_sizes[1] > ts[1] else [0])
+        .then(Vectorize(fun_name, op_name))
+        .then(LoweringOnlyExpert(fun_name,
+                                 op_name,
+                                 multi_reduction_lowering='innerparallel')),
+    )
+  return res
 
 
 ################################################################################
