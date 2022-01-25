@@ -18,19 +18,30 @@ op_name = 'linalg.generic'
 
 # Note: `\` char at the end of next line prevents formatter reflows, keep it.
 all_names = [  \
-  "ColumnReduction2DExpert"
+  "Tile8x64PeelInnerParallel", \
+  "Tile16x32PeelInnerParallel", \
             ]
 
 
 def all_experts(problem_sizes: List[int]):
+  inner_tile_size = 64
   return [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-      TileAndDecompose(
-          fun_name=fun_name,
-          op_name=op_name,
-          # Trick avoids tiling small dimensions and otherwise tile by 128.
-          tile_sizes=[4, 128] if problem_sizes[1] > 256 else [4])
+      Tile(fun_name=fun_name,
+           op_name=op_name,
+           # Don't tile too small dimensions.
+           tile_sizes=[8, 64] if problem_sizes[1] > 64 else [8],
+           peel=[0, 1] if problem_sizes[1] > 64 else [0])
+        .then(Vectorize(fun_name, op_name))
+        .then(LoweringOnlyExpert(fun_name,
+                                 op_name,
+                                 multi_reduction_lowering='innerparallel')),
+      Tile(fun_name=fun_name,
+           op_name=op_name,
+           # Don't tile too small dimensions.
+           tile_sizes=[16, 32] if problem_sizes[1] > 32 else [16],
+           peel=[0, 1] if problem_sizes[1] > 32 else [0])
         .then(Vectorize(fun_name, op_name))
         .then(LoweringOnlyExpert(fun_name,
                                  op_name,
@@ -61,7 +72,10 @@ def main():
       [8000, 6144],
     ],
     default_expert_list=all_names,
-    default_dynamic_at_compile_time_list=[],
+    default_dynamic_at_compile_time_list=[
+      [],
+      ['m', 'n']
+    ],
     default_spec_list=[])
 
   def numpy_kernel(args, sizes, types):
@@ -74,14 +88,20 @@ def main():
     B.fill_(0.)
     torch.sum(A, dim=0, out=B)
 
-  for problem_sizes in args.problem_sizes_list:
-    test_harness(lambda s, t: EinsumProblem('mn->n', 'mn', 1), [[np.float32] * 2],
-                 test_sizes(keys, [problem_sizes]),
-                 test_experts(all_experts(problem_sizes), all_names,
-                              args.expert_list),
-                 n_iters=args.n_iters,
-                 function_name=fun_name,
-                 dump_data_to_file=args.dump_data)
+  for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
+    for problem_sizes in args.problem_sizes_list:
+      test_harness(lambda s, t: EinsumProblem('mn->n', 'mn', 1),
+                   [[np.float32] * 2],
+                   test_sizes(keys, [problem_sizes]),
+                   test_experts(all_experts(problem_sizes), all_names,
+                                args.expert_list),
+                   n_iters=args.n_iters,
+                   dynamic_at_compile_time_sizes=set(
+                       dynamic_at_compile_time).intersection(keys),
+                   function_name=fun_name,
+                   dump_ir_to_file='/tmp/abcd.mlir',
+                   dump_obj_to_file='/tmp/abcd.o',
+                   dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

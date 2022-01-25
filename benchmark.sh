@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -ex
+set -ex
 
 ###############################################################################
 # Ran on a machine with the following characteristics.
@@ -266,41 +266,92 @@ function transpose_2d_static_l3_repro() {
 ###############################################################################
 # Static 1D reduction benchmarks.
 ###############################################################################
-function reduction_1d_static_small() {
+function reduction_1d_static_l1_repro() {
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-  (${COMMAND} --problem_sizes_list 100)
-  (${COMMAND} --problem_sizes_list 1000)
-  (${COMMAND} --problem_sizes_list 2048)
-  (${COMMAND} --problem_sizes_list 3333)
-  (${COMMAND} --problem_sizes_list 4567)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 100)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 1000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 2048)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 3333)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 4567)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 8000)
+}
+
+function reduction_1d_static_l2_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 10000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 20000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 50000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 100000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 200000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 250000)
+}
+
+function reduction_1d_static_l3_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 1000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 2000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 3000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 4000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 5000000)
+}
+
+function reduction_1d_static_dram_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 10000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 20000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 30000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 40000000)
+  (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 50000000)
 }
 
 ###############################################################################
 # Static 2D row reduction benchmarks.
 ###############################################################################
-function row_reduction_2d_static_small() {
+function row_reduction_2d_static_l1_repro() {
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  (${COMMAND} --problem_sizes_list 50,47)
+  (${COMMAND} --problem_sizes_list 99,88)
   (${COMMAND} --problem_sizes_list 100,256)
+  (${COMMAND} --problem_sizes_list 125,347)
+  (${COMMAND} --problem_sizes_list 200,384)
+}
+function row_reduction_2d_static_l2_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   (${COMMAND} --problem_sizes_list 200,512)
-  (${COMMAND} --problem_sizes_list 500,512)
-  (${COMMAND} --problem_sizes_list 500,1024)
+  (${COMMAND} --problem_sizes_list 250,547)
+  (${COMMAND} --problem_sizes_list 250,1000)
+  (${COMMAND} --problem_sizes_list 300,866)
+}
+function row_reduction_2d_static_l3_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   (${COMMAND} --problem_sizes_list 1000,1024)
-  (${COMMAND} --problem_sizes_list 4000,6144)
-  (${COMMAND} --problem_sizes_list 8000,6144)
+  (${COMMAND} --problem_sizes_list 2000,2024)
+  (${COMMAND} --problem_sizes_list 2000,3024)
+  (${COMMAND} --problem_sizes_list 3000,2024)
 }
 
 ###############################################################################
 # Static 2D column reduction benchmarks.
 ###############################################################################
-function column_reduction_2d_static_small() {
+function column_reduction_2d_static_l1_repro() {
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
-  (${COMMAND} --problem_sizes_list 100,256)
-  (${COMMAND} --problem_sizes_list 200,512)
-  (${COMMAND} --problem_sizes_list 500,512)
-  (${COMMAND} --problem_sizes_list 500,1024)
-  (${COMMAND} --problem_sizes_list 1000,1024)
-  (${COMMAND} --problem_sizes_list 4000,6144)
-  (${COMMAND} --problem_sizes_list 8000,6144)
+  (${COMMAND} --expert_list Tile8x64PeelInnerParallel --problem_sizes_list 50,47)
+  (${COMMAND} --expert_list Tile16x32PeelInnerParallel --problem_sizes_list 50,100)
+  (${COMMAND} --expert_list Tile16x32PeelInnerParallel --problem_sizes_list 60,102)
+}
+function column_reduction_2d_static_l2_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  (${COMMAND} --expert_list Tile16x32PeelInnerParallel --problem_sizes_list 99,88)
+  (${COMMAND} --expert_list Tile16x32PeelInnerParallel --problem_sizes_list 100,256)
+  (${COMMAND} --expert_list Tile16x32PeelInnerParallel --problem_sizes_list 125,347)
+  (${COMMAND} --expert_list Tile16x32PeelInnerParallel --problem_sizes_list 200,384)
+}
+function column_reduction_2d_static_l3_repro() {
+  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  (${COMMAND} --expert_list Tile8x64PeelInnerParallel --problem_sizes_list 1000,1024)
+  (${COMMAND} --expert_list Tile8x64PeelInnerParallel --problem_sizes_list 2000,2024)
+  (${COMMAND} --expert_list Tile8x64PeelInnerParallel --problem_sizes_list 2000,3024)
+  (${COMMAND} --expert_list Tile8x64PeelInnerParallel --problem_sizes_list 3000,2024)
 }
 
 ###############################################################################
