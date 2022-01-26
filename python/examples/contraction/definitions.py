@@ -11,9 +11,6 @@ from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *
 from ..core.utils import *
 
-# TODO: Orthogonal configuration object.
-avx512 = True
-
 
 class EinsumProblem(ProblemDefinition):
   """Benchmarking problem definition for einsum.
@@ -123,16 +120,11 @@ class EinsumProblem(ProblemDefinition):
       module).
     mlir_types: types of arguments of this computation.
     """
-    global avx512
-
     func = builtin.FuncOp(name, (types, [types[-1]]))
     inplaceable_attributes = [False] * len(types)
     inplaceable_attributes[-1] = True
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=inplaceable_attributes)
-    attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
-        avx512=avx512)
 
     with InsertionPoint(func.add_entry_block()):
       output_tensor = func.arguments[-1]
