@@ -2,6 +2,8 @@ import argparse, pandas, os, seaborn, sys
 import numpy as np
 from unicodedata import name
 
+import matplotlib.pyplot as plt
+
 names_to_translate = {
     'gflop_per_s_per_iter': 'Throughput [Gflop/s]',
     'gbyte_per_s_per_iter': 'Bandwidth [GB/s]',
@@ -10,8 +12,8 @@ names_to_translate = {
     # Add benchmark function names.
     'copy_2d': 'Copy2D',
     'transpose_2d': 'Transpose2D',
-    'row_reduction_2d_on_tensors': 'RowRed2D',
-    'column_reduction_2d_on_tensors': 'ColRed2D',
+    'row_reduction_2d': 'RowRed2D',
+    'column_reduction_2d': 'ColRed2D',
 }
 
 
@@ -171,44 +173,60 @@ def main():
     sizes = [int(size.split('=')[1]) for size in problem_size.split(',')]
     return np.prod(sizes)
   data_to_plot['problem_volume'] = data_to_plot[problem_size_key(
-      data)].apply(compute_volume)
+      data_to_plot)].apply(compute_volume)
   # Add helper column that maps benchmark name to its index.
   data_to_plot['benchmark_index'] = data_to_plot[benchmark_key(
       data_to_plot)].apply(lambda x: benchmarks_to_plot.index(x))
-
   # Sort by problem volume and benchmark index.
   data_to_plot = data_to_plot.sort_values(
       by=['problem_volume', 'benchmark_index'], ascending=(True, True))
-  facetgrid = seaborn.catplot(x=problem_size_key(data_to_plot),
-                              y=args.metric_to_plot,
-                              hue=benchmark_key(data_to_plot),
-                              data=data_to_plot,
-                              kind="bar",
-                              legend_out=False)
-  facetgrid._legend.set_title('')
-  facetgrid._legend.set_frame_on(False)
-  for text in facetgrid._legend.get_texts():
-    text.set_text(names_to_translate[text.get_text()])
 
-  # Matplotlib way but facetgrid isn't such a unicorn...
-  # plot.set_title(args.plot_name)
-  # plot.set_xlabel(names_to_translate[problem_size_key(data)])
-  # plot.set_ylabel(names_to_translate[args.metric_to_plot])
-  # plot.set_xticklabels(plot.get_xticklabels(), rotation=45)
-  # Facetgrid way.
-  facetgrid.set_axis_labels( \
-    names_to_translate[problem_size_key(data)],
-    names_to_translate[args.metric_to_plot])
+  # Keep only the relevant columns.
+  data_to_plot = data_to_plot[[benchmark_key(
+      data_to_plot), problem_size_key(data_to_plot), args.metric_to_plot]]
 
-  # facetgrid actually contains plots within its axes[0].
-  for plot in facetgrid.axes[0]:
-    plot.set_xticklabels(plot.get_xticklabels(), rotation=45)
+  # Compute the quartiles.
+  data_lower_quart = data_to_plot.groupby(
+      [benchmark_key(data_to_plot), problem_size_key(data_to_plot)]).quantile(0.25)
+  data_upper_quart = data_to_plot.groupby(
+      [benchmark_key(data_to_plot), problem_size_key(data_to_plot)]).quantile(0.75)
 
-  fig = facetgrid.fig
-  fig.set_size_inches(8.4, 5)
+  fig = plt.figure(figsize=(9.66, 6))
+  ax = seaborn.barplot(x=problem_size_key(data_to_plot),
+                  y=args.metric_to_plot,
+                  hue=benchmark_key(data_to_plot),
+                  data=data_to_plot,
+                  ci=None)
+
+  maximum = 0
+  for idx, p in enumerate(ax.patches):
+    benchmark = benchmarks_to_plot[idx//len(sizes_to_plot)]
+    size = sizes_to_plot[idx%len(sizes_to_plot)]
+    lower = data_lower_quart.loc[benchmark, size][args.metric_to_plot]
+    upper = data_upper_quart.loc[benchmark, size][args.metric_to_plot]
+    maximum = max(maximum, upper)
+    ax.errorbar(p.get_x() + p.get_width() / 2, lower, upper - lower, color="k")
+    ax.annotate(format(p.get_height(), '.1f'),
+                (p.get_x() + p.get_width() / 2., upper),
+                ha='center', va='bottom',
+                xytext=(0, 2),
+                textcoords='offset points',
+                rotation=90,
+                fontsize=8)
+
+  ax.tick_params(axis="x", rotation=20)
+  ax.legend(labels=[names_to_translate[text.get_text()]
+            for text in ax.get_legend().get_texts()], title='', frameon=False)
+  ax.set_ylim(bottom=0, top=maximum*1.1)
+  ax.margins(x=0.01)
+  plt.xlabel(names_to_translate[problem_size_key(data)])
+  plt.ylabel(names_to_translate[args.metric_to_plot])
+
+
+
   fig.tight_layout()
   print(f'Save plot to {args.output}')
-  fig.savefig(args.output)
+  plt.savefig(args.output)
 
 
 if __name__ == '__main__':
