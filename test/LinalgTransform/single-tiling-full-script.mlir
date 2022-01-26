@@ -24,8 +24,9 @@ pdl.pattern @pdl_target : benefit(1) {
 }
 
 linalg_transform.sequence {
-  %0 = tile when @pdl_target {sizes = [4, 4, 4]}
-  %1 = vectorize %0 {vectorize_padding = true}
+  %0 = match @pdl_target
+  %1 = tile %0 {sizes = [4, 4, 4]}
+  %2 = vectorize %1 {vectorize_padding = true}
   bufferize
   lower_vectors { multireduction_lowering = "innerreduce"}
   lower_to_llvm

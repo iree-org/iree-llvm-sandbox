@@ -52,6 +52,19 @@ def _ensure_string_attr(value: StringArg):
   return value
 
 
+class MatchOp:
+  """Specialization for the MatchOp class."""
+
+  def __init__(self, target):
+    if isinstance(target, str):
+      target = ir.FlatSymbolRefAttr.get(target)
+
+    # FIXME: don't rely on parsing when the PDL dialect is available in Python
+    operation_type = ir.Type.parse("!pdl.operation")
+
+    super().__init__(operation_type, target)
+
+
 class LowerVectorsOp:
   """Specialization for the LowerVectorsOp class."""
 
@@ -91,8 +104,7 @@ class TileOp:
   """Specialization for the TileOp class."""
 
   def __init__(self,
-               target: Union[ir.Value, ir.Operation, ir.OpView, str,
-                             ir.FlatSymbolRefAttr],
+               target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
                sizes: IntListArg = None,
                interchange: IntListArg = None,
@@ -116,13 +128,9 @@ class TileOp:
     generalize = _ensure_bool_attr(generalize, False)
     operation_type = pdl.OperationType.get()
 
-    if isinstance(target, str):
-      target = ir.FlatSymbolRefAttr.get(target)
-
     super().__init__(
         operation_type,
-        target if not isinstance(target, ir.FlatSymbolRefAttr) else None,
-        target if isinstance(target, ir.FlatSymbolRefAttr) else None,
+        target,
         sizes,
         interchange,
         peel,
@@ -139,21 +147,16 @@ class TileOp:
 class VectorizeOp:
 
   def __init__(self,
-               target: Union[ir.Value, ir.Operation, ir.OpView, str,
-                             ir.FlatSymbolRefAttr],
+               target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
                vectorize_padding: BoolArg,
                loc=None,
                ip=None):
-    if isinstance(target, str):
-      target = ir.FlatSymbolRefAttr.get(target)
-
     operation_type = pdl.OperationType.get()
 
     super().__init__(
         operation_type,
-        target if not isinstance(target, ir.FlatSymbolRefAttr) else None,
-        target if isinstance(target, ir.FlatSymbolRefAttr) else None,
+        target,
         _ensure_bool_attr(vectorize_padding, False),
         loc=loc,
         ip=ip)

@@ -19,6 +19,7 @@
 #include "Dialects/LinalgTransform/TrackingCSE.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
 #include "FunctionHelpers.h"
+#include "PDL.h"
 #include "Transforms/Functional.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
@@ -49,8 +50,6 @@
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Rewrite/FrozenRewritePatternSet.h"
-#include "mlir/Rewrite/PatternApplicator.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
@@ -113,6 +112,16 @@ static FailureOr<LinalgOp> forwardOp(LinalgOp op, PatternRewriter &rewriter) {
 //===----------------------------------------------------------------------===//
 // Linalg Transforms
 //===----------------------------------------------------------------------===//
+
+/// Find all ops in `module` that match the PDL pattern specified by the MatchOp
+/// and store them in the operation map.
+static LogicalResult executeMatchOp(transform::MatchOp op, ModuleOp module,
+                                    TransformOpMapping &operations) {
+  FailureOr<SmallVector<LinalgOp>> ops = findMatchingOps(op, module);
+  if (failed(ops)) return failure();
+  operations.try_emplace(op.target(), std::move(*ops));
+  return success();
+}
 
 /// Applies the pad pattern to the given target operation as indicated by the
 /// tile op that subsumes padding. Populates `nextTargets` with transformable
@@ -476,83 +485,6 @@ static LogicalResult performEnablerTransformations(
 //===----------------------------------------------------------------------===//
 // Linalg Interpreter Driver
 //===----------------------------------------------------------------------===//
-//
-/// Apply at most one pattern from the given list to each operation nested in
-/// `parent`.
-static SmallVector<LinalgOp>
-applyPatternsOnce(Operation *parent, const FrozenRewritePatternSet &patterns) {
-  PatternApplicator applicator(patterns);
-  applicator.applyDefaultCostModel();
-
-  // TODO: The C++ functional API needs better interoperability with PDL.
-  return functional::applyForEachIn(
-      parent,
-      [&](Operation *op, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
-        if (succeeded(applicator.matchAndRewrite(op, rewriter)))
-          if (auto linalgOp = dyn_cast<LinalgOp>(op))
-            return linalgOp;
-        return failure();
-      });
-}
-
-/// Hook for PDL driver to check if an operation (`value`) is directly nested in
-/// a function with the name provided as constant parameter.
-/// TODO: PDL needs user-defined "questions".
-static LogicalResult nestedInFunc(PDLValue value, ArrayAttr constantParams,
-                                  PatternRewriter &rewriter) {
-  auto *operation = value.cast<Operation *>();
-  auto func = operation->getParentOfType<FuncOp>();
-  assert(constantParams.size() == 1 &&
-         "expected a constant param with function name");
-  auto functionSymbol = constantParams[0].dyn_cast<SymbolRefAttr>();
-  assert(functionSymbol && "expected a function name");
-
-  if (!func)
-    return rewriter.notifyMatchFailure(operation, "not nested in a function");
-  return success(functionSymbol.getLeafReference() == func.getName());
-}
-
-/// PDL rewrite hook that does nothing.
-static void noOpRewriter(ArrayRef<PDLValue> args, ArrayAttr constantParams,
-                         PatternRewriter &rewriter, PDLResultList &results) {
-  assert(args.size() == 1 && "expected one argument");
-#ifndef NDEBUG
-  args.front().cast<Operation *>()->setAttr("linalg_transform.matched",
-                                            rewriter.getUnitAttr());
-#endif
-}
-
-/// Returns the operations that `transformOp` should be run on. The
-/// `transformOp` is expected to have the TargetableTransformOpTrait. Its target
-/// may be either an SSA value that corresponds to a list of ops produced by
-/// other transforms and stored in `operations` or a list of ops that match the
-/// PDL pattern specified by its name.
-template <typename OpTy>
-static FailureOr<SmallVector<LinalgOp>>
-findTransformTarget(OpTy transformOp, ModuleOp module,
-                    const DenseMap<Value, SmallVector<LinalgOp>> &operations) {
-  if (Value target = transformOp.target())
-    return operations.lookup(target);
-
-  assert(transformOp.targetMatcher().hasValue() &&
-         "expected either an operand or a matcher attribute");
-  auto patternOp = SymbolTable::lookupNearestSymbolFrom<pdl::PatternOp>(
-      transformOp, *transformOp.targetMatcher());
-  if (!patternOp)
-    return {transformOp->emitError() << "could not find the pattern by name"};
-
-  // Clone the pattern operation into the temporary module used by the driver
-  // as it might be referenced multiple times.
-  OwningOpRef<ModuleOp> pdlModuleOp = ModuleOp::create(transformOp.getLoc());
-  pdlModuleOp->getBody(0)->getOperations().push_front(patternOp->clone());
-  PDLPatternModule pdlModule(std::move(pdlModuleOp));
-  pdlModule.registerConstraintFunction("nestedInFunc", nestedInFunc);
-
-  pdlModule.registerRewriteFunction("linalg_transform.apply", noOpRewriter);
-
-  RewritePatternSet patterns(std::move(pdlModule));
-  return applyPatternsOnce(module, std::move(patterns));
-}
 
 /// Applies `transform` with options provided by `configOp` to all operations
 /// specified as targets by `configOp`.
@@ -560,16 +492,11 @@ template <typename OpTy, typename FnTy>
 static LogicalResult
 executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
                        DenseMap<Value, SmallVector<LinalgOp>> &operations) {
-  FailureOr<SmallVector<LinalgOp>> targets =
-      findTransformTarget(configOp, module, operations);
-  if (failed(targets)) {
-    LLVM_DEBUG(DBGS() << "failed to find a linalg op target");
-    return failure();
-  }
+  ArrayRef<LinalgOp> targets = operations.find(configOp.target())->second;
 
   SmallVector<LinalgOp> results =
-      functional::applyForEach(*targets, [&](LinalgOp op, PatternRewriter &) {
-        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
+      functional::applyForEach(targets, [&](LinalgOp op, PatternRewriter &) {
+        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n";);
         auto result = transform(op, configOp);
         LLVM_DEBUG(DBGS() << "transformation "
                           << (failed(result) ? "failed" : "succeeded") << "\n");
@@ -577,7 +504,7 @@ executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
       });
 
   // All transformations must succeed.
-  if (results.size() != targets->size())
+  if (results.size() != targets.size())
     return failure();
 
   bool inserted =
@@ -605,23 +532,25 @@ executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
 /// the code.
 static LogicalResult executeTransform(Operation *operation, ModuleOp module,
                                       TransformOpMapping &operations) {
-  if (auto tileOp = dyn_cast<linalg::transform::TileOp>(operation)) {
-    return executeTransformOnEach(module, tileOp, &executeTileOp, operations);
-  }
+  if (auto matchOp = dyn_cast<transform::MatchOp>(operation))
+    return executeMatchOp(matchOp, module, operations);
 
-  if (auto decomposeOp = dyn_cast<linalg::transform::DecomposeOp>(operation))
+  if (auto tileOp = dyn_cast<transform::TileOp>(operation))
+    return executeTransformOnEach(module, tileOp, &executeTileOp, operations);
+
+  if (auto decomposeOp = dyn_cast<transform::DecomposeOp>(operation))
     return executeDecomposeOp(module, decomposeOp);
 
-  if (auto vectorizeOp = dyn_cast<linalg::transform::VectorizeOp>(operation)) {
+  if (auto vectorizeOp = dyn_cast<transform::VectorizeOp>(operation)) {
     return executeTransformOnEach(module, vectorizeOp, &executeVectorizeOp,
                                   operations);
   }
 
   if (auto lowerVectorsOp =
-          dyn_cast<linalg::transform::LowerVectorsOp>(operation))
+          dyn_cast<transform::LowerVectorsOp>(operation))
     return executeLowerVectorsOp(module, lowerVectorsOp);
 
-  if (auto bufferizeOp = dyn_cast<linalg::transform::BufferizeOp>(operation))
+  if (auto bufferizeOp = dyn_cast<transform::BufferizeOp>(operation))
     return executeBufferizeOp(module, bufferizeOp);
 
   if (auto lowerToLLVMOp = dyn_cast<transform::LowerToLLVMOp>(operation))

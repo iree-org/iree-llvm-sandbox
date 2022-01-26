@@ -28,9 +28,10 @@ pdl.pattern @target_pattern : benefit(1) {
 }
 
 linalg_transform.sequence {
-  %0 = tile when @target_pattern {interchange = [0, 2, 1],  sizes = [3, 5, 14]}
-  %1 = tile %0 { sizes = [3, 5, 2]}
-  %2 = vectorize %1 {vectorize_padding = true}
+  %0 = match @target_pattern
+  %1 = tile %0 {interchange = [0, 2, 1],  sizes = [3, 5, 14]}
+  %2 = tile %1 { sizes = [3, 5, 2]}
+  %3 = vectorize %2 {vectorize_padding = true}
 }
 
 
@@ -64,7 +65,8 @@ pdl.pattern @target_pattern : benefit(1) {
 }
 
 linalg_transform.sequence {
-  %0 = tile when @target_pattern {interchange = [2, 1, 0],  sizes = [3, 5, 14]}
-  %1 = tile %0 { sizes = [3, 5, 2]}
-  %2 = vectorize %1 {vectorize_padding = true}
+  %0 = match @target_pattern
+  %1 = tile %0 {interchange = [2, 1, 0],  sizes = [3, 5, 14]}
+  %2 = tile %1 { sizes = [3, 5, 2]}
+  %3 = vectorize %2 {vectorize_padding = true}
 }
