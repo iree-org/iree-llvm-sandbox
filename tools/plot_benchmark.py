@@ -3,9 +3,15 @@ import numpy as np
 from unicodedata import name
 
 names_to_translate = {
-    'gflop_per_s_per_iter': 'gflops / s / iter',
-    'gbyte_per_s_per_iter': 'gbytes / s / iter',
-    'runtime_problem_sizes_dict': 'problem sizes',
+    'gflop_per_s_per_iter': 'Throughput [Gflop/s]',
+    'gbyte_per_s_per_iter': 'Bandwidth [GB/s]',
+    'runtime_problem_sizes_dict': 'Problem Size',
+
+    # Add benchmark function names.
+    'copy_2d': 'Copy2D',
+    'transpose_2d': 'Transpose2D',
+    'row_reduction_2d_on_tensors': 'RowRed2D',
+    'column_reduction_2d_on_tensors': 'ColRed2D',
 }
 
 
@@ -37,13 +43,14 @@ def _parse_arguments() -> argparse.Namespace:
   parser.add_argument("--sizes_to_plot",
                       type=str,
                       required=False,
-                      help="semi-column-separated list of "
-                      "(comma-separated sizes of benchmarks to plot)",
+                      help="semicolon-separated lost of problem sizes to plot "
+                      "(e.g., --sizes_to_plot=\"m=32,n=48;m=90,n=32\")",
                       default='all')
   parser.add_argument("--metric_to_plot",
                       type=str,
                       required=True,
                       choices=["gflop_per_s_per_iter", "gbyte_per_s_per_iter"])
+
 
   ###############################################################################
   # Not used atm
@@ -153,22 +160,35 @@ def main():
   sizes_to_plot = get_sizes_to_plot(data, args)
   print(f'Sizes to plot: {sizes_to_plot}')
 
-  ordering_dict = {
-      benchmarks_to_plot[i]: i for i in range(len(benchmarks_to_plot))
-  }
   data_to_plot = data
   data_to_plot = data_to_plot[data_to_plot[benchmark_key(data_to_plot)].isin(
       benchmarks_to_plot)]
   data_to_plot = data_to_plot[data_to_plot[problem_size_key(data_to_plot)].isin(
       sizes_to_plot)]
-  data_to_plot = data_to_plot.sort_values(by=[benchmark_key(data)],
-                                          kind='stable',
-                                          key=lambda x: x.map(ordering_dict))
+
+  # Add helper column that computes the problem volume.
+  def compute_volume(problem_size):
+    sizes = [int(size.split('=')[1]) for size in problem_size.split(',')]
+    return np.prod(sizes)
+  data_to_plot['problem_volume'] = data_to_plot[problem_size_key(
+      data)].apply(compute_volume)
+  # Add helper column that maps benchmark name to its index.
+  data_to_plot['benchmark_index'] = data_to_plot[benchmark_key(
+      data_to_plot)].apply(lambda x: benchmarks_to_plot.index(x))
+
+  # Sort by problem volume and benchmark index.
+  data_to_plot = data_to_plot.sort_values(
+      by=['problem_volume', 'benchmark_index'], ascending=(True, True))
   facetgrid = seaborn.catplot(x=problem_size_key(data_to_plot),
                               y=args.metric_to_plot,
                               hue=benchmark_key(data_to_plot),
                               data=data_to_plot,
-                              kind="bar")
+                              kind="bar",
+                              legend_out=False)
+  facetgrid._legend.set_title('')
+  facetgrid._legend.set_frame_on(False)
+  for text in facetgrid._legend.get_texts():
+    text.set_text(names_to_translate[text.get_text()])
 
   # Matplotlib way but facetgrid isn't such a unicorn...
   # plot.set_title(args.plot_name)
@@ -185,7 +205,8 @@ def main():
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45)
 
   fig = facetgrid.fig
-  fig.set_size_inches(24, 8)
+  fig.set_size_inches(8.4, 5)
+  fig.tight_layout()
   print(f'Save plot to {args.output}')
   fig.savefig(args.output)
 
