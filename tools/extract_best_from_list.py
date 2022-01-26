@@ -117,10 +117,10 @@ def main():
   print(best_experts)
 
   for index, row in best_experts.iterrows():
-    print('${COMMAND} ' + \
+    print('(${COMMAND} ' + \
           f'--expert_list {row[expert_column_name]} ' +
           f'--problem_sizes_list {row[problem_size_column_name]} ' +
-          f'--n_iters=1000')
+          f'--n_iters=1000)')
 
 
 if __name__ == '__main__':
