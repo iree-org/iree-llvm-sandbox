@@ -18,7 +18,8 @@ def _parse_arguments() -> argparse.Namespace:
 
 problem_size_column_name = 'problem_size'
 expert_column_name = 'expert'
-p75_column_name = 'p75'
+p50_column_name = 'p50'
+index_of_p50 = 4
 
 
 def get_unique_problem_size(data):
@@ -35,7 +36,7 @@ class ParserState(object):
   def reset(self):
     self.compile_time_problem_size_dict = None
     self.compilation_expert = []
-    self.p75 = []
+    self.p50 = []
 
   def parse_compile_time_problem_size(self, line: str):
     prefix = 'Compile-time problem size'
@@ -52,11 +53,11 @@ class ParserState(object):
     self.compilation_expert.append(line[len(prefix):].strip())
     return True
 
-  def parse_p75(self, line: str, metric: str = 'GBs/s'):
+  def parse_p50(self, line: str, metric: str = 'GBs/s'):
     if line.find(metric) < 0:
       return False
-    p75 = line[:-len(metric) - 1].strip().split()
-    self.p75.append(p75[5])
+    p50 = line[:-len(metric) - 1].strip().split()
+    self.p50.append(p50[index_of_p50])
     return True
 
   def parse_end(self, line: str):
@@ -69,14 +70,14 @@ class ParserState(object):
     # If we have a problem size, try to add an expert.
     if self.parse_compilation_expert(line):
       return True
-    # If we have a problem size, try to add a p75.
-    if self.parse_p75(line):
+    # If we have a problem size, try to add a p50.
+    if self.parse_p50(line):
       return True
     # If we reach here, try to find the end to concat to the data frame.
     if self.parse_end(line):
       # Sanity check.
       assert len(self.compilation_expert) == len(
-          self.p75), 'must have parsed a compilation expert first'
+          self.p50), 'must have parsed a compilation expert first'
       self.concat_new_data()
       return True
     return False
@@ -85,13 +86,13 @@ class ParserState(object):
     compile_time_problem_size = ','.join(
         str(v) for k, v in self.compile_time_problem_size_dict.items())
 
-    for expert, p75 in zip(self.compilation_expert, self.p75):
+    for expert, p50 in zip(self.compilation_expert, self.p50):
       self.count = self.count + 1
       new_data = pandas.DataFrame(
           {
               problem_size_column_name: compile_time_problem_size,
               expert_column_name: expert,
-              p75_column_name: float(p75)
+              p50_column_name: float(p50)
           },
           index=[self.count])
       self.data = new_data if self.data is None else pandas.concat(
@@ -108,9 +109,9 @@ def main():
       stripped = line.strip()
       parser.parse_next(line)
 
-  # Group by problem size, take the p75-max idx.
+  # Group by problem size, take the p50-max idx.
   best_experts = parser.data.loc[parser.data.groupby(
-      problem_size_column_name).p75.idxmax()]
+      problem_size_column_name).p50.idxmax()]
   # Sort_index puts us back into original file order (i.e. experiment run order)
   best_experts = best_experts.sort_index()
   print(best_experts)
@@ -118,7 +119,8 @@ def main():
   for index, row in best_experts.iterrows():
     print('${COMMAND} ' + \
           f'--expert_list {row[expert_column_name]} ' +
-          f'--problem_sizes_list {row[problem_size_column_name]}')
+          f'--problem_sizes_list {row[problem_size_column_name]} ' +
+          f'--n_iters=1000')
 
 
 if __name__ == '__main__':

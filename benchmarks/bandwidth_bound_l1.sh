@@ -12,49 +12,45 @@ function copy_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,32)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 10,48)
-  (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 10,64)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,96)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,128)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,32)
-  (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 16,48)
-  (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 16,64)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,96)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,128)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,32)
-  (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 20,48)
-  (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 20,64)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,96)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,128)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 32,32)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 32,48)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 32,64)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 32,96)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 32,128)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 40,32)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 40,48)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 40,64)
-  (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 40,96)
-  (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 64,32)
-  (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 64,48)
-  (${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 64,64)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 8,96)
-  (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 12,96)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 16,96)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 20,96)
-  (${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 40,96)
-  (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 8,144)
-  (${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 12,144)
-  (${COMMAND} --expert_list Tile3x32Peel --problem_sizes_list 16,144)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 20,144)
-  (${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 40,16)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 70,16)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 110,16)
-  (${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 190,16)
-  (${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 60,32)
-  (${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 90,32)
-  (${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 120,32)
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 10,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 10,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 16,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 16,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 16,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 16,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 20,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 20,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 20,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 20,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 32,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 32,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 32,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 32,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 32,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 40,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 40,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 40,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x16Peel --problem_sizes_list 40,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 64,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 64,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 64,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 8,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 12,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 20,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 8,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 12,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 16,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32Peel --problem_sizes_list 20,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16Peel --problem_sizes_list 40,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 70,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 110,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 190,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16Peel --problem_sizes_list 60,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 90,32 --n_iters=1000
 }
 
 
@@ -62,135 +58,135 @@ function transpose_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,32
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,48
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,64
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,96
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,128
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 16,32
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 16,48
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,64
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,96
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,128
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 20,32
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 20,48
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,64
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,96
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,128
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,32
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,48
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,64
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,96
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,128
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,32
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,48
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,64
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 40,96
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 64,32
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 64,48
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 64,64
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 8,96
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 12,96
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 8,144
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 12,144
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,144
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,144
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,16
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 70,16
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 110,16
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 190,16
-  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 60,32
-  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 90,32
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,32 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 10,96 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,32 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 16,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,128 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 20,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 32,96 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 32,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,64 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 40,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 64,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 64,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 64,64 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 8,96 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 12,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,96 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 8,144 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 12,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 16,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 20,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 40,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 70,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 110,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 190,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x8Shuffle --problem_sizes_list 60,32 --n_iters=1000
+  ${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 90,32 --n_iters=1000
 }
 
 function row_reduction_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
-  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 10,32
-  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 10,48
-  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 10,64
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 10,96
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 10,128
-  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 16,32
-  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 16,48
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 16,64
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 16,96
-  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 16,128
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,32
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,48
-  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 20,64
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,96
-  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 20,128
-  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 32,32
-  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 32,48
-  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 32,64
-  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 32,96
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 32,128
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 40,32
-  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 40,48
-  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 40,64
-  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 40,96
-  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 64,32
-  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 64,48
-  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 64,64
-  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 8,96
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 12,96
-  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 8,144
-  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 12,144
-  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 16,144
-  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,144
-  ${COMMAND} --expert_list Tile6x16PeelInnerReduction --problem_sizes_list 40,16
-  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 70,16
-  ${COMMAND} --expert_list Tile6x16PeelInnerReduction --problem_sizes_list 110,16
-  ${COMMAND} --expert_list Tile6x16PeelInnerReduction --problem_sizes_list 190,16
-  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 60,32
-  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 90,32
+  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 10,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 10,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 10,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 10,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 10,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 16,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 16,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 16,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 16,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 16,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 20,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 20,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 20,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 32,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 32,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 32,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 32,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 32,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 40,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 40,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 40,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 40,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 64,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 64,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 64,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 8,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 12,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 8,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 12,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 16,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x128PeelInnerReduction --problem_sizes_list 20,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 40,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x64PeelInnerReduction --problem_sizes_list 70,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16PeelInnerReduction --problem_sizes_list 110,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 190,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x128PeelInnerReduction --problem_sizes_list 60,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x128PeelInnerReduction --problem_sizes_list 90,32 --n_iters=1000
 }
 
 function column_reduction_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
   COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 10,32
-  ${COMMAND} --expert_list Tile6x64PeelInnerParallel --problem_sizes_list 10,48
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 10,64
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 10,96
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 10,128
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 16,32
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 16,48
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 16,64
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 16,96
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 16,128
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 20,32
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 20,48
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 20,64
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 20,96
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 20,128
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 32,32
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 32,48
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 32,64
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 32,96
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 32,128
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,32
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,48
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 40,64
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,96
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 64,32
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 64,48
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 64,64
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 8,96
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 12,96
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 8,144
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 12,144
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 16,144
-  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 20,144
-  ${COMMAND} --expert_list Tile8x16PeelInnerParallel --problem_sizes_list 40,16
-  ${COMMAND} --expert_list Tile6x16PeelInnerParallel --problem_sizes_list 70,16
-  ${COMMAND} --expert_list Tile6x32PeelInnerParallel --problem_sizes_list 110,16
-  ${COMMAND} --expert_list Tile6x64PeelInnerParallel --problem_sizes_list 190,16
-  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 60,32
-  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 90,32
+  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 10,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 10,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 10,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 10,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 10,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 16,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x64PeelInnerParallel --problem_sizes_list 16,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 16,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 16,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 16,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 20,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 20,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 20,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 20,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 20,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 32,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 32,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 32,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 32,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 32,128 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 64,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 64,48 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 64,64 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 8,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 12,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 40,96 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 8,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x64PeelInnerParallel --problem_sizes_list 12,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 16,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 20,144 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16PeelInnerParallel --problem_sizes_list 40,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32PeelInnerParallel --problem_sizes_list 70,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile8x32PeelInnerParallel --problem_sizes_list 110,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile6x16PeelInnerParallel --problem_sizes_list 190,16 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x32PeelInnerParallel --problem_sizes_list 60,32 --n_iters=1000
+  ${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 90,32 --n_iters=1000
 }
 
 function run_l1_benchmarks_n_times() {
