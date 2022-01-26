@@ -11,7 +11,7 @@
 // NOLINTNEXTLINE
 // TODO(thomasraoux): Set the right path to vulkan wrapper shared library. The
 // test won't run until this is done.
-// RUN: test-simple-jit-vulkan -vulkan-wrapper=$(dirname %s)/../../../../llvm/llvm-project/mlir/tools/libvulkan-runtime-wrappers.so 2>&1 | IreeFileCheck %s
+// RUN: test-simple-jit-vulkan -vulkan-wrapper=$(dirname %s)/../../../../llvm/llvm-project/mlir/tools/libvulkan-runtime-wrappers.so 2>&1 | FileCheck %s
 
 // clang-format on
 
@@ -56,11 +56,11 @@ void testVectorAdd1d() {
     MemRefIndexedValue A(kernelFunc.getArgument(0)),
         B(kernelFunc.getArgument(1)), C(kernelFunc.getArgument(2));
     auto ThreadIndex = b.create<gpu::ThreadIdOp>(
-        modelBuilder.loc, b.getIndexType(), b.getStringAttr("x"));
+        modelBuilder.loc, b.getIndexType(), gpu::Dimension::x);
     auto BlockIndex = b.create<gpu::BlockIdOp>(
-        modelBuilder.loc, b.getIndexType(), b.getStringAttr("x"));
+        modelBuilder.loc, b.getIndexType(), gpu::Dimension::x);
     auto GroupSize = b.create<gpu::BlockDimOp>(
-        modelBuilder.loc, b.getIndexType(), b.getStringAttr("x"));
+        modelBuilder.loc, b.getIndexType(), gpu::Dimension::x);
     Value Index = b.create<arith::AddIOp>(
         modelBuilder.loc, ThreadIndex,
         b.create<arith::MulIOp>(modelBuilder.loc, BlockIndex, GroupSize));
