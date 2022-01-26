@@ -1,4 +1,4 @@
-import argparse, pandas, seaborn, sys
+import argparse, pandas, os, seaborn, sys
 import numpy as np
 from unicodedata import name
 
@@ -137,6 +137,11 @@ def get_sizes_to_plot(data, args):
 #### Start
 def main():
   args = _parse_arguments()
+
+  if not os.path.exists(args.input):
+    print(f'{args.input} does not exist')
+    return
+
   data = pandas.read_json(args.input)
 
   if args.print_available_benchmarks:
@@ -180,7 +185,7 @@ def main():
     plot.set_xticklabels(plot.get_xticklabels(), rotation=45)
 
   fig = facetgrid.fig
-  fig.set_size_inches(12, 12)
+  fig.set_size_inches(24, 8)
   print(f'Save plot to {args.output}')
   fig.savefig(args.output)
 
