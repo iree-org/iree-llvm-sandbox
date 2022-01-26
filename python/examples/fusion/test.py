@@ -20,7 +20,7 @@ fusion_test_expert = Fuse.then(Bufferize).then(PrintIR).then(LowerVectors).then(
 # 1 linalg.fill -> linalg.matmul fusion.
 def fill_matmul_fusion():
 
-  expert = fusion_test_expert('matmul_on_tensors',
+  expert = fusion_test_expert('matmul',
                               'linalg.matmul',
                               tile_sizes=[4, 8, 6],
                               tile_interchange=[0, 1, 2],
@@ -37,7 +37,7 @@ def fill_matmul_fusion():
   ## $ bazel run ${IREE_LLVM_SANDBOX_DIR}:fusion_test | \
   ##     bazel run ${LLVM_DIR}/llvm:FileCheck ${IREE_LLVM_SANDBOX_DIR}/python/fusion/test.py
 
-  #      CHECK: func @matmul_on_tensors(
+  #      CHECK: func @matmul(
   # CHECK-SAME:     %[[ARG0:.+]]: memref<24x48xf32>
   # CHECK-SAME:     %[[ARG1:.+]]: memref<48x32xf32>
   # CHECK-SAME:     %[[ARG2:.+]]: memref<24x32xf32>)
@@ -53,13 +53,13 @@ def fill_matmul_fusion():
   #      CHECK:          scf.yield %[[CONTRACT]]
   #      CHECK:       vector.transfer_write %[[REDUCTION]], %[[ARG2]]
   problem.compile(entry_point_name='matmul_main',
-                  fun_to_benchmark_name='matmul_on_tensors',
+                  fun_to_benchmark_name='matmul',
                   compile_time_problem_sizes_dict=problem_sizes_dict,
                   transform=expert)
 
 
 def fill_matmul_bias_add_fusion():
-  expert = fusion_test_expert('matmul_bias_add_on_tensors',
+  expert = fusion_test_expert('matmul_bias_add',
                               'linalg.generic',
                               tile_sizes=[4, 8, 6],
                               tile_interchange=[0, 1, 2],
@@ -77,7 +77,7 @@ def fill_matmul_bias_add_fusion():
   ## $ bazel run ${IREE_LLVM_SANDBOX_DIR}:fusion_test | \
   ##     bazel run ${LLVM_DIR}/llvm:FileCheck ${IREE_LLVM_SANDBOX_DIR}/python/fusion/test.py
   #
-  #      CHECK: func @matmul_bias_add_on_tensors(
+  #      CHECK: func @matmul_bias_add(
   # CHECK-SAME:     %[[ARG0:.+]]: memref<24x48xf32>
   # CHECK-SAME:     %[[ARG1:.+]]: memref<48x32xf32>
   # CHECK-SAME:     %[[ARG2:.+]]: memref<32xf32>
@@ -93,7 +93,7 @@ def fill_matmul_bias_add_fusion():
   # CHECK-SAME:          %[[LHS_VEC]], %[[RHS_VEC]], %[[BCAST]]
   #      CHECK:       vector.transfer_write %[[CONTRACT]], %[[ARG4]]
   problem.compile(entry_point_name='matmul_bias_add_main',
-                  fun_to_benchmark_name='matmul_bias_add_on_tensors',
+                  fun_to_benchmark_name='matmul_bias_add',
                   compile_time_problem_sizes_dict=problem_sizes_dict,
                   transform=expert)
 

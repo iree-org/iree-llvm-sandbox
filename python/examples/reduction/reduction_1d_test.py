@@ -15,7 +15,7 @@ from ..contraction.definitions import *
 
 # No tiling.
 expert_no_tiling = LoweringOnlyExpert(
-    'reduction_1d_on_tensors', 'linalg.generic').print_ir(after_all=False)
+    'reduction_1d', 'linalg.generic').print_ir(after_all=False)
 
 all_experts = [expert_no_tiling]
 
@@ -35,7 +35,7 @@ def main():
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
-               function_name='reduction_1d_on_tensors')
+               function_name='reduction_1d')
 
 
 if __name__ == '__main__':

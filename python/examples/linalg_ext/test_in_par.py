@@ -18,13 +18,13 @@ import typing as tp
 def TestExpert(transforms: tp.Sequence[tp.Union[Transform,
                                                 TransformationList]]):
   return (TransformationList(transforms=transforms) + Bufferize() +
-          LoweringOnlyExpert('matmul_on_tensors', 'linalg.generic'))
+          LoweringOnlyExpert('matmul', 'linalg.generic'))
 
 
 expert_linalg_ext_tile = TestExpert([
-    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[2]),
-    LinalgExtTileToInParallel('matmul_on_tensors', 'linalg.generic'),
-    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    LinalgExtTile('matmul', 'linalg.generic', tile_sizes=[2]),
+    LinalgExtTileToInParallel('matmul', 'linalg.generic'),
+    Vectorize('matmul', 'linalg.generic'),
 ])
 
 all_experts = [
@@ -46,7 +46,7 @@ def main():
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
-               function_name='matmul_on_tensors')
+               function_name='matmul')
 
 
 if __name__ == '__main__':

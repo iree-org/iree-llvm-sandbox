@@ -11,7 +11,7 @@ from ..core.transforms import *
 
 from ..contraction.definitions import EinsumProblem
 
-fun_name = 'transpose_2d_on_tensors'
+fun_name = 'transpose_2d'
 op_name = 'linalg.generic'
 
 ################################################################################

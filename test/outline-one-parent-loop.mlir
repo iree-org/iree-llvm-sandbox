@@ -1,6 +1,6 @@
 // RUN: mlir-proto-opt %s -outline-one-parent-loop="anchor-func=test anchor-op=scf.yield parent-loop-num=1 result-func-name=foo" | \
 // RUN: FileCheck %s
-// RUN: mlir-proto-opt %s -outline-one-parent-loop="anchor-func=matmul_on_tensors anchor-op=vector.contract parent-loop-num=2 result-func-name=bar" | \
+// RUN: mlir-proto-opt %s -outline-one-parent-loop="anchor-func=matmul anchor-op=vector.contract parent-loop-num=2 result-func-name=bar" | \
 // RUN: FileCheck %s --check-prefix=MATMUL
 
 // CHECK-LABEL: func @foo
@@ -15,8 +15,8 @@ func @test(%ub: index, %it: index) -> index {
 }
 
 // MATMUL-LABEL: func @bar
-// MATMUL-LABEL: func @matmul_on_tensors
-func @matmul_on_tensors(%arg0: tensor<24x48xf32> {linalg.buffer_layout = affine_map<(d0, d1) -> (d0, d1)>, linalg.inplaceable = false}, %arg1: tensor<48x32xf32> {linalg.buffer_layout = affine_map<(d0, d1) -> (d0, d1)>, linalg.inplaceable = false}, %arg2: tensor<24x32xf32> {linalg.buffer_layout = affine_map<(d0, d1) -> (d0, d1)>, linalg.inplaceable = true}) -> tensor<24x32xf32> attributes {passthrough = ["noinline", ["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]} {
+// MATMUL-LABEL: func @matmul
+func @matmul(%arg0: tensor<24x48xf32> {linalg.buffer_layout = affine_map<(d0, d1) -> (d0, d1)>, linalg.inplaceable = false}, %arg1: tensor<48x32xf32> {linalg.buffer_layout = affine_map<(d0, d1) -> (d0, d1)>, linalg.inplaceable = false}, %arg2: tensor<24x32xf32> {linalg.buffer_layout = affine_map<(d0, d1) -> (d0, d1)>, linalg.inplaceable = true}) -> tensor<24x32xf32> attributes {passthrough = ["noinline", ["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]} {
   %c0 = arith.constant 0 : index
   %c32 = arith.constant 32 : index
   %c24 = arith.constant 24 : index
@@ -103,7 +103,7 @@ func public @main(%arg0: tensor<24x48xf32> {linalg.buffer_layout = affine_map<(d
   %0 = memref.dim %arg3, %c0 : memref<?xi64>
   %1 = scf.for %arg4 = %c0 to %0 step %c1 iter_args(%arg5 = %arg2) -> (tensor<24x32xf32>) {
     %2 = call @nano_time() : () -> i64
-    %3 = call @matmul_on_tensors(%arg0, %arg1, %arg5) : (tensor<24x48xf32>, tensor<48x32xf32>, tensor<24x32xf32>) -> tensor<24x32xf32>
+    %3 = call @matmul(%arg0, %arg1, %arg5) : (tensor<24x48xf32>, tensor<48x32xf32>, tensor<24x32xf32>) -> tensor<24x32xf32>
     %4 = call @nano_time() : () -> i64
     %5 = arith.subi %4, %2 : i64
     memref.store %5, %arg3[%arg4] : memref<?xi64>

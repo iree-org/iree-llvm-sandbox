@@ -8,7 +8,7 @@ from ..contraction.definitions import EinsumProblem
 
 import typing as tp
 
-fun_name = 'transpose_4d_on_tensors'
+fun_name = 'transpose_4d'
 op_name = 'linalg.generic'
 
 

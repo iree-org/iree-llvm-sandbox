@@ -9,7 +9,7 @@ from ..core.transforms import *
 
 from ..contraction.definitions import EinsumProblem
 
-fun_name = 'matmul_on_tensors'
+fun_name = 'matmul'
 op_name = 'linalg.generic'
 
 ################################################################################

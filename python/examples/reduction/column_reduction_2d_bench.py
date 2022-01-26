@@ -9,7 +9,7 @@ from ..core.transforms import *
 
 from ..contraction.definitions import *
 
-fun_name = 'column_reduction_2d_on_tensors'
+fun_name = 'column_reduction_2d'
 op_name = 'linalg.generic'
 
 ################################################################################

@@ -11,7 +11,7 @@ from ..core.transform import *
 
 from ..contraction.definitions import *
 
-fun_name = 'reduction_1d_on_tensors'
+fun_name = 'reduction_1d'
 op_name = 'linalg.generic'
 
 ################################################################################

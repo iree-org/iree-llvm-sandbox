@@ -9,7 +9,7 @@ from ..core.transforms import *
 
 from ..contraction.definitions import *
 
-fun_name = 'matvec_on_tensors'
+fun_name = 'matvec'
 op_name = 'linalg.generic'
 
 ################################################################################
