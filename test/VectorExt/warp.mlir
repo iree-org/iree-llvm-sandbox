@@ -57,7 +57,7 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
 
 //  CHECK-DAG: #[[MAP0:.*]] = affine_map<()[s0] -> (s0 * 2)>
 
-// CHECK-LABEL:   func @warp_propagate_read
+// CHECK:   func @warp_propagate_read
 //  CHECK-SAME:     (%[[ID:.*]]: index
 func @warp_propagate_read(%laneid: index, %src: memref<1024xf32>, %dest: memref<1024xf32>) {
 // CHECK-NOT: warp_execute_on_lane_0
