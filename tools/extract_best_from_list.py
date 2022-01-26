@@ -63,7 +63,7 @@ class ParserState(object):
   def parse_end(self, line: str):
     return line.find('###############') >= 0
 
-  def parse_next(self, line: str):
+  def parse_next(self, line: str, line_num: int):
     # Need a new problem size to start parsing other stuff.
     if self.compile_time_problem_size_dict is None:
       return self.parse_compile_time_problem_size(line)
@@ -76,8 +76,8 @@ class ParserState(object):
     # If we reach here, try to find the end to concat to the data frame.
     if self.parse_end(line):
       # Sanity check.
-      assert len(self.compilation_expert) == len(
-          self.p50), 'must have parsed a compilation expert first'
+      assert len(self.compilation_expert) == len(self.p50), \
+        f'mismatch #compilation_expert vs #results at line {line_num}'
       self.concat_new_data()
       return True
     return False
@@ -105,9 +105,11 @@ def main():
 
   parser = ParserState()
   with open(args.input, "r") as f:
+    line_num = 0
     for line in f:
+      line_num = line_num + 1
       stripped = line.strip()
-      parser.parse_next(line)
+      parser.parse_next(line, line_num)
 
   # Group by problem size, take the p50-max idx.
   best_experts = parser.data.loc[parser.data.groupby(
