@@ -15,12 +15,12 @@ func @matmul_tensors(
 }
 
 pdl.pattern @pdl_target : benefit(1) {
-  %args = pdl.operands
-  %results = pdl.types
+  %args = operands
+  %results = types
   %0 = pdl.operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
-  pdl.apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
+  apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  pdl.rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "linalg_transform.apply"
 }
 
 linalg_transform.sequence {
@@ -43,13 +43,13 @@ linalg_transform.sequence {
 // EXPAND-NOT: @strategies
 module @strategies {
   pdl.pattern @single_tiling_matcher : benefit(1) {
-    %tile_sizes = pdl.attribute
-    %vectorize_padding = pdl.attribute
-    %multireduction_lowering = pdl.attribute
-    %name = pdl.attribute : "single_tiling"
-    %target = pdl.attribute
-    %transformed = pdl.type
-    %root = pdl.operation "linalg_transform.expert" {
+    %tile_sizes = attribute
+    %vectorize_padding = attribute
+    %multireduction_lowering = attribute
+    %name = attribute : "single_tiling"
+    %target = attribute
+    %transformed = type
+    %root = operation "linalg_transform.expert" {
       "expertName" = %name,
       "targetMatcher" = %target,
       "tile_sizes" = %tile_sizes,
@@ -57,33 +57,25 @@ module @strategies {
       "multireduction_lowering" = %multireduction_lowering
     } -> (%transformed : !pdl.type)
 
-    pdl.rewrite %root {
-      %tile = pdl.operation "linalg_transform.tile"  {
+    rewrite %root {
+      %tile = operation "linalg_transform.tile"  {
         "targetMatcher" = %target,
         "sizes" = %tile_sizes
       } -> (%transformed : !pdl.type)
-      %handle = pdl.result 0 of %tile
+      %handle = result 0 of %tile
 
-      %vectorize = pdl.operation "linalg_transform.vectorize"(%handle : !pdl.value) {
+      %vectorize = operation "linalg_transform.vectorize"(%handle : !pdl.value) {
         "vectorize_padding" = %vectorize_padding
       } -> (%transformed : !pdl.type)
-      %handle2 = pdl.result 0 of %vectorize
+      %handle2 = result 0 of %vectorize
 
-      // FIXME: must explicitly query results, otherwise the op is not produced
-      %bufferize = pdl.operation "linalg_transform.bufferize"
-      pdl.results of %bufferize
-
-      // FIXME: must explicitly query results, otherwise the op is not produced
-      %lower_vectors = pdl.operation "linalg_transform.lower_vectors" {
+      %bufferize = operation "linalg_transform.bufferize"
+      %lower_vectors = operation "linalg_transform.lower_vectors" {
         "multireduction_lowering" = %multireduction_lowering
       }
-      pdl.results of %lower_vectors
+      %lower_to_llvm = operation "linalg_transform.lower_to_llvm"
 
-      // FIXME: must explicitly query results, otherwise the op is not produced
-      %lower_to_llvm = pdl.operation "linalg_transform.lower_to_llvm"
-      pdl.results of %lower_to_llvm
-
-      pdl.replace %root with (%handle2 : !pdl.value)
+      replace %root with (%handle2 : !pdl.value)
     }
   }
 }
@@ -132,46 +124,38 @@ linalg_transform.sequence {
 
 module @strategies {
   pdl.pattern @single_tiling_operand : benefit(1) {
-    %tile_sizes = pdl.attribute
-    %vectorize_padding = pdl.attribute
-    %multireduction_lowering = pdl.attribute
-    %name = pdl.attribute : "single_tiling"
-    %type = pdl.type : !pdl.operation
-    %target = pdl.operand : %type
-    %transformed = pdl.type
-    %root = pdl.operation "linalg_transform.expert"(%target : !pdl.value) {
+    %tile_sizes = attribute
+    %vectorize_padding = attribute
+    %multireduction_lowering = attribute
+    %name = attribute : "single_tiling"
+    %type = type : !pdl.operation
+    %target = operand : %type
+    %transformed = type
+    %root = operation "linalg_transform.expert"(%target : !pdl.value) {
       "expertName" = %name,
       "tile_sizes" = %tile_sizes,
       "vectorize_padding" = %vectorize_padding,
       "multireduction_lowering" = %multireduction_lowering
     } -> (%transformed : !pdl.type)
 
-    pdl.rewrite %root {
-      %tile = pdl.operation "linalg_transform.tile"(%target : !pdl.value)  {
+    rewrite %root {
+      %tile = operation "linalg_transform.tile"(%target : !pdl.value)  {
         "sizes" = %tile_sizes
       } -> (%transformed : !pdl.type)
-      %handle = pdl.result 0 of %tile
+      %handle = result 0 of %tile
 
-      %vectorize = pdl.operation "linalg_transform.vectorize"(%handle : !pdl.value) {
+      %vectorize = operation "linalg_transform.vectorize"(%handle : !pdl.value) {
         "vectorize_padding" = %vectorize_padding
       } -> (%transformed : !pdl.type)
-      %handle2 = pdl.result 0 of %vectorize
+      %handle2 = result 0 of %vectorize
 
-      // FIXME: must explicitly query results, otherwise the op is not produced
-      %bufferize = pdl.operation "linalg_transform.bufferize"
-      pdl.results of %bufferize
-
-      // FIXME: must explicitly query results, otherwise the op is not produced
-      %lower_vectors = pdl.operation "linalg_transform.lower_vectors" {
+      %bufferize = operation "linalg_transform.bufferize"
+      %lower_vectors = operation "linalg_transform.lower_vectors" {
         "multireduction_lowering" = %multireduction_lowering
       }
-      pdl.results of %lower_vectors
+      %lower_to_llvm = operation "linalg_transform.lower_to_llvm"
 
-      // FIXME: must explicitly query results, otherwise the op is not produced
-      %lower_to_llvm = pdl.operation "linalg_transform.lower_to_llvm"
-      pdl.results of %lower_to_llvm
-
-      pdl.replace %root with (%handle2 : !pdl.value)
+      replace %root with (%handle2 : !pdl.value)
     }
   }
 }

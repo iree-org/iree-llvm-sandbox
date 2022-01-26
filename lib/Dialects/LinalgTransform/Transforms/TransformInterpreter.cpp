@@ -18,6 +18,7 @@
 #include "Dialects/LinalgTransform/SimplePatternRewriter.h"
 #include "Dialects/LinalgTransform/TrackingCSE.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
+#include "FunctionHelpers.h"
 #include "Transforms/Functional.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
@@ -104,16 +105,6 @@ static FailureOr<LinalgOp> forwardOp(LinalgOp op, PatternRewriter &rewriter) {
   return op;
 }
 
-/// Wrap a pattern into a functional call to `returningMatchAndRewrite`.
-template <typename FunctionalLinalgPattern, typename... Args>
-static auto callFunctional(Args &&... args) {
-  FunctionalLinalgPattern pattern(std::forward<Args>(args)...);
-  return
-      [pattern = std::move(pattern)](LinalgOp op, PatternRewriter &rewriter) {
-        return pattern.returningMatchAndRewrite(op, rewriter);
-      };
-}
-
 //===----------------------------------------------------------------------===//
 // Linalg Transforms
 //===----------------------------------------------------------------------===//
@@ -147,8 +138,8 @@ buildPadFromTileOpPattern(linalg::transform::TileOp tileOp) {
   paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
   paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
 
-  return callFunctional<LinalgPaddingPattern>(tileOp.getContext(),
-                                              paddingOptions);
+  return callLinalgPattern<LinalgPaddingPattern>(tileOp.getContext(),
+                                                 paddingOptions);
 }
 
 /// Applies the generalization pattern to the given target operation as
@@ -159,15 +150,7 @@ static FunctionalLinalgTransform
 buildGeneralizeFromTileOpPattern(linalg::transform::TileOp tileOp) {
   if (!tileOp.generalize())
     return forwardOp;
-  auto pattern =
-      callFunctional<LinalgGeneralizationPattern>(tileOp.getContext());
-  return [pattern = std::move(pattern)](
-             LinalgOp op, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
-    FailureOr<GenericOp> result = pattern(op, rewriter);
-    if (failed(result))
-      return failure();
-    return cast<LinalgOp>(**result);
-  };
+  return callLinalgPattern<LinalgGeneralizationPattern>(tileOp.getContext());
 }
 
 /// Applies the interchange pattern to the given target operation as indicated
@@ -180,18 +163,8 @@ buildInterchangeFromTileOp(linalg::transform::TileOp tileOp) {
     return forwardOp;
 
   auto interchangeVector = extractUIntArray(tileOp.interchange());
-  GenericOpInterchangePattern pattern(tileOp.getContext(), interchangeVector);
-  return
-      [pattern = std::move(pattern)](
-          LinalgOp linalgOp, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
-        if (auto op = dyn_cast<GenericOp>(*linalgOp)) {
-          FailureOr<GenericOp> result =
-              pattern.returningMatchAndRewrite(op, rewriter);
-          if (succeeded(result))
-            return cast<LinalgOp>(**result);
-        }
-        return failure();
-      };
+  return callLinalgPattern<GenericOpInterchangePattern>(tileOp.getContext(),
+                                                        interchangeVector);
 }
 
 /// Applies the transformation specified by the given tile operation to the

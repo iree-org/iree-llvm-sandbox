@@ -11,7 +11,7 @@ func @matmul_tensors(
   // CHECK-COUNT-3: tensor.extract_slice
   // CHECK: linalg.matmul
   // CHECK-SAME: -> tensor<4x4xf32>
-  %0 = linalg.matmul { test.attrA} 
+  %0 = linalg.matmul { test.attrA}
                       ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
                      outs(%arg2: tensor<128x128xf32>)
     -> tensor<128x128xf32>
@@ -43,24 +43,24 @@ func @matmul_tensors(
 
 // Match matmul operations inside @matmul_tensors with test.attrA set.
 pdl.pattern @pdl_target_attrA : benefit(1) {
-  %args = pdl.operands
-  %results = pdl.types
-  %attr = pdl.attribute
-  %0 = pdl.operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrA" = %attr}-> (%results : !pdl.range<type>)
-  pdl.apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
+  %args = operands
+  %results = types
+  %attr = attribute
+  %0 = operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrA" = %attr}-> (%results : !pdl.range<type>)
+  apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  pdl.rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "linalg_transform.apply"
 }
 
 // Match matmul operations inside @matmul_tensors with test.attrC set.
 pdl.pattern @pdl_target_attrC : benefit(1) {
-  %args = pdl.operands
-  %results = pdl.types
-  %attr = pdl.attribute
-  %0 = pdl.operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrC" = %attr}-> (%results : !pdl.range<type>)
-  pdl.apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
+  %args = operands
+  %results = types
+  %attr = attribute
+  %0 = operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrC" = %attr}-> (%results : !pdl.range<type>)
+  apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  pdl.rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "linalg_transform.apply"
 }
 
 linalg_transform.sequence {
