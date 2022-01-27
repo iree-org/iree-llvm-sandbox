@@ -195,7 +195,7 @@ bool is2DRowReduction(Operation *op) {
 
 } // namespace
 
-void populateFuseFillIntoReductionPatterns(OwningRewritePatternList &patterns,
+void populateFuseFillIntoReductionPatterns(RewritePatternSet &patterns,
                                            const LinalgTilingOptions &opts) {
   auto *ctx = patterns.getContext();
   auto filter =

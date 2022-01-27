@@ -15,24 +15,24 @@
 namespace mlir {
 namespace linalg {
 
-void populateTileAndFusePattern(OwningRewritePatternList &patterns,
+void populateTileAndFusePattern(RewritePatternSet &patterns,
                                 const LinalgTilingOptions &opts,
                                 const LinalgTransformationFilter &filter);
 
-void populateFuseFillIntoReductionPatterns(OwningRewritePatternList &patterns,
+void populateFuseFillIntoReductionPatterns(RewritePatternSet &patterns,
                                            const LinalgTilingOptions &opts);
 
-void populateTiledLoopsToSCF(OwningRewritePatternList &patterns);
+void populateTiledLoopsToSCF(RewritePatternSet &patterns);
 
-void populateTiledLoopsToGPUPatterns(OwningRewritePatternList &patterns,
+void populateTiledLoopsToGPUPatterns(RewritePatternSet &patterns,
                                      ArrayRef<int64_t> numWorkgroups);
 
 void populateDistributeTiledLoopPattern(
-    OwningRewritePatternList &patterns,
+    RewritePatternSet &patterns,
     const LinalgLoopDistributionOptions &opts,
     const LinalgTransformationFilter &filter);
 
-void populateTiledLoopToAsyncPatterns(OwningRewritePatternList &patterns);
+void populateTiledLoopToAsyncPatterns(RewritePatternSet &patterns);
 
 }  // namespace linalg
 }  // namespace mlir

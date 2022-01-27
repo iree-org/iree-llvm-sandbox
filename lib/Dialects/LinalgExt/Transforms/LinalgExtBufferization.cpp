@@ -21,7 +21,7 @@ using bufferization::BufferizationState;
 using bufferization::BufferRelation;
 using bufferization::replaceOpWithBufferizedValues;
 using bufferization::replaceOpWithNewBufferizedOp;
-using bufferization::getDynamicMemRefType;
+using bufferization::getMemRefType;
 using tensor::ExtractSliceOp;
 
 namespace linalg_ext {
@@ -126,10 +126,12 @@ struct InParallelOpInterface
     WalkResult walkResult = performConcurrentlyOp.walk([&](ParallelInsertSliceOp
                                                                insertOp) {
       Location loc = insertOp.getLoc();
-      Type srcType = getDynamicMemRefType(
-          insertOp.source().getType().cast<RankedTensorType>());
-      Type destType = getDynamicMemRefType(
-          insertOp.dest().getType().cast<RankedTensorType>());
+      Type srcType = getMemRefType(
+          insertOp.source().getType().cast<RankedTensorType>(),
+          state.getOptions());
+      Type destType = getMemRefType(
+          insertOp.dest().getType().cast<RankedTensorType>(),
+          state.getOptions());
       // ParallelInsertSliceOp bufferizes to a copy.
       auto srcMemref =
           b.create<bufferization::ToMemrefOp>(loc, srcType, insertOp.source());

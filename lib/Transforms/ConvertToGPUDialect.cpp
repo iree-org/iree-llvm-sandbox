@@ -84,7 +84,7 @@ struct TiledLoopToGPUPattern : public OpRewritePattern<linalg::TiledLoopOp> {
 namespace mlir {
 namespace linalg {
 
-void populateTiledLoopsToGPUPatterns(OwningRewritePatternList& patterns,
+void populateTiledLoopsToGPUPatterns(RewritePatternSet& patterns,
                                      ArrayRef<int64_t> numWorkgroups) {
   patterns.add<TiledLoopToGPUPattern>(patterns.getContext(), numWorkgroups);
 }

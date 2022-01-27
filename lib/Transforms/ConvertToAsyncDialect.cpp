@@ -96,7 +96,7 @@ struct TiledLoopToAsyncPattern : public OpRewritePattern<linalg::TiledLoopOp> {
 namespace mlir {
 namespace linalg {
 
-void populateTiledLoopToAsyncPatterns(OwningRewritePatternList &patterns) {
+void populateTiledLoopToAsyncPatterns(RewritePatternSet &patterns) {
   patterns.add<TiledLoopToAsyncPattern>(patterns.getContext());
 }
 

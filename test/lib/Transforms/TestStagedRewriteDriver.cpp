@@ -106,7 +106,7 @@ struct TestStagedPatternRewriteDriver
     });
 
     MLIRContext *ctx = &getContext();
-    OwningRewritePatternList stage1Patterns(ctx), stage2Patterns(ctx);
+    RewritePatternSet stage1Patterns(ctx), stage2Patterns(ctx);
     auto scope_exit = llvm::make_scope_exit([&]() {
       (void)applyStagedPatterns(roots, std::move(stage1Patterns),
                                 std::move(stage2Patterns));

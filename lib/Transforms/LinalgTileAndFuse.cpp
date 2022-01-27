@@ -87,7 +87,7 @@ LogicalResult TileAndFusePattern::matchAndRewrite(
 }
 
 void mlir::linalg::populateTileAndFusePattern(
-    OwningRewritePatternList &patterns, const LinalgTilingOptions &opts,
+    RewritePatternSet &patterns, const LinalgTilingOptions &opts,
     const LinalgTransformationFilter &filter) {
   patterns.insert<TileAndFusePattern>(opts, filter, patterns.getContext());
 }
