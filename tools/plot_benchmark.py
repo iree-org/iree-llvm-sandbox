@@ -1,6 +1,7 @@
-import argparse, pandas, os, seaborn, sys
+import argparse, pandas, os, random, seaborn, sys
 import numpy as np
 from unicodedata import name
+from numpy import median
 
 import matplotlib.pyplot as plt
 
@@ -48,6 +49,11 @@ def _parse_arguments() -> argparse.Namespace:
                       help="semicolon-separated lost of problem sizes to plot "
                       "(e.g., --sizes_to_plot=\"m=32,n=48;m=90,n=32\")",
                       default='all')
+  parser.add_argument("--num_sizes_to_plot",
+                      type=int,
+                      required=False,
+                      help="sample the given number of problem sizes to plot",
+                      default=-1)
   parser.add_argument("--metric_to_plot",
                       type=str,
                       required=True,
@@ -140,7 +146,10 @@ def get_sizes_to_plot(data, args):
     available_sizes = get_unique_sizes(data)
     print(f'Available sizes in the data set: {available_sizes}')
     return list(filter(lambda x: x in available_sizes, specified_sizes))
-  return get_unique_sizes(data)
+  if args.num_sizes_to_plot <= 0:
+    return get_unique_sizes(data)
+  random.seed(42)
+  return random.sample(list(get_unique_sizes(data)), args.num_sizes_to_plot)
 
 
 #### Start
@@ -180,6 +189,8 @@ def main():
   # Sort by problem volume and benchmark index.
   data_to_plot = data_to_plot.sort_values(
       by=['problem_volume', 'benchmark_index'], ascending=(True, True))
+  sizes_to_plot = list(
+      data_to_plot[problem_size_key(data_to_plot)].drop_duplicates())
 
   # Keep only the relevant columns.
   data_to_plot = data_to_plot[[benchmark_key(
@@ -196,6 +207,7 @@ def main():
                   y=args.metric_to_plot,
                   hue=benchmark_key(data_to_plot),
                   data=data_to_plot,
+                  estimator=median,
                   ci=None)
 
   maximum = 0
@@ -215,14 +227,14 @@ def main():
                 fontsize=8)
 
   ax.tick_params(axis="x", rotation=20)
-  ax.legend(labels=[names_to_translate[text.get_text()]
+  ax.legend(ncol=4,
+            loc='upper right',
+            labels=[names_to_translate[text.get_text()]
             for text in ax.get_legend().get_texts()], title='', frameon=False)
-  ax.set_ylim(bottom=0, top=maximum*1.1)
+  ax.set_ylim(bottom=0, top=maximum*1.15)
   ax.margins(x=0.01)
   plt.xlabel(names_to_translate[problem_size_key(data)])
   plt.ylabel(names_to_translate[args.metric_to_plot])
-
-
 
   fig.tight_layout()
   print(f'Save plot to {args.output}')
