@@ -23,8 +23,9 @@ def _get_pad_str(transform: Transform) -> str:
   pad_str = f'pad'
   pack_paddings = [str(pp) for pp in transform.pack_paddings]
   hoist_paddings = [str(hd) for hd in transform.hoist_paddings]
-  transpose_paddings = [':'.join([str(dim) for dim in ip])
-                          for ip in transform.transpose_paddings]
+  transpose_paddings = [
+      ':'.join([str(dim) for dim in ip]) for ip in transform.transpose_paddings
+  ]
 
   if pack_paddings:
     pad_str = pad_str + f' pack-paddings={",".join(pack_paddings)}'
@@ -299,7 +300,31 @@ class Generalize(Transform):
     pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
-                f'     generalize '
+                f'     generalize ')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+
+class Interchange(Transform):
+  """Transform a named operation to its generic form.
+
+  This transform can be configured as follows:
+  * `iterator_interchange`: Interchange the iterators of the generic operation.
+
+  Note: After generalization the anchor op name changes to 'linalg.generic'.
+  """
+
+  variables = {
+      'iterator_interchange': (InterchangeVariable, []),
+  }
+
+  def __init__(self, fun_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+    interchange_str = _get_size_list_as_str(name='iterator-interchange',
+                                            sizes=self.iterator_interchange)
+
+    pipeline = (f'linalg-single-tiling-expert-driver{{'
+                f'     anchor-func={fun_name} '
+                f'     anchor-op="linalg.generic" '
                 f'     {interchange_str}}}')
     self.pipeline = (f'builtin.func({pipeline})')
 

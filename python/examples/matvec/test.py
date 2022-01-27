@@ -46,8 +46,9 @@ expert_tile_1_and_generalize_interchange = TestExpert([
          tile_sizes=[8, 24],
          tile_interchange=[1, 0]),
     Generalize('matvec',
-               'linalg.generic',
-               iterator_interchange=[0, 1]),
+               'linalg.generic'),
+    Interchange('matvec',
+                iterator_interchange=[0, 1]),
     Vectorize('matvec', 'linalg.generic')
 ])
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
