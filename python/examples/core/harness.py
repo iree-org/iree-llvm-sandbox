@@ -31,6 +31,16 @@ def log(*args):
   sys.stderr.flush()
 
 
+# AVX512 throttling needs a lot of iteration, chance to only report the last n
+# after throttling has had a good chance of happening.
+def keep_last_n_if_specified(timing_results: List):
+  if 'SANDBOX_KEEP_LAST_N_RUNS' in os.environ:
+    n_to_keep = int(os.getenv('SANDBOX_KEEP_LAST_N_RUNS'))
+    n_to_keep = min(n_to_keep, len(timing_results))
+    return timing_results[-n_to_keep:]
+  return timing_results
+
+
 TimingResults = Mapping[str, Sequence[float]]
 ProblemSizes = Sequence[Union[int, Sequence[int]]]
 
@@ -146,6 +156,12 @@ def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
                  n_iters: int) -> TimingResults:
   elapsed_ns = run_n_iters(n_iters)
   elapsed_s_per_iter = [sec for sec in np.flip(np.sort(elapsed_ns / 1.e9))]
+
+  # AVX512 throttling needs a lot of iteration, chance to only report the last n
+  # after throttling has had a good chance of happening.
+  elapsed_s_per_iter = keep_last_n_if_specified(elapsed_s_per_iter)
+  n_iters = len(elapsed_s_per_iter)
+
   gbyte_per_s_per_iter = [(gbyte_count / sec) for sec in elapsed_s_per_iter]
   gflop_per_s_per_iter = [(gflop_count / sec) for sec in elapsed_s_per_iter]
   print(f'xxxxxxxxxx : {n_iters} iters time on {1} threads')
