@@ -40,7 +40,7 @@ def all_experts(problem_sizes: List[int]):
   res = []
   for ts in tile_sizes:
     res.append(
-      # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+      # Note: `\` char at the end of next line prevents formatter reflows, keep it. \
       Tile(fun_name=fun_name, \
           op_name=op_name,
           # Avoid tiling small dimensions and otherwise tile by ts[0].
@@ -51,7 +51,7 @@ def all_experts(problem_sizes: List[int]):
                                  op_name,
                                  multi_reduction_lowering='innerreduction')),
     )
-  return res
+  return [e.print_ir(after_all=False, at_begin=False, llvm=False) for e in res]
 
 
 ################################################################################
