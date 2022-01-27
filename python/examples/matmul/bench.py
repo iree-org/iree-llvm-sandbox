@@ -21,10 +21,13 @@ all_names = [                    \
   "SingleTiling2DPeel",          \
   "SingleTiling3DPeel",          \
   "SingleTiling3DPad",           \
+  "SingleTiling3DPeelTranspose", \
   "DoubleTile2DPadAndHoist",     \
 ]
 
-all_experts = [
+
+def all_experts(fun_name):
+  return [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
         Tile(fun_name,
@@ -50,6 +53,15 @@ all_experts = [
              hoist_paddings=[2, 3, 0])
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[6, 32, 16],
+             tile_interchange=[2, 1, 0],
+             peel=[0, 1, 2],
+             )
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name,
+                                   transpose_lowering='shuffle')),
         DoubleTile(fun_name,
                    op_name,
                    tile_sizes1=[288, 128, 512],
@@ -70,7 +82,8 @@ all_experts = [
                                    op_name,
                                    transpose_lowering='eltwise')),
     ]
-]
+  ]
+
 
 ################################################################################
 ### Problem instantiations.
@@ -131,14 +144,18 @@ def main():
           B = np.transpose(B)
         torch.mm(A, B, out=C)
 
+      func_with_spec = fun_name + '_' + spec
+      func_with_spec = func_with_spec.replace(',', '')
+
       test_harness(lambda s, t: EinsumProblem(spec, 'mnk', 2),
                    [[np.float32] * 3],
                    test_sizes(keys, args.problem_sizes_list),
-                   test_experts(all_experts, all_names, args.expert_list),
+                   test_experts(all_experts(func_with_spec), all_names,
+                                args.expert_list),
                    n_iters=args.n_iters,
                    dynamic_at_compile_time_sizes=set(
                        dynamic_at_compile_time).intersection(keys),
-                   function_name=fun_name,
+                   function_name=func_with_spec,
                    dump_ir_to_file='/tmp/abc.mlir',
                    dump_obj_to_file='/tmp/abc.o',
                    dump_data_to_file=args.dump_data,
