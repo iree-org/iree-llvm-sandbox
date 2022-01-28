@@ -250,7 +250,7 @@ class ConvolutionProblem(ProblemDefinition):
 
     input_scaler = self.stride_dilation_input_scaler()
     input_gbytes = (1.e-9 * np.prod(input_shape) *
-                    np.dtype(input_np_type).itemsize) / np.prod(scaler)
+                    np.dtype(input_np_type).itemsize) / np.prod(input_scaler)
     kernel_gbytes = 1.e-9 * np.prod(kernel_shape) * np.dtype(
         kernel_np_type).itemsize
     # Output should only be counted as written because we are supposedly
