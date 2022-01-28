@@ -101,19 +101,22 @@ def main():
           [8, 16, 16, 32, 3, 3, 64, [3, 2], [2, 3]],
       ],
       default_expert_list=all_names,
-      default_dynamic_at_compile_time_list=[],
+      default_dynamic_at_compile_time_list=[ \
+        []  # case 1: static at compile time
+      ],
       default_spec_list=[])
 
-  test_harness(lambda sizes, types: ConvolutionProblem(
-      'NHWC', 'HWCF', strides=sizes['strides'], dilations=sizes['dilations']),
-               [[np.float32] * 3],
-               test_sizes(keys, args.problem_sizes_list),
-               test_experts(all_experts, all_names, args.expert_list),
-               n_iters=args.n_iters,
-               function_name=fun_name,
-               dump_ir_to_file='/tmp/abcd.mlir',
-               dump_obj_to_file='/tmp/abcd.o',
-               dump_data_to_file=args.dump_data)
+  for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
+    test_harness(lambda sizes, types: ConvolutionProblem(
+        'NHWC', 'HWCF', strides=sizes['strides'], dilations=sizes['dilations']),
+                 [[np.float32] * 3],
+                 test_sizes(keys, args.problem_sizes_list),
+                 test_experts(all_experts, all_names, args.expert_list),
+                 n_iters=args.n_iters,
+                 function_name=fun_name,
+                 dump_ir_to_file='/tmp/abcd.mlir',
+                 dump_obj_to_file='/tmp/abcd.o',
+                 dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

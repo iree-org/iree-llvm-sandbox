@@ -25,7 +25,9 @@ all_names = [ \
     "DoubleTile3DPad",
             ]
 
-all_experts = [
+
+def all_experts(fun_name):
+  return [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, llvm=False) for e in [ \
         Tile(fun_name,
@@ -71,7 +73,8 @@ all_experts = [
           .then(LowerVectors())
           .then(LowerToLLVM()),
     ]
-]
+  ]
+
 
 ################################################################################
 ### Problem instantiation
@@ -96,17 +99,21 @@ def main():
           [8, 16, 32, 3, 64, [3], [2]],
       ],
       default_expert_list=all_names,
-      default_dynamic_at_compile_time_list=[],
+      default_dynamic_at_compile_time_list=[ \
+        []  # case 1: static at compile time
+                                           ],
       default_spec_list=[])
 
-  test_harness(lambda sizes, types: ConvolutionProblem(
-      'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
-               [[np.float32] * 3],
-               test_sizes(keys, args.problem_sizes_list),
-               test_experts(all_experts, all_names, args.expert_list),
-               n_iters=args.n_iters,
-               function_name=fun_name,
-               dump_data_to_file=args.dump_data)
+  for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
+    test_harness(lambda sizes, types: ConvolutionProblem(
+        'NWC', 'WCF', strides=sizes['strides'], dilations=sizes['dilations']),
+                 [[np.float32] * 3],
+                 test_sizes(keys, args.problem_sizes_list),
+                 test_experts(all_experts(fun_name), all_names,
+                              args.expert_list),
+                 n_iters=args.n_iters,
+                 function_name=fun_name,
+                 dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':
