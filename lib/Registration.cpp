@@ -12,9 +12,9 @@
 #include "Dialects/LinalgTransform/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "Transforms/Passes.h"
+#include "mlir/Dialect/Arithmetic/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/ArithInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
@@ -107,7 +107,7 @@ void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
 
   linalg::comprehensive_bufferize::affine_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::arith_ext::
+  mlir::arith::
       registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);

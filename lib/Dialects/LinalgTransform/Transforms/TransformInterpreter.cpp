@@ -29,10 +29,10 @@
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/Arithmetic/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/ArithInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
@@ -619,7 +619,7 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
 
     linalg::comprehensive_bufferize::affine_ext::
         registerBufferizableOpInterfaceExternalModels(registry);
-    linalg::comprehensive_bufferize::arith_ext::
+    mlir::arith::
         registerBufferizableOpInterfaceExternalModels(registry);
     linalg::comprehensive_bufferize::linalg_ext::
         registerBufferizableOpInterfaceExternalModels(registry);
