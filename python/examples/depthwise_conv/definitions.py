@@ -209,8 +209,31 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
 
     return [input_shape, kernel_shape, self.__infer_output_shape(sizes)]
 
+  def stride_dilation_input_scaler(self):
+    # Input scaler: we need to account for sizes and strides which involves
+    # covering lattice computations. We just unroll a few common cases.
+    scaler = []
+    for stride, dilation in zip(self.__strides, self.__dilations):
+      # If the stride is 1, we touch all input points along dim.
+      if stride == 1:
+        scaler.append(1)
+      # If the stride is 2 and the dilation is a multiple of 2, we only touch
+      # half of the input points along dim.
+      # TODO: this should actually be a layout optimization in the compiler.
+      elif stride == 2 and dilation % 2 is 0:
+        # This also holds when kernel size is 1
+        scaler.append(2)
+      else:
+        assert False, f'unsupport special case for stride = {stride}'
+    return scaler
+
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
-    """Returns the GFLOp count given problem parameters."""
+    """Returns the GFLOp count given problem parameters.
+    
+    Note: the problem parameters are always "output and kernel parameters", so
+    we do not need special handling to account for strides and dilations: 
+    every output point is obtained by reducing across the kernel dimensions
+    """
     return 2.0 * np.prod([
         sizes[k] for k in set(sizes.keys()) - set(["strides", "dilations"])
     ]) / 1.e9
@@ -220,11 +243,19 @@ class DepthwiseConvolutionProblem(ProblemDefinition):
     """Return the GByte count given problem parameters."""
     shapes = self.shapes_builder(sizes)
 
-    lhs_np_type, rhs_np_type, res_np_type = types
-    ro_gbytes = 1.e-9 * sum(np.prod(s) * np.dtype(t).itemsize \
-        for s, t in zip(shapes[:2], [lhs_np_type, rhs_np_type]))
-    rw_gbytes = 2.e-9 * np.prod(shapes[-1:]) * np.dtype(res_np_type).itemsize
-    return ro_gbytes + rw_gbytes
+    input_shape, kernel_shape, output_shape = shapes
+    input_np_type, kernel_np_type, output_np_type = types
+
+    input_scaler = self.stride_dilation_input_scaler()
+    input_gbytes = (1.e-9 * np.prod(input_shape) *
+                    np.dtype(input_np_type).itemsize) / np.prod(scaler)
+    kernel_gbytes = 1.e-9 * np.prod(kernel_shape) * np.dtype(
+        kernel_np_type).itemsize
+    # Output should only be counted as written because we are supposedly
+    # overwriting the data without reading it.
+    output_gbytes = 1.e-9 * np.prod(output_shape) * np.dtype(
+        output_np_type).itemsize
+    return input_gbytes + kernel_gbytes + output_gbytes
 
   def tensors_np_builder(self, sizes: Mapping[str, Any],
                          types: Sequence[np.dtype]) -> List[np.dtype]:

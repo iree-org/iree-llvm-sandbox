@@ -76,8 +76,6 @@ def main():
       [8, 16, 32, 3, [1], [2]],
       [8, 16, 32, 3, [2], [1]],
       [8, 16, 32, 3, [2], [2]],
-      [8, 16, 32, 3, [2], [3]],
-      [8, 16, 32, 3, [3], [2]]
     ],
     default_expert_list=all_names,
     default_dynamic_at_compile_time_list=[
