@@ -222,9 +222,12 @@ class ConvolutionProblem(ProblemDefinition):
       # If the stride is 2 and the dilation is a multiple of 2, we only touch
       # half of the input points along dim.
       # TODO: this should actually be a layout optimization in the compiler.
-      elif stride == 2 and dilation % 2 is 0:
-        # This also holds when kernel size is 1.
-        scaler.append(2)
+      elif stride == 2:
+        if dilation % 2 is 0:
+          # This also holds when kernel size is 1
+          scaler.append(2)
+        else:
+          scaler.append(1)
       else:
         assert False, f'unsupport special case for stride = {stride}'
     return scaler
