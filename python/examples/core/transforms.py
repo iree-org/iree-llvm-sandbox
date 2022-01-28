@@ -300,7 +300,7 @@ class Generalize(Transform):
     pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
-                f'     generalize ')
+                f'     generalize}}')
     self.pipeline = (f'builtin.func({pipeline})')
 
 
