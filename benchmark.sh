@@ -205,6 +205,23 @@ function run_one_and_append_results_to_data() {
 
   unset SANDBOX_INLINING
 
-  prepare_data_collection ${BENCH_DIR}/all.data
+  prepare_data_collection ${BENCH_DIR}/${BENCH_DIR}.data
   ${benchmark}
+}
+
+function run_all_benchmarks() {
+  (source benchmarks/bandwidth_bound_l1.sh; run_l1_benchmarks_n_times l1_benchmarks 3)
+  (source benchmarks/bandwidth_bound_l2.sh; run_l2_benchmarks_n_times l2_benchmarks 3)
+  (source benchmarks/bandwidth_bound_l3.sh; run_l3_benchmarks_n_times l3_benchmarks 3)
+
+  (source benchmarks/matmul.sh; run_matmul_benchmarks_n_times matmul 3)
+
+  (source benchmarks/conv.sh; run_conv_1d_benchmarks_n_times conv_1d 3)
+  (source benchmarks/conv.sh; run_conv_2d_benchmarks_n_times conv_2d 3)
+
+  (source benchmarks/depthwise_conv.sh; run_depthwise_conv_1d_l1_benchmarks_n_times depthwiseconv_1d_l1 3)
+  (source benchmarks/depthwise_conv.sh; run_depthwise_conv_1d_l2_benchmarks_n_times depthwiseconv_1d_l2 3)
+  (source benchmarks/depthwise_conv.sh; run_depthwise_conv_1d_l3_benchmarks_n_times depthwiseconv_1d_l3 3)
+
+  (source benchmarks/depthwise_conv.sh; run_depthwise_conv_2d_mobilenet_benchmarks_n_times depthwise_conv_2d_mobilenet 3)
 }
