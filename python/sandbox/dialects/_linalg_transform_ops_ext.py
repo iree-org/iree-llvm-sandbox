@@ -4,6 +4,7 @@
 
 try:
   import mlir.ir as ir
+  import mlir.dialects.pdl as pdl
   from typing import Optional, Sequence, Union
 except ImportError as e:
   raise RuntimeError("Error loading imports from extension module") from e
@@ -96,27 +97,24 @@ class TileOp:
     hoist_paddings = _ensure_array_attr(hoist_paddings, [])
     scalarize_dyn_dims = _ensure_bool_attr(scalarize_dyn_dims, False)
     generalize = _ensure_bool_attr(generalize, False)
-
-    # FIXME: don't rely on parsing when the PDL dialect is available in Python
-    operation_type = ir.Type.parse("!pdl.operation")
+    operation_type = pdl.OperationType.get()
 
     if isinstance(target, str):
       target = ir.FlatSymbolRefAttr.get(target)
 
-      super().__init__(
-          operation_type,
-          target if not isinstance(target, ir.FlatSymbolRefAttr) else None,
-          target if isinstance(target, ir.FlatSymbolRefAttr) else None,
-          sizes,
-          interchange,
-          pad,
-          pack_paddings,
-          hoist_paddings,
-          scalarize_dyn_dims,
-          generalize,
-          loc=loc,
-          ip=ip)
-      return
+    super().__init__(
+        operation_type,
+        target if not isinstance(target, ir.FlatSymbolRefAttr) else None,
+        target if isinstance(target, ir.FlatSymbolRefAttr) else None,
+        sizes,
+        interchange,
+        pad,
+        pack_paddings,
+        hoist_paddings,
+        scalarize_dyn_dims,
+        generalize,
+        loc=loc,
+        ip=ip)
 
 
 class VectorizeOp:
@@ -131,8 +129,7 @@ class VectorizeOp:
     if isinstance(target, str):
       target = ir.FlatSymbolRefAttr(target)
 
-    # FIXME: don't rely on parsing when the PDL dialect is available in Python
-    operation_type = ir.Type.parse("!pdl.operation")
+    operation_type = pdl.OperationType.get()
 
     super().__init__(
         operation_type,
