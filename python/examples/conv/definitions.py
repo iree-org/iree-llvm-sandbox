@@ -7,14 +7,11 @@ import numpy as np
 from mlir.ir import *
 from mlir.dialects import arith, builtin, linalg, scf, std, tensor
 
-from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
+from ..core.compilation import attach_inplaceable_attributes
 from ..core.problem_definition import *
 from ..core.utils import *
 
 from . import ops
-
-# TODO: Orthogonal configuration object.
-avx512 = True
 
 RANK_RELATED_DIMS = "DHW"
 
@@ -351,15 +348,10 @@ class ConvolutionProblem(ProblemDefinition):
       module).
     mlir_types: types of arguments of this computation.
     """
-    global avx512
-
     output_type = mlir_types[-1]
     func = builtin.FuncOp(name, (mlir_types, [output_type]))
     # TODO: need something much more flexible to add func argument attributes.
     attach_inplaceable_attributes(func, inplaceable=[False, False, True])
-    attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
-        avx512=avx512)
 
     with InsertionPoint(func.add_entry_block()):
       tensor_zero = func.arguments[-1]

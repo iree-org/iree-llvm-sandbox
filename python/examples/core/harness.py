@@ -17,7 +17,7 @@ from mlir.ir import *
 from mlir.runtime import *
 from mlir.iree_sandbox import register_sandbox_passes_and_dialects
 
-from ..core.compilation import compile_to_execution_engine, \
+from ..core.compilation import attach_passthrough, compile_to_execution_engine, \
     emit_benchmarking_function
 from ..core.experts import TransformationList
 from ..core.problem_definition import *
@@ -250,7 +250,10 @@ class ProblemInstance:
       # TODO: Better type than Callable.
       transform: Callable,
       dump_ir_to_file: str = '',
-      zero_at_each_iteration: bool = False):
+      zero_at_each_iteration: bool = False,
+      # TODO: Hardware configuration object.
+      avx512: bool = True,
+      prefer_vector_width: int = 512):
     assert self.compile_time_problem_sizes_dict is None, \
         f'Problem already compiled, please instantiate a new problem'
     self.__assert_matching_mapping_keys(compile_time_problem_sizes_dict)
@@ -268,6 +271,10 @@ class ProblemInstance:
 
         func = self.problem_definition.build_problem_under_context_manager(
             fun_to_benchmark_name, types, zero_at_each_iteration)
+        # TODO: prefer-vector-width
+        attach_passthrough(
+            func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+            avx512=avx512)
         wrapper = emit_benchmarking_function(entry_point_name, func)
 
       def apply_transform_to_entry_point_name(module):
