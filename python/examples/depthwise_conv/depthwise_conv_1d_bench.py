@@ -16,9 +16,12 @@ op_name = 'linalg.depthwise_conv_1d_nwc_wc'
 ################################################################################
 
 # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-all_names = [ \
-  "DepthWiseConv1DExpert"
-            ]
+all_names = [                 \
+  "SingleTiling3D4x16x3Peel", \
+  "SingleTiling3D5x16x3Peel", \
+  "SingleTiling3D6x16x3Peel", \
+  "SingleTiling3D8x16x3Peel", \
+]
 
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
@@ -26,10 +29,31 @@ all_experts = [
         Tile(fun_name=fun_name,
              op_name=op_name,
              #           N  W   C  KW
-             # tile_sizes=[1, 4, 16, 3]
-             tile_sizes=[4, 4, 16, 3])
+             tile_sizes=[1, 4, 16, 3],
+             peel=[0,1,2,3])
           .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N  W   C  KW
+             tile_sizes=[1, 5, 16, 3],
+             peel=[0,1,2,3])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N  W   C  KW
+             tile_sizes=[1, 6, 16, 3],
+             peel=[0,1,2,3])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N  W   C  KW
+             tile_sizes=[1, 8, 16, 3],
+             peel=[0,1,2,3])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
     ]
 ]
 

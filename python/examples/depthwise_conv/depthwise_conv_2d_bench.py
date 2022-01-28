@@ -16,9 +16,11 @@ op_name = 'linalg.depthwise_conv_2d_nhwc_hwc'
 ################################################################################
 
 # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-all_names = [  \
-  "DepthWiseConv2DExpert"
-            ]
+all_names = [                                  \
+  "DoubleTileAndDecompose8x14x32then7x32x1x3", \
+  "DoubleTileAndDecompose4x14x32then8x32x1x3", \
+  "DoubleTileAndDecompose8x16x32then8x32x1x3", \
+  ]
 
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
@@ -26,16 +28,36 @@ all_experts = [
         DoubleTileAndDecompose(
              fun_name=fun_name,
              op_name=op_name,
-             #           N   H   W   C KH, KW
+             #           N  H   W   C   KH, KW
              tile_sizes=[1, 8, 14, 32],
              peel=[0, 1, 2],
-             #           N  H  W   C KH, KW
+             #            N  H  W   C KH, KW
              tile_sizes2=[1, 1, 7, 32, 1, 3],
              peel2=[0, 1, 2])
-        .then(Vectorize(fun_name, ''))
-        .then(Bufferize())
-        .then(LowerVectors())
-        .then(LowerToLLVM())
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        DoubleTileAndDecompose(
+             fun_name=fun_name,
+             op_name=op_name,
+             #           N  H   W   C   KH, KW
+             tile_sizes=[1, 4, 14, 32],
+             peel=[0, 1, 2],
+             #            N  H  W   C KH, KW
+             tile_sizes2=[1, 1, 7, 32, 1, 3],
+             peel2=[0, 1, 2])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
+        DoubleTileAndDecompose(
+             fun_name=fun_name,
+             op_name=op_name,
+             #           N  H   W   C   KH, KW
+             tile_sizes=[1, 8, 16, 32],
+             peel=[0, 1, 2],
+             #            N  H  W   C KH, KW
+             tile_sizes2=[1, 1, 8, 32, 1, 3],
+             peel2=[0, 1, 2])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name)),
     ]
 ]
 
