@@ -110,6 +110,8 @@ def main():
       line_num = line_num + 1
       stripped = line.strip()
       parser.parse_next(line, line_num)
+    # Concat data one last time to account for lack of '#########' at the end.
+    parser.concat_new_data()
 
   # Group by problem size, take the p50-max idx.
   best_experts = parser.data.loc[parser.data.groupby(
