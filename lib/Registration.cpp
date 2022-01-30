@@ -17,10 +17,10 @@
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/StdInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/VectorInterfaceImpl.h"
+#include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/StandardOps/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
@@ -87,7 +87,6 @@ void registerTestPasses() {
 //===----------------------------------------------------------------------===//
 
 void mlir::registerOutsideOfDialectRegistry() {
-  registerAllPasses();
   registerDriverPasses();
   linalg_ext::registerLinalgExtPasses();
   registerExperimentalPasses();
@@ -110,14 +109,11 @@ void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
   arith::registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::linalg_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::scf_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::std_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
+  scf::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::registerBufferizableOpInterfaceExternalModels(registry);
   linalg::comprehensive_bufferize::std_ext::
       registerModuleBufferizationExternalModels(registry);
   tensor::registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::comprehensive_bufferize::vector_ext::
-      registerBufferizableOpInterfaceExternalModels(registry);
+  vector::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::linalg_ext::registerBufferizableOpInterfaceExternalModels(registry);
 }

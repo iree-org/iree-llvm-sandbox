@@ -32,7 +32,7 @@ def Linalg_Transform_Dialect : Dialect {
 //     type) targeted by this transformation, if available;
 //   - `Optional<SymbolRefAttr> matcher()` - returns the name of the PDL matcher
 //     that selects the ops targeted by this transformation, if provided.
-class Linalg_Transform_Operation<string name, list<OpTrait> props = []>
+class Linalg_Transform_Operation<string name, list<Trait> props = []>
     : Op<Linalg_Transform_Dialect, name, props> {
   let cppNamespace = "::mlir::linalg::transform";
 }

@@ -9,7 +9,7 @@
 #include "Dialects/VectorExt/VectorExtOps.h"
 #include "Dialects/VectorExt/VectorExtWarpUtils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Support/LogicalResult.h"

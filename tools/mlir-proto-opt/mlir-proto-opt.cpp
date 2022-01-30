@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Registration.h"
+#include "mlir/InitAllPasses.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/Support/MlirOptMain.h"
 #include "llvm/Support/CommandLine.h"
@@ -23,7 +24,10 @@ using namespace mlir;
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
+  registerAllPasses();
   registerOutsideOfDialectRegistry();
+
+  // TODO: Find a way to register test passes here.
 
   DialectRegistry registry;
   registerIntoDialectRegistry(registry);
