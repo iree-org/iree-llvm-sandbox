@@ -15,6 +15,9 @@ names_to_translate = {
     'transpose_2d': 'Transpose2D',
     'row_reduction_2d': 'RowRed2D',
     'column_reduction_2d': 'ColRed2D',
+    'matmul_mkkn': 'AB',
+    'matmul_kmkn': 'A^TB',
+    'matmul_mknk': 'AB^T',
 }
 
 

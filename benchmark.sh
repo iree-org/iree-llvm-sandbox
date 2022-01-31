@@ -239,3 +239,6 @@ function run_all_benchmarks() {
 
 # L3 bandwidth bound
 # python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/l3_benchmarks/copy_2d_static_l3_repro.data,${BASE_EXP_DIR}/l3_benchmarks/transpose_2d_static_l3_repro.data,${BASE_EXP_DIR}/l3_benchmarks/row_reduction_2d_static_l3_repro.data,${BASE_EXP_DIR}/l3_benchmarks/column_reduction_2d_static_l3_repro.data --output bandwidth-bound-l3.pdf --plot_name "Bandwidth-bound Experiments (L1-bound)" --metric_to_plot "gbyte_per_s_per_iter"  --sizes_to_plot="m=250,n=960;m=5500,n=64;m=100,n=3840;m=3000,n=128;m=250,n=1920;m=100,n=5760;m=9500,n=64;m=250,n=2560;m=1000,n=640;m=250,n=3840;m=1000,n=960;m=800,n=1280;m=9500,n=128;m=1000,n=1280;m=12000,n=128;m=16000,n=128" --benchmarks_to_plot "copy_2d,transpose_2d,column_reduction_2d,row_reduction_2d"
+
+# Matmul
+# python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/matmul/matmul_kmkn_repro.data,${BASE_EXP_DIR}/matmul/matmul_mkkn_repro.data,${BASE_EXP_DIR}/matmul/matmul_mknk_repro.data --output matmul.pdf --plot_name "Matrix Multiplication" --metric_to_plot "gflop_per_s_per_iter"
