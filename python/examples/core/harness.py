@@ -52,12 +52,14 @@ class Measurements:
     "expert",
     "np_types",
     "dynamic_at_compile_time",
-    "runtime_problem_sizes_dict"
+    "runtime_problem_sizes_dict",
+    "total_gflops",
+    "total_gbytes",
                 ]
   data_keys = [ \
       "elapsed_s_per_iter",
       "gbyte_per_s_per_iter",
-      "gflop_per_s_per_iter"
+      "gflop_per_s_per_iter",
               ]
 
   def __init__(self):
@@ -68,7 +70,7 @@ class Measurements:
              np_types: Sequence[np.dtype],
              dynamic_at_compile_time_sizes: AbstractSet[str],
              runtime_problem_sizes_dict: Mapping[str, ProblemSizes],
-             timing_results_dict: TimingResults):
+             gflops: int, gbytes: int, timing_results_dict: TimingResults):
     """Append measurement results."""
     config = pandas.DataFrame(
         dict(
@@ -76,7 +78,8 @@ class Measurements:
                 [[function_name], [expert_name],
                  [self._stringify_types(np_types)],
                  [self._stringify_set(dynamic_at_compile_time_sizes)],
-                 [self._stringify_dict(runtime_problem_sizes_dict)]])))
+                 [self._stringify_dict(runtime_problem_sizes_dict)], [gflops],
+                 [gbytes]])))
     results = pandas.DataFrame(
         dict([(k, timing_results_dict[k]) for k in self.data_keys]))
     # Cross-product: add an identical fake key to both data frames,
@@ -112,8 +115,12 @@ class Measurements:
     """Dump the measurements to a raw file by appending."""
     all_data = None
     value_column_names = [
-        'runtime_problem_sizes_dict', 'elapsed_s_per_iter',
-        'gbyte_per_s_per_iter', 'gflop_per_s_per_iter'
+        'runtime_problem_sizes_dict',
+        'total_gbytes',
+        'total_gflops',
+        'elapsed_s_per_iter',
+        'gbyte_per_s_per_iter',
+        'gflop_per_s_per_iter',
     ]
     # Filter the slowest to isolate the compulsory miss effects.
     # Drop the first index matching every key_value (i.e. the first measurement)
@@ -545,9 +552,19 @@ def test_harness(problem_factory: Callable[
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
 
-        measurements.append(function_name, expert_name, np_types,
-                            dynamic_at_compile_time_sizes,
-                            runtime_problem_sizes_dict, timing_results)
+        gflops = problem_definition.gflop_count_builder(problem_sizes_dict)
+        gbytes = problem_definition.gbyte_count_builder(problem_sizes_dict,
+                                                        np_types)
+        measurements.append(
+            function_name,
+            expert_name,
+            np_types,
+            dynamic_at_compile_time_sizes,
+            runtime_problem_sizes_dict,
+            gflops,
+            gbytes,
+            timing_results,
+        )
 
       problem_definition = problem_factory(problem_sizes_dict, np_types)
       gflops = problem_definition.gflop_count_builder(problem_sizes_dict)

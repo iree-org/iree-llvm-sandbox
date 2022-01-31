@@ -205,7 +205,7 @@ function run_one_and_append_results_to_data() {
 
   unset SANDBOX_INLINING
 
-  prepare_data_collection ${BENCH_DIR}/${BENCH_DIR}.data
+  prepare_data_collection ${BENCH_DIR}/${benchmark}.data
   ${benchmark}
 }
 
