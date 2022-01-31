@@ -22,10 +22,13 @@ def _parse_arguments() -> argparse.Namespace:
   """Plot argument parser.
   """
   parser = argparse.ArgumentParser(description="Plot")
-  parser.add_argument("--input",
-                      type=str,
-                      required=True,
-                      help="input data filename (e.g., --input input)")
+  parser.add_argument(
+      "--inputs",
+      type=str,
+      required=True,
+      help=
+      "comma-separated list of input data filenames (e.g., --input input1,input2)\n"
+      + "The data for multiple files is concatenated into a single graph.")
   parser.add_argument("--output",
                       type=str,
                       required=True,
@@ -58,7 +61,6 @@ def _parse_arguments() -> argparse.Namespace:
                       type=str,
                       required=True,
                       choices=["gflop_per_s_per_iter", "gbyte_per_s_per_iter"])
-
 
   ###############################################################################
   # Not used atm
@@ -156,11 +158,15 @@ def get_sizes_to_plot(data, args):
 def main():
   args = _parse_arguments()
 
-  if not os.path.exists(args.input):
-    print(f'{args.input} does not exist')
-    return
-
-  data = pandas.read_json(args.input)
+  data = None
+  for file in args.inputs.split(','):
+    print(f'Processing {file}')
+    if not os.path.exists(file):
+      print(f'{file} does not exist')
+      return
+    read_data = pandas.read_json(file)
+    print(read_data)
+    data = read_data if data is None else pandas.concat([data, read_data])
 
   if args.print_available_benchmarks:
     print_available_benchmarks_and_exit(data, args)
@@ -181,46 +187,69 @@ def main():
   def compute_volume(problem_size):
     sizes = [int(size.split('=')[1]) for size in problem_size.split(',')]
     return np.prod(sizes)
+
+  def get_index(x):
+    idx = -1
+    for v in benchmarks_to_plot:
+      idx = idx + 1
+      if v == x:
+        return idx
+    assert False, f'Could not find {x} in {benchmarks_to_plot}'
+
   data_to_plot['problem_volume'] = data_to_plot[problem_size_key(
       data_to_plot)].apply(compute_volume)
   # Add helper column that maps benchmark name to its index.
+  print(data_to_plot[benchmark_key(data_to_plot)])
   data_to_plot['benchmark_index'] = data_to_plot[benchmark_key(
-      data_to_plot)].apply(lambda x: benchmarks_to_plot.index(x))
+      data_to_plot)].apply(get_index)
   # Sort by problem volume and benchmark index.
   data_to_plot = data_to_plot.sort_values(
       by=['problem_volume', 'benchmark_index'], ascending=(True, True))
   sizes_to_plot = list(
       data_to_plot[problem_size_key(data_to_plot)].drop_duplicates())
 
+  # # Sort by problem volume and benchmark index.
+  # data_to_plot = data_to_plot.sort_values(by=['problem_volume'], kind='stable')
+  # print(data_to_plot)
+  # sizes_to_plot = list(
+  #     data_to_plot[problem_size_key(data_to_plot)].drop_duplicates())
+
   # Keep only the relevant columns.
-  data_to_plot = data_to_plot[[benchmark_key(
-      data_to_plot), problem_size_key(data_to_plot), args.metric_to_plot]]
+  data_to_plot = data_to_plot[[
+      benchmark_key(data_to_plot),
+      problem_size_key(data_to_plot), args.metric_to_plot
+  ]]
 
   # Compute the quartiles.
   data_lower_quart = data_to_plot.groupby(
-      [benchmark_key(data_to_plot), problem_size_key(data_to_plot)]).quantile(0.25)
+      [benchmark_key(data_to_plot),
+       problem_size_key(data_to_plot)]).quantile(0.25)
   data_upper_quart = data_to_plot.groupby(
-      [benchmark_key(data_to_plot), problem_size_key(data_to_plot)]).quantile(0.75)
+      [benchmark_key(data_to_plot),
+       problem_size_key(data_to_plot)]).quantile(0.75)
+  print(data_lower_quart)
+  print(data_upper_quart)
 
   fig = plt.figure(figsize=(9.66, 6))
   ax = seaborn.barplot(x=problem_size_key(data_to_plot),
-                  y=args.metric_to_plot,
-                  hue=benchmark_key(data_to_plot),
-                  data=data_to_plot,
-                  estimator=median,
-                  ci=None)
+                       y=args.metric_to_plot,
+                       hue=benchmark_key(data_to_plot),
+                       data=data_to_plot,
+                       estimator=median,
+                       ci=None)
 
   maximum = 0
   for idx, p in enumerate(ax.patches):
-    benchmark = benchmarks_to_plot[idx//len(sizes_to_plot)]
-    size = sizes_to_plot[idx%len(sizes_to_plot)]
+    benchmark = benchmarks_to_plot[idx // len(sizes_to_plot)]
+    size = sizes_to_plot[idx % len(sizes_to_plot)]
     lower = data_lower_quart.loc[benchmark, size][args.metric_to_plot]
     upper = data_upper_quart.loc[benchmark, size][args.metric_to_plot]
     maximum = max(maximum, upper)
     ax.errorbar(p.get_x() + p.get_width() / 2, lower, upper - lower, color="k")
     ax.annotate(format(p.get_height(), '.1f'),
                 (p.get_x() + p.get_width() / 2., upper),
-                ha='center', va='bottom',
+                ha='center',
+                va='bottom',
                 xytext=(0, 2),
                 textcoords='offset points',
                 rotation=90,
@@ -229,9 +258,13 @@ def main():
   ax.tick_params(axis="x", rotation=20)
   ax.legend(ncol=4,
             loc='upper right',
-            labels=[names_to_translate[text.get_text()]
-            for text in ax.get_legend().get_texts()], title='', frameon=False)
-  ax.set_ylim(bottom=0, top=maximum*1.15)
+            labels=[
+                names_to_translate[text.get_text()]
+                for text in ax.get_legend().get_texts()
+            ],
+            title='',
+            frameon=False)
+  ax.set_ylim(bottom=0, top=maximum * 1.15)
   ax.margins(x=0.01)
   plt.xlabel(names_to_translate[problem_size_key(data)])
   plt.ylabel(names_to_translate[args.metric_to_plot])
