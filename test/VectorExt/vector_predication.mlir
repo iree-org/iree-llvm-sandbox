@@ -27,33 +27,40 @@ func @tiled_loop_1d(%arg0: tensor<?xf32>,
 }
 
 // CHECK-LABEL:   func @tiled_loop_1d(
-// CHECK:           %[[ZERO:.*]] = arith.constant 0 : index
-// CHECK:           %[[STEP:.*]] = arith.constant 8 : index
-// CHECK:           %[[UB:.*]] = tensor.dim
-// CHECK:           linalg.tiled_loop (%[[IV:.*]]) = (%[[ZERO]]) to (%[[UB]]) step (%[[STEP]])
-// CHECK-NEXT:        %[[PRED_MIN:.*]] = affine.min #map0(%[[UB]], %[[IV]])
-// CHECK-NEXT:        %[[PRED:.*]] = vector.create_mask %[[PRED_MIN]] : vector<8xi1>
-// CHECK-NEXT:        %[[PRED_RES:.*]] = vector_ext.predicate(%[[PRED]]: vector<8xi1>) -> (tensor<?xf32>) {
-// CHECK-NEXT:          %[[VAL_15:.*]] = affine.min #map1(%[[IV]])[%[[UB]]]
-// CHECK-NEXT:          %[[VAL_16:.*]] = tensor.extract_slice %{{.*}}[%[[IV]]] [%[[VAL_15]]] [1] : tensor<?xf32> to tensor<?xf32>
-// CHECK-NEXT:          %[[VAL_17:.*]] = affine.min #map1(%[[IV]])[%[[UB]]]
-// CHECK-NEXT:          %[[VAL_18:.*]] = tensor.extract_slice %{{.*}}[%[[IV]]] [%[[VAL_17]]] [1] : tensor<?xf32> to tensor<?xf32>
-// CHECK-NEXT:          %[[VAL_19:.*]] = affine.min #map1(%[[IV]])[%[[UB]]]
-// CHECK-NEXT:          %[[VAL_20:.*]] = tensor.extract_slice %{{.*}}[%[[IV]]] [%[[VAL_19]]] [1] : tensor<?xf32> to tensor<?xf32>
-// CHECK-NEXT:          %[[VAL_21:.*]] = linalg.generic {indexing_maps = [#map2, #map2, #map2], iterator_types = ["parallel"]} ins(%[[VAL_16]], %[[VAL_18]] : tensor<?xf32>, tensor<?xf32>) outs(%[[VAL_20]] : tensor<?xf32>) {
-// CHECK-NEXT:          ^bb0(%[[VAL_22:.*]]: f32, %[[VAL_23:.*]]: f32, %[[VAL_24:.*]]: f32):
-// CHECK-NEXT:            %[[VAL_25:.*]] = arith.addf %[[VAL_22]], %[[VAL_23]] : f32
-// CHECK-NEXT:            linalg.yield %[[VAL_25]] : f32
-// CHECK-NEXT:          } -> tensor<?xf32>
-// CHECK-NEXT:          %[[VAL_26:.*]] = tensor.insert_slice %[[VAL_21]] into %{{.*}}[%[[IV]]] [%[[VAL_19]]] [1] : tensor<?xf32> into tensor<?xf32>
-// CHECK-NEXT:          vector_ext.yield %[[VAL_26]] : tensor<?xf32>
-// CHECK-NEXT:        }
-// CHECK-NEXT:        linalg.yield %[[PRED_RES:.*]] : tensor<?xf32>
+// CHECK-SAME:                        %[[VAL_0:.*]]: tensor<?xf32>, %[[VAL_1:.*]]: tensor<?xf32>) -> tensor<?xf32> {
+// CHECK:           %[[VAL_2:.*]] = arith.constant 0 : index
+// CHECK:           %[[VAL_3:.*]] = arith.constant 8 : index
+// CHECK:           %[[VAL_4:.*]] = tensor.dim %[[VAL_0]], %[[VAL_2]] : tensor<?xf32>
+// CHECK:           %[[VAL_5:.*]] = linalg.init_tensor [%[[VAL_4]]] : tensor<?xf32>
+// CHECK:           %[[VAL_6:.*]] = linalg.tiled_loop (%[[VAL_7:.*]]) = (%[[VAL_2]]) to (%[[VAL_4]]) step (%[[VAL_3]]) ins (%[[VAL_8:.*]] = %[[VAL_0]]: tensor<?xf32>, %[[VAL_9:.*]] = %[[VAL_1]]: tensor<?xf32>) outs (%[[VAL_10:.*]] = %[[VAL_5]]: tensor<?xf32>) {
+// CHECK:             %[[VAL_11:.*]] = affine.min #map0(%[[VAL_4]], %[[VAL_7]])
+// CHECK:             %[[VAL_12:.*]] = vector.create_mask %[[VAL_11]] : vector<8xi1>
+// CHECK:             %[[VAL_13:.*]] = arith.constant dense<true> : vector<8xi1>
+// CHECK:             %[[VAL_14:.*]] = vector_ext.predicate(%[[VAL_12]], [%[[VAL_7]]], %[[VAL_13]]) : vector<8xi1> -> (tensor<?xf32>) {
+// CHECK:             ^bb0(%[[VAL_15:.*]]: vector<8xi1>):
+// CHECK:               %[[VAL_16:.*]] = affine.min #map1(%[[VAL_7]])[%[[VAL_4]]]
+// CHECK:               %[[VAL_17:.*]] = tensor.extract_slice %[[VAL_8]][%[[VAL_7]]] [%[[VAL_16]]] [1] : tensor<?xf32> to tensor<?xf32>
+// CHECK:               %[[VAL_18:.*]] = affine.min #map1(%[[VAL_7]])[%[[VAL_4]]]
+// CHECK:               %[[VAL_19:.*]] = tensor.extract_slice %[[VAL_9]][%[[VAL_7]]] [%[[VAL_18]]] [1] : tensor<?xf32> to tensor<?xf32>
+// CHECK:               %[[VAL_20:.*]] = affine.min #map1(%[[VAL_7]])[%[[VAL_4]]]
+// CHECK:               %[[VAL_21:.*]] = tensor.extract_slice %[[VAL_10]][%[[VAL_7]]] [%[[VAL_20]]] [1] : tensor<?xf32> to tensor<?xf32>
+// CHECK:               %[[VAL_22:.*]] = linalg.generic {indexing_maps = [#map2, #map2, #map2], iterator_types = ["parallel"]} ins(%[[VAL_17]], %[[VAL_19]] : tensor<?xf32>, tensor<?xf32>) outs(%[[VAL_21]] : tensor<?xf32>) {
+// CHECK:               ^bb0(%[[VAL_23:.*]]: f32, %[[VAL_24:.*]]: f32, %[[VAL_25:.*]]: f32):
+// CHECK:                 %[[VAL_26:.*]] = arith.addf %[[VAL_23]], %[[VAL_24]] : f32
+// CHECK:                 linalg.yield %[[VAL_26]] : f32
+// CHECK:               } -> tensor<?xf32>
+// CHECK:               %[[VAL_27:.*]] = tensor.insert_slice %[[VAL_28:.*]] into %[[VAL_10]][%[[VAL_7]]] [%[[VAL_20]]] [1] : tensor<?xf32> into tensor<?xf32>
+// CHECK:               vector_ext.yield %[[VAL_27]] : tensor<?xf32>
+// CHECK:             }
+// CHECK:             linalg.yield %[[VAL_29:.*]] : tensor<?xf32>
+// CHECK:           }
+// CHECK:           return %[[VAL_30:.*]] : tensor<?xf32>
+// CHECK:         }
 
 // -----
 
 func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
-                 %pred0: vector<16xi1>) {
+%pred0: vector<16xi1>, %idx0 : index, %incoming: vector<16xi1>) {
   %c0 = arith.constant 0 : index
   %f0 = arith.constant 0.0 : f32
   %0 = vector.transfer_read %arg0[%c0], %f0 {in_bounds = [true]} : memref<?xf32>, vector<16xf32>
@@ -64,13 +71,16 @@ func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
 
 // CHECK-LABEL:   func @func_pred0(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?xf32>, %[[VAL_1:.*]]: memref<?xf32>,
-// CHECK-SAME:                     %[[VAL_2:.*]]: vector<16xi1>) {
-// CHECK-NEXT:      vector_ext.predicate(%[[VAL_2]]: vector<16xi1>) {
-// CHECK-NEXT:        %[[VAL_3:.*]] = arith.constant 0 : index
-// CHECK-NEXT:        %[[VAL_4:.*]] = arith.constant 0.000000e+00 : f32
-// CHECK-NEXT:        %[[VAL_5:.*]] = vector.transfer_read %[[VAL_0]]{{\[}}%[[VAL_3]]], %[[VAL_4]] {in_bounds = [true]} : memref<?xf32>, vector<16xf32>
-// CHECK-NEXT:        %[[VAL_6:.*]] = arith.addf %[[VAL_5]], %[[VAL_5]] : vector<16xf32>
-// CHECK-NEXT:        vector.transfer_write %[[VAL_6]], %[[VAL_1]]{{\[}}%[[VAL_3]]] {in_bounds = [true]} : vector<16xf32>, memref<?xf32>
-// CHECK-NEXT:      }
-// CHECK-NEXT:      return
-// CHECK-NEXT:    }
+// CHECK-SAME:                     %[[VAL_2:.*]]: vector<16xi1>,
+// CHECK-SAME:                     %[[VAL_3:.*]]: index,
+// CHECK-SAME:                     %[[VAL_4:.*]]: vector<16xi1>) {
+// CHECK:           vector_ext.predicate(%[[VAL_2]], [%[[VAL_3]]], %[[VAL_4]]) : vector<16xi1> {
+// CHECK:           ^bb0(%[[VAL_5:.*]]: vector<16xi1>):
+// CHECK:             %[[VAL_6:.*]] = arith.constant 0 : index
+// CHECK:             %[[VAL_7:.*]] = arith.constant 0.000000e+00 : f32
+// CHECK:             %[[VAL_8:.*]] = vector.transfer_read %[[VAL_0]][%[[VAL_6]]], %[[VAL_7]] {in_bounds = [true]} : memref<?xf32>, vector<16xf32>
+// CHECK:             %[[VAL_9:.*]] = arith.addf %[[VAL_8]], %[[VAL_8]] : vector<16xf32>
+// CHECK:             vector.transfer_write %[[VAL_9]], %[[VAL_1]][%[[VAL_6]]] {in_bounds = [true]} : vector<16xf32>, memref<?xf32>
+// CHECK:           }
+// CHECK:           return
+// CHECK:         }

@@ -5,7 +5,7 @@
 // RUN:   -shared-libs=%mlir_runner_utils_dir/libmlir_c_runner_utils%shlibext | \
 // RUN: FileCheck %s
 
-func @func_pred0(%arg0: memref<8xf32>, %pred0: vector<8xi1>) {
+func @func_pred0(%arg0: memref<8xf32>, %pred: vector<8xi1>, %idx: index, %incoming: vector<8xi1>) {
   %c0 = arith.constant 0 : index
   %f0 = arith.constant 0.0 : f32
   %0 = vector.transfer_read %arg0[%c0], %f0 {in_bounds = [true]} : memref<8xf32>, vector<8xf32>
@@ -21,12 +21,13 @@ func @entry() {
   %init_val = arith.constant dense<3.0> : vector<8xf32>
   vector.transfer_write %init_val, %buf[%c0] {in_bounds = [true]} : vector<8xf32>, memref<8xf32>
 
-  %mask = arith.constant dense<[0, 0, 1, 1, 1, 1, 0, 0]> : vector<8xi1>
-  call @func_pred0(%buf, %mask) : (memref<8xf32>, vector<8xi1>) -> ()
+  %pred_mask = arith.constant dense<[0, 0, 1, 1, 1, 1, 0, 0]> : vector<8xi1>
+  %incoming_mask = arith.constant dense<[1, 1, 1, 1, 0, 0, 0, 0]> : vector<8xi1>
+  call @func_pred0(%buf, %pred_mask, %c0, %incoming_mask) : (memref<8xf32>, vector<8xi1>, index, vector<8xi1>) -> ()
 
   %res = vector.transfer_read %buf[%c0], %f0 {in_bounds = [true]} : memref<8xf32>, vector<8xf32>
   vector.print %res : vector<8xf32>
   return
 }
 
-// CHECK: ( 3, 3, 6, 6, 6, 6, 3, 3 )
+// CHECK: ( 3, 3, 6, 6, 3, 3, 3, 3 )

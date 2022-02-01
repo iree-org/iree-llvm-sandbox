@@ -26,23 +26,28 @@ void mlir::vector_ext::buildTerminatedBody(OpBuilder &builder, Location loc) {
 }
 
 void PredicateOp::build(OpBuilder &builder, OperationState &result,
-                        Value predicate) {
-  build(builder, result, /*resultTypes=*/llvm::None, predicate);
+                        Value predicateMask, ValueRange indices,
+                        Value incomingMask) {
+  build(builder, result, /*resultTypes=*/llvm::None, predicateMask, indices,
+        incomingMask);
 }
 
 void PredicateOp::build(
     OpBuilder &builder, OperationState &result, TypeRange resultTypes,
-    Value predicate,
+    Value predicateMask, ValueRange indices, Value incomingMask,
     function_ref<void(OpBuilder &, Location)> truePredicateBuilder) {
   assert(truePredicateBuilder &&
          "the builder callback for 'truePredicate' must be present");
 
-  result.addOperands(predicate);
+  result.addOperands(predicateMask);
+  result.addOperands(indices);
+  result.addOperands(incomingMask);
   result.addTypes(resultTypes);
 
   OpBuilder::InsertionGuard guard(builder);
   Region *truePredicateRegion = result.addRegion();
-  builder.createBlock(truePredicateRegion);
+  Block *bodyBlock = builder.createBlock(truePredicateRegion);
+  bodyBlock->addArgument(predicateMask.getType(), result.location);
   truePredicateBuilder(builder, result.location);
 }
 
@@ -53,26 +58,33 @@ static ParseResult parsePredicateOp(OpAsmParser &parser,
   Region *truePredicateRegion = result.addRegion();
 
   auto &builder = parser.getBuilder();
-  OpAsmParser::OperandType predicate;
-  Type predicateType;
 
-  // Parse predicate operand.
-  if (parser.parseLParen() || parser.parseRegionArgument(predicate) ||
-      parser.parseColonType(predicateType) || parser.parseRParen())
+  // Parse all the operands.
+  OpAsmParser::OperandType predicateMask;
+  OpAsmParser::OperandType incomingMask;
+  SmallVector<OpAsmParser::OperandType> indices;
+  if (parser.parseLParen() || parser.parseRegionArgument(predicateMask) ||
+      parser.parseComma() ||
+      parser.parseOperandList(indices, AsmParser::Delimiter::Square) ||
+      parser.parseComma() || parser.parseRegionArgument(incomingMask) ||
+      parser.parseRParen())
     return failure();
 
-  // Check that the predicate type is a vector of i1 elements with static shape.
-  VectorType vecType = predicateType.dyn_cast<VectorType>();
-  if (!vecType || !vecType.hasStaticShape() ||
-      vecType.getElementTypeBitWidth() != 1)
+  // Parse predicate type.
+  Type maskType;
+  if (parser.parseColonType(maskType))
     return failure();
 
-  if (parser.resolveOperand(predicate, predicateType, result.operands))
+  if (parser.resolveOperand(predicateMask, maskType, result.operands) ||
+      parser.resolveOperands(indices, IndexType::get(builder.getContext()),
+                             result.operands) ||
+      parser.resolveOperand(incomingMask, maskType, result.operands))
     return failure();
 
   // Parse optional results type list.
   if (parser.parseOptionalArrowTypeList(result.types))
     return failure();
+
   // Parse the 'truePredicate' region.
   if (parser.parseRegion(*truePredicateRegion, /*arguments=*/{},
                          /*argTypes=*/{}))
@@ -88,7 +100,8 @@ static ParseResult parsePredicateOp(OpAsmParser &parser,
 static void print(OpAsmPrinter &p, PredicateOp op) {
   bool printBlockTerminators = false;
 
-  p << "(" << op.predicate() << ": " << op.predicate().getType() << ")";
+  p << "(" << op.predicateMask() << ", [" << op.indices() << "], "
+    << op.incomingMask() << ") : " << op.predicateMask().getType();
   if (!op.results().empty()) {
     p << " -> (" << op.getResultTypes() << ")";
     // Print yield explicitly if the op defines values.
@@ -96,7 +109,7 @@ static void print(OpAsmPrinter &p, PredicateOp op) {
   }
   p << " ";
   p.printRegion(op.truePredicateRegion(),
-                /*printEntryBlockArgs=*/false,
+                /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/printBlockTerminators);
 
   p.printOptionalAttrDict(op->getAttrs());
