@@ -6,7 +6,7 @@ MLIR, and LLVM.
 
 This repository contains experimental work by the IREE team closely related to
 LLVM and MLIR, usually with the aim of upstreaming in some form. The main
-project is at https://github.com/google/iree.
+project is at <https://github.com/google/iree>.
 
 As an experimental project, build greenness, documentation, and polish are
 likely to be minimal, as it instead prioritizes easy experimentation.
@@ -33,12 +33,12 @@ In your `$HOME/src` directory, check out each project:
 
 Required:
 
-*   `git clone https://github.com/google/iree-llvm-sandbox`
+* `git clone https://github.com/google/iree-llvm-sandbox`
 
 We use the following environment variables defaults in these instructions:
 
-*   `IREE_LLVM_SANDBOX_SOURCE_DIR`: $HOME/src/iree-llvm-sandbox
-*   `IREE_LLVM_SANDBOX_BUILD_DIR`: ${IREE_LLVM_SANDBOX_SOURCE_DIR}/build
+* `IREE_LLVM_SANDBOX_SOURCE_DIR`: $HOME/src/iree-llvm-sandbox
+* `IREE_LLVM_SANDBOX_BUILD_DIR`: ${IREE_LLVM_SANDBOX_SOURCE_DIR}/build
 
 ## Python prerequisites (if using Python)
 
@@ -53,12 +53,12 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Configure and build.
+## Configure and build
 
 The sandbox can be optionally built with or without IREE integration (for
 accessing IREE specific IR and evaluating on IREE compatible targets):
 
-### Building with IREE.
+### Building with IREE
 
 Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
 directory and initialize submodules:
@@ -75,7 +75,7 @@ python configure.py --iree-path=../iree
 
 Note that the `third_party/llvm-project` bundled with IREE will be used.
 
-### Building without IREE.
+### Building without IREE
 
 You must checkout [llvm-project](https://github.com/llvm/llvm-project) at a
 compatible commit.
@@ -116,22 +116,23 @@ python -m python.examples.matmul.test
 
 TODOs:
 
-1.  hook up a lit test target.
-2.  re-add npcomp instructions once it is upgraded to use the same build setup.
-
+1. hook up a lit test target.
+2. re-add npcomp instructions once it is upgraded to use the same build setup.
 
 ## Running tests
 
 The following commands either run the lit tests only or all tests:
+
 ```
 # Run lit tests
 lit -v test
 # Run python and lit tests
 python ./run_tests.py
 ```
+
 The lit configuration file `test/lit.cfg.py` contains a list of excluded tests.
 
-# Benchmark commands.
+# Benchmark commands
 
 Adaptation of recommended benchmark instructions found [here](https://llvm.org/docs/Benchmarking.html).
 Run the following as root.
@@ -157,8 +158,8 @@ echo 0 > /sys/devices/system/cpu/cpu40/online
 # For reference, cset shield does not seem to run as expected on at least 2 systems.
 # cset shield -c 4 --user=${RUN_AS_USER} -k on --userset=${RUN_AS_USER}
 # Instead, reproduce the follwing: https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
-#
-# cset set -c 0-3,5-39,41-71 -s system -s system
+
+cset set -c 0-3,5-39,41-71 -s system -s system
 cset set -s sandbox -c 4 -m 0 --cpu_exclusive
 cset proc -m -f root -t system
 
