@@ -1,4 +1,4 @@
-import argparse, pandas, os, random, seaborn, sys
+import argparse, pandas, os, random, seaborn, sys, re
 import numpy as np
 from unicodedata import name
 from numpy import median
@@ -15,9 +15,24 @@ names_to_translate = {
     'transpose_2d': 'Transpose2D',
     'row_reduction_2d': 'RowRed2D',
     'column_reduction_2d': 'ColRed2D',
-    'matmul_mkkn': 'AB',
-    'matmul_kmkn': 'A^TB',
-    'matmul_mknk': 'AB^T',
+    'matmul_kmkn': '$A^TB$',
+    'matmul_mkkn': '$AB$',
+    'matmul_mknk': '$AB^T$',
+    'conv_1d_nwc_wcf_main': 'Conv1D',
+    'conv_2d_nhwc_hwcf_main': 'Conv2D',
+    'depthwise_conv_2d_nhwc_hwc': 'DepthwiseConv2D',
+    'depthwise_conv_1d_nwc_wc_1_1': 'str.=[1],dil.=[1]',
+    'depthwise_conv_1d_nwc_wc_1_2': 'str.=[1],dil.=[2]',
+    'depthwise_conv_1d_nwc_wc_2_1': 'str.=[2],dil.=[1]',
+    'depthwise_conv_1d_nwc_wc_2_2': 'str.=[2],dil.=[2]',
+    'conv_1d_nwc_wcf_main_1_1': 'str.=[1],dil.=[1]',
+    'conv_1d_nwc_wcf_main_2_1': 'str.=[2],dil.=[1]',
+    'conv_1d_nwc_wcf_main_1_2': 'str.=[1],dil.=[2]',
+    'conv_1d_nwc_wcf_main_2_2': 'str.=[2],dil.=[2]',
+    'conv_2d_nhwc_hwcf_main_11_11': 'str.=[1,1],dil.=[1,1]',
+    'conv_2d_nhwc_hwcf_main_22_11': 'str.=[2,2],dil.=[1,1]',
+    'conv_2d_nhwc_hwcf_main_11_22': 'str.=[1,1],dil.=[2,2]',
+    'conv_2d_nhwc_hwcf_main_22_22': 'str.=[2,2],dil.=[2,2]',
 }
 
 
@@ -64,6 +79,10 @@ def _parse_arguments() -> argparse.Namespace:
                       type=str,
                       required=True,
                       choices=["gflop_per_s_per_iter", "gbyte_per_s_per_iter"])
+  parser.add_argument("--group_by_strides_and_dilations",
+                      type=bool,
+                      required=False,
+                      help="plot separate bars for strides and dilations")
 
   ###############################################################################
   # Not used atm
@@ -106,6 +125,65 @@ def add_peak_lines(args, plot, key):
 ###############################################################################
 
 
+#### Tools to compute labels
+def compress_problem_sizes_label(labels):
+  """Shorten the problem size lables by removing redundant information.
+
+  Plotting the entire problem size configuration for every axis tick
+  requires a lot of space and results in overlapping labels. The method
+  identifies the dimensions that take different values and filters out
+  the dimensions that are constant for the entire plot. Additionally,
+  the dimension names (it suffices to plot them once) and sizes values
+  are returned seperately.
+
+  Example:
+  ["H=64,W=32", "H=64,W=64"]
+  ->
+  ["W"], ["32", "64"]
+  """
+  label_dicts = []
+  for label in labels:
+    groups = re.findall(r"""([a-zA-Z]+)=(\d+|\[[0-9, ]+\])""", label)
+    label_dicts.append(dict(groups))
+  # Collect all values for a specific key.
+  value_dict = {}
+  for label_dict in label_dicts:
+    for k, v in label_dict.items():
+      if k in value_dict:
+        value_dict[k].add(v)
+      else:
+        value_dict[k] = set([v])
+  # Collect the keys that have multiple values.
+  keys = []
+  for k, v in value_dict.items():
+    if len(v) != 1:
+      keys.append(k)
+  # Collect the keys for every label
+  new_labels = []
+  for label_dict in label_dicts:
+    new_labels.append(",".join([label_dict[k] for k in keys]))
+  return keys, new_labels
+
+
+def get_strides_and_dilations(size):
+  match1 = re.search(r"""strides=\[([0-9, ]+)\]""", size)
+  match2 = re.search(r"""dilations=\[([0-9, ]+)\]""", size)
+  suffixes = []
+  if match1:
+    suffixes.append("".join([x.strip() for x in match1.group(1).split(",")]))
+  if match2:
+    suffixes.append("".join([x.strip() for x in match2.group(1).split(",")]))
+  if suffixes:
+    return "_" + "_".join([suffix.strip() for suffix in suffixes])
+  return ""
+
+
+def remove_strides_and_dilations(size):
+  size = re.sub(r"""[,]*strides=\[[0-9, ]+\]""", "", size)
+  size = re.sub(r"""[,]*dilations=\[[0-9, ]+\]""", "", size)
+  return size
+
+
 #### Tools to query benchmarks info from dataframe
 def benchmark_key(data):
   return data.keys()[0]
@@ -128,7 +206,11 @@ def get_benchmarks_to_plot(data, args):
     print(f'Available benchmarks in the data set: {available_benchmarks}')
     return list(
         filter(lambda x: x in available_benchmarks, specified_benchmarks))
-  return get_unique_benchmarks(data)
+  return list(get_unique_benchmarks(data))
+
+
+def get_translated_name(name):
+  return names_to_translate.get(name, name)
 
 
 #### Tools to query problem_size info from dataframe
@@ -171,6 +253,14 @@ def main():
     print(read_data)
     data = read_data if data is None else pandas.concat([data, read_data])
 
+  # Add strides and dilations to the function name.
+  if args.group_by_strides_and_dilations:
+    data[benchmark_key(data)] = data[[
+        benchmark_key(data), problem_size_key(data)
+    ]].apply(lambda x: x[0] + get_strides_and_dilations(x[1]), axis=1)
+    data[problem_size_key(data)] = data[problem_size_key(data)].apply(
+        lambda x: remove_strides_and_dilations(x))
+
   if args.print_available_benchmarks:
     print_available_benchmarks_and_exit(data, args)
 
@@ -188,7 +278,13 @@ def main():
 
   # Add helper column that computes the problem volume.
   def compute_volume(problem_size):
-    sizes = [int(size.split('=')[1]) for size in problem_size.split(',')]
+    sizes = []
+    for size in problem_size.split(','):
+      try:
+        size = size.split('=')[1]
+        sizes.append(int(size))
+      except Exception:
+        pass
     return np.prod(sizes)
 
   def get_index(x):
@@ -258,7 +354,11 @@ def main():
                 rotation=90,
                 fontsize=8)
 
-  ax.tick_params(axis="x", rotation=20)
+  keys, new_labels = compress_problem_sizes_label(
+      [text.get_text() for text in ax.get_xticklabels()])
+  ax.set_xticklabels(labels=new_labels)
+
+  ax.tick_params(axis="x", rotation=30)
   ax.legend(ncol=4,
             loc='upper right',
             labels=[
@@ -269,8 +369,10 @@ def main():
             frameon=False)
   ax.set_ylim(bottom=0, top=maximum * 1.15)
   ax.margins(x=0.01)
-  plt.xlabel(names_to_translate[problem_size_key(data)])
-  plt.ylabel(names_to_translate[args.metric_to_plot])
+  plt.xlabel(
+      str.format(
+          f"{get_translated_name(problem_size_key(data))} [{','.join(keys)}]"))
+  plt.ylabel(get_translated_name(args.metric_to_plot))
 
   fig.tight_layout()
   print(f'Save plot to {args.output}')

@@ -30,21 +30,21 @@ set -ex
 #     Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr p
 #                          dcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb cat_l3 cdp_l3 invpcid_single pti intel_ppin ssbd mba ibrs ibpb stibp tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 hle avx2 smep bmi2 erms invpcid rtm cqm mpx rd
 #                          t_a avx512f avx512dq rdseed adx smap clflushopt clwb intel_pt avx512cd avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves cqm_llc cqm_occup_llc cqm_mbm_total cqm_mbm_local dtherm ida arat pln pts hwp hwp_act_window hwp_epp hwp_pkg_req pku ospke md_clear flush_l1d
-# Virtualization features: 
+# Virtualization features:
 #   Virtualization:        VT-x
-# Caches (sum of all):     
+# Caches (sum of all):
 #   L1d:                   1.1 MiB (36 instances)
 #   L1i:                   1.1 MiB (36 instances)
 #   L2:                    36 MiB (36 instances)
 #   L3:                    49.5 MiB (2 instances)
-# NUMA:                    
+# NUMA:
 #   NUMA node(s):          2
 #   NUMA node0 CPU(s):     0-17,36-39,41-53
 #   NUMA node1 CPU(s):     18-35,54-71
-# Vulnerabilities:        
+# Vulnerabilities:
 
 ###############################################################################
-# The benchmarks below assume the setup described in the 'Benchmark commands' 
+# The benchmarks below assume the setup described in the 'Benchmark commands'
 # section in the README.md. Instructions are reproduced here for convenience.
 ###############################################################################
 # ################################################################
@@ -54,7 +54,7 @@ set -ex
 # echo 0 > /proc/sys/kernel/randomize_va_space
 
 # # Disable the sibling of CPU 4.
-# cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list 
+# cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list
 # # E.g. this may return 4,40
 # echo 0 > /sys/devices/system/cpu/cpu40/online
 
@@ -63,7 +63,7 @@ set -ex
 # ################################################################
 # # For reference, cset shield does not seem to run as expected on at least 2 systems.
 # # cset shield -c 4 --user=${RUN_AS_USER} -k on --userset=${RUN_AS_USER}
-# # Instead, reproduce the follwing: 
+# # Instead, reproduce the follwing:
 # # https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 # #
 # cset set -c 0-3,5-39,41-71 -s system -s system
@@ -79,16 +79,16 @@ set -ex
 ###############################################################################
 
 export BASE_SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-export IREE_LLVM_SANDBOX_BUILD_DIR=${BASE_SCRIPT_PATH}/build 
-export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so 
-export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so 
-export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package 
+export IREE_LLVM_SANDBOX_BUILD_DIR=${BASE_SCRIPT_PATH}/build
+export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so
+export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so
+export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package
 export PATH=$PATH:$(dirname ~ntv)/.venv/mlirdev/bin/
 
 function prepare_data_collection() {
   DUMP_DATA_FLAG=""
   PLOT_COMMAND_LINE=""
-  if !(test -z "$1" ) 
+  if !(test -z "$1" )
   then
     DUMP_DATA_FLAG="--dump_data $1"
   fi
@@ -195,7 +195,7 @@ function run_one_and_append_results_to_data() {
   benchmark=$1
 
   BENCH_ROOT_DIR=${BASE_SCRIPT_PATH}/benchmarks
-  if !(test -z "$2" ) 
+  if !(test -z "$2" )
   then
     BENCH_DIR=${BENCH_ROOT_DIR}/$2
   else
@@ -242,3 +242,15 @@ function run_all_benchmarks() {
 
 # Matmul
 # python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/matmul/matmul_kmkn_repro.data,${BASE_EXP_DIR}/matmul/matmul_mkkn_repro.data,${BASE_EXP_DIR}/matmul/matmul_mknk_repro.data --output matmul.pdf --plot_name "Matrix Multiplication" --metric_to_plot "gflop_per_s_per_iter"
+
+# Conv1D
+# python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/conv_1d/conv_1d_repro.data --output conv_1d.pdf --plot_name "Conv1D" --metric_to_plot "gflop_per_s_per_iter" --group_by_strides_and_dilations True
+
+# Conv2D
+# python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/conv_2d/conv_2d_repro.data --output conv_2d.pdf --plot_name "Conv2D" --metric_to_plot "gflop_per_s_per_iter" --group_by_strides_and_dilations True
+
+# DepthwiseConv1D
+# python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/depthwiseconv_1d_l1/depthwise_conv_1d_l1_repro.data,${BASE_EXP_DIR}/depthwiseconv_1d_l2/depthwise_conv_1d_l2_repro.data,${BASE_EXP_DIR}/depthwiseconv_1d_l3/depthwise_conv_1d_l3_repro.data --output depthwise_conv_1d.pdf --plot_name "DepthwiseConv1D" --metric_to_plot "gbyte_per_s_per_iter" --num_sizes_to_plot=16 --group_by_strides_and_dilations True
+
+# DepthwiseConv2D
+# python ./tools/plot_benchmark.py --inputs ${BASE_EXP_DIR}/depthwise_conv_2d_mobilenet/depthwise_conv_2d_mobilenet.data --output depthwise_conv_2d.pdf --plot_name "DepthwiseConv2D" --metric_to_plot "gbyte_per_s_per_iter"
