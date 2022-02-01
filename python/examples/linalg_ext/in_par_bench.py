@@ -109,7 +109,6 @@ def main():
                    dump_ir_to_file='/tmp/abc.mlir',
                    dump_obj_to_file='/tmp/abc.o',
                    dump_data_to_file=args.dump_data,
-                   numpy_benchmark=numpy_kernel,
                    pytorch_benchmark=pytorch_kernel)
 
 
