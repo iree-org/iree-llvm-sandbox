@@ -10,35 +10,26 @@ from ..contraction.definitions import *
 
 import typing as tp
 
+fun_name = 'matmul'
+op_name = 'linalg.generic'
+
 ################################################################################
 # Compilation strategies.
 ################################################################################
 
-expert_linalg_ext_tile_1 = TransformationList(transforms=[
-    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[4]),
-    LinalgExtTileToInParallel('matmul_on_tensors', 'linalg.generic'),
-    Vectorize('matmul_on_tensors', 'linalg.generic'),
-    Bufferize(),
-    LinalgExtInParallelToSequentialFor('matmul_on_tensors', 'linalg.generic'),
-    Vectorize('matmul_on_tensors', 'linalg.generic'),
-    LowerToLLVM(),
-])
-
-expert_linalg_ext_tile_2 = TransformationList(transforms=[
-    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[4]),
-    LinalgExtTileToInParallel('matmul_on_tensors', 'linalg.generic'),
-    Vectorize('matmul_on_tensors', 'linalg.generic'),
-    Bufferize(),
-    LinalgExtInParallelToAsync('matmul_on_tensors', 'linalg.generic'),
-    Vectorize('matmul_on_tensors', 'linalg.generic'),
-    LowerToLLVM(),
-])
-
 all_experts = [
-    e.print_pipeline(before_all=False) for e in [
-        e.print_ir(after_all=False, at_begin=True, llvm=False) for e in [
-            expert_linalg_ext_tile_1,
-            expert_linalg_ext_tile_2,
+    e.print_pipeline(before_all=False) for e in [                             \
+        e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [    \
+            LinalgExtTile(fun_name, op_name, tile_sizes=[4])
+              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(Bufferize())
+              .then(LinalgExtInParallelToSequentialFor(fun_name, op_name))
+              .then(LowerToLLVM()),
+            LinalgExtTile(fun_name, op_name, tile_sizes=[4])
+              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(Bufferize())
+              .then(LinalgExtInParallelToAsync(fun_name, op_name))
+              .then(LowerToLLVM())
         ]
     ]
 ]
@@ -53,8 +44,9 @@ keys = ['m', 'n', 'k']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
-  problem_size_list = [[1000, 1000, 1000]]
-  test_harness(lambda s, t: EinsumProblem('mk,kn', 2), [[np.float32] * 3],
+  problem_size_list = [[100, 200, 300]]
+  test_harness(lambda s, t: EinsumProblem('mk,kn', 'mnk', 2),
+               [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,

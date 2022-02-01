@@ -533,9 +533,12 @@ def test_harness(problem_factory: Callable[
           f'Compile-time problem size {compile_time_problem_sizes_dict}\n'
           f'Runtime problem size {runtime_problem_sizes_dict}\n'
           f'Problem types {np_types}')
+      problem_definition = problem_factory(problem_sizes_dict, np_types)
+      gflops = problem_definition.gflop_count_builder(problem_sizes_dict)
+      gbytes = problem_definition.gbyte_count_builder(problem_sizes_dict,
+                                                      np_types)
       for expert_name, expert in experts.items():
         print(f'\nCompilation expert {expert_name}')
-        problem_definition = problem_factory(problem_sizes_dict, np_types)
         problem = ProblemInstance(problem_definition, np_types)
 
         problem.compile(
@@ -552,9 +555,6 @@ def test_harness(problem_factory: Callable[
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
 
-        gflops = problem_definition.gflop_count_builder(problem_sizes_dict)
-        gbytes = problem_definition.gbyte_count_builder(problem_sizes_dict,
-                                                        np_types)
         measurements.append(
             function_name,
             expert_name,
@@ -565,11 +565,6 @@ def test_harness(problem_factory: Callable[
             gbytes,
             timing_results,
         )
-
-      problem_definition = problem_factory(problem_sizes_dict, np_types)
-      gflops = problem_definition.gflop_count_builder(problem_sizes_dict)
-      gbytes = problem_definition.gbyte_count_builder(problem_sizes_dict,
-                                                      np_types)
 
       if 'numpy_benchmark' in kwargs and os.environ.get('BENCHMARK_NUMPY'):
         print('\nNumPy reference\n')
@@ -582,7 +577,8 @@ def test_harness(problem_factory: Callable[
 
         measurements.append(function_name, 'numpy', np_types,
                             dynamic_at_compile_time_sizes,
-                            runtime_problem_sizes_dict, timing_results)
+                            runtime_problem_sizes_dict, gflops, gbytes,
+                            timing_results)
 
       if 'pytorch_benchmark' in kwargs and os.environ.get('BENCHMARK_TORCH'):
         print('\nPyTorch reference\n')
@@ -598,7 +594,8 @@ def test_harness(problem_factory: Callable[
 
         measurements.append(function_name, 'pytorch', np_types,
                             dynamic_at_compile_time_sizes,
-                            runtime_problem_sizes_dict, timing_results)
+                            runtime_problem_sizes_dict, gflops, gbytes,
+                            timing_results)
 
     file_name = kwargs.get('dump_data_to_file', '')
     if file_name != '':
