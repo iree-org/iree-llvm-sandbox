@@ -13,7 +13,7 @@ include "Dialects/VectorExt/VectorExtBase.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
-class VectorExt_Op<string mnemonic, list<OpTrait> traits = []> :
+class VectorExt_Op<string mnemonic, list<Trait> traits = []> :
     Op<VectorExt_Dialect, mnemonic, traits> {
   let printer = [{ return ::print(p, *this); }];
   let parser = [{ return ::parse$cppClass(parser, result); }];

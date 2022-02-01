@@ -29,7 +29,7 @@ using namespace mlir::linalg;
 /// of transformations as described by the `expansions` module that contains
 /// PDL.
 static void expandStrategyOps(ModuleOp module, ModuleOp expansions) {
-  OwningModuleRef clonedExpansions(cast<ModuleOp>(expansions->clone()));
+  mlir::OwningOpRef<mlir::ModuleOp> clonedExpansions(cast<ModuleOp>(expansions->clone()));
   RewritePatternSet patterns(std::move(clonedExpansions));
   FrozenRewritePatternSet frozen(std::move(patterns));
   PatternApplicator applicator(frozen);

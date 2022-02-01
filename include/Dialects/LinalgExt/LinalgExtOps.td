@@ -16,11 +16,11 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/TilingInterface.td"
 include "mlir/Interfaces/ViewLikeInterface.td"
 
-class LinalgExt_PureOp<string mnemonic, list<OpTrait> traits = []> :
+class LinalgExt_PureOp<string mnemonic, list<Trait> traits = []> :
     Op<LinalgExt_Dialect, mnemonic, traits> {
 }
 
-class LinalgExt_Op<string mnemonic, list<OpTrait> traits = []> :
+class LinalgExt_Op<string mnemonic, list<Trait> traits = []> :
     LinalgExt_PureOp<mnemonic,
        !listconcat(traits,
        [LinalgExtInterface, SingleBlockImplicitTerminator<"YieldOp">])> {

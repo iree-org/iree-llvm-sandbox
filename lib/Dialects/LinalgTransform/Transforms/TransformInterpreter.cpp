@@ -35,15 +35,15 @@
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/LinalgInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/SCFInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/StdInterfaceImpl.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/VectorInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
+#include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/StandardOps/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Rewrite/PatternApplicator.h"
@@ -476,7 +476,7 @@ findTransformTarget(OpTy transformOp, ModuleOp module,
 
   // Clone the pattern operation into the temporary module used by the driver
   // as it might be referenced multiple times.
-  OwningModuleRef pdlModuleOp = ModuleOp::create(transformOp.getLoc());
+  OwningOpRef<ModuleOp> pdlModuleOp = ModuleOp::create(transformOp.getLoc());
   pdlModuleOp->getBody(0)->getOperations().push_front(patternOp->clone());
   PDLPatternModule pdlModule(std::move(pdlModuleOp));
   pdlModule.registerConstraintFunction("nestedInFunc", nestedInFunc);
@@ -622,15 +622,12 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
     arith::registerBufferizableOpInterfaceExternalModels(registry);
     linalg::comprehensive_bufferize::linalg_ext::
         registerBufferizableOpInterfaceExternalModels(registry);
-    linalg::comprehensive_bufferize::scf_ext::
-        registerBufferizableOpInterfaceExternalModels(registry);
-    linalg::comprehensive_bufferize::std_ext::
-        registerBufferizableOpInterfaceExternalModels(registry);
+    scf::registerBufferizableOpInterfaceExternalModels(registry);
+    mlir::registerBufferizableOpInterfaceExternalModels(registry);
     linalg::comprehensive_bufferize::std_ext::
         registerModuleBufferizationExternalModels(registry);
     tensor::registerBufferizableOpInterfaceExternalModels(registry);
-    linalg::comprehensive_bufferize::vector_ext::
-        registerBufferizableOpInterfaceExternalModels(registry);
+    vector::registerBufferizableOpInterfaceExternalModels(registry);
   }
 
   void runOnOperation() override {
