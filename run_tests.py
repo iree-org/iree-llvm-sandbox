@@ -5,7 +5,8 @@ import os
 import subprocess
 import sys
 
-def _convert_path_to_module(test_script : str) -> str:
+
+def _convert_path_to_module(test_script: str) -> str:
   """Convert the path of the test script to its module name."""
   test_script = test_script.replace(os.sep, ".")
   test_script = test_script.strip(".")
@@ -24,6 +25,8 @@ def _configure_env():
                                               "lib/libmlir_runner_utils.so")
   env["MLIR_C_RUNNER_UTILS_LIB"] = os.path.join(
       build_dir, "lib/libmlir_c_runner_utils.so")
+  env["MLIR_RUNNER_EXTRA_LIBS"] = os.path.join(
+      build_dir, "lib/libmlir_async_runtime_copy.so")
   return env
 
 

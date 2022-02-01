@@ -10,6 +10,7 @@ if(SANDBOX_ENABLE_IREE_DIALECTS)
 endif()
 
 add_subdirectory(Dialects)
+add_subdirectory(ExecutionEngine)
 add_subdirectory(Transforms)
 
 set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
@@ -42,18 +43,23 @@ add_mlir_library(IREELinalgTensorSandboxDriver
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
+  # Dialects
   MLIRAsync
   MLIRGPUOps
   MLIRLinalg
   MLIRLinalgExtOpInterfaceImpl
+  # Transforms
+  MLIRAsyncTransforms
   MLIRLinalgTransforms
-  MLIRAffineToStandard
   MLIRMemRefTransforms
-  MLIRSCFToStandard
+  # Conversions
+  MLIRAsyncToLLVM
+  MLIRAffineToStandard
   MLIRLinalgToLLVM
-  MLIRVectorToLLVM
   MLIRMathToLLVM
   MLIRMemRefToLLVM
+  MLIRSCFToStandard
+  MLIRVectorToLLVM
 
   # Sandbox libraries
   ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}

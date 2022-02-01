@@ -14,21 +14,33 @@ import typing as tp
 # Compilation strategies.
 ################################################################################
 
+expert_linalg_ext_tile_1 = TransformationList(transforms=[
+    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[4]),
+    LinalgExtTileToInParallel('matmul_on_tensors', 'linalg.generic'),
+    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    Bufferize(),
+    LinalgExtInParallelToSequentialFor('matmul_on_tensors', 'linalg.generic'),
+    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    LowerToLLVM(),
+])
 
-def TestExpert(transforms: tp.Sequence[tp.Union[Transform,
-                                                TransformationList]]):
-  return (TransformationList(transforms=transforms) + Bufferize() +
-          LoweringOnlyExpert('matmul', 'linalg.generic'))
-
-
-expert_linalg_ext_tile = TestExpert([
-    LinalgExtTile('matmul', 'linalg.generic', tile_sizes=[2]),
-    LinalgExtTileToInParallel('matmul', 'linalg.generic'),
-    Vectorize('matmul', 'linalg.generic'),
+expert_linalg_ext_tile_2 = TransformationList(transforms=[
+    LinalgExtTile('matmul_on_tensors', 'linalg.generic', tile_sizes=[4]),
+    LinalgExtTileToInParallel('matmul_on_tensors', 'linalg.generic'),
+    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    Bufferize(),
+    LinalgExtInParallelToAsync('matmul_on_tensors', 'linalg.generic'),
+    Vectorize('matmul_on_tensors', 'linalg.generic'),
+    LowerToLLVM(),
 ])
 
 all_experts = [
-    e.print_ir(after_all=False, llvm=False) for e in [expert_linalg_ext_tile]
+    e.print_pipeline(before_all=False) for e in [
+        e.print_ir(after_all=False, at_begin=True, llvm=False) for e in [
+            expert_linalg_ext_tile_1,
+            expert_linalg_ext_tile_2,
+        ]
+    ]
 ]
 
 ################################################################################
@@ -41,8 +53,8 @@ keys = ['m', 'n', 'k']
 # CHECK-NOT: FAILURE
 def main():
   n_iters = 1
-  problem_size_list = [[3, 5, 7]]
-  test_harness(lambda s, t: EinsumProblem('mk,kn', 'mnk', 2), [[np.float32] * 3],
+  problem_size_list = [[1000, 1000, 1000]]
+  test_harness(lambda s, t: EinsumProblem('mk,kn', 2), [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
