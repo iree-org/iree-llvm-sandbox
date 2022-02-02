@@ -8,8 +8,10 @@
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.cpp.inc"
 
@@ -30,6 +32,25 @@ void transform::ScopeOp::getSuccessorRegions(
     regions.emplace_back(getResults());
   else
     regions.emplace_back(&body());
+}
+
+static LogicalResult verifySequenceOp(transform::SequenceOp op) {
+  WalkResult result = op.walk([](Operation *child) {
+    for (OpResult result : child->getResults()) {
+      if (llvm::hasNItemsOrLess(result.getUses(), 1))
+        continue;
+      InFlightDiagnostic diag = child->emitError()
+                                << "result #" << result.getResultNumber()
+                                << " has more than one use";
+      for (OpOperand &use : result.getUses()) {
+        diag.attachNote(use.getOwner()->getLoc())
+            << "used here as operand #" << use.getOperandNumber();
+      }
+      return WalkResult::interrupt();
+    }
+    return WalkResult::advance();
+  });
+  return failure(result.wasInterrupted());
 }
 
 #define GET_OP_CLASSES
