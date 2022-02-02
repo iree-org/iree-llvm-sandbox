@@ -33,7 +33,6 @@ def _get_pad_str(transform: Transform) -> str:
     pad_str = pad_str + f' hoist-paddings={",".join(hoist_paddings)}'
   if transpose_paddings:
     pad_str = pad_str + f' transpose-paddings={",".join(transpose_paddings)}'
-  print(pad_str)
   return pad_str
 
 
