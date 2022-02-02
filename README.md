@@ -149,18 +149,24 @@ echo 0 > /proc/sys/kernel/randomize_va_space
 
 # Disable the sibling of CPU 4.
 cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list 
-# E.g. this may return 4,40
-echo 0 > /sys/devices/system/cpu/cpu40/online
+# E.g. on a 36 core system, this should return 4,40, use a shift of 36 for rest.
+echo 0 > /sys/devices/system/cpu/cpu$((4 + 36))/online
+# Disable the siblings of CPU 8-15, we'll use those for parallel runs.
+for i in $(seq 8 15); do \
+  echo 0 /sys/devices/system/cpu/cpu$(( ${i} + 34))/online; \
+done
 
 ################################################################
 # Perform cpuset manipulation.
 ################################################################
 # For reference, cset shield does not seem to run as expected on at least 2 systems.
 # cset shield -c 4 --user=${RUN_AS_USER} -k on --userset=${RUN_AS_USER}
-# Instead, reproduce the follwing: https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
+# Instead, reproduce the following finer-grained instructions:
+#   https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 
-cset set -c 0-3,5-39,41-71 -s system -s system
+cset set -c 0-3,5-7,16-35,36-39,41-43,52-71 -s system -s system
 cset set -s sandbox -c 4 -m 0 --cpu_exclusive
+cset set -s sandbox_parallel -c 8-15 -m 0 --cpu_exclusive
 cset proc -m -f root -t system
 
 ################################################################
@@ -169,6 +175,9 @@ cset proc -m -f root -t system
 
 echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
 echo performance > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
+for i in $(seq 8 15); do \
+  echo performance > /sys/devices/system/cpu/cpu$(( ${i} + 34))/cpufreq/scaling_governor;\
+done
 
 ################################################################
 # Exec.
@@ -178,4 +187,12 @@ MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so
 MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
 PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package cset proc -s sandbox \
 -e ${PATH_TO_VENV}/.venv/mlirdev/bin/python -- -m python.examples.matmul.bench
+
+IREE_LLVM_SANDBOX_BUILD_DIR=$(pwd)/build \
+MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so \
+MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
+MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
+export MLIR_RUNNER_EXTRA_LIBS=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_async_runtime_copy.so \
+PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package cset proc -s sandbox_parallel \
+-e ${PATH_TO_VENV}/.venv/mlirdev/bin/python -- -m python.examples.linalg_ext.in_par_bench
 ```

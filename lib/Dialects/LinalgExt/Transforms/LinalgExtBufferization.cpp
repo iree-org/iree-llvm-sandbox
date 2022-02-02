@@ -19,9 +19,9 @@ namespace mlir {
 using bufferization::BufferizableOpInterface;
 using bufferization::BufferizationState;
 using bufferization::BufferRelation;
+using bufferization::getMemRefType;
 using bufferization::replaceOpWithBufferizedValues;
 using bufferization::replaceOpWithNewBufferizedOp;
-using bufferization::getMemRefType;
 using tensor::ExtractSliceOp;
 
 namespace linalg_ext {
@@ -48,22 +48,23 @@ static SmallVector<OpOperand *> getInsertionDest(InParallelOp inParallelOp) {
 struct InParallelOpInterface
     : public BufferizableOpInterface::ExternalModel<InParallelOpInterface,
                                                     InParallelOp> {
-  SmallVector<OpOperand *> getAliasingOpOperand(
-      Operation *op, OpResult opResult,
-      const BufferizationState &state) const {
+  SmallVector<OpOperand *>
+  getAliasingOpOperand(Operation *op, OpResult opResult,
+                       const BufferizationState &state) const {
     // Get OpOperand (dest) from corresponding ParallelInsertSliceOp.
     auto inParallelOp = cast<InParallelOp>(op);
     return {getInsertionDest(inParallelOp)[opResult.getResultNumber()]};
   }
 
-  bool isMemoryWrite(
-      Operation *op, OpResult opResult,
-      const BufferizationState &state) const {
+  bool isMemoryWrite(Operation *op, OpResult opResult,
+                     const BufferizationState &state) const {
     // This op is a memory write. Stop lookup here to avoid finding false
     // conflicts involving this op and one of the ops in the region. This is
     // similar to how scf.if ops are analyzed.
     return true;
   }
+
+  bool isAllocationHoistingBarrier(Operation *op) const { return true; }
 
   BufferRelation bufferRelation(Operation *op, OpResult opResult,
                                 const BufferizationState &state) const {
@@ -76,8 +77,8 @@ struct InParallelOpInterface
     auto inParallelOp = cast<InParallelOp>(op);
     Block *body = &inParallelOp.region().front();
     Operation *oldTerminator = body->getTerminator();
-    assert(isa<PerformConcurrentlyOp>(oldTerminator)
-           && "unexpected terminator");
+    assert(isa<PerformConcurrentlyOp>(oldTerminator) &&
+           "unexpected terminator");
 
     // Gather new results of the InParallelOp.
     SmallVector<Value> newResults;
@@ -120,33 +121,33 @@ struct InParallelOpInterface
                   {newInParallelOp.getBody()->getArgument(0)});
 
     // Bufferize terminator.
-    auto performConcurrentlyOp = cast<PerformConcurrentlyOp>(
-        newInParallelOp.getBody()->getTerminator());
+    auto performConcurrentlyOp =
+        cast<PerformConcurrentlyOp>(newInParallelOp.getBody()->getTerminator());
     b.setInsertionPoint(performConcurrentlyOp);
-    WalkResult walkResult = performConcurrentlyOp.walk([&](ParallelInsertSliceOp
-                                                               insertOp) {
-      Location loc = insertOp.getLoc();
-      Type srcType = getMemRefType(
-          insertOp.source().getType().cast<RankedTensorType>(),
-          state.getOptions());
-      Type destType = getMemRefType(
-          insertOp.dest().getType().cast<RankedTensorType>(),
-          state.getOptions());
-      // ParallelInsertSliceOp bufferizes to a copy.
-      auto srcMemref =
-          b.create<bufferization::ToMemrefOp>(loc, srcType, insertOp.source());
-      auto destMemref =
-          b.create<bufferization::ToMemrefOp>(loc, destType, insertOp.dest());
-      Value subview = b.create<memref::SubViewOp>(
-        loc, destMemref, insertOp.getMixedOffsets(), insertOp.getMixedSizes(),
-        insertOp.getMixedStrides());
-      // This memcpy will fold away if everything bufferizes in-place.
-      if (failed(createMemCpy(b, insertOp.getLoc(), srcMemref, subview,
-                              state.getOptions())))
-        return WalkResult::interrupt();
-      b.eraseOp(insertOp);
-      return WalkResult::advance();
-    });
+    WalkResult walkResult =
+        performConcurrentlyOp.walk([&](ParallelInsertSliceOp insertOp) {
+          Location loc = insertOp.getLoc();
+          Type srcType = getMemRefType(
+              insertOp.source().getType().cast<RankedTensorType>(),
+              state.getOptions());
+          Type destType =
+              getMemRefType(insertOp.dest().getType().cast<RankedTensorType>(),
+                            state.getOptions());
+          // ParallelInsertSliceOp bufferizes to a copy.
+          auto srcMemref = b.create<bufferization::ToMemrefOp>(
+              loc, srcType, insertOp.source());
+          auto destMemref = b.create<bufferization::ToMemrefOp>(
+              loc, destType, insertOp.dest());
+          Value subview = b.create<memref::SubViewOp>(
+              loc, destMemref, insertOp.getMixedOffsets(),
+              insertOp.getMixedSizes(), insertOp.getMixedStrides());
+          // This memcpy will fold away if everything bufferizes in-place.
+          if (failed(createMemCpy(b, insertOp.getLoc(), srcMemref, subview,
+                                  state.getOptions())))
+            return WalkResult::interrupt();
+          b.eraseOp(insertOp);
+          return WalkResult::advance();
+        });
     if (walkResult.wasInterrupted())
       return failure();
 
@@ -170,9 +171,9 @@ struct PerformConcurrentlyOpInterface
 
 /// Return true if the (ExtractSliceOp, ParallelInsertSliceOp) pair match (i.e.
 /// equivalent operand / result and same offset/sizes/strides specification).
-static bool
-areEquivalentExtractSliceOps(const BufferizationState &state,
-                             ExtractSliceOp st, ParallelInsertSliceOp sti) {
+static bool areEquivalentExtractSliceOps(const BufferizationState &state,
+                                         ExtractSliceOp st,
+                                         ParallelInsertSliceOp sti) {
   if (!st || !sti)
     return false;
   if (st != sti &&
@@ -186,7 +187,8 @@ areEquivalentExtractSliceOps(const BufferizationState &state,
 /// Return true if `value` is originating from an ExtractSliceOp that matches
 /// the given InsertSliceOp.
 static bool hasMatchingExtractSliceOp(const BufferizationState &state,
-                                      Value value, ParallelInsertSliceOp insertOp) {
+                                      Value value,
+                                      ParallelInsertSliceOp insertOp) {
   auto condition = [&](Value val) {
     if (auto extractOp = val.getDefiningOp<ExtractSliceOp>())
       if (areEquivalentExtractSliceOps(state, extractOp, insertOp))
@@ -202,32 +204,31 @@ static bool hasMatchingExtractSliceOp(const BufferizationState &state,
 struct ParallelInsertSliceOpInterface
     : public BufferizableOpInterface::ExternalModel<
           ParallelInsertSliceOpInterface, ParallelInsertSliceOp> {
-  OpResult getAliasingOpResult(
-      Operation *op, OpOperand &opOperand,
-      const BufferizationState &state) const {
+  OpResult getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                               const BufferizationState &state) const {
     if (&opOperand != &op->getOpOperand(1) /*dest*/)
       return OpResult();
 
     // ParallelInsertSliceOp itself has no results. Tensors are returned via
     // the parent op.
     auto inParallelOp = op->getParentOfType<InParallelOp>();
-    assert(inParallelOp
-           && "could not find valid owner of parallel_insert_slice");
+    assert(inParallelOp &&
+           "could not find valid owner of parallel_insert_slice");
 
     // The i-th ParallelInsertSliceOp result is returned via the i-th OpResult
     // of the parent InParallelOp.
     Block *block = op->getBlock();
     unsigned int opIdx = 0;
-    for (ParallelInsertSliceOp insertOp
-        : block->getOps<ParallelInsertSliceOp>()) {
+    for (ParallelInsertSliceOp insertOp :
+         block->getOps<ParallelInsertSliceOp>()) {
       if (insertOp.getOperation() == op)
         break;
       ++opIdx;
     }
-    assert(opIdx < inParallelOp->getNumResults()
-           && "could not find op inside terminator op");
+    assert(opIdx < inParallelOp->getNumResults() &&
+           "could not find op inside terminator op");
 
-    return  inParallelOp->getResult(opIdx);
+    return inParallelOp->getResult(opIdx);
   }
 
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
@@ -302,7 +303,8 @@ struct ParallelInsertSliceOpInterface
     }
 
     // If uConflictingWrite is an InsertSliceOp...
-    if (auto insertSliceOp = dyn_cast<ParallelInsertSliceOp>(conflictingWritingOp))
+    if (auto insertSliceOp =
+            dyn_cast<ParallelInsertSliceOp>(conflictingWritingOp))
       // As an example, consider the following IR.
       //
       // %0 = tensor.extract_slice %t[%a, %b][%c, %d][1, 1] {inplace = [true] }
@@ -335,7 +337,8 @@ struct ParallelInsertSliceOpInterface
 void mlir::linalg_ext::registerBufferizableOpInterfaceExternalModels(
     DialectRegistry &registry) {
   registry.addOpInterface<InParallelOp, InParallelOpInterface>();
-  registry.addOpInterface<PerformConcurrentlyOp, PerformConcurrentlyOpInterface>();
+  registry
+      .addOpInterface<PerformConcurrentlyOp, PerformConcurrentlyOpInterface>();
   registry.addOpInterface<linalg_ext::ParallelInsertSliceOp,
                           linalg_ext::ParallelInsertSliceOpInterface>();
 }

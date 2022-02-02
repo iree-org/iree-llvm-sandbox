@@ -21,9 +21,17 @@ all_names = [ \
   'WeakScalingParallelStrategy',
             ]
 
-num_threads = 32
-num_tiles_per_thread = 16
-parallel_tile_size = 288
+# Some experimental configs while we bring up parallelism.
+num_cores = 8
+num_async_threads = 8
+num_tiles_per_async_thread = 4
+parallel_tile_size_1, parallel_tile_size_2, parallel_tile_size_3 = 96, 128, 255
+parallel_tile_size_per_async_thread = parallel_tile_size_1 * num_tiles_per_async_thread
+
+# Throw a wrench in the problem size.
+wrench = -11
+total_problem_size_1 = \
+  num_async_threads * num_tiles_per_async_thread * parallel_tile_size_1 - wrench
 
 
 def all_experts(fun_name: str):
@@ -32,26 +40,26 @@ def all_experts(fun_name: str):
       e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [      \
         LinalgExtTile(fun_name,
                       op_name,
-                      tile_sizes=[parallel_tile_size * num_tiles_per_thread])
+                      tile_sizes=[parallel_tile_size_per_async_thread])
           .then(LinalgExtTileToInParallel(fun_name, op_name))
           .then(DoubleTile(fun_name,
                            op_name,
-                           tile_sizes1=[parallel_tile_size, 128, 512],
+                           tile_sizes1=[parallel_tile_size_1,
+                                        parallel_tile_size_2,
+                                        parallel_tile_size_3],
                            tile_interchange1=[0, 2, 1],
                            tile_sizes2=[12, 32, 1],
-                           tile_interchange2=[0, 1, 2],
-                           # TODO: atm hoisting of allocs doesn't care about
-                           # parallel scopes, fix this.
-                           peel2=[0, 1, 2],
-                           pad2=False,
+                           tile_interchange2=[1, 0, 2],
+                           # In the parallel case, peeling performs quite better atm.
+                           # TODO: Investigate inefficiencies in padding/packing.
+                           # peel2=[0, 1, 2],
+                           pad2=True,
                            pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[5, 6, 0],
+                           hoist_paddings2=[1, 2, 0],
                            transpose_paddings2=[[1, 0], [0, 1], [0, 1]],
                            ))
           .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                    op_name,
-                                    transpose_lowering='eltwise')),
+          .then(LoweringOnlyExpert(fun_name, op_name)),
         ]
     ]
   ]
@@ -70,11 +78,10 @@ def main():
   args = test_argparser(
       "matmul benchmark",
       default_n_iters=100,
-      default_problem_sizes_list=[ \
-        [parallel_tile_size * num_tiles_per_thread * num_threads, 128, 512]],
+      default_problem_sizes_list=[[total_problem_size_1, 1234, 2345]],
       default_expert_list=all_names,
       default_dynamic_at_compile_time_list=[
-        [],  # case 1: static at compile time
+          [],  # case 1: static at compile time
       ],
       default_spec_list=[
           'mk,kn',  # C += A.B
@@ -85,7 +92,7 @@ def main():
 
       def pytorch_kernel(args, sizes, types):
         import torch
-        torch.set_num_threads(num_threads)
+        torch.set_num_threads(num_cores)
         A, B, C = args
         C.fill_(0.)
         if spec == 'km,kn':

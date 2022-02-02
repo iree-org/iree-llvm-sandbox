@@ -198,7 +198,8 @@ def LinalgExt_TileYieldOp : LinalgExt_PureOp<"tile_yield", [
 
 def LinalgExt_InParallelOp : LinalgExt_PureOp<"in_parallel", [
        SingleBlockImplicitTerminator<"linalg_ext::PerformConcurrentlyOp">,
-       RecursiveSideEffects
+       RecursiveSideEffects,
+       AutomaticAllocationScope,
       ]> {
   let summary = "evaluate a block multiple times in parallel";
   let description = [{
