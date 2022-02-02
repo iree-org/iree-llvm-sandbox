@@ -83,7 +83,8 @@ struct CloneWithNewNamePattern : public RewritePattern {
 namespace {
 
 struct TestStagedPatternRewriteDriver
-    : public PassWrapper<TestStagedPatternRewriteDriver, FunctionPass> {
+    : public PassWrapper<TestStagedPatternRewriteDriver,
+                         OperationPass<FuncOp>> {
 
   TestStagedPatternRewriteDriver() = default;
   TestStagedPatternRewriteDriver(const TestStagedPatternRewriteDriver &){};
@@ -98,9 +99,9 @@ struct TestStagedPatternRewriteDriver
 
   void getDependentDialects(DialectRegistry &registry) const override {}
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     SmallVector<Operation *> roots;
-    getFunction()->walk([&](Operation *start) {
+    getOperation()->walk([&](Operation *start) {
       if (start->getName().getStringRef() == kTestStartOpName)
         roots.push_back(start);
     });
