@@ -502,10 +502,10 @@ executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
 
   SmallVector<LinalgOp> results =
       functional::applyForEach(*targets, [&](LinalgOp op, PatternRewriter &) {
-        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n";);
+        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
         auto result = transform(op, configOp);
         LLVM_DEBUG(DBGS() << "transformation "
-                          << (failed(result) ? "failed" : "succeeded"));
+                          << (failed(result) ? "failed" : "succeeded") << "\n");
         return result;
       });
 
@@ -513,7 +513,21 @@ executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
   if (results.size() != targets->size())
     return failure();
 
-  operations.insert({configOp.transformed(), std::move(results)});
+  bool inserted =
+      operations.insert({configOp.transformed(), std::move(results)}).second;
+  assert(inserted && "value is already associated with another operation list");
+  (void)inserted;
+
+  // Since there is only allowed use of the value in the transformation dialect,
+  // we can remove it from the mapping after processing its only user. This
+  // ensures we don't accidentally keep pointers to operations that may have
+  // been deleted by the current transformation.
+  if (configOp.target()) {
+    Value target = configOp.target();
+    assert(target.hasOneUse());
+    operations.erase(target);
+  }
+
   return success();
 }
 

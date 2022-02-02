@@ -72,13 +72,21 @@ void TrackingListener::notifyOperationReplaced(Operation *op,
   Value key = keyIt->second;
 
   LLVM_DEBUG(DBGS() << "replacing tracked " << *op << " with " << *replacement
-                    << "for " << key << "\n");
+                    << " for " << key << "\n");
   auto iter = llvm::find(trackedOperations[key], linalgOp);
   assert(iter != trackedOperations[key].end() &&
          "expected to find the tracked operation list by key");
   *iter = replacement;
+
+  // Update the backwards map. The replacement operation must not be already
+  // associated with another key as that would break the bidirectional mapping
+  // invariant. Note that operations are pointer-like so we must ensure the
+  // absence of accidental reuse of the pointer address with some deleted
+  // operation that stayed in this mapping.
   trackedOperationKeys.erase(linalgOp);
-  trackedOperationKeys.try_emplace(replacement, key);
+  bool replaced = trackedOperationKeys.try_emplace(replacement, key).second;
+  assert(replaced && "operation is already associated with another key");
+  (void)replaced;
 }
 
 void TrackingListener::notifyOperationRemoved(Operation *op) {
@@ -90,6 +98,8 @@ void TrackingListener::notifyOperationRemoved(Operation *op) {
   if (keyIt == trackedOperationKeys.end())
     return;
   Value key = keyIt->second;
+
+  LLVM_DEBUG(DBGS() << "removing tracked " << *op << " for " << key << "\n");
 
   // If a tracked operation is CSE'd, then any further transformations are
   // redundant. Just remove it.
