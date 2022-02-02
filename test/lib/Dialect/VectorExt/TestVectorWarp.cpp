@@ -19,7 +19,8 @@ using namespace mlir::vector_ext;
 
 namespace {
 
-struct TestVectorWarp : public PassWrapper<TestVectorWarp, FunctionPass> {
+struct TestVectorWarp
+    : public PassWrapper<TestVectorWarp, OperationPass<FuncOp>> {
 
   TestVectorWarp() = default;
   TestVectorWarp(const TestVectorWarp &pass) {}
@@ -36,8 +37,8 @@ struct TestVectorWarp : public PassWrapper<TestVectorWarp, FunctionPass> {
       *this, "propagate-distribution",
       llvm::cl::desc("Test distribution propgation"), llvm::cl::init(false)};
 
-  void runOnFunction() override {
-    FuncOp funcOp = getFunction();
+  void runOnOperation() override {
+    FuncOp funcOp = getOperation();
     MLIRContext *ctx = &getContext();
     if (propagateDistribution) {
       RewritePatternSet patterns(ctx);
