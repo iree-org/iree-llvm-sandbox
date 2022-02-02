@@ -64,7 +64,17 @@ def ForwardOp : Linalg_Transform_Operation<"util.forward",
 
 def SequenceOp : Linalg_Transform_Operation<"sequence",
                                             [NoTerminator, OpAsmOpInterface]> {
-  let description = [{Contains a sequence of transformation ops to apply.}];
+  let description = [{Contains a sequence of transformation ops to apply.
+
+  The transformations indicated by the sequence are applied in order of their
+  appearance. Each value produced by a transformation within the sequence
+  corresponds to an operation or a group of operations in the IR being
+  transformed. Therefore, each value may be used at most once by another
+  transformation operation as the transformation is likely to replace the
+  transformed operation with another operation or a group thereof. In such
+  cases, the tranfsormation operation is expected to produce a new value to
+  denote the newly produced operations that can be transformed further.
+  }];
 
   let regions = (region SizedRegion<1>:$body);
   let assemblyFormat = "attr-dict-with-keyword regions";
@@ -72,6 +82,8 @@ def SequenceOp : Linalg_Transform_Operation<"sequence",
   let extraClassDeclaration = [{
     static StringRef getDefaultDialect() { return "linalg_transform"; }
   }];
+
+  let verifier = [{ return verifySequenceOp(*this); }];
 }
 
 //===----------------------------------------------------------------------===//
