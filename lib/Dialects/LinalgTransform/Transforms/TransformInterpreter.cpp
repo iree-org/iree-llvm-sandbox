@@ -574,11 +574,9 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
   }
 
   for (Operation &transform : sequence.body().front()) {
-    if (failed(executeTransform(&transform, module, operations))) {
-      // TODO: should this be a user-visible error?
-      LLVM_DEBUG(DBGS() << "failed to apply transform: " << transform << "\n");
-      return failure();
-    }
+    if (failed(executeTransform(&transform, module, operations)))
+      return transform.emitError() << "failed to apply";
+
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
 
