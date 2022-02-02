@@ -153,20 +153,6 @@ buildGeneralizeFromTileOpPattern(linalg::transform::TileOp tileOp) {
   return callLinalgPattern<LinalgGeneralizationPattern>(tileOp.getContext());
 }
 
-/// Applies the interchange pattern to the given target operation as indicated
-/// by the tile op that subsumes padding. Populates `nextTargets` with
-/// transformable operations for further transformations (currently, the single
-/// interchanged op).
-static FunctionalLinalgTransform
-buildInterchangeFromTileOp(linalg::transform::TileOp tileOp) {
-  if (tileOp.interchange().empty())
-    return forwardOp;
-
-  auto interchangeVector = extractUIntArray(tileOp.interchange());
-  return callLinalgPattern<GenericOpInterchangePattern>(tileOp.getContext(),
-                                                        interchangeVector);
-}
-
 /// Applies the transformation specified by the given tile operation to the
 /// given target operation. Populates `results` with transformation operations
 /// for further transformations if the pattern applied successfully (currently,
@@ -193,8 +179,7 @@ static FailureOr<LinalgOp> executeTileOp(LinalgOp target,
   auto tileSeq = functional::SequenceBuilder()
                      .begin(std::move(functionalTile))
                      .then(buildPadFromTileOpPattern(tileOp))
-                     .then(buildGeneralizeFromTileOpPattern(tileOp))
-                     .then(buildInterchangeFromTileOp(tileOp));
+                     .then(buildGeneralizeFromTileOpPattern(tileOp));
 
   return functional::applyAt(target, tileSeq);
 }
