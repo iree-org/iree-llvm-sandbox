@@ -33,8 +33,10 @@ using namespace mlir;
 
 namespace {
 
+#ifndef NDEBUG
 const char *logLineComment =
     "//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++//\n";
+#endif
 
 struct WorkList {
   void addToWorklist(Operation *op) {
