@@ -204,14 +204,17 @@ class LinalgExtTile(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
-    assert len(self.tile_sizes) == 1, "expected single tile size, got: " + \
-      str(self.tile_sizes)
-
+    count_non_zero = 0
+    for ts in self.tile_sizes:
+      if ts != 0:
+        count_non_zero = count_non_zero + 1
+    assert count_non_zero, 'only a single element may have count non zero'
+    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
     pipeline = (
         f'linalg-ext-tiling-to-tile-op{{'
         #f'     anchor-func={fun_name} '
         #f'     anchor-op={op_name} '
-        f'     tile-size={self.tile_sizes[0]}}}'
+        f'     {tile_str}}}'
         #f'canonicalize,'
         #f'cse'
     )

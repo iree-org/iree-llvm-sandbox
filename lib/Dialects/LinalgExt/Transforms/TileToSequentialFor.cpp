@@ -47,7 +47,7 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     Value totalSize =
         rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(), zero);
-    Value step = tileOp.tile_sizes();
+    Value step = tileOp.tile_size();
     assert(step.getType().isa<IndexType>() && "NYI: not an index type");
 
     // Construct the op without a body builder: we need to clone the ops in the

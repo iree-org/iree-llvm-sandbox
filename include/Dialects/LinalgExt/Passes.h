@@ -22,7 +22,7 @@ createLinalgExtTilingPass(ArrayRef<int64_t> tileSizes = {});
 /// Creates a pass to drive tiling of LinalgExt operations to
 /// linalg_ext::TileOp.
 std::unique_ptr<OperationPass<FuncOp>>
-createLinalgExtTilingToTileOpPass(int64_t tileSize = 0);
+createLinalgExtTilingToTileOpPass(ArrayRef<int64_t> tileSizes = {});
 
 std::unique_ptr<OperationPass<FuncOp>> createInParallelToAsyncPass();
 std::unique_ptr<OperationPass<FuncOp>> createInParallelToSequentialForPass();

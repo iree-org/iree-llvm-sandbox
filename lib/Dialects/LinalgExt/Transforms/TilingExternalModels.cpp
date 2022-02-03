@@ -36,23 +36,22 @@ static SmallVector<Value> getAsValues(OpBuilder &b, Location loc,
   return vals;
 }
 
-static SmallVector<Value, 4> makeTiledInputShapes(OpBuilder &b, Location loc,
-                                                  LinalgOp linalgOp,
-                                                  ArrayRef<Value> valuesToTile,
-                                                  Value iv, Value tileSize,
-                                                  ArrayRef<Value> sizeBounds) {
+static SmallVector<Value, 4>
+makeTiledInputShapes(OpBuilder &b, Location loc, LinalgOp linalgOp,
+                     ArrayRef<Value> valuesToTile, ArrayRef<Value> ivsRef,
+                     ArrayRef<Value> tileSizesRef, ArrayRef<Value> sizeBounds) {
   assert(static_cast<int64_t>(valuesToTile.size()) == linalgOp.getNumInputs() &&
          "expected one value to tile for every operand");
 
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
-  SmallVector<Value> tileSizes(sizeBounds.size(), zero);
-  tileSizes[0] = tileSize;
+  SmallVector<Value> tileSizes{tileSizesRef.begin(), tileSizesRef.end()};
+  tileSizes.append(sizeBounds.size() - tileSizes.size(), zero);
 
   // Construct (potentially temporary) mins and maxes on which to apply maps
   // that define tile subshapes.
-  SmallVector<Value> lbs = computeTileOffsets(b, loc, iv, tileSizes);
+  SmallVector<Value> lbs = computeTileOffsets(b, loc, ivsRef, tileSizes);
   SmallVector<Value> subShapeSizes =
-      computeTileSizes(b, loc, iv, tileSizes, sizeBounds);
+      computeTileSizes(b, loc, ivsRef, tileSizes, sizeBounds);
 
   SmallVector<Value, 4> tiledShapes;
   tiledShapes.reserve(valuesToTile.size());
@@ -114,15 +113,15 @@ struct LinalgOpTilingInterface
     if (!shapeSizesToLoopsMap)
       return {};
 
-    SmallVector<Value> offsetsVals = getAsValues(b, loc, offsets);
-    SmallVector<Value> sizeVals = getAsValues(b, loc, sizes);
-    SmallVector<Value> sizeBounds =
-        applyMapToValues(b, loc, shapeSizesToLoopsMap, allShapeSizes);
-
     OpOperand *outOperand = linalgOp.getOutputOperand(0);
     AffineMap indexingMap = linalgOp.getTiedIndexingMap(outOperand);
     if (!indexingMap.isProjectedPermutation())
       return {};
+
+    SmallVector<Value> offsetsVals = getAsValues(b, loc, offsets);
+    SmallVector<Value> sizeVals = getAsValues(b, loc, sizes);
+    SmallVector<Value> sizeBounds =
+        applyMapToValues(b, loc, shapeSizesToLoopsMap, allShapeSizes);
 
     // The offsets and sizes form the slice operation only give you the tile
     // size of the output. Use that compute the tile sizes and offsets of the
@@ -146,12 +145,14 @@ struct LinalgOpTilingInterface
                                       tileOffsets, tileSizes, sizeBounds);
     } else {
       // Only tile the inputs, then apped the outputs.
-      tiledOperands = makeTiledInputShapes(b, loc, linalgOp, valuesToTile,
-                                           tileOffsets.front(),
-                                           tileSizes.front(), sizeBounds);
+      int64_t dim = offsets.size();
+      ArrayRef<Value> tileOffsetsRef{tileOffsets.begin(), tileOffsets.end()};
+      ArrayRef<Value> tileSizesRef{tileSizes.begin(), tileSizes.end()};
+      tiledOperands = makeTiledInputShapes(
+          b, loc, linalgOp, valuesToTile, tileOffsetsRef.take_front(dim + 1),
+          tileSizesRef.take_front(dim + 1), sizeBounds);
       tiledOperands.append(tiledDest.begin(), tiledDest.end());
     }
-
     return {linalgOp.clone(b, loc, tiledDest.getTypes(), tiledOperands)};
   }
 };

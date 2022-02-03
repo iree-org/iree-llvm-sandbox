@@ -44,13 +44,17 @@ struct TileOpToInParallelRewriter
     // TODO: when supported, iterate over the tensor of sizes. This will be
     // iterating through a level of indirection.
 
+    int64_t tiledDim = tileOp.tiled_dim();
+
     // Construct the loop bounds based on the canonical arithmetic progression.
     Location loc = tileOp.getLoc();
     Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value tiledDimValue =
+        rewriter.create<arith::ConstantIndexOp>(loc, tiledDim);
     Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
-    Value totalSize =
-        rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(), zero);
-    Value step = tileOp.tile_sizes();
+    Value totalSize = rewriter.create<tensor::DimOp>(loc, tileOp.outs().front(),
+                                                     tiledDimValue);
+    Value step = tileOp.tile_size();
     assert(step.getType().isa<IndexType>() && "NYI: not an index type");
 
     using AV = AffineValueExpr;
@@ -74,19 +78,30 @@ struct TileOpToInParallelRewriter
     // Materialize the implicit subtensors as explicit subset_extract.
     // TODO: generalize to multiple offset/chunk_size bbargs if needed.
     // TODO: generalize the subset op.
-    Value offset =
-        ab.mul(AV(i).bind(inParallelOp.getThreadIndex()), AV(M).bind(step));
+    SmallVector<Value> leadingOffsets, leadingSizes, leadingStrides;
+    for (int64_t i = 0; i < tiledDim; ++i) {
+      leadingOffsets.push_back(zero);
+      leadingSizes.push_back(
+          rewriter.createOrFold<tensor::DimOp>(loc, tileOp.outs().front(), i));
+      leadingStrides.push_back(one);
+    }
     // clang-format off
+    Value offset = ab.mul(AV(i).bind(inParallelOp.getThreadIndex()), 
+                          AV(M).bind(step));
     Value size = ab.min(
       ValueRange{ab.sub(AV(i).bind(totalSize), AV(j).bind(offset)),
       step});
     // clang-format on
+    leadingOffsets.push_back(offset);
+    leadingSizes.push_back(size);
+    leadingStrides.push_back(one);
 
     SmallVector<Value> implicitSubtensorExtracts;
     for (Value tensor : tileOp.outs()) {
       implicitSubtensorExtracts.push_back(
           createSubsetExtractOpFromLeadingOffsetsSizesAndStrides(
-              rewriter, loc, tensor, offset, size, one));
+              rewriter, loc, tensor, leadingOffsets, leadingSizes,
+              leadingStrides));
     }
 
     // Get a reference to the TileOp terminator before the body is merged and it
@@ -106,8 +121,9 @@ struct TileOpToInParallelRewriter
 
     for (auto it : llvm::zip(tileYieldOp->getOperands(), tileOp.outs())) {
       SmallVector<Value> offsets, sizes, strides;
-      completeOffsetsSizesAndStrides(rewriter, loc, std::get<0>(it), offset,
-                                     size, one, offsets, sizes, strides);
+      completeOffsetsSizesAndStrides(rewriter, loc, std::get<0>(it),
+                                     leadingOffsets, leadingSizes,
+                                     leadingStrides, offsets, sizes, strides);
       OpBuilder::InsertionGuard g(rewriter);
       rewriter.setInsertionPoint(
           performConcurrentlyOp.getBody()->getTerminator());

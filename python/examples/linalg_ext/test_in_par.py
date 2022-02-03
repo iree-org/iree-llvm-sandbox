@@ -40,6 +40,16 @@ all_experts = [
                          hoist_paddings=[2, 3, 0]))
               .then(Vectorize(fun_name, ''))
               .then(LoweringOnlyExpert(fun_name, op_name)),
+            LinalgExtTile(fun_name, op_name, tile_sizes=[0, 16])
+              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(Tile(fun_name,
+                         op_name,
+                         tile_sizes=[12, 32, 16],
+                         pad=True,
+                         pack_paddings=[1, 1, 0],
+                         hoist_paddings=[2, 3, 0]))
+              .then(Vectorize(fun_name, ''))
+              .then(LoweringOnlyExpert(fun_name, op_name)),
         ]
     ]
 ]
