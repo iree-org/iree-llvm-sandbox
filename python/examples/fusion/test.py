@@ -59,16 +59,20 @@ def fill_matmul_fusion():
 
 
 def fill_matmul_bias_add_fusion():
-  expert = fusion_test_expert('matmul_bias_add',
-                              'linalg.generic',
-                              tile_sizes=[4, 8, 6],
-                              tile_interchange=[0, 1, 2],
-                              pad=True,
-                              pack_paddings=[1, 1, 0],
-                              hoist_paddings=[0, 0, 0],
-                              vectorize=True,
-                              vectorize_paddings=True)
-  problem_sizes_dict = {'M': 24, 'N': 32, 'K': 48}
+  expert = Fuse('matmul_bias_add',
+                'linalg.generic',
+                tile_sizes=[8, 8],
+                tile_interchange=[0, 1],
+                pad=True,
+                pack_paddings=[1, 1, 0],
+                hoist_paddings=[0, 0, 0]).then(
+                    Tile('matmul_bias_add',
+                         'linalg.matmul',
+                         tile_sizes=[0, 0, 24],
+                         pad=True)).then(PrintIR()).then(Bufferize()).then(
+                             LowerVectors()).then(LowerToLLVM())
+
+  problem_sizes_dict = {'M': 25, 'N': 37, 'K': 49}
   problem = ProblemInstance(
       problem_definition=MatmulBiasAddProblem(),
       np_types=[np.float32, np.float32, np.float32, np.float32])
@@ -95,11 +99,12 @@ def fill_matmul_bias_add_fusion():
   problem.compile(entry_point_name='matmul_bias_add_main',
                   fun_to_benchmark_name='matmul_bias_add',
                   compile_time_problem_sizes_dict=problem_sizes_dict,
-                  transform=expert)
+                  transform=expert,
+                  zero_at_each_iteration=True)
 
 
 def main():
-  fill_matmul_fusion()
+  # fill_matmul_fusion()
   fill_matmul_bias_add_fusion()
 
 
