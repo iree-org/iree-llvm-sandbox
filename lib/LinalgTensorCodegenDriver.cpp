@@ -39,6 +39,7 @@
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/Transforms.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -142,6 +143,13 @@ struct OutlineOneParentLoopPass
     : public OutlineOneParentLoopBase<OutlineOneParentLoopPass> {
   OutlineOneParentLoopPass() = default;
   OutlineOneParentLoopPass(const OutlineOneParentLoopPass &pass) {}
+  void runOnOperation() override;
+};
+
+struct PipelineOneParentLoopPass
+    : public PipelineOneParentLoopBase<PipelineOneParentLoopPass> {
+  PipelineOneParentLoopPass() = default;
+  PipelineOneParentLoopPass(const PipelineOneParentLoopPass &pass) {}
   void runOnOperation() override;
 };
 
@@ -524,6 +532,67 @@ void OutlineOneParentLoopPass::runOnOperation() {
   });
 }
 
+// Naive schedule: Schedule ops as early as possible.
+static void
+loopScheduling(scf::ForOp forOp,
+               std::vector<std::pair<Operation *, unsigned>> &schedule,
+               unsigned II, unsigned readLatency) {
+  auto getLatency = [&](Operation *op) {
+    if (isa<vector::TransferReadOp>(op))
+      return readLatency;
+    return unsigned(1);
+  };
+
+  DenseMap<Operation *, unsigned> opCycles;
+  std::map<unsigned, std::vector<Operation *>> wrappedSchedule;
+  for (Operation &op : forOp.getBody()->getOperations()) {
+    if (isa<scf::YieldOp>(op))
+      continue;
+    unsigned earlyCycle = 0;
+    for (Value operand : op.getOperands()) {
+      Operation *def = operand.getDefiningOp();
+      if (!def)
+        continue;
+      earlyCycle = std::max(earlyCycle, opCycles[def] + getLatency(def));
+    }
+    opCycles[&op] = earlyCycle;
+    wrappedSchedule[earlyCycle % II].push_back(&op);
+  }
+  for (auto it : wrappedSchedule) {
+    for (Operation *op : it.second) {
+      unsigned cycle = opCycles[op];
+      schedule.push_back(std::make_pair(op, cycle / II));
+    }
+  }
+}
+
+void PipelineOneParentLoopPass::runOnOperation() {
+  if (getOperation().getName() != anchorFuncOpName)
+    return;
+
+  // Poor man's op targeting.
+  getOperation().walk([&](Operation *op) {
+    if (op->getName().getStringRef() != anchorOpName)
+      return WalkResult::advance();
+    SmallVector<scf::ForOp> reverseEnclosingLoops;
+    getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
+
+    scf::ForOp loopToPipeline = reverseEnclosingLoops.back();
+    scf::PipeliningOption schedule;
+    schedule.getScheduleFn =
+        [&](scf::ForOp forOp,
+            std::vector<std::pair<Operation *, unsigned>> &order) {
+          if (forOp != loopToPipeline)
+            return;
+          return loopScheduling(forOp, order, II, readLatency);
+        };
+    RewritePatternSet patterns(op->getContext());
+    scf::populateSCFLoopPipeliningPatterns(patterns, schedule);
+    (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
+    return WalkResult::interrupt();
+  });
+}
+
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
@@ -566,6 +635,10 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
   return std::make_unique<OutlineOneParentLoopPass>();
+}
+
+std::unique_ptr<OperationPass<FuncOp>> mlir::createPipelineOneParentLoopPass() {
+  return std::make_unique<PipelineOneParentLoopPass>();
 }
 
 //===----------------------------------------------------------------------===//

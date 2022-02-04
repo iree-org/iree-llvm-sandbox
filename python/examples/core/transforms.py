@@ -494,6 +494,28 @@ class UnrollOneParentLoop(Transform):
     self.pipeline = (f'builtin.func({pipeline})')
 
 
+class PipelineOneParentLoop(Transform):
+
+  variables = {
+      'parent_loop_num': (IntVariable, 1),
+      'II': (IntVariable, 1),
+      'read_latency': (IntVariable, 10),
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'pipeline-one-parent-loop{{'
+                f'     anchor-func={fun_name} '
+                f'     anchor-op={op_name} '
+                f'     parent-loop-num={self.parent_loop_num}'
+                f'     II={self.II}'
+                f'     read-latency={self.read_latency}}},'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+
 class OutlineOneParentLoop(Transform):
 
   variables = {

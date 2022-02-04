@@ -53,22 +53,19 @@ expert_tile_1_and_generalize_interchange = \
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
 # TODO: scalarize_dyn_dims should be exposed as a variable in Tile transformation
 # to enable tuning and pass it into the transformation list directly.
-expert_tile_1_peel_scalarize = TransformationList(
-    transforms=[
-        Tile('matmul', 'linalg.generic', tile_sizes=[8], peel=[0]),
-        Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True),
-    ] + Vectorize.then(LoweringOnlyExpert)
-    ('matmul', 'linalg.generic').transforms)
+expert_tile_1_peel_scalarize = TransformationList(transforms=[
+    Tile('matmul', 'linalg.generic', tile_sizes=[8], peel=[0]),
+    Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True),
+] + Vectorize.then(LoweringOnlyExpert)('matmul', 'linalg.generic').transforms)
 
 # 1 level of tiling, with padding.
-expert_tile_1_pad = Tile(
-    'matmul',
-    'linalg.generic',
-    tile_sizes=[8, 8, 24],
-    pad=True,
-    pack_paddings=[1, 1, 1]).then(
-        Vectorize('matmul', 'linalg.generic') +
-        LoweringOnlyExpert('matmul', 'linalg.generic'))
+expert_tile_1_pad = Tile('matmul',
+                         'linalg.generic',
+                         tile_sizes=[8, 8, 24],
+                         pad=True,
+                         pack_paddings=[1, 1, 1]).then(
+                             Vectorize('matmul', 'linalg.generic') +
+                             LoweringOnlyExpert('matmul', 'linalg.generic'))
 
 # 1 level of tiling, with padding hoisted and transposed.
 expert_tile_1_pad_hoist = TestExpert([
@@ -102,10 +99,7 @@ expert_tile_3_pad_hoist_peel = TestExpert([
          pad=True,
          pack_paddings=[1, 1, 1],
          hoist_paddings=[6, 6, 6]),
-    Tile('matmul',
-         'linalg.generic',
-         tile_sizes=[2, 3, 7],
-         peel=[0, 1, 2]),
+    Tile('matmul', 'linalg.generic', tile_sizes=[2, 3, 7], peel=[0, 1, 2]),
     Vectorize('matmul', 'linalg.generic')
 ])
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
@@ -118,10 +112,7 @@ expert_tile_3_pad_hoist_peel_scalarize = TestExpert([
          pad=True,
          pack_paddings=[1, 1, 1],
          hoist_paddings=[6, 6, 6]),
-    Tile('matmul',
-         'linalg.generic',
-         tile_sizes=[2, 3, 7],
-         peel=[0, 1, 2]),
+    Tile('matmul', 'linalg.generic', tile_sizes=[2, 3, 7], peel=[0, 1, 2]),
     Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True),
     Vectorize('matmul', 'linalg.generic'),
     UnrollOneVectorOp(
@@ -154,21 +145,38 @@ expert_fuse_and_pad = TestExpert([
          pack_paddings=[1, 1, 1],
          hoist_paddings=[3, 3, 3]),
     Vectorize('matmul', 'linalg.generic'),
-    OutlineOneParentLoop('matmul',
-                         'vector.contract',
-                         'foo',
-                         parent_loop_num=2),
+    OutlineOneParentLoop('matmul', 'vector.contract', 'foo', parent_loop_num=2),
     Tile('matmul', 'linalg.fill', tile_sizes=[8, 8]),
     Vectorize('matmul', 'linalg.fill')
 ])
+expert_fuse_and_pad_and_pipeline = TestExpert([
+    Tile('matmul',
+         'linalg.generic',
+         tile_sizes=[4, 4, 4],
+         tile_interchange=[2, 1, 0]),
+    Vectorize('matmul', 'linalg.generic'),
+    PipelineOneParentLoop('matmul',
+                          'vector.contract',
+                          parent_loop_num=1,
+                          II=2,
+                          read_latency=20)
+])
 
 all_experts = [
-    e.print_ir(after_all=True) for e in [
-        expert_no_tiling, expert_tile_1, expert_tile_and_interchange_1,
-        expert_tile_1_and_generalize_interchange, expert_tile_1_peel_scalarize,
-        expert_tile_1_pad, expert_tile_1_pad_hoist, expert_tile_2_pad_hoist,
-        expert_tile_3_pad_hoist_peel, expert_tile_3_pad_hoist_peel_scalarize,
-        expert_fuse_2_tile_1, expert_fuse_and_pad
+    e.print_ir(after_all=False) for e in [ \
+        expert_no_tiling,
+        expert_tile_1,
+        expert_tile_and_interchange_1,
+        expert_tile_1_and_generalize_interchange,
+        expert_tile_1_peel_scalarize,
+        expert_tile_1_pad,
+        expert_tile_1_pad_hoist,
+        expert_tile_2_pad_hoist,
+        expert_tile_3_pad_hoist_peel,
+        expert_tile_3_pad_hoist_peel_scalarize,
+        expert_fuse_2_tile_1,
+        expert_fuse_and_pad,
+        expert_fuse_and_pad_and_pipeline
     ]
 ]
 
@@ -184,7 +192,8 @@ def main():
   n_iters = 1
   problem_size_list = [[24, 32, 48], [27, 37, 43]]
 
-  test_harness(lambda s, t: EinsumProblem('mk,kn', 'mnk', 2), [[np.float32] * 3],
+  test_harness(lambda s, t: EinsumProblem('mk,kn', 'mnk', 2),
+               [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
