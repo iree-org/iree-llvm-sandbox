@@ -9,6 +9,7 @@
 #include "Dialects/VectorExt/VectorExtOps.h"
 #include "Dialects/VectorExt/VectorExtWarpUtils.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Visitors.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -37,12 +38,21 @@ struct TestVectorWarp
       *this, "propagate-distribution",
       llvm::cl::desc("Test distribution propgation"), llvm::cl::init(false)};
 
+  Option<bool> rewriteWarpOpsToScfIf{
+      *this, "rewrite-warp-ops-to-scf-if",
+      llvm::cl::desc("Test rewriting of warp_execute_on_lane_0 to scf.if")};
+
   void runOnOperation() override {
     FuncOp funcOp = getOperation();
     MLIRContext *ctx = &getContext();
     if (propagateDistribution) {
       RewritePatternSet patterns(ctx);
       vector_ext::populatePropagateVectorDistributionPatterns(patterns);
+      (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+    }
+    if (rewriteWarpOpsToScfIf) {
+      RewritePatternSet patterns(ctx);
+      vector_ext::populateWarpSingleLaneOpToScfForPattern(patterns);
       (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
     }
   }
