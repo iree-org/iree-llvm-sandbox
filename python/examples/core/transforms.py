@@ -539,6 +539,23 @@ class OutlineOneParentLoop(Transform):
     self.pipeline = (f'builtin.func({pipeline})')
 
 
+class ApplySchedule(Transform):
+
+  def __init__(self):
+    pass
+
+  def __call__(self, module: Module, **kwargs):
+    PassManager.parse('linalg-interp-transforms').run(module)
+    self.drop_schedule_from_module(module)
+    return module
+
+  def drop_schedule_from_module(self, module):
+    for op in module.body.operations:
+      op_name = op.operation.name
+      if op_name == 'pdl.pattern' or op_name == 'linalg_transform.sequence':
+        op.operation.erase()
+
+
 class Sparsify(Transform):
 
   def __init__(self, options: str):
