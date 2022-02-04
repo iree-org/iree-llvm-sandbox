@@ -132,12 +132,12 @@ struct UnrollOneVectorOpPass
   void runOnOperation() override;
 };
 
-/*struct UnrollOneParentLoopPass
+struct UnrollOneParentLoopPass
     : public UnrollOneParentLoopBase<UnrollOneParentLoopPass> {
   UnrollOneParentLoopPass() = default;
   UnrollOneParentLoopPass(const UnrollOneParentLoopPass &pass) {}
   void runOnOperation() override;
-};*/
+};
 
 struct OutlineOneParentLoopPass
     : public OutlineOneParentLoopBase<OutlineOneParentLoopPass> {
@@ -475,7 +475,7 @@ void UnrollOneVectorOpPass::runOnOperation() {
   (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
 }
 
-/*void UnrollOneParentLoopPass::runOnOperation() {
+void UnrollOneParentLoopPass::runOnOperation() {
   if (getOperation().getName() != anchorFuncOpName)
     return;
 
@@ -489,7 +489,7 @@ void UnrollOneVectorOpPass::runOnOperation() {
       signalPassFailure();
     return WalkResult::interrupt();
   });
-}*/
+}
 
 scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
   if (op->getNumRegions() != 1)
@@ -577,12 +577,12 @@ void PipelineOneParentLoopPass::runOnOperation() {
     SmallVector<scf::ForOp> reverseEnclosingLoops;
     getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
 
-    scf::ForOp mostInnerLoop = reverseEnclosingLoops.back();
+    scf::ForOp loopToPipeline = reverseEnclosingLoops.back();
     scf::PipeliningOption schedule;
     schedule.getScheduleFn =
         [&](scf::ForOp forOp,
             std::vector<std::pair<Operation *, unsigned>> &order) {
-          if (forOp != mostInnerLoop)
+          if (forOp != loopToPipeline)
             return;
           return loopScheduling(forOp, order, II, readLatency);
         };
@@ -629,10 +629,9 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
   return std::make_unique<UnrollOneVectorOpPass>();
 }
 
-// std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass()
-// {
-//   return std::make_unique<UnrollOneParentLoopPass>();
-// }
+std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
+  return std::make_unique<UnrollOneParentLoopPass>();
+}
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
   return std::make_unique<OutlineOneParentLoopPass>();
