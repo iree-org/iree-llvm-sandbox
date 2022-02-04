@@ -37,7 +37,7 @@ def fill_matmul_fusion():
   problem_size_list = [[24, 32, 48], [27, 37, 43]]
   test_harness(lambda s, t: MatmulProblem(), [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
-               [expert.print_ir(after_all=True, at_begin=False, llvm=False)],
+               [expert.print_ir(after_all=False, at_begin=False, llvm=False)],
                n_iters=n_iters,
                function_name=fun_name)
 
