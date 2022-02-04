@@ -578,6 +578,8 @@ void PipelineOneParentLoopPass::runOnOperation() {
     getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
 
     scf::ForOp loopToPipeline = reverseEnclosingLoops.back();
+    llvm::errs() << "\nPipeline: \n";
+    loopToPipeline.dump();
     scf::PipeliningOption schedule;
     schedule.getScheduleFn =
         [&](scf::ForOp forOp,
@@ -591,6 +593,8 @@ void PipelineOneParentLoopPass::runOnOperation() {
     (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
     return WalkResult::interrupt();
   });
+  getOperation().dump();
+  abort();
 }
 
 //===----------------------------------------------------------------------===//
