@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -linalg-ext-tiling-to-tile-op="tile-size=10" | FileCheck %s
+// RUN: mlir-proto-opt %s -linalg-ext-tiling-to-tile-op="tile-sizes=10" | FileCheck %s
 
 // CHECK-LABEL: reverse_1d_tensor(
 //  CHECK-SAME:   %[[T:[0-9a-z]+]]: tensor<?x?xf32>
@@ -51,9 +51,10 @@ func @matmul_static(%A: tensor<100x200xf32>, %B: tensor<200x300xf32>, %C: tensor
   //      CHECK: %[[C10:.*]] = arith.constant 10 : index
   //      CHECK: linalg_ext.tile %[[C10]] outs(%[[C]]: tensor<100x300xf32>) -> (tensor<100x300xf32>) {
   //      CHECK: ^bb0(%[[OFF:.*]]: index, %[[SZ:.*]]: index, %[[C_ITER:.*]]: tensor<?x?xf32>):
-  //      CHECK:   %[[tA:.*]] = tensor.extract_slice %[[A]]{{.*}} : tensor<100x200xf32> to tensor<?x200xf32>
+  //      CHECK:   %[[tA:.*]] = tensor.extract_slice %[[A]]{{.*}} : tensor<100x200xf32> to tensor<?x?xf32>
+  //      CHECK:   %[[tB:.*]] = tensor.extract_slice %[[B]]{{.*}} : tensor<200x300xf32> to tensor<?x?xf32>
   //      CHECK:   %[[RES:.*]] = linalg.matmul
-  // CHECK-SAME:      ins(%[[tA]], %[[B]] : tensor<?x200xf32>, tensor<200x300xf32>)
+  // CHECK-SAME:      ins(%[[tA]], %[[tB]] : tensor<?x?xf32>, tensor<?x?xf32>)
   // CHECK-SAME:     outs(%[[C_ITER]] : tensor<?x?xf32>) -> tensor<?x?xf32>
   //      CHECK:   linalg_ext.tile_yield %[[RES]] : tensor<?x?xf32>
   %D = linalg.matmul ins(%A, %B: tensor<100x200xf32>, tensor<200x300xf32>) outs(%C: tensor<100x300xf32>) -> tensor<100x300xf32>

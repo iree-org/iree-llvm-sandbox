@@ -21,8 +21,9 @@
 using namespace mlir;
 using namespace mlir::linalg_ext;
 
-SmallVector<Value> tileToTileOp(PatternRewriter &rewriter, TilingInterface op,
-                                Value tileSize) {
+static SmallVector<Value> tileToTileOp(PatternRewriter &rewriter,
+                                       TilingInterface op, int64_t tiledDim,
+                                       Value tileSize) {
   Location loc = op->getLoc();
   OpBuilder::InsertionGuard g(rewriter);
   // TODO: Handle the case where the `loopRanges` are empty.
@@ -31,14 +32,22 @@ SmallVector<Value> tileToTileOp(PatternRewriter &rewriter, TilingInterface op,
          "expected at least a single loop in operation");
   auto destOperands = op.getDestinationOperands(rewriter);
   auto tileOp = rewriter.create<linalg_ext::TileOp>(
-      loc, tileSize, destOperands,
+      loc, tileSize, destOperands, tiledDim,
       [&](OpBuilder &b, Location loc, Value offset, Value size,
           ValueRange outSlices) {
         // TODO: support `getTiledImplementation` with >1 produced tiled ops.
-        SmallVector<OpFoldResult> tiledOffsets = {offset}, tiledSizes = {size};
-        for (unsigned i = 1; i < loopRanges.size(); ++i) {
-          tiledOffsets.push_back(loopRanges[i].offset);
-          tiledSizes.push_back(loopRanges[i].size);
+        int64_t nLoops = loopRanges.size();
+        SmallVector<OpFoldResult> tiledOffsets, tiledSizes;
+        tiledOffsets.reserve(nLoops);
+        tiledSizes.reserve(nLoops);
+        for (unsigned i = 0; i < nLoops; ++i) {
+          if (i == tiledDim) {
+            tiledOffsets.push_back(offset);
+            tiledSizes.push_back(size);
+          } else {
+            tiledOffsets.push_back(loopRanges[i].offset);
+            tiledSizes.push_back(loopRanges[i].size);
+          }
         }
         SmallVector<Operation *> tiledOps = op.getTiledImplementation(
             b, outSlices, tiledOffsets, tiledSizes, /*tileDestOperands=*/false);
@@ -69,23 +78,33 @@ struct OpTilingPattern : public OpInterfaceRewritePattern<TilingInterface> {
     // Get rank and tile sizes.
     SmallVector<Value> tileSizes =
         options.tileSizeComputationFunction(rewriter, op);
-    assert(tileSizes.size() == 1 && "expected a single tile size");
+    int64_t dim = -1;
+    for (auto en : llvm::enumerate(tileSizes)) {
+      Optional<int64_t> maybeTileSize = getConstantIntValue(en.value());
+      if (maybeTileSize && *maybeTileSize == 0)
+        continue;
+      if (maybeTileSize && *maybeTileSize < 0)
+        return rewriter.notifyMatchFailure(op, "Negative tile size");
+      if (dim >= 0)
+        return rewriter.notifyMatchFailure(
+            op, "Could not find a single tiling dim");
+      dim = en.index();
+    }
+    if (dim < 0)
+      return rewriter.notifyMatchFailure(op,
+                                         "Could not find a single tiling dim");
 
-    /// Currently only handle operations with all parallel iterator types.
+    /// Currently only handle tiling operations on a parallel iterator type.
     auto loopIteratorTypes = op.getLoopIteratorTypes();
-    if (loopIteratorTypes.empty()) {
-      // Scalar operation, nothing to do, so just return.
-      return failure();
-    }
+    // Scalar operation, nothing to do, so just return.
+    if (loopIteratorTypes.empty())
+      return rewriter.notifyMatchFailure(op, "Scalar op, no tiling possible");
     ArrayRef<StringRef> loopIteratorTypesRef(loopIteratorTypes);
-    if (llvm::any_of(loopIteratorTypesRef.take_front(tileSizes.size()),
-                     [](StringRef iteratorType) {
-                       return iteratorType != getParallelIteratorTypeName();
-                     })) {
-      return failure();
-    }
+    if (loopIteratorTypesRef[dim] != getParallelIteratorTypeName())
+      return rewriter.notifyMatchFailure(op,
+                                         "Trying to tile a non-parallel dim");
 
-    rewriter.replaceOp(op, tileToTileOp(rewriter, op, tileSizes.front()));
+    rewriter.replaceOp(op, tileToTileOp(rewriter, op, dim, tileSizes[dim]));
 
     // Poor man's single pattern application to avoid infinite pattern
     // application wihtout having to hack with attributes and filters.
@@ -106,7 +125,9 @@ private:
 struct LinalgExtTilingToTileOp
     : public LinalgExtTilingToTileOpBase<LinalgExtTilingToTileOp> {
   LinalgExtTilingToTileOp() = default;
-  LinalgExtTilingToTileOp(int64_t tileSize) { this->tileSize = tileSize; }
+  LinalgExtTilingToTileOp(ArrayRef<int64_t> tileSizes) {
+    this->tileSizes = tileSizes;
+  }
   void runOnOperation() override;
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<linalg_ext::LinalgExtDialect>();
@@ -115,19 +136,17 @@ struct LinalgExtTilingToTileOp
 } // namespace
 
 void LinalgExtTilingToTileOp::runOnOperation() {
-  assert(tileSize > 0 && "expected a nonnegative tile size");
-
   FuncOp funcOp = getOperation();
 
   RewritePatternSet patterns(&getContext());
-  auto options =
-      linalg::LinalgTilingOptions().setTileSizes(ArrayRef<int64_t>{tileSize});
+  auto options = linalg::LinalgTilingOptions().setTileSizes(tileSizes);
   patterns.insert<OpTilingPattern>(&getContext(), options);
 
   (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
 }
 
 std::unique_ptr<OperationPass<FuncOp>>
-mlir::linalg_ext::createLinalgExtTilingToTileOpPass(int64_t tileSize) {
-  return std::make_unique<LinalgExtTilingToTileOp>(tileSize);
+mlir::linalg_ext::createLinalgExtTilingToTileOpPass(
+    ArrayRef<int64_t> tileSizes) {
+  return std::make_unique<LinalgExtTilingToTileOp>(tileSizes);
 }

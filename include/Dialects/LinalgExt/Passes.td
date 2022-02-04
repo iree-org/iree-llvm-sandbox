@@ -53,8 +53,9 @@ def LinalgExtTilingToTileOp : Pass<"linalg-ext-tiling-to-tile-op", "FuncOp"> {
     "scf::SCFDialect"
   ];
   let options = [
-    // TODO: some permutation flag to know which dim to tile with TileOp.
-    Option<"tileSize", "tile-size", "unsigned", /*default=*/"0", "Tile Size">
+    ListOption<"tileSizes", "tile-sizes", "int64_t",
+    "Tile Sizes, all must be 0 except one of the sizes",
+    "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">
   ];
 }
 

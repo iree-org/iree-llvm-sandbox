@@ -115,7 +115,7 @@ def LinalgExt_TileOp : LinalgExt_PureOp<"tile",
   let description = [{
     `linalg_ext.tile` is a 1-D loop construct that operates on tensors and
     evaluates its body once for each tile. The number and size of tiles is
-    specified by the `tile_sizes` operand.
+    specified by the `tile_size` operand.
 
     The `tile` op takes a list of destination-passing style tensors and returns
     a matching list of tensors of the same size.
@@ -124,23 +124,22 @@ def LinalgExt_TileOp : LinalgExt_PureOp<"tile",
     dimension matching the corresponding tile size.
 
     The default terminator behavior is such that tiles yielded by individual
-    iterations are concatenated along the first dimension. This is the canonical
-    way to perform "subset insertions".
+    iterations are concatenated along the `tiled_dim` dimension.
+    This is the canonical way to perform "subset insertions".
+    Note, if `tiled_dim` has the value `0`, it may be elided from pretty
+    pinting and parsing.
 
     All return tiles are concatenated into forming the matching full result
     tensor according to the terminator.
 
-    In the future, a "dim" permutation attribute is expected to be added to the
-    terminator to modify the behavior of tile concatenation into the result.
+    When the `tile_size` operand is a `tensor<..index>`, the `tile` op
+    evaluates its body `dim(tile_size, 0)` times. Each iteration `i` produces a
+    tile of leading size `tile_size[i]`.
 
-    When the `tile_sizes` operand is a `tensor<..index>`, the `tile` op
-    evaluates its body `dim(tile_sizes, 0)` times. Each iteration `i` produces a
-    tile of leading size `tile_sizes[i]`.
-
-    The induced `offset` block argument captures the running sum of `tile_sizes`
+    The induced `offset` block argument captures the running sum of `tile_size`
     for all the previous iterations.
 
-    When the `tile_sizes` operand is a single index, it is interpreted as a
+    When the `tile_size` operand is a single index, it is interpreted as a
     sequence of tile sizes given by the following formula:
     ```
       N = tensor.dim(...)
@@ -152,18 +151,25 @@ def LinalgExt_TileOp : LinalgExt_PureOp<"tile",
     All tiles except the last are of the same size.
   }];
   let arguments = (ins AnyTypeOf<[// TODO: allow TensorOf<[Index]>,
-                                  Index]>:$tile_sizes,
-                       Variadic<AnyRankedTensor>:$outs);
+                                  Index]>:$tile_size,
+                       Variadic<AnyRankedTensor>:$outs,
+                       I64Attr:$tiled_dim);
   let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$region);
   let skipDefaultBuilders = 1;
   let builders = [
+    // Builder that builds a tile on the implicit first dimension (i.e. `0`).
     OpBuilder<(ins "Value":$tileSizes, "ValueRange":$outs,
       CArg<"function_ref<void(OpBuilder &, Location, Value, Value, ValueRange)>",
-           "nullptr">)>
+           "nullptr">)>,
+    // Builder that builds a tile with a specified integral dimension.
+    OpBuilder<(ins "Value":$tileSizes, "ValueRange":$outs, "int64_t":$tiledDims,
+      CArg<"function_ref<void(OpBuilder &, Location, Value, Value, ValueRange)>",
+           "nullptr">)>,
   ];
 
   let extraClassDeclaration = [{
+    static StringRef getTiledDimAttrName() { return "tiled_dim";}
     using TileOpBodyBuilderFn =
       function_ref<void(OpBuilder &, Location, Value /*offset*/, Value /*size*/,
                         ValueRange /*outs*/)>;
