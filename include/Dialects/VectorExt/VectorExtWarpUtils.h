@@ -19,6 +19,8 @@ namespace vector_ext {
 /// Collect patterns to propagate warp distribution.
 void populatePropagateVectorDistributionPatterns(RewritePatternSet &pattern);
 
+void populateWarpSingleLaneOpToScfForPattern(RewritePatternSet &patterns);
+
 } // namespace vector_ext
 } // namespace mlir
 

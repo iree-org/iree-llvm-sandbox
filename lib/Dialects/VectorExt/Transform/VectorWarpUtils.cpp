@@ -9,6 +9,8 @@
 #include "Dialects/VectorExt/VectorExtOps.h"
 #include "Dialects/VectorExt/VectorExtWarpUtils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -17,6 +19,8 @@
 using namespace mlir;
 using namespace mlir::vector;
 using namespace mlir::vector_ext;
+
+static const int kWarpSize = 32;
 
 // Clones `op` into a new operations that takes `operands` and returns
 // `resultTypes`.
@@ -262,4 +266,164 @@ void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult>(
       pattern.getContext());
+}
+
+static LogicalResult rewriteWarpOpToScfFor(
+    RewriterBase &rewriter, WarpSingleLaneOp warpOp, Value buffer) {
+  assert(warpOp.getBodyRegion().hasOneBlock() &&
+         "expected WarpOp with single block");
+  Block *warpOpBody = &warpOp.getBodyRegion().front();
+
+  // Passed all checks. Start rewriting.
+  OpBuilder::InsertionGuard g(rewriter);
+  Location loc = warpOp.getLoc();
+  rewriter.setInsertionPoint(warpOp);
+
+  // Create scf.if op.
+  Value c0 = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+  Value isLane0 = rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                                                 warpOp.laneid(), c0);
+  auto ifOp = rewriter.create<scf::IfOp>(loc, isLane0,
+                                         /*withElseRegion=*/false);
+  rewriter.eraseOp(ifOp.thenBlock()->getTerminator());
+
+  // Store vectors that are defined outside of warpOp into the scratch pad
+  // buffer.
+  Value loadOffset = c0;
+  SmallVector<Value> bbArgReplacements;
+  for (const auto &it : llvm::enumerate(warpOp.args())) {
+    Value val = it.value();
+    Value bbArg = warpOpBody->getArgument(it.index());
+
+    // Store arg vector into buffer.
+    rewriter.setInsertionPoint(ifOp);
+    auto vectorType = val.getType().cast<VectorType>();
+    int64_t storeSize = vectorType.getShape()[0];
+    Value storeOffset = rewriter.create<arith::AddIOp>(loc, loadOffset,
+        rewriter.create<arith::MulIOp>(loc, warpOp.laneid(),
+            rewriter.create<arith::ConstantIndexOp>(loc, storeSize)));
+    rewriter.create<vector::StoreOp>(loc, val, buffer, storeOffset);
+
+    // Load bbArg vector from buffer.
+    rewriter.setInsertionPointToStart(ifOp.thenBlock());
+    auto bbArgType = bbArg.getType().cast<VectorType>();
+    Value loadOp = rewriter.create<vector::LoadOp>(loc, bbArgType, buffer,
+                                                   loadOffset);
+    bbArgReplacements.push_back(loadOp);
+
+    // Compute next offset.
+    rewriter.setInsertionPoint(ifOp);
+    loadOffset = rewriter.create<arith::AddIOp>(loc, loadOffset,
+        rewriter.create<arith::ConstantIndexOp>(loc, bbArgType.getShape()[0]));
+  }
+
+  // Move body of warpOp to ifOp.
+  rewriter.mergeBlocks(warpOpBody, ifOp.thenBlock(), bbArgReplacements);
+
+  // Rewrite terminator and compute replacements of WarpOp results.
+  SmallVector<Value> replacements;
+  auto yieldOp = cast<vector_ext::YieldOp>(ifOp.thenBlock()->getTerminator());
+  Location yieldLoc = yieldOp.getLoc();
+  Value storeOffset = c0;
+
+  for (const auto &it : llvm::enumerate(yieldOp.operands())) {
+    Value val = it.value();
+
+    // Store yielded vector into buffer.
+    rewriter.setInsertionPoint(yieldOp);
+    auto vectorType = val.getType().cast<VectorType>();
+    rewriter.create<vector::StoreOp>(yieldLoc, val, buffer, storeOffset);
+
+    // Load vector from buffer (after warpOp).
+    rewriter.setInsertionPointAfter(ifOp);
+    auto loadedVectorType =
+        warpOp->getResultTypes()[it.index()].cast<VectorType>();
+    int64_t loadSize = loadedVectorType.getShape()[0];
+
+    // loadOffset = storeOffset + laneid * loadSize
+    Value loadOffset = rewriter.create<arith::AddIOp>(loc, storeOffset,
+        rewriter.create<arith::MulIOp>(loc, warpOp.laneid(),
+            rewriter.create<arith::ConstantIndexOp>(loc, loadSize)));
+    Value loadOp = rewriter.create<vector::LoadOp>(loc, loadedVectorType,
+                                                   buffer, loadOffset);
+    replacements.push_back(loadOp);
+
+    // Compute next offset.
+    rewriter.setInsertionPoint(ifOp);
+    Value vectorSize = rewriter.create<arith::ConstantIndexOp>(
+        yieldLoc, vectorType.getShape()[0]);
+    storeOffset = rewriter.create<arith::AddIOp>(yieldLoc, storeOffset,
+                                                 vectorSize);
+  }
+
+  // Delete terminator and add empty scf.yield.
+  rewriter.eraseOp(yieldOp);
+  rewriter.setInsertionPointToEnd(ifOp.thenBlock());
+  rewriter.create<scf::YieldOp>(yieldLoc);
+
+  // Compute replacements for WarpOp results.
+  rewriter.replaceOp(warpOp, replacements);
+
+  return success();
+}
+
+struct WarpOpToScfForPattern : public OpRewritePattern<WarpSingleLaneOp> {
+  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+                                PatternRewriter &rewriter) const override {
+    assert(warpOp.getBodyRegion().hasOneBlock() &&
+           "expected WarpOp with single block");
+    Block *warpOpBody = &warpOp.getBodyRegion().front();
+
+    // Only rank 1 vectors supported at the moment. Furthermore, the dimension
+    // must be divisible by the warp size. All element types must be the same.
+    Type elementType;
+    auto computeAllocSize = [&](ValueRange values) -> FailureOr<int64_t> {
+      int64_t allocSize = 0;
+      for (Value val : values) {
+        auto vectorType = val.getType().cast<VectorType>();
+        if (!elementType) {
+          elementType = vectorType.getElementType();
+        } else {
+          if (elementType != vectorType.getElementType())
+            return failure();
+        }
+        if (vectorType.getRank() != 1)
+          return failure();
+        int64_t dimSize = vectorType.getShape()[0];
+        if (dimSize % kWarpSize != 0)
+          return failure();
+        allocSize += dimSize;
+      }
+      return allocSize;
+    };
+
+    FailureOr<int64_t> yieldAllocSize = computeAllocSize(
+        cast<vector_ext::YieldOp>(warpOpBody->getTerminator()).operands());
+    if (failed(yieldAllocSize))
+      return failure();
+    FailureOr<int64_t> argsAllocSize = computeAllocSize(
+        warpOpBody->getArguments());
+    if (failed(argsAllocSize))
+      return failure();
+
+    // Allocate a shared memory buffer.
+    // TODO: Use the correct memory space.
+    int64_t allocSize = *yieldAllocSize > *argsAllocSize
+        ? *yieldAllocSize : *argsAllocSize;
+    Value alloc;
+    if (allocSize > 0) {
+      rewriter.setInsertionPoint(warpOp);
+      alloc = rewriter.create<memref::AllocOp>(
+          warpOp.getLoc(), MemRefType::get({allocSize}, elementType));
+    }
+
+    // Rewrite the op.
+    return rewriteWarpOpToScfFor(rewriter, warpOp, alloc);
+  }
+};
+
+void mlir::vector_ext::populateWarpSingleLaneOpToScfForPattern(
+    RewritePatternSet &patterns) {
+  patterns.add<WarpOpToScfForPattern>(patterns.getContext());
 }
