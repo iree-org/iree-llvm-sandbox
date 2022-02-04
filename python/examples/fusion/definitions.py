@@ -125,7 +125,7 @@ class MatmulProblem(ProblemDefinition):
     with InsertionPoint(func.add_entry_block()):
       tensor_zero = func.arguments[2]
       if zero_at_each_iteration:
-        zero = arith.ConstantOp(tensor_zero.element_type, 0.0)
+        zero = arith.ConstantOp(types[-1].element_type, 0.0)
         tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
       matmul = linalg.matmul(func.arguments[0],
                              func.arguments[1],
