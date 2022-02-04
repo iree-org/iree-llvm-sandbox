@@ -18,6 +18,8 @@ namespace mlir {
 template <typename ConcreteDialect>
 void registerDialect(DialectRegistry &registry);
 
+class StandardOpsDialect;
+
 namespace linalg {
 class LinalgDialect;
 }  // end namespace linalg
