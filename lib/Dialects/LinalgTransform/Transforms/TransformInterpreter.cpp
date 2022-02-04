@@ -42,6 +42,7 @@
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
@@ -215,6 +216,8 @@ executeVectorizeOp(LinalgOp target,
   patterns.add<linalg::LinalgCopyVTRForwardingPattern,
                linalg::LinalgCopyVTWForwardingPattern>(ctx,
                                                        /*benefit=*/2);
+  vector::TransferReadOp::getCanonicalizationPatterns(patterns, ctx);
+  vector::TransferWriteOp::getCanonicalizationPatterns(patterns, ctx);
   if (vectorizeOp.vectorize_padding())
     linalg::populatePadOpVectorizationPatterns(patterns);
   LinalgVectorizationPattern pattern(vectorizeOp.getContext());
