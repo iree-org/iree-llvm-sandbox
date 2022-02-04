@@ -152,13 +152,12 @@ expert_fuse_and_pad = TestExpert([
 expert_fuse_and_pad_and_pipeline = TestExpert([
     Tile('matmul',
          'linalg.generic',
-         tile_sizes=[4, 4, 4],
-         tile_interchange=[2, 1, 0]),
+         tile_sizes=[4, 4, 4]),
     Vectorize('matmul', 'linalg.generic'),
     PipelineOneParentLoop('matmul',
                           'vector.contract',
                           parent_loop_num=1,
-                          II=2,
+                          II=10,
                           read_latency=20)
 ])
 

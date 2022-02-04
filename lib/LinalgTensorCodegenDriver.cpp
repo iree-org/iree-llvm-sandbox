@@ -551,7 +551,7 @@ loopScheduling(scf::ForOp forOp,
     unsigned earlyCycle = 0;
     for (Value operand : op.getOperands()) {
       Operation *def = operand.getDefiningOp();
-      if (!def)
+      if (!def || opCycles.count(def) == 0)
         continue;
       earlyCycle = std::max(earlyCycle, opCycles[def] + getLatency(def));
     }
