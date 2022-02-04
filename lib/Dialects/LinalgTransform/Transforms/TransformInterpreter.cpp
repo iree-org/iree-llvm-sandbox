@@ -41,7 +41,6 @@
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
-#include "mlir/Dialect/StandardOps/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Pass/Pass.h"
@@ -620,7 +619,6 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
     linalg::comprehensive_bufferize::linalg_ext::
         registerBufferizableOpInterfaceExternalModels(registry);
     scf::registerBufferizableOpInterfaceExternalModels(registry);
-    mlir::registerBufferizableOpInterfaceExternalModels(registry);
     linalg::comprehensive_bufferize::std_ext::
         registerModuleBufferizationExternalModels(registry);
     tensor::registerBufferizableOpInterfaceExternalModels(registry);
