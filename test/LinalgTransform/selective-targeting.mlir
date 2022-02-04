@@ -17,11 +17,16 @@ func @matmul_tensors(
     -> tensor<128x128xf32>
 
   // This operation is marked for tiling and vectorization.
-  // CHECK-COUNT-3: scf.for
-  // CHECK-COUNT-3: vector.transfer_read
-  // CHECK: vector.contract
-  // CHECK-NOT: linalg.matmul
-  // CHECK: vector.transfer_write
+  // Note that the loop-invariant read is hoisted out of the innermost loop.
+  // CHECK: scf.for
+  // CHECK:   scf.for
+  // CHECK:     vector.transfer_read
+  // CHECK:     scf.for
+  // CHECK:       vector.transfer_read
+  // CHECK:       vector.transfer_read
+  // CHECK:       vector.contract
+  // CHECK-NOT:   linalg.matmul
+  // CHECK:       vector.transfer_write
   %1 = linalg.matmul { test.attrA, test.attrC}
                       ins(%arg3, %arg4: tensor<128x128xf32>, tensor<128x128xf32>)
                      outs(%arg5: tensor<128x128xf32>)

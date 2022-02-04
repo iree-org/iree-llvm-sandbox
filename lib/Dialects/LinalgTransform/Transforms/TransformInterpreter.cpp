@@ -29,6 +29,7 @@
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Arithmetic/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -41,6 +42,8 @@
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/SCF/Transforms.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
@@ -51,6 +54,7 @@
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/TypeSwitch.h"
 
 #define DEBUG_TYPE "transform-interpreter"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
@@ -393,6 +397,56 @@ executeLowerToLLVMOp(ModuleOp module,
   return pm.run(module);
 }
 
+/// Run enabling transformations (LICM and its variants, single-iteration loop
+/// removal, CSE) on the given function.
+static LogicalResult performEnablerTransformations(
+    FuncOp func, TransformOpMapping &operations,
+    linalg::LinalgEnablingOptions options = linalg::LinalgEnablingOptions()) {
+  MLIRContext *ctx = func->getContext();
+  RewritePatternSet patterns(ctx);
+  linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
+  scf::populateSCFForLoopCanonicalizationPatterns(patterns);
+  if (failed(applyPatternsTrackAndFoldGreedily(func, operations, std::move(patterns))))
+    return failure();
+
+  // This assumes LICM never removes operations so we don't need tracking.
+  if (options.licm) {
+    WalkResult result =
+        func->walk([](LoopLikeOpInterface loopLike) -> WalkResult {
+          return moveLoopInvariantCode(loopLike);
+        });
+    if (result.wasInterrupted())
+      return failure();
+  }
+
+  func.walk([](Operation *op) {
+    (void)llvm::TypeSwitch<Operation *, LogicalResult>(op)
+        .Case<AffineForOp, scf::ForOp>(
+            [](auto loop) { return promoteIfSingleIteration(loop); })
+        .Default([](Operation *) { return success(); });
+  });
+
+  if (options.hoistRedundantVectorTransfers)
+    hoistRedundantVectorTransfers(func);
+  if (options.hoistRedundantVectorTransfersOnTensor)
+    hoistRedundantVectorTransfersOnTensor(func);
+
+  eliminateCommonSubexpressionsWithTrackedOps(func, operations);
+  return success();
+}
+
+/// Run enabling transformations on the given model while preserving the
+/// operation tracking information.
+static LogicalResult performEnablerTransformations(
+    ModuleOp module, TransformOpMapping &operations,
+    linalg::LinalgEnablingOptions options = linalg::LinalgEnablingOptions()) {
+  for (auto func : module.getOps<FuncOp>()) {
+    if (failed(performEnablerTransformations(func, operations, options)))
+      return failure();
+  }
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // Linalg Interpreter Driver
 //===----------------------------------------------------------------------===//
@@ -581,11 +635,21 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
 
-    // Run canonicalization and CSE. This is similar to running the
-    // canonicalizer pass, but (a) keeps tracking the value/op mapping and (b)
-    // avoids constructing the pattern set + pass pipeline on every step.
-    // TODO: consider better targeting that module-level transformations here.
+    // Run CSE, enabling transformations and canonicalization. This is similar
+    // to running the respective pass, but (a) keeps tracking the value/op
+    // mapping and (b) avoids constructing the pattern set + pass pipeline on
+    // every step.
+    // TODO: consider better targeting than module-level transformations here:
+    // e.g., the enabler internals can apply to one function only. Furthermore,
+    // we don't need all of enabler transformations after/before all passes.
     eliminateCommonSubexpressionsWithTrackedOps(module, operations);
+
+    // TODO: this runs CSE internally, mostly redundant with the above.
+    if (failed(performEnablerTransformations(module, operations))) {
+      LLVM_DEBUG(DBGS() << "enabler transformations failed\n");
+      return failure();
+    }
+
     if (failed(
             applyPatternsTrackAndFoldGreedily(module, operations, patterns))) {
       LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
