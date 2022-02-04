@@ -137,10 +137,15 @@ buildPadFromTileOpPattern(linalg::transform::TileOp tileOp) {
                      .getSExtValue()
                : 0;
   };
+  // TODO: support `tranpose_paddings` in TileOp.
+  auto transposeFunc = [tileOp](OpOperand &opOperand) mutable {
+    return SmallVector<int64_t>();
+  };
   LinalgPaddingOptions paddingOptions;
   paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
   paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
   paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
+  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
 
   return callLinalgPattern<LinalgPaddingPattern>(tileOp.getContext(),
                                                  paddingOptions);
