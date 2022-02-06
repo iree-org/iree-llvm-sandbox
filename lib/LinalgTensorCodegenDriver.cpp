@@ -269,21 +269,9 @@ void LinalgFuseOutputIntoReductionPass::runOnOperation() {
   if (funcOp.getName() != anchorFuncOpName)
     return;
 
-  LinalgTilingOptions tiling_options;
-  tiling_options.setTileSizes(tileSizes);
-
-  auto *context = funcOp.getContext();
-
-  auto patterns =
-      mlir::linalg::getLinalgTilingCanonicalizationPatterns(context);
-  mlir::memref::populateResolveRankedShapeTypeResultDimsPatterns(patterns);
-  populateFuseFillIntoReductionPatterns(patterns, tiling_options);
+  mlir::RewritePatternSet patterns(funcOp.getContext());
+  populateFuseFillIntoReductionPatterns(patterns);
   (void)mlir::applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
-
-  // Ensure we drop the marker in the end.
-  funcOp.walk([](mlir::linalg::LinalgOp op) {
-    op->removeAttr(mlir::linalg::LinalgTransforms::kLinalgTransformMarker);
-  });
 }
 
 void LinalgSingleTilingExpertPass::runOnOperation() {
@@ -336,6 +324,9 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
   paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
   paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
 
+  auto vectorizeFilter = [&](mlir::Operation *op) {
+    return success(!vectorizeOnlyTiled || op->getParentOfType<scf::ForOp>());
+  };
   CodegenStrategy strategy;
   StringRef genericOpName = GenericOp::getOperationName();
   strategy.tileIf(doTiling, anchorOpName, tilingOptions)
@@ -344,7 +335,7 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
       .generalizeIf(generalize, anchorOpName)
       .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
       .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName,
-                   nullptr, vectorizePadding);
+                   vectorizeFilter, vectorizePadding);
 
   // Created a nested OpPassManager and run.
   OpPassManager dynamicPM(FuncOp::getOperationName());
