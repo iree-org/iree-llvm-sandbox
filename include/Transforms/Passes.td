@@ -123,6 +123,9 @@ def LinalgSingleTilingExpert
     // Vectorization options.
     Option<"vectorize", "vectorize", "bool", /*default=*/"false",
       "Rewrite the linalg op as a vector operation.">,
+    Option<"vectorizeOnlyTiled", "vectorize-only-tiled", "bool",
+      /*default=*/"false",
+      "Rewrite the linalg op as a vector operation only if it's tiled.">,
     Option<"vectorizePadding", "vectorize-padding", "bool", /*default=*/"false",
       "Rewrite all tensor.pad ops in the function to vector form.">
   ];

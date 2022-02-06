@@ -17,13 +17,7 @@ from ..contraction.definitions import *
 expert_no_tiling = LoweringOnlyExpert(
     'row_reduction_2d', 'linalg.generic').print_ir(after_all=False)
 
-expert_fuse_output = TransformationList(transforms=[
-    ExperimentalSplitAndFuseFillOp(
-        'row_reduction_2d', 'linalg.generic', tile_sizes=[24, 16])
-] + LoweringOnlyExpert('row_reduction_2d',
-                       'linalg.generic').transforms)
-
-all_experts = [expert_no_tiling, expert_fuse_output]
+all_experts = [expert_no_tiling]
 
 ################################################################################
 ### Problem instantiations.

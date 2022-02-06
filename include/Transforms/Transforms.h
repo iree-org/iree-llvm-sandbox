@@ -19,8 +19,7 @@ void populateTileAndFusePattern(RewritePatternSet &patterns,
                                 const LinalgTilingOptions &opts,
                                 const LinalgTransformationFilter &filter);
 
-void populateFuseFillIntoReductionPatterns(RewritePatternSet &patterns,
-                                           const LinalgTilingOptions &opts);
+void populateFuseFillIntoReductionPatterns(RewritePatternSet &patterns);
 
 void populateTiledLoopsToSCF(RewritePatternSet &patterns);
 

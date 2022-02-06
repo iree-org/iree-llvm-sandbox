@@ -36,20 +36,17 @@ def _get_pad_str(transform: Transform) -> str:
   return pad_str
 
 
-class ExperimentalSplitAndFuseFillOp(Transform):
+class ExperimentalFuseFillIntoTiledReductionOutput(Transform):
   """Tile and fuse FillOp into the output of reduction.
 
   This transform can be configured as follows:
   * `tile_sizes`: Tile sizes used for tiling.
   """
 
-  def __init__(self, fun_name: str, op_name: str, tile_sizes=[], **kwargs):
-    if tile_sizes:
-      tile_str = f'tile-sizes={",".join([str(ts) for ts in tile_sizes])}'
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
     pipeline = (f'linalg-fuse-fill-into-reduction{{'
                 f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     {tile_str}}},'
+                f'     anchor-op={op_name}}},'
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
@@ -286,10 +283,12 @@ class Vectorize(Transform):
 
   This transform can be configured as follows:
   * `vectorize_paddings`: Vectorize pad tensor operations.
+  * `vectorize_only_tiled`: Vectorize only tiled operations.
   """
 
   variables = {
       'vectorize_paddings': (BoolVariable, True),
+      'vectorize_only_tiled': (BoolVariable, False),
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
@@ -297,11 +296,15 @@ class Vectorize(Transform):
     vectorize_paddings_str = ''
     if self.vectorize_paddings:
       vectorize_paddings_str = 'vectorize-padding'
+    vectorize_only_tiled_str = ''
+    if self.vectorize_only_tiled:
+      vectorize_only_tiled_str = 'vectorize-only-tiled'
     pipeline = (f'linalg-single-tiling-expert-driver{{'
                 f'     anchor-func={fun_name} '
                 f'     anchor-op={op_name} '
                 f'     vectorize '
-                f'     {vectorize_paddings_str}}},'
+                f'     {vectorize_paddings_str} '
+                f'     {vectorize_only_tiled_str}}},'
                 f'canonicalize,'
                 f'cse')
     self._parse_variables_in_kwargs(kwargs)
