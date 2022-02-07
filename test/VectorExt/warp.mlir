@@ -92,36 +92,36 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 //   CHECK-SCF-IF-DAG:   %[[c2:.*]] = arith.constant 2 : index
 //   CHECK-SCF-IF-DAG:   %[[c4:.*]] = arith.constant 4 : index
 //   CHECK-SCF-IF-DAG:   %[[c8:.*]] = arith.constant 8 : index
-//   CHECK-SCF-IF-DAG:   %[[c32:.*]] = arith.constant 32 : index
-//   CHECK-SCF-IF-DAG:   %[[c128:.*]] = arith.constant 128 : index
-//       CHECK-SCF-IF:   %[[buffer:.*]] = memref.alloc() : memref<384xf32>
 //       CHECK-SCF-IF:   %[[is_lane_0:.*]] = arith.cmpi eq, %[[laneid]], %[[c0]]
 
+//       CHECK-SCF-IF:   %[[buffer_v0:.*]] = memref.alloc() : memref<128xf32>
 //       CHECK-SCF-IF:   %[[s0:.*]] = arith.muli %[[laneid]], %[[c4]]
-//       CHECK-SCF-IF:   vector.store %[[v0]], %[[buffer]][%[[s0]]]
-//       CHECK-SCF-IF:   %[[mul1:.*]] = arith.muli %[[laneid]], %[[c8]]
-//       CHECK-SCF-IF:   %[[s1:.*]] = arith.addi %[[mul1]], %[[c128]]
-//       CHECK-SCF-IF:   vector.store %[[v1]], %[[buffer]][%[[s1]]]
+//       CHECK-SCF-IF:   vector.store %[[v0]], %[[buffer_v0]][%[[s0]]]
+//       CHECK-SCF-IF:   %[[buffer_v1:.*]] = memref.alloc() : memref<256xf32>
+//       CHECK-SCF-IF:   %[[s1:.*]] = arith.muli %[[laneid]], %[[c8]]
+//       CHECK-SCF-IF:   vector.store %[[v1]], %[[buffer_v1]][%[[s1]]]
+
+//       CHECK-SCF-IF:   %[[buffer_def_0:.*]] = memref.alloc() : memref<32xf32>
+//       CHECK-SCF-IF:   %[[buffer_def_1:.*]] = memref.alloc() : memref<64xf32>
 
 //       CHECK-SCF-IF:   scf.if %[[is_lane_0]] {
   %r:2 = vector_ext.warp_execute_on_lane_0(%laneid)
       args(%v0, %v1 : vector<4xf32>, vector<8xf32>) -> (vector<1xf32>, vector<2xf32>) {
     ^bb0(%arg0: vector<128xf32>, %arg1: vector<256xf32>):
-//       CHECK-SCF-IF:     %[[arg1:.*]] = vector.load %[[buffer]][%[[c128]]] : memref<384xf32>, vector<256xf32>
-//       CHECK-SCF-IF:     %[[arg0:.*]] = vector.load %[[buffer]][%[[c0]]] : memref<384xf32>, vector<128xf32>
+//       CHECK-SCF-IF:     %[[arg1:.*]] = vector.load %[[buffer_v1]][%[[c0]]] : memref<256xf32>, vector<256xf32>
+//       CHECK-SCF-IF:     %[[arg0:.*]] = vector.load %[[buffer_v0]][%[[c0]]] : memref<128xf32>, vector<128xf32>
 //       CHECK-SCF-IF:     %[[def_0:.*]] = "some_def"(%[[arg0]]) : (vector<128xf32>) -> vector<32xf32>
 //       CHECK-SCF-IF:     %[[def_1:.*]] = "some_def"(%[[arg1]]) : (vector<256xf32>) -> vector<64xf32>
     %2 = "some_def"(%arg0) : (vector<128xf32>) -> vector<32xf32>
     %3 = "some_def"(%arg1) : (vector<256xf32>) -> vector<64xf32>
-//       CHECK-SCF-IF:     vector.store %[[def_0]], %[[buffer]][%[[c0]]]
-//       CHECK-SCF-IF:     vector.store %[[def_1]], %[[buffer]][%[[c32]]]
+//       CHECK-SCF-IF:     vector.store %[[def_0]], %[[buffer_def_0]][%[[c0]]]
+//       CHECK-SCF-IF:     vector.store %[[def_1]], %[[buffer_def_1]][%[[c0]]]
     vector_ext.yield %2, %3 : vector<32xf32>, vector<64xf32>
   }
 //       CHECK-SCF-IF:   }
 //       CHECK-SCF-IF:   %[[o1:.*]] = arith.muli %[[laneid]], %[[c2]]
-//       CHECK-SCF-IF:   %[[o2:.*]] = arith.addi %[[o1]], %[[c32]]
-//       CHECK-SCF-IF:   %[[r1:.*]] = vector.load %[[buffer]][%[[o2]]] : memref<384xf32>, vector<2xf32>
-//       CHECK-SCF-IF:   %[[r0:.*]] = vector.load %[[buffer]][%[[laneid]]] : memref<384xf32>, vector<1xf32>
+//       CHECK-SCF-IF:   %[[r1:.*]] = vector.load %[[buffer_def_1]][%[[o1]]] : memref<64xf32>, vector<2xf32>
+//       CHECK-SCF-IF:   %[[r0:.*]] = vector.load %[[buffer_def_0]][%[[laneid]]] : memref<32xf32>, vector<1xf32>
 //       CHECK-SCF-IF:   vector.print %[[r0]]
 //       CHECK-SCF-IF:   vector.print %[[r1]]
   vector.print %r#0 : vector<1xf32>
