@@ -51,7 +51,6 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
   return
 }
 
-
 // -----
 
 #map0 = affine_map<()[s0] -> (s0 * 2)>
@@ -62,9 +61,9 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
 //  CHECK-SAME:     (%[[ID:.*]]: index
 func @warp_propagate_read(%laneid: index, %src: memref<1024xf32>, %dest: memref<1024xf32>) {
 // CHECK-NOT: warp_execute_on_lane_0
-// CHECK: %[[R0:.*]] = vector.transfer_read %arg1[%[[ID]]], %{{.*}} : memref<1024xf32>, vector<1xf32>
-// CHECK: %[[ID2:.*]] = affine.apply #[[MAP0]]()[%[[ID]]]
-// CHECK: %[[R1:.*]] = vector.transfer_read %arg1[%[[ID2]]], %{{.*}} : memref<1024xf32>, vector<2xf32>
+// CHECK-DAG: %[[R0:.*]] = vector.transfer_read %arg1[%[[ID]]], %{{.*}} : memref<1024xf32>, vector<1xf32>
+// CHECK-DAG: %[[ID2:.*]] = affine.apply #[[MAP0]]()[%[[ID]]]
+// CHECK-DAG: %[[R1:.*]] = vector.transfer_read %arg1[%[[ID2]]], %{{.*}} : memref<1024xf32>, vector<2xf32>
 // CHECK: vector.transfer_write %[[R0]], {{.*}} : vector<1xf32>, memref<1024xf32>
 // CHECK: vector.transfer_write %[[R1]], {{.*}} : vector<2xf32>, memref<1024xf32>
   %c0 = arith.constant 0 : index

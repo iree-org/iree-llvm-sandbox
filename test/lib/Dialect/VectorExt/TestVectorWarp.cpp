@@ -34,6 +34,16 @@ struct TestVectorWarp
     registry.insert<VectorDialect, VectorExtDialect>();
   }
 
+  Option<bool> distributeTransferWriteOps{
+      *this, "distribute-transfer-write",
+      llvm::cl::desc("Test distribution of transfer write"),
+      llvm::cl::init(false)};
+
+  Option<bool> hoistUniform{
+      *this, "hoist-uniform",
+      llvm::cl::desc("Test hoist uniform"),
+      llvm::cl::init(false)};
+
   Option<bool> propagateDistribution{
       *this, "propagate-distribution",
       llvm::cl::desc("Test distribution propgation"), llvm::cl::init(false)};
@@ -44,6 +54,29 @@ struct TestVectorWarp
 
   void runOnOperation() override {
     FuncOp funcOp = getOperation();
+    funcOp.walk([&](Operation * op) {
+      if (auto warpOp = dyn_cast<WarpSingleLaneOp>(op)) {
+        if (hoistUniform) {
+          moveScalarUniformCode(warpOp);
+        }
+        if (distributeTransferWriteOps) {
+          auto distributionFn = [](vector::TransferWriteOp writeOp) {
+            // Create a map (d0, d1) -> (d1) to distribute along the inner
+            // dimension. Once we support n-d distribution we can add more
+            // complex cases.
+            int64_t vecRank = writeOp.getVectorType().getRank();
+            OpBuilder builder(writeOp.getContext());
+            auto map = AffineMap::get(vecRank, 0,
+                                      builder.getAffineDimExpr(vecRank - 1));
+            return map;
+          };
+
+          OpBuilder builder(op->getContext());
+          distributeTransferWrite(builder, warpOp, distributionFn);
+        }
+        WalkResult::interrupt();
+      }
+    });
     MLIRContext *ctx = &getContext();
     if (propagateDistribution) {
       RewritePatternSet patterns(ctx);

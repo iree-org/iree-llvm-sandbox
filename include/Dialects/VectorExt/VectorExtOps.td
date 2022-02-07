@@ -152,6 +152,13 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
     // TODO: Add arguments support in the builder.
     OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid)>
   ];
+
+  let extraClassDeclaration = [{
+    bool isDefinedOutsideOfRegion(Value value) {
+      return !getRegion().isAncestor(value.getParentRegion());
+    }
+  }];
+
 }
 
 #endif // DIALECTS_VECTOREXT_VECTOREXTOPS
