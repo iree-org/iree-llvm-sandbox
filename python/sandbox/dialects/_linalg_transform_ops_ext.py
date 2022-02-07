@@ -127,7 +127,7 @@ class VectorizeOp:
                loc=None,
                ip=None):
     if isinstance(target, str):
-      target = ir.FlatSymbolRefAttr(target)
+      target = ir.FlatSymbolRefAttr.get(target)
 
     operation_type = pdl.OperationType.get()
 
