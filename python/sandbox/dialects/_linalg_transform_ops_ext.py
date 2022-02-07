@@ -11,6 +11,7 @@ except ImportError as e:
 
 BoolArg = Optional[Union[bool, ir.BoolAttr]]
 IntListArg = Optional[Union[Sequence[int], ir.ArrayAttr]]
+IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]], ir.ArrayAttr]]
 StringArg = Optional[Union[str, ir.StringAttr]]
 
 
@@ -30,6 +31,12 @@ def _ensure_array_attr(value: IntListArg):
     return ir.ArrayAttr.get([ir.IntegerAttr.get(i64, i) for i in value])
   return value
 
+
+@_defaulted_ensure
+def _ensure_array_of_array_attr(value: IntListListArg):
+  if isinstance(value, Sequence):
+    return ir.ArrayAttr.get([_ensure_array_attr(inner) for inner in value])
+  return value
 
 @_defaulted_ensure
 def _ensure_bool_attr(value: BoolArg):
@@ -86,6 +93,7 @@ class TileOp:
                pad: BoolArg = None,
                pack_paddings: IntListArg = None,
                hoist_paddings: IntListArg = None,
+               transpose_paddings: IntListListArg = None,
                scalarize_dyn_dims: BoolArg = None,
                generalize: BoolArg = None,
                loc=None,
@@ -95,6 +103,7 @@ class TileOp:
     pad = _ensure_bool_attr(pad, False)
     pack_paddings = _ensure_array_attr(pack_paddings, [])
     hoist_paddings = _ensure_array_attr(hoist_paddings, [])
+    transpose_paddings = _ensure_array_of_array_attr(transpose_paddings, [])
     scalarize_dyn_dims = _ensure_bool_attr(scalarize_dyn_dims, False)
     generalize = _ensure_bool_attr(generalize, False)
     operation_type = pdl.OperationType.get()
@@ -111,6 +120,7 @@ class TileOp:
         pad,
         pack_paddings,
         hoist_paddings,
+        transpose_paddings,
         scalarize_dyn_dims,
         generalize,
         loc=loc,

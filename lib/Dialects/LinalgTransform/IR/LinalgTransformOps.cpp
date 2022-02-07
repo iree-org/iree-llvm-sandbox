@@ -7,11 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/STLExtras.h"
+#include <algorithm>
 
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.cpp.inc"
 
@@ -51,6 +53,21 @@ static LogicalResult verifySequenceOp(transform::SequenceOp op) {
     return WalkResult::advance();
   });
   return failure(result.wasInterrupted());
+}
+
+LogicalResult transform::TileOp::verify() {
+  ArrayAttr transposes = transpose_paddings();
+  for (Attribute attr : transposes) {
+    SmallVector<int64_t> transpose = extractFromI64ArrayAttr(attr);
+    auto sequence = llvm::seq<int64_t>(0, transpose.size());
+    if (!std::is_permutation(sequence.begin(), sequence.end(),
+                             transpose.begin(), transpose.end())) {
+      return emitOpError()
+             << "expects transpose paddings to be a permutation, found "
+             << attr;
+    }
+  }
+  return success();
 }
 
 #define GET_OP_CLASSES
