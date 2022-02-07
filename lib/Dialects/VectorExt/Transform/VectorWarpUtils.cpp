@@ -418,21 +418,36 @@ static LogicalResult rewriteWarpOpToScfFor(
     Type resultType = warpOp->getResultTypes()[it.index()];
     Value buffer = allocBuffer(val.getType());
 
-    // Store yielded vector into buffer.
+    // Store yielded value into buffer.
     rewriter.setInsertionPoint(yieldOp);
-    rewriter.create<vector::StoreOp>(yieldLoc, val, buffer, c0);
+    if (val.getType().isa<VectorType>())
+      rewriter.create<vector::StoreOp>(yieldLoc, val, buffer, c0);
+    else
+      rewriter.create<memref::StoreOp>(yieldLoc, val, buffer, c0);
 
-    // Load vector from buffer (after warpOp).
+    // Load value from buffer (after warpOp).
     rewriter.setInsertionPointAfter(ifOp);
-    auto loadedVectorType = resultType.cast<VectorType>();
-    int64_t loadSize = loadedVectorType.getShape()[0];
+    if (resultType == val.getType()) {
+      // Result type and yielded value type are the same. This is a broadcast.
+      // E.g.:
+      // %r = vector_ext.warp_execute_on_lane_0(...) -> (f32) {
+      //   vector_ext.yield %cst : f32
+      // }
+      // Both types are f32. The constant %cst is broadcasted to all lanes.
+      // This is described in more detail in the documentation of the op.
+      Value loadOp = rewriter.create<memref::LoadOp>(loc, buffer, c0);
+      replacements.push_back(loadOp);
+    } else {
+      auto loadedVectorType = resultType.cast<VectorType>();
+      int64_t loadSize = loadedVectorType.getShape()[0];
 
-    // loadOffset = laneid * loadSize
-    Value loadOffset = rewriter.create<arith::MulIOp>(loc, warpOp.laneid(),
-        rewriter.create<arith::ConstantIndexOp>(loc, loadSize));
-    Value loadOp = rewriter.create<vector::LoadOp>(loc, loadedVectorType,
-                                                   buffer, loadOffset);
-    replacements.push_back(loadOp);
+      // loadOffset = laneid * loadSize
+      Value loadOffset = rewriter.create<arith::MulIOp>(loc, warpOp.laneid(),
+          rewriter.create<arith::ConstantIndexOp>(loc, loadSize));
+      Value loadOp = rewriter.create<vector::LoadOp>(loc, loadedVectorType,
+                                                     buffer, loadOffset);
+      replacements.push_back(loadOp);
+    }
   }
 
   // Delete terminator and add empty scf.yield.

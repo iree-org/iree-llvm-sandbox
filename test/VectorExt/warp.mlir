@@ -127,3 +127,26 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
   vector.print %r#1 : vector<2xf32>
   return
 }
+
+// -----
+
+// CHECK-SCF-IF-LABEL: func @vector_reduction(
+//  CHECK-SCF-IF-SAME:     %[[laneid:.*]]: index)
+func @vector_reduction(%laneid: index) {
+//       CHECK-SCF-IF:   %[[c0:.*]] = arith.constant 0 : index
+//       CHECK-SCF-IF:   %[[is_lane_0:.*]] = arith.cmpi eq, %[[laneid]]
+//       CHECK-SCF-IF:   %[[buffer:.*]] = memref.alloc() : memref<1xf32>
+//       CHECK-SCF-IF:   scf.if %[[is_lane_0]] {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+    %0 = "some_def"() : () -> (vector<32xf32>)
+//       CHECK-SCF-IF:     %[[reduction:.*]] = vector.reduction
+//       CHECK-SCF-IF:     memref.store %[[reduction]], %[[buffer]][%[[c0]]]
+    %1 = vector.reduction "add", %0 : vector<32xf32> into f32
+    vector_ext.yield %1 : f32
+  }
+//       CHECK-SCF-IF:   }
+//       CHECK-SCF-IF:   %[[broadcasted:.*]] = memref.load %[[buffer]][%[[c0]]]
+//       CHECK-SCF-IF:   vector.print %[[broadcasted]] : f32
+  vector.print %r : f32
+  return
+}
