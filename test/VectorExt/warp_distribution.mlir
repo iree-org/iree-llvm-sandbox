@@ -34,11 +34,13 @@ func @warp(%laneid: index, %arg1: memref<1024xf32>, %arg2: memref<1024xf32>,
 // CHECK-HOIST: vector_ext.warp_execute_on_lane_0
 
 //     CHECK-D: %[[R:.*]]:2 = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<2xf32>, vector<1xf32>) {
+//     CHECK-D:   arith.addf {{.*}} : vector<32xf32>
+//     CHECK-D:   arith.addf {{.*}} : vector<64xf32>
 //     CHECK-D:   vector_ext.yield %{{.*}}, %{{.*}} : vector<64xf32>, vector<32xf32>
-// CHECK-D-DAG:  %[[ID0:.*]] = affine.apply #[[MAP0]]()[%{{.*}}]
-// CHECK-D-DAG:  vector.transfer_write %[[R]]#1, %{{.*}}[%[[ID0]]] : vector<1xf32>, memref<128xf32
-// CHECK-D-DAG:  %[[ID1:.*]] = affine.apply #[[MAP1]]()[%{{.*}}]
-// CHECK-D-DAG:  vector.transfer_write %[[R]]#0, %2[%[[ID1]]] : vector<2xf32>, memref<128xf32
+// CHECK-D-DAG: %[[ID0:.*]] = affine.apply #[[MAP0]]()[%{{.*}}]
+// CHECK-D-DAG: vector.transfer_write %[[R]]#1, %{{.*}}[%[[ID0]]] : vector<1xf32>, memref<128xf32
+// CHECK-D-DAG: %[[ID1:.*]] = affine.apply #[[MAP1]]()[%{{.*}}]
+// CHECK-D-DAG: vector.transfer_write %[[R]]#0, %2[%[[ID1]]] : vector<2xf32>, memref<128xf32
 
 // CHECK-ALL-NOT: vector_ext.warp_execute_on_lane_0
 // CHECK-ALL: vector.transfer_read {{.*}} vector<1xf32>

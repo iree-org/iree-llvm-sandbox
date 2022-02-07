@@ -313,10 +313,10 @@ void mlir::vector_ext::distributeTransferWrite(
       unsigned position = map.getDimPosition(i);
       targetShape[position] = targetShape[position] / distributionRatio;
     }
-    VectorType targeType =
+    VectorType targetType =
         VectorType::get(targetShape, writeOp.getVectorType().getElementType());
     SmallVector<Value> yieldValues = {writeOp.vector()};
-    SmallVector<Type> retTypes = {targeType};
+    SmallVector<Type> retTypes = {targetType};
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         builder, op, yieldValues, retTypes);
     writeOp->moveAfter(newWarpOp);
