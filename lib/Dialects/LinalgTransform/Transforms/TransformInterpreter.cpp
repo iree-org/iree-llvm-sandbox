@@ -121,7 +121,10 @@ buildPadFromTileOpPattern(linalg::transform::TileOp tileOp) {
   if (!tileOp.pad())
     return forwardOp;
 
-  auto packFunc = [&](OpOperand &opOperand) {
+  // Capture `tileOp` by-copy because it lives on the stack of the current
+  // function but lambdas outlive it. They are marked as mutable because op
+  // accessors are non-const.
+  auto packFunc = [tileOp](OpOperand &opOperand) mutable {
     return opOperand.getOperandNumber() < tileOp.pack_paddings().size()
                ? !tileOp.pack_paddings()[opOperand.getOperandNumber()]
                       .cast<IntegerAttr>()
@@ -129,7 +132,7 @@ buildPadFromTileOpPattern(linalg::transform::TileOp tileOp) {
                       .isZero()
                : false;
   };
-  auto hoistingFunc = [&](OpOperand &opOperand) {
+  auto hoistingFunc = [tileOp](OpOperand &opOperand) mutable {
     return opOperand.getOperandNumber() < tileOp.hoist_paddings().size()
                ? tileOp.hoist_paddings()[opOperand.getOperandNumber()]
                      .cast<IntegerAttr>()
