@@ -56,6 +56,12 @@ static LogicalResult verifySequenceOp(transform::SequenceOp op) {
 }
 
 LogicalResult transform::TileOp::verify() {
+  if (!sizes().empty() && scalarize_dyn_dims()) {
+    return emitOpError() << sizesAttrName() << " and "
+                         << scalarize_dyn_dimsAttrName()
+                         << " attributes are mutually exclusive";
+  }
+
   ArrayAttr transposes = transpose_paddings();
   for (Attribute attr : transposes) {
     SmallVector<int64_t> transpose = extractFromI64ArrayAttr(attr);

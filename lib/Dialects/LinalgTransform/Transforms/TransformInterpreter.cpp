@@ -179,7 +179,11 @@ buildGeneralizeFromTileOpPattern(linalg::transform::TileOp tileOp) {
 static FailureOr<LinalgOp> executeTileOp(LinalgOp target,
                                          linalg::transform::TileOp tileOp) {
   LinalgTilingOptions tilingOptions;
-  tilingOptions.setTileSizes(extractI64Array(tileOp.sizes()));
+  SmallVector<int64_t> tileSizes = extractI64Array(tileOp.sizes());
+  // "scalarize_dyn_dims" actually sets the same lambda as the tile sizes and
+  // asserts that it is not already set.
+  if (!tileSizes.empty() || !tileOp.scalarize_dyn_dims())
+    tilingOptions.setTileSizes(tileSizes);
   tilingOptions.setInterchange(extractUIntArray(tileOp.interchange()));
   tilingOptions.setPeeledLoops(extractI64Array(tileOp.peel()));
   if (tileOp.scalarize_dyn_dims())
