@@ -181,6 +181,7 @@ static FailureOr<LinalgOp> executeTileOp(LinalgOp target,
   LinalgTilingOptions tilingOptions;
   tilingOptions.setTileSizes(extractI64Array(tileOp.sizes()));
   tilingOptions.setInterchange(extractUIntArray(tileOp.interchange()));
+  tilingOptions.setPeeledLoops(extractI64Array(tileOp.peel()));
   if (tileOp.scalarize_dyn_dims())
     tilingOptions.scalarizeDynamicDims();
 

@@ -90,6 +90,7 @@ class TileOp:
                *,
                sizes: IntListArg = None,
                interchange: IntListArg = None,
+               peel: IntListArg = None,
                pad: BoolArg = None,
                pack_paddings: IntListArg = None,
                hoist_paddings: IntListArg = None,
@@ -100,6 +101,7 @@ class TileOp:
                ip=None):
     sizes = _ensure_array_attr(sizes, [])
     interchange = _ensure_array_attr(interchange, [])
+    peel = _ensure_array_attr(peel, [])
     pad = _ensure_bool_attr(pad, False)
     pack_paddings = _ensure_array_attr(pack_paddings, [])
     hoist_paddings = _ensure_array_attr(hoist_paddings, [])
@@ -117,6 +119,7 @@ class TileOp:
         target if isinstance(target, ir.FlatSymbolRefAttr) else None,
         sizes,
         interchange,
+        peel,
         pad,
         pack_paddings,
         hoist_paddings,

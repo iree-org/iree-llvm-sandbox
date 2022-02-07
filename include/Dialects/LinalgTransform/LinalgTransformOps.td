@@ -100,6 +100,7 @@ def TileOp : Linalg_Transform_Operation<"tile", [TargetableOpTrait]> {
                    OptionalAttr<SymbolRefAttr>:$targetMatcher,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$peel,
                    DefaultValuedAttr<BoolAttr, "false">:$pad,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$pack_paddings,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$hoist_paddings,
