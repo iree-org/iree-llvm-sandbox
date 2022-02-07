@@ -43,6 +43,8 @@ static LinalgOp findSingleLinalgOpDefiningAll(ValueRange range) {
                  << sourceOp << "\n"
                  << currentSourceOp << "\n");
     }
+    LLVM_DEBUG(DBGS() << "replacing linalg op with unknown non-linalg op:\n"
+                      << *value.getDefiningOp() << "\n");
     return nullptr;
   }
   return sourceOp;
@@ -62,14 +64,15 @@ void TrackingListener::notifyOperationReplaced(Operation *op,
   if (!linalgOp)
     return;
 
-  LinalgOp replacement = findSingleLinalgOpDefiningAll(newValues);
-  assert(replacement &&
-         "replacing a linalg op, but could not find the replacement op");
-
+  // Exit early if the op is not tracked.
   auto keyIt = trackedOperationKeys.find(linalgOp);
   if (keyIt == trackedOperationKeys.end())
     return;
   Value key = keyIt->second;
+
+  LinalgOp replacement = findSingleLinalgOpDefiningAll(newValues);
+  assert(replacement &&
+         "replacing a linalg op, but could not find the replacement op");
 
   LLVM_DEBUG(DBGS() << "replacing tracked " << *op << " with " << *replacement
                     << " for " << key << "\n");
