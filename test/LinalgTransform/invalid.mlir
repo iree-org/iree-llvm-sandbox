@@ -8,3 +8,10 @@ linalg_transform.sequence {
   // expected-note@below {{used here as operand #0}}
   vectorize %0
 }
+
+// -----
+
+linalg_transform.sequence {
+  // expected-error@below {{expects transpose paddings to be a permutation, found [2, 0]}}
+  tile when @match {pad = true, transpose_paddings = [[0, 1], [2, 0]]}
+}
