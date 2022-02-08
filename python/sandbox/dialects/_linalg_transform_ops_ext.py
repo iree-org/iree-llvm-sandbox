@@ -10,6 +10,7 @@ except ImportError as e:
   raise RuntimeError("Error loading imports from extension module") from e
 
 BoolArg = Optional[Union[bool, ir.BoolAttr]]
+IntArg = Optional[Union[int, ir.IntegerAttr]]
 IntListArg = Optional[Union[Sequence[int], ir.ArrayAttr]]
 IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]], ir.ArrayAttr]]
 StringArg = Optional[Union[str, ir.StringAttr]]
@@ -37,6 +38,14 @@ def _ensure_array_of_array_attr(value: IntListListArg):
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([_ensure_array_attr(inner) for inner in value])
   return value
+
+
+@_defaulted_ensure
+def _ensure_int_attr(value: IntArg):
+  if isinstance(value, int):
+    return ir.IntegerAttr.get(ir.IntegerType.get_signless(64), value)
+  return value
+
 
 @_defaulted_ensure
 def _ensure_bool_attr(value: BoolArg):
@@ -160,6 +169,61 @@ class VectorizeOp:
         _ensure_bool_attr(vectorize_padding, False),
         loc=loc,
         ip=ip)
+
+
+class GetParentLoopOp:
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               num_loops: IntArg = None,
+               loc=None,
+               ip=None):
+    operation_type = pdl.OperationType.get()
+    num_loops = _ensure_int_attr(num_loops, 1)
+    super().__init__(operation_type, target, num_loops, loc=loc, ip=ip)
+
+
+class UnrollLoopOp:
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               factor: Union[int, ir.IntegerAttr],
+               loc=None,
+               ip=None):
+    # Factor must not be None, do not provide the default value here.
+    factor = _ensure_int_attr(factor)
+    super().__init__(target, factor, loc=loc, ip=ip)
+
+
+class PipelineLoopOp:
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               iteration_interval: IntArg,
+               read_latency: IntArg,
+               loc=None,
+               ip=None):
+    iteration_interval = _ensure_int_attr(iteration_interval, 1)
+    read_latency = _ensure_int_attr(read_latency, 10)
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, iteration_interval, read_latency, loc=loc, ip=ip)
+
+
+class OutlineLoopOp:
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               func_name: StringArg,
+               loc=None,
+               ip=None):
+    # Function name must not be None, do not provide the default value.
+    func_name = _ensure_string_attr(func_name)
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, func_name, loc=loc, ip=ip)
 
 
 class SequenceOp:

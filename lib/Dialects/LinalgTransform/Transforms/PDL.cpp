@@ -17,17 +17,17 @@ namespace mlir {
 namespace linalg {
 
 /// Return ops that match any of the patterns.
-static SmallVector<LinalgOp> getMatchingOps(
-    Operation *parent, const FrozenRewritePatternSet &patterns) {
+static SmallVector<Operation *>
+getMatchingOps(Operation *parent, const FrozenRewritePatternSet &patterns) {
   PatternApplicator applicator(patterns);
   applicator.applyDefaultCostModel();
 
   // TODO: The C++ functional API needs better interoperability with PDL.
   return functional::applyForEachIn(
       parent,
-      [&](Operation *op, PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+      [&](Operation *op, PatternRewriter &rewriter) -> FailureOr<Operation *> {
         if (succeeded(applicator.matchAndRewrite(op, rewriter)))
-          if (auto linalgOp = dyn_cast<LinalgOp>(op)) return linalgOp;
+          return op;
         return failure();
       });
 }
@@ -59,9 +59,8 @@ static void noOpRewriter(ArrayRef<PDLValue> args, ArrayAttr constantParams,
 #endif
 }
 
-FailureOr<SmallVector<LinalgOp>> findMatchingOps(Operation *op,
-                                                 SymbolRefAttr pattern,
-                                                 ModuleOp module) {
+FailureOr<SmallVector<Operation *>>
+findMatchingOps(Operation *op, SymbolRefAttr pattern, ModuleOp module) {
   auto patternOp = module.lookupSymbol<pdl::PatternOp>(pattern);
   if (!patternOp)
     return {op->emitError("could not find a pattern named: ") << pattern};

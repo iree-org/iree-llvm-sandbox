@@ -21,11 +21,10 @@ namespace linalg {
 
 /// Find all operations in `module` that are matched by the specified PDL
 /// pattern, which is also located in `module`.
-FailureOr<SmallVector<LinalgOp>> findMatchingOps(Operation *op,
-                                                 SymbolRefAttr pattern,
-                                                 ModuleOp module);
-inline FailureOr<SmallVector<LinalgOp>> findMatchingOps(transform::MatchOp op,
-                                                        ModuleOp module) {
+FailureOr<SmallVector<Operation *>>
+findMatchingOps(Operation *op, SymbolRefAttr pattern, ModuleOp module);
+inline FailureOr<SmallVector<Operation *>>
+findMatchingOps(transform::MatchOp op, ModuleOp module) {
   return findMatchingOps(op, op.targetMatcher(), module);
 }
 
