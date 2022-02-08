@@ -9,9 +9,11 @@
 #include "Dialects/VectorExt/VectorExtOps.h"
 #include "Dialects/VectorExt/VectorExtWarpUtils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Dialect/Vector/Utils/VectorUtils.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Support/LogicalResult.h"
@@ -19,6 +21,8 @@
 using namespace mlir;
 using namespace mlir::vector;
 using namespace mlir::vector_ext;
+
+static const unsigned kWarpSize = 32;
 
 // Clones `op` into a new operations that takes `operands` and returns
 // `resultTypes`.
@@ -169,6 +173,94 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
         {warpOp.getResult(operandIndex).getType()});
     newWarpOp.getResult(operandIndex).replaceAllUsesWith(newOp->getResult(0));
     rewriter.eraseOp(warpOp);
+    return success();
+  }
+};
+
+/// A pattern that extracts vector.reduction ops from a WarpSingleLaneOp.
+/// The vector is reduced in parallel. Currently limited to vector<32x...>
+/// values. Every lane reduces two scalars, 5 times in a row.
+/// E.g.:
+/// ```
+/// %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+///   %0 = "some_def"() : () -> (vector<32xf32>)
+///   %1 = vector.reduction "add", %0 : vector<32xf32> into f32
+///   vector_ext.yield %1 : f32
+/// }
+/// ```
+/// is lowered to:
+/// ```
+/// %0 = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<1xf32>) {
+///   %1 = "some_def"() : () -> (vector<32xf32>)
+///   vector_ext.yield %1 : vector<32xf32>
+/// }
+/// %a = vector.extract %0[0] : vector<1xf32>
+/// %r0, %s0 = gpu.shuffle down %e, %c16, %c32 : f32
+/// %a0 = arith.addf %a, %r0 : f32
+/// %r1, %s1 = gpu.shuffle down %e, %c8, %c32 : f32
+/// %a1 = arith.addf %a0, %r1 : f32
+/// ...
+/// %r4, %s4 = gpu.shuffle down %e, %c1, %c32 : f32
+/// %a4 = arith.addf %a3, %r4 : f32
+/// %r = gpu.shuffle idx %a4, %c0, %c32 : f32
+/// ```
+struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
+  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+                                PatternRewriter &rewriter) const override {
+    OpOperand *yieldOperand = getWarpResult(warpOp, [](Operation *op) {
+      return isa<vector::ReductionOp>(op);
+    });
+    if (!yieldOperand)
+      return failure();
+
+    auto reductionOp =
+        cast<vector::ReductionOp>(yieldOperand->get().getDefiningOp());
+    auto vectorType = reductionOp.vector().getType().cast<VectorType>();
+    // Only rank 1 vectors supported.
+    if (vectorType.getRank() != 1)
+      return failure();
+    // Only kWarpSize vectors supported.
+    if (vectorType.getShape()[0] != kWarpSize)
+      return failure();
+    // Only f32 and i32 element types are supported.
+    if (!reductionOp.getType().isF32() &&
+        !reductionOp.getType().isSignlessInteger(32))
+      return failure();
+
+    Location yieldLoc = yieldOperand->getOwner()->getLoc();
+
+    // Return vector that will be reduced from the WarpSingleLaneOp.
+    unsigned operandIndex = yieldOperand->getOperandNumber();
+    SmallVector<Value> yieldValues;
+    SmallVector<Type> retTypes;
+    yieldValues.push_back(reductionOp.vector());
+    retTypes.push_back(VectorType::get({1}, reductionOp->getResultTypes()[0]));
+    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+        rewriter, warpOp, yieldValues, retTypes);
+
+    // Every lane has one scalar value. These should be reduced.
+    Value laneValVec = newWarpOp.getResult(warpOp.getNumResults());
+    Value laneVal =
+        rewriter.create<vector::ExtractOp>(yieldLoc, laneValVec, 0);
+
+    // Parallel reduction: Every thread reduces two values. The result is
+    // stored at the lower thread. Requires log_2(kWarpSize) many parallel
+    // reductions.
+    for (int i = kWarpSize/2; i > 0; i /= 2) {
+      Value shuffled = rewriter.create<gpu::ShuffleOp>(
+          reductionOp.getLoc(), laneVal, i, /*width=*/kWarpSize,
+          /*mode=*/gpu::ShuffleMode::DOWN).result();
+      laneVal = makeArithReduction(rewriter, reductionOp.getLoc(),
+                                   reductionOp.kind(), laneVal, shuffled);
+    }
+
+    // Broadcast the result to all lanes.
+    auto shuffleOp = rewriter.create<gpu::ShuffleOp>(
+        yieldLoc, laneVal, /*offset=*/0, /*width=*/kWarpSize,
+        /*mode=*/gpu::ShuffleMode::IDX);
+    newWarpOp.getResult(operandIndex).replaceAllUsesWith(shuffleOp.result());
     return success();
   }
 };
@@ -347,8 +439,8 @@ void mlir::vector_ext::distributeTransferWrite(
 
 void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
-  pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult>(
-      pattern.getContext());
+  pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
+              WarpOpReduction>(pattern.getContext());
 }
 
 static LogicalResult rewriteWarpOpToScfFor(
