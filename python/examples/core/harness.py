@@ -21,6 +21,7 @@ from ..core.compilation import compile_to_execution_engine, \
     emit_benchmarking_function
 from ..core.experts import TransformationList
 from ..core.problem_definition import *
+from ..core.transforms import ApplySchedule
 from ..core.utils import *
 
 
@@ -249,6 +250,60 @@ class ProblemInstance:
       return
     assert_dict_entries_match_keys(mapping, self.problem_definition.keys)
 
+  def build_problem_under_context_manager(self,
+                                          entry_point_name: str,
+                                          fun_to_benchmark_name: str,
+                                          module,
+                                          zero_at_each_iteration: bool = False):
+    ctx = module.context
+    register_sandbox_passes_and_dialects(ctx)
+    with InsertionPoint(module.body):
+      types = self.problem_definition.types_mlir_builder(
+          self.compile_time_problem_sizes_dict,
+          compiled_function_element_types_mlir_builder(self.np_types))
+
+      func = self.problem_definition.build_problem_under_context_manager(
+          fun_to_benchmark_name, types, zero_at_each_iteration)
+      wrapper = emit_benchmarking_function(entry_point_name, func)
+
+  # Must be called under ContextManager with Context() and Location()
+  def _compile_to_execution_engine(
+      self,
+      module,
+      # TODO: Better type than Callable.
+      transform: Callable[[ModuleOp], None],
+      dump_ir_to_file: str = ''):
+    transformed_module, self.mlir_execution_engine = compile_to_execution_engine(
+        module, transform)
+    if (len(dump_ir_to_file) > 0):
+      f = open(dump_ir_to_file, 'w')
+      f.write(str(transformed_module))
+      f.close()
+    return transformed_module, self.mlir_execution_engine
+
+  def compile_with_schedule_builder(
+      self,
+      entry_point_name: str,
+      fun_to_benchmark_name: str,
+      compile_time_problem_sizes_dict: dict,
+      # TODO: Better type than Callable.
+      schedule_builder: Callable,
+      dump_ir_to_file: str = '',
+      zero_at_each_iteration: bool = False):
+    with ir.Context() as ctx, ir.Location.unknown() as loc:
+      module = Module.create()
+      self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict
+      self.build_problem_under_context_manager(entry_point_name,
+                                               fun_to_benchmark_name, module)
+      # TODO: this is necessary to force-load the dialect, otherwise op creation
+      # complains about "unregistered dialect" despite the registration call just
+      # above.
+      ctx.dialects["linalg_transform"]
+      schedule_builder(module)
+      return self._compile_to_execution_engine(module,
+                                               ApplySchedule(),
+                                               dump_ir_to_file=dump_ir_to_file)
+
   def compile(
       self,
       entry_point_name: str,
@@ -265,28 +320,19 @@ class ProblemInstance:
     self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict
 
     with Context() as ctx, Location.unknown() as loc:
-      register_sandbox_passes_and_dialects(ctx)
       self.mlir_context = ctx
       self.mlir_module = Module.create()
-      with InsertionPoint(self.mlir_module.body):
-        types = self.problem_definition.types_mlir_builder(
-            self.compile_time_problem_sizes_dict,
-            compiled_function_element_types_mlir_builder(self.np_types))
-
-        func = self.problem_definition.build_problem_under_context_manager(
-            fun_to_benchmark_name, types, zero_at_each_iteration)
-        wrapper = emit_benchmarking_function(entry_point_name, func)
+      self.build_problem_under_context_manager(entry_point_name,
+                                               fun_to_benchmark_name,
+                                               self.mlir_module,
+                                               zero_at_each_iteration)
 
       def apply_transform_to_entry_point_name(module):
         return transform(entry_point_name, module)
 
-      transformed_module, self.mlir_execution_engine = compile_to_execution_engine(
-          self.mlir_module, apply_transform_to_entry_point_name)
-
-      if (len(dump_ir_to_file) > 0):
-        f = open(dump_ir_to_file, 'w')
-        f.write(str(transformed_module))
-        f.close()
+      self._compile_to_execution_engine(self.mlir_module,
+                                        apply_transform_to_entry_point_name,
+                                        dump_ir_to_file)
 
   def run(self,
           n_iters: int,
