@@ -1,6 +1,6 @@
 // RUN: mlir-opt %s -linalg-comprehensive-module-bufferize |\
 // RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-linalg-to-loops |\
-// RUN: mlir-opt -canonicalize -convert-scf-to-std -lower-affine |\
+// RUN: mlir-opt -canonicalize -convert-scf-to-cf -lower-affine |\
 // RUN: mlir-opt -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm -reconcile-unrealized-casts -canonicalize -cse |\
 
 // TODO: some execution bug occurs.

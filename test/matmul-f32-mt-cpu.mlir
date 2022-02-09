@@ -12,7 +12,7 @@
 // R-UN: mlir-opt -async-runtime-ref-counting | \
 // R-UN: mlir-opt -async-runtime-ref-counting-opt | \
 // R-UN: mlir-opt -canonicalize -convert-vector-to-scf -convert-linalg-to-loops |\
-// R-UN: mlir-opt -canonicalize -lower-affine -convert-scf-to-std -convert-vector-to-llvm | \
+// R-UN: mlir-opt -canonicalize -lower-affine -convert-scf-to-cf -convert-vector-to-llvm | \
 // R-UN: mlir-opt -canonicalize -convert-async-to-llvm -convert-std-to-llvm |\
 
 
