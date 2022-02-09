@@ -36,28 +36,28 @@ def parse_arguments():
       help="Build with ENABLE_LLD=ON (optional)",
       dest="enable_lld",
       default=True,
-      action=argparse.BooleanOptionalAction,
+      action="store_true",
   )
   parser.add_argument(
       "--asan",
       help="Build with LLVM_USE_SANITIZER=Address (optional)",
       dest="enable_asan",
       default=False,
-      action=argparse.BooleanOptionalAction,
+      action="store_true",
   )
   parser.add_argument(
       "--alp",
       help="Build with SANDBOX_ENABLE_ALP=ON (optional)",
       dest="enable_alp",
       default=False,
-      action=argparse.BooleanOptionalAction,
+      action="store_true",
   )
   parser.add_argument(
       "--ccache",
       help="Enable ccache (if available)",
       dest="enable_ccache",
       default=True,
-      action=argparse.BooleanOptionalAction,
+      action="store_true",
   )
   parser.add_argument(
       "--use-system-cc",
@@ -65,7 +65,7 @@ def parse_arguments():
       "\n[warning] Setting to false seems to trigger spurious rebuilds",
       dest="enable_system_cc",
       default=False,
-      action=argparse.BooleanOptionalAction,
+      action="store_true",
   )
   return parser.parse_args()
 
