@@ -16,27 +16,6 @@
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.h.inc"
 #include "mlir/IR/BuiltinAttributes.h"
 
-namespace mlir {
-/// A trait for transform ops that can be targeted at either the result of a
-/// matcher (identified by its symbol name) or at the result of another
-/// transformation (identified by the value it produced).
-template <typename ConcreteOp>
-class TargetableTransformOpTrait
-    : public OpTrait::TraitBase<ConcreteOp, TargetableTransformOpTrait> {
-public:
-  static LogicalResult verifyTrait(Operation *op) {
-    Optional<SymbolRefAttr> matcher = cast<ConcreteOp>(op).targetMatcher();
-    Value input = cast<ConcreteOp>(op).target();
-    if (!((matcher.hasValue() && matcher.getValue() != nullptr) ^
-          (input != nullptr)))
-      return op->emitOpError()
-             << "expects either an `op` operand or a `matcher` attribute";
-
-    return success();
-  }
-};
-} // namespace mlir
-
 #define GET_OP_CLASSES
 #include "Dialects/LinalgTransform/LinalgTransformOps.h.inc"
 

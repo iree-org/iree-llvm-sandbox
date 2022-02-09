@@ -24,14 +24,16 @@ def run(f):
 def tile_once():
   sequence = transform.SequenceOp()
   with ir.InsertionPoint(sequence.body.blocks[0]):
-    tiled = transform.TileOp("foo", sizes=[32, 16], pad=True)
+    target = transform.MatchOp("foo")
+    tiled = transform.TileOp(target, sizes=[32, 16], pad=True)
     transform.VectorizeOp(tiled, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")
     transform.LowerToLLVMOp()
 
   code = str(sequence)
-  assert "tile when @foo" in code
+  assert "match @foo" in code
+  assert "tile %" in code
   assert "sizes = [32, 16]" in code
   assert "pad = true" in code
   assert "vectorize" in code

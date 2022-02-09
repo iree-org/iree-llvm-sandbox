@@ -1,5 +1,6 @@
 add_mlir_library(MLIRLinalgTransformTransforms
   ExpertExpansion.cpp
+  PDL.cpp
   ScopedTransform.cpp
   TrackingCSE.cpp
   TrackingRewriteDriver.cpp

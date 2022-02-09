@@ -39,5 +39,6 @@ pdl.pattern @pdl_target : benefit(1) {
 }
 
 linalg_transform.sequence {
-  %0 = tile when @pdl_target {sizes = [4, 4, 4], pad = false}
+  %0 = match @pdl_target
+  tile %0 {sizes = [4, 4, 4], pad = false}
 }
