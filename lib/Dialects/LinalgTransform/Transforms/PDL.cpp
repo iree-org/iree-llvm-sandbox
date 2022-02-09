@@ -68,7 +68,7 @@ FailureOr<SmallVector<LinalgOp>> findMatchingOps(Operation *op,
 
   // Clone the pattern operation into the temporary module used by the driver
   // as it might be referenced multiple times.
-  OwningModuleRef pdlModuleOp = ModuleOp::create(patternOp.getLoc());
+  OwningOpRef<ModuleOp> pdlModuleOp = ModuleOp::create(patternOp.getLoc());
   OpBuilder::atBlockBegin(&pdlModuleOp->body().front()).clone(*patternOp);
 
   // Build the PDL module.

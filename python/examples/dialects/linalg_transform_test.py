@@ -44,7 +44,8 @@ def tile_once():
 def tile_twice():
   sequence = transform.SequenceOp()
   with ir.InsertionPoint(sequence.body.blocks[0]):
-    tiled1 = transform.TileOp("foo", sizes=[128, 32], pad=True)
+    target = transform.MatchOp("foo")
+    tiled1 = transform.TileOp(target, sizes=[128, 32], pad=True)
     tiled2 = transform.TileOp(tiled1, sizes=[32, 16], pad=True)
     transform.VectorizeOp(tiled2, vectorize_padding=True)
     transform.BufferizeOp()
@@ -52,7 +53,7 @@ def tile_twice():
     transform.LowerToLLVMOp()
 
   code = str(sequence)
-  assert "tile when @foo" in code
+  assert "match @foo" in code
   assert "sizes = [128, 32]" in code
   assert "sizes = [32, 16]" in code
   assert "pad = true" in code
