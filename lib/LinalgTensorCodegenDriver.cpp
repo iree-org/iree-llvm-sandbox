@@ -166,7 +166,7 @@ void LLVMLoweringPass::runOnOperation() {
   dynamicPM.addPass(createAsyncRuntimeRefCountingOptPass());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createLowerAffinePass());
-  dynamicPM.addPass(createLowerToCFGPass());
+  dynamicPM.addPass(createConvertSCFToCFPass());
   dynamicPM.addPass(createConvertLinalgToLLVMPass());
   dynamicPM.addPass(createConvertVectorToLLVMPass(
       // clang-format off
@@ -348,8 +348,16 @@ void LinalgBufferizationDriverPass::runOnOperation() {
   OpPassManager dynamicPM(ModuleOp::getOperationName());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
+
+  bufferization::AnalysisBufferizationOptions options;
+  options.memCpyFn = [](OpBuilder &b, Location loc, Value from, Value to) {
+    if (linalg::makeMemRefCopyOp(b, loc, from, to))
+      return success();
+    return failure();
+  };
   dynamicPM.addPass(
-      createLinalgComprehensiveModuleBufferizePass(/*useLinalgCopy=*/true));
+      createLinalgComprehensiveModuleBufferizePass(options));
+
   if (failed(runPipeline(dynamicPM, getOperation())))
     return signalPassFailure();
   // Perform buffer-level hoistings.

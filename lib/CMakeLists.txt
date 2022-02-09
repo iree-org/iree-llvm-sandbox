@@ -58,7 +58,7 @@ add_mlir_library(IREELinalgTensorSandboxDriver
   MLIRLinalgToLLVM
   MLIRMathToLLVM
   MLIRMemRefToLLVM
-  MLIRSCFToStandard
+  MLIRSCFToControlFlow
   MLIRVectorToLLVM
 
   # Sandbox libraries

@@ -26,7 +26,7 @@
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
-#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
@@ -396,7 +396,7 @@ executeLowerToLLVMOp(ModuleOp module,
   pm.addNestedPass<FuncOp>(createConvertLinalgToLoopsPass());
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createLowerAffinePass());
-  pm.addPass(createLowerToCFGPass());
+  pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createConvertLinalgToLLVMPass());
   pm.addPass(createConvertVectorToLLVMPass(
       // clang-format off

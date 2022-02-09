@@ -16,7 +16,7 @@ add_mlir_library(MLIRLinalgExtTransforms
   LINK_LIBS PUBLIC
   MLIRAffineToStandard
   MLIRAsync
-  MLIRSCFToStandard
+  MLIRSCFToControlFlow
   MLIRLinalgToLLVM
   MLIRVectorToLLVM
   MLIRMathToLLVM
