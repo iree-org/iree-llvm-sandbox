@@ -317,6 +317,15 @@ def OutlineOneParentLoop : Pass<"outline-one-parent-loop", "FuncOp"> {
   ];
 }
 
+def ForToDoWhileLoop: Pass<"for-to-do-while", "FuncOp"> {
+  let summary = "Pass to lower all scf::ForOp to scf::WhileOp";
+  let constructor = "mlir::createForToDoWhileLoopPass()";
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
+      "Which func op is the anchor to latch on.">,
+  ];
+}
+
 def VectorPropagateDistribution
     : Pass<"vector-propagate-distribution", "FuncOp"> {
   let summary = "Pass propagate insert_map/extract_map.";
