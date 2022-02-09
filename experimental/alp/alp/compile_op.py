@@ -34,7 +34,7 @@ def build_main_obj(benchmark_prog, m, n, k, op, reps, mktmp_fn):
     cmd.append("--func-bufferize")
     cmd.append("-convert-linalg-to-affine-loops")
     cmd.append("-lower-affine")
-    cmd.append("-convert-scf-to-std")
+    cmd.append("-convert-scf-to-cf")
     cmd.append("-convert-memref-to-llvm")
     cmd.append("-convert-std-to-llvm")
     cmd.append("-reconcile-unrealized-casts")
@@ -71,7 +71,7 @@ def apply(transform_list, op_mlir_file, verbosity_level):
     output = add_extension(op_mlir_file, "llvm")
     run_and_save(cmd, op_mlir_file, output)
     return output
-    
+
 def SaveIR(x, ext):
   return (x, ext)
 
@@ -96,8 +96,8 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
     modulo_scheduling = option_list['modulo_scheduling']
 
     Canonicalize = " --canonicalize --cse"
-    CodegenDriver = "--linalg-tensor-codegen-driver=\"anchor-func=gemm anchor-op=linalg.generic" 
-    Tile = "--linalg-single-tiling-expert-driver=\"anchor-func=gemm anchor-op=linalg.generic" 
+    CodegenDriver = "--linalg-tensor-codegen-driver=\"anchor-func=gemm anchor-op=linalg.generic"
+    Tile = "--linalg-single-tiling-expert-driver=\"anchor-func=gemm anchor-op=linalg.generic"
 
     # Transformations
     OuterTiling = Tile + f" tile-sizes={tile_sizes} tile-interchange={reorder_tile_sizes}\"" + Canonicalize
@@ -116,20 +116,20 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
                   " lower-vector-transpose-to=eltwise" +\
                   " lower-vector-multi-reduction-to=innerparallel" +\
                   " lower-vector-contraction-to=outerproduct" +\
-                  " unroll-vector-transfers=true" 
+                  " unroll-vector-transfers=true"
 
     LowerVectorStage = lambda stage : LowerVector+f" lower-vector-stage={stage}\"" + Canonicalize
 
     ExtractKernel = "--alp-extract-kernel" + Canonicalize if extract_micro_kernel else ""
     ModuloScheduling = "--alp-modulo-scheduling=\"interleave unrolling=16\"" + Canonicalize  if modulo_scheduling else "" # TODO: Order is not preserved if I canonicalize
-    Legalize = "--alp-legalize" + Canonicalize 
+    Legalize = "--alp-legalize" + Canonicalize
     ExtractKernelTail = "--alp-extract-kernel-tail" + Canonicalize
 
     LowerToLLVM = "--convert-vector-to-scf " +\
                   "--convert-linalg-to-loops " +\
                   "--canonicalize " +\
                   "--lower-affine " +\
-                  "--convert-scf-to-std " +\
+                  "--convert-scf-to-cf " +\
                   "--convert-linalg-to-llvm " +\
                   "--convert-vector-to-llvm " +\
                   "--convert-math-to-llvm " +\
@@ -137,13 +137,13 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
                   "--convert-std-to-llvm " +\
                   "--canonicalize " +\
                   "--cse " +\
-                  "--reconcile-unrealized-casts " 
+                  "--reconcile-unrealized-casts "
 
 
-    TransformList = [OuterTiling, 
-                     InnerTiling, 
+    TransformList = [OuterTiling,
+                     InnerTiling,
                      SaveIR(4, "tile"),
-                     DecomposeToLowerDimensionalNamedOp, 
+                     DecomposeToLowerDimensionalNamedOp,
                      Vectorize,
                      SaveIR(4, "vectorize"),
                      Bufferize,
@@ -164,7 +164,7 @@ def build_operator_obj(op_prog, m, n, k, op, option_list, mktmp_fn, verbosity_le
                      ExtractKernelTail,
                      SaveIR(4, "micro_kernel_final"),
                      LowerToLLVM]
-    
+
     op_llvm_mlir = apply(TransformList, op_mlir, verbosity_level)
 
     out = run_command(["$IREE_LLVM_SANDBOX_BUILD_DIR/bin/mlir-translate --mlir-to-llvmir " + op_llvm_mlir])
@@ -214,7 +214,7 @@ def build_mlir(op, m, n, k, options):
 
     if verbose:
       Path("./tmp").mkdir(exist_ok=True)
-      tmp_dir_name = "./tmp" 
+      tmp_dir_name = "./tmp"
       verbosity_level=options["verbosity_level"]
     else:
       tmp_dir = tempfile.TemporaryDirectory()

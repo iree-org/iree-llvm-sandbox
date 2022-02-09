@@ -1,5 +1,5 @@
 // RUN: mlir-proto-opt %s -vector-propagate-distribution |\
-// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-scf-to-std \
+// RUN: mlir-opt -convert-vector-to-scf -lower-affine -convert-scf-to-cf \
 // RUN: -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm \
 // RUN: -reconcile-unrealized-casts | \
 // RUN: mlir-cpu-runner -e main -entry-point-result=void  \

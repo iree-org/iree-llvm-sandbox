@@ -563,7 +563,7 @@ class Sparsify(Transform):
         f'sparsification{{{options}}},'
         f'sparse-tensor-conversion,'
         f'builtin.func(convert-linalg-to-loops,convert-vector-to-scf),'
-        f'convert-scf-to-std,'
+        f'convert-scf-to-cf,'
         f'func-bufferize,'
         f'tensor-constant-bufferize,'
         f'builtin.func(tensor-bufferize,std-bufferize,finalizing-bufferize),'

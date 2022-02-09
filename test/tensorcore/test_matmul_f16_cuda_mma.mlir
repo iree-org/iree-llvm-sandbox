@@ -11,7 +11,7 @@
 // RUN: mlir-opt -fold-memref-subview-ops -convert-vector-to-gpu -canonicalize -convert-linalg-to-loops  |\
 // RUN: mlir-proto-opt -canonicalize -linalg-tensor-codegen-strategy="convert-to-gpu num-gpu-workgrpoups=1,1 distribute-to-gpu-ids tiled-loop-to-scf" |\
 // RUN: mlir-opt -gpu-kernel-outlining |\
-// RUN: mlir-opt -lower-affine -convert-scf-to-std -convert-vector-to-llvm |\
+// RUN: mlir-opt -lower-affine -convert-scf-to-cf -convert-vector-to-llvm |\
 // RUN: mlir-opt -pass-pipeline='gpu.module(strip-debuginfo,convert-gpu-to-nvvm{index-bitwidth=32},gpu-to-cubin{chip=sm_70})' \
 // RUN: -gpu-to-llvm |\
 
