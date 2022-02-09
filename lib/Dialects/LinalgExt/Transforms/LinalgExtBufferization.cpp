@@ -204,10 +204,11 @@ static bool hasMatchingExtractSliceOp(const BufferizationState &state,
 struct ParallelInsertSliceOpInterface
     : public BufferizableOpInterface::ExternalModel<
           ParallelInsertSliceOpInterface, ParallelInsertSliceOp> {
-  OpResult getAliasingOpResult(Operation *op, OpOperand &opOperand,
-                               const BufferizationState &state) const {
+  SmallVector<OpResult> getAliasingOpResult(
+      Operation *op, OpOperand &opOperand,
+      const BufferizationState &state) const {
     if (&opOperand != &op->getOpOperand(1) /*dest*/)
-      return OpResult();
+      return {};
 
     // ParallelInsertSliceOp itself has no results. Tensors are returned via
     // the parent op.
@@ -228,7 +229,7 @@ struct ParallelInsertSliceOpInterface
     assert(opIdx < inParallelOp->getNumResults() &&
            "could not find op inside terminator op");
 
-    return inParallelOp->getResult(opIdx);
+    return {inParallelOp->getResult(opIdx)};
   }
 
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,

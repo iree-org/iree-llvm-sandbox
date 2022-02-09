@@ -66,7 +66,7 @@ struct TiledLoopToGPUPattern : public OpRewritePattern<linalg::TiledLoopOp> {
         auto elementType = memref.getType().cast<MemRefType>().getElementType();
         auto unrankedType = UnrankedMemRefType::get(elementType, 0);
         Value unrankedMemref =
-            rewriter.create<memref::CastOp>(loc, memref, unrankedType);
+            rewriter.create<memref::CastOp>(loc, unrankedType, memref);
         rewriter.create<gpu::HostRegisterOp>(loc, unrankedMemref);
       }
     };
