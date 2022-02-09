@@ -153,6 +153,9 @@ struct PipelineOneParentLoopPass
   void runOnOperation() override;
 };
 
+struct ForToDoWhileLoop : public ForToDoWhileLoopBase<ForToDoWhileLoop> {
+  void runOnOperation() override;
+};
 } // namespace
 
 void LLVMLoweringPass::runOnOperation() {
@@ -166,6 +169,7 @@ void LLVMLoweringPass::runOnOperation() {
   dynamicPM.addPass(createAsyncRuntimeRefCountingOptPass());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createLowerAffinePass());
+  dynamicPM.addNestedPass<FuncOp>(createForToDoWhileLoopPass());
   dynamicPM.addPass(createLowerToCFGPass());
   dynamicPM.addPass(createConvertLinalgToLLVMPass());
   dynamicPM.addPass(createConvertVectorToLLVMPass(
@@ -584,6 +588,117 @@ void PipelineOneParentLoopPass::runOnOperation() {
   });
 }
 
+namespace {
+struct ForLoopLoweringPattern : public OpRewritePattern<scf::ForOp> {
+  using OpRewritePattern<scf::ForOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(scf::ForOp forOp,
+                                PatternRewriter &rewriter) const override {
+    // Generate type signature for the loop-carried values. The induction
+    // variable is placed first, followed by the forOp.iterArgs.
+    SmallVector<Type, 8> lcvTypes;
+    lcvTypes.push_back(forOp.getInductionVar().getType());
+    llvm::transform(forOp.getInitArgs(), std::back_inserter(lcvTypes),
+                    [&](auto v) { return v.getType(); });
+
+    // Build scf.WhileOp
+    SmallVector<Value> initArgs;
+    initArgs.push_back(forOp.getLowerBound());
+    llvm::append_range(initArgs, forOp.getInitArgs());
+
+    // We need to add an if-else condition to avoid executing the first
+    // iteration
+    auto shouldWhileExecute = rewriter.create<arith::CmpIOp>(
+        forOp.getLoc(), arith::CmpIPredicate::sgt, forOp.getUpperBound(),
+        forOp.getLowerBound());
+
+    auto if_while_should_execute = rewriter.create<scf::IfOp>(
+        forOp.getLoc(), forOp.getResultTypes(), shouldWhileExecute,
+        forOp.getNumIterOperands() > 0);
+    rewriter.setInsertionPointToStart(
+        &if_while_should_execute.getThenRegion().front());
+
+    // The while-loop should be contained within the then region
+    auto whileOp = rewriter.create<scf::WhileOp>(forOp.getLoc(), lcvTypes,
+                                                 initArgs, forOp->getAttrs());
+
+    llvm::SmallVector<Location, 4> locs(lcvTypes.size(), forOp.getLoc());
+    auto *beforeBlock = rewriter.createBlock(
+        &whileOp.getBefore(), whileOp.getBefore().begin(), lcvTypes, locs);
+
+    auto *afterBlock = rewriter.createBlock(
+        &whileOp.getAfter(), whileOp.getAfter().begin(), lcvTypes, locs);
+
+    // Rewrite uses of the for-loop block arguments to the new while-loop
+    // "after" arguments
+    for (auto barg : enumerate(forOp.getBody(0)->getArguments()))
+      barg.value().replaceAllUsesWith(beforeBlock->getArgument(barg.index()));
+    // Inline for-loop body operations into 'before' region (except Yield).
+    llvm::SmallVector<Value> nextIterArgs;
+    for (auto &arg : llvm::make_early_inc_range(*forOp.getBody())) {
+      if (auto yieldOp = dyn_cast<scf::YieldOp>(&arg)) {
+        nextIterArgs = yieldOp.getOperands();
+      } else {
+        arg.moveBefore(beforeBlock, beforeBlock->end());
+      }
+    }
+
+    // 'before' region contains the loop condition and forwarding of iteration
+    // arguments to the 'after' region.
+    rewriter.setInsertionPointToEnd(&whileOp.getBefore().front());
+
+    // Add induction variable incrementation
+    auto ivIncOp = rewriter.create<arith::AddIOp>(
+        whileOp.getLoc(), beforeBlock->getArgument(0), forOp.getStep());
+    auto cmpOp = rewriter.create<arith::CmpIOp>(whileOp.getLoc(),
+                                                arith::CmpIPredicate::slt,
+                                                ivIncOp, forOp.getUpperBound());
+
+    nextIterArgs.insert(nextIterArgs.begin(), ivIncOp.getResult());
+    rewriter.create<scf::ConditionOp>(whileOp.getLoc(), cmpOp.getResult(),
+                                      nextIterArgs);
+
+    // Inline for-loop body into an executeRegion operation in the "after"
+    // region. The return type of the execRegionOp does not contain the
+    // iv - yields in the source for-loop contain only iterArgs.
+
+    // SmallVector<Value> yieldOperands;
+    rewriter.setInsertionPointToEnd(afterBlock);
+    rewriter.create<scf::YieldOp>(whileOp.getLoc(), afterBlock->getArguments());
+
+    llvm::SmallVector<Value, 4> if_values;
+    for (auto arg : llvm::enumerate(forOp.getResults())) {
+      if_values.push_back(whileOp.getResult(arg.index() + 1));
+    }
+
+    if (if_values.size() > 0) {
+      rewriter.setInsertionPointAfter(whileOp);
+      rewriter.create<scf::YieldOp>(whileOp.getLoc(), if_values);
+    }
+
+    if (forOp.getNumIterOperands() > 0) {
+      rewriter.setInsertionPointToStart(
+          &if_while_should_execute.getElseRegion().front());
+      rewriter.create<scf::YieldOp>(whileOp.getLoc(), forOp.getInitArgs());
+    }
+
+    rewriter.replaceOp(forOp, if_while_should_execute.getResults());
+
+    return success();
+  }
+};
+} // namespace
+
+void ForToDoWhileLoop::runOnOperation() {
+  FuncOp funcOp = getOperation();
+  // if (anchorFuncOpName != funcOp.getName())
+  //   return;
+  MLIRContext *ctx = funcOp.getContext();
+  RewritePatternSet patterns(ctx);
+  patterns.add<ForLoopLoweringPattern>(ctx);
+  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+}
+
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
@@ -630,6 +745,11 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createPipelineOneParentLoopPass() {
   return std::make_unique<PipelineOneParentLoopPass>();
+}
+
+std::unique_ptr<mlir::OperationPass<FuncOp>>
+mlir::createForToDoWhileLoopPass() {
+  return std::make_unique<ForToDoWhileLoop>();
 }
 
 //===----------------------------------------------------------------------===//

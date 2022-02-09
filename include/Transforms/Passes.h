@@ -50,6 +50,9 @@ std::unique_ptr<OperationPass<FuncOp>> createOutlineOneParentLoopPass();
 /// Create a pass to drive the pipelining of a single parent loop of an op.
 std::unique_ptr<OperationPass<FuncOp>> createPipelineOneParentLoopPass();
 
+/// Create a pass to transform a For-Loop to a Do-While loop
+std::unique_ptr<mlir::OperationPass<FuncOp>> createForToDoWhileLoopPass();
+
 /// Experimental pass for vector distribution.
 std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
 
