@@ -35,7 +35,7 @@ all_experts = [
             #           N  H  W  C  KH  KW  F
             tile_sizes=[1, 1, 8, 32, 1, 1, 8],
             peel=[0, 1, 2, 3, 4, 5, 6])
-        .then(Vectorize(fun_name, ''))
+        .then(Vectorize(fun_name, 'linalg.conv_1d_nwc_wcf'))
         .then(Bufferize())
         .then(LowerVectors(transpose_lowering='shuffle'))
         .then(LowerToLLVM()),
@@ -46,7 +46,7 @@ all_experts = [
             tile_sizes=[1, 1, 8, 32, 1, 1, 8],
             pad=True,
             hoist_paddings=[5, 0, 0])
-        .then(Vectorize(fun_name, ''))
+        .then(Vectorize(fun_name, 'linalg.conv_1d_nwc_wcf'))
         .then(Bufferize())
         .then(LowerVectors(transpose_lowering='shuffle'))
         .then(LowerToLLVM()),
@@ -57,7 +57,7 @@ all_experts = [
                                peel=[0, 1, 2, 3, 4, 5, 6],
                                tile_sizes2=[1, 1, 8, 32, 1, 1, 8],
                                peel2=[0, 1, 2, 3, 4, 5, 6])
-          .then(Vectorize(fun_name, ''))
+          .then(Vectorize(fun_name, 'linalg.conv_1d_nwc_wcf'))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
@@ -69,7 +69,7 @@ all_experts = [
                            pad2=True,
                            pack_paddings2=[1, 0, 0],
                            hoist_paddings2=[4, 0, 0])
-          .then(Vectorize(fun_name, ''))
+          .then(Vectorize(fun_name, 'linalg.conv_1d_nwc_wcf'))
           .then(Bufferize())
           .then(LowerVectors(split_transfers='none',
                              transpose_lowering='shuffle',
