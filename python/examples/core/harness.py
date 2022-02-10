@@ -145,24 +145,9 @@ class Measurements:
     return ",".join([str.format(f"{k}={v}") for k, v in value.items()])
 
 
-def _compute_quantiles(measurements: Sequence[float],
-                       n_iters: int) -> Sequence[float]:
-  return [ \
-      measurements[0],
-      measurements[((n_iters * 1) // 100)],
-      measurements[((n_iters * 10) // 100)],
-      measurements[((n_iters * 25) // 100)],
-      measurements[((n_iters * 50) // 100)],
-      measurements[((n_iters * 75) // 100)],
-      measurements[((n_iters * 90) // 100)],
-      measurements[((n_iters * 99) // 100)],
-      measurements[-1]
-         ]
-
-
-def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
-                 n_iters: int) -> TimingResults:
-  elapsed_ns = run_n_iters(n_iters)
+def timed_invoke(run_for_n_iters: Callable, gflop_count: float,
+                 gbyte_count: float, n_iters: int) -> TimingResults:
+  elapsed_ns = run_for_n_iters(n_iters)
   elapsed_s_per_iter = [sec for sec in np.flip(np.sort(elapsed_ns / 1.e9))]
 
   # AVX512 throttling needs a lot of iteration, chance to only report the last n
@@ -178,9 +163,9 @@ def timed_invoke(run_n_iters: Callable, gflop_count: float, gbyte_count: float,
       ['slowest', 'p1', 'p10', 'p25', 'p50', 'p75', 'p90', 'p99', 'fastest']
   data = [
       header_data + ['unit'],
-      _compute_quantiles(elapsed_s_per_iter, n_iters) + ['seconds'],
-      _compute_quantiles(gflop_per_s_per_iter, n_iters) + ['GFlops/s'],
-      _compute_quantiles(gbyte_per_s_per_iter, n_iters) + ['GBs/s']
+      compute_quantiles(elapsed_s_per_iter) + ['seconds'],
+      compute_quantiles(gflop_per_s_per_iter) + ['GFlops/s'],
+      compute_quantiles(gbyte_per_s_per_iter) + ['GBs/s']
   ]
   print(line)
   format_str = '{:>12s}' * len(data[0])
@@ -338,7 +323,8 @@ class ProblemInstance:
           n_iters: int,
           entry_point_name: str,
           runtime_problem_sizes_dict: dict,
-          dump_obj_to_file: str = ''):
+          dump_obj_to_file: str = None,
+          skip_setup_and_dump_and_check: bool = False):
     self.__assert_matching_mapping_keys(runtime_problem_sizes_dict)
     assert_runtime_sizes_compatible_with_compile_time_sizes(
         runtime_problem_sizes_dict, self.compile_time_problem_sizes_dict)
@@ -351,8 +337,8 @@ class ProblemInstance:
     np_input_and_outputs_pointers = get_mlir_abi_compatible_types(
         np_input_and_outputs)
 
-    # 2. Setup function to run, taking a np array of .
-    def run_n_iters(n_iters: int):
+    # 2. Setup function to run, taking a np array of int64.
+    def run_for_n_iters(n_iters: int):
       np_timers = np.zeros([n_iters], dtype=np.int64)
       np_timers_pointer = get_mlir_abi_compatible_types([np_timers]).pop()
       self.mlir_execution_engine.invoke(entry_point_name,
@@ -360,24 +346,23 @@ class ProblemInstance:
                                         np_timers_pointer)
       return np_timers
 
-    # 3. Dry-run.
-    run_n_iters(1)
+    if not skip_setup_and_dump_and_check:
+      # 3. Pre-run to ensure JIT compilation actually happened to the end.
+      run_for_n_iters(1)
 
-    # Now dump to obj file as the JIT compilation actually happened.
-    if (len(dump_obj_to_file) > 0):
-      self.mlir_execution_engine.dump_to_object_file(dump_obj_to_file)
+      # 4. Now dump to obj file as the JIT compilation actually happened.
+      if (dump_obj_to_file is not None and len(dump_obj_to_file) > 0):
+        self.mlir_execution_engine.dump_to_object_file(dump_obj_to_file)
 
-    # 4. Check.
-    # TODO: this checks seems to be always true as `check_np` is a function
-    # defined to be just `pass` at the base class level, nobody overrides it as
-    # attribute to be None.
-    if self.problem_definition.check_np is not None:
-      self.problem_definition.check_np(*np_input_and_outputs)
-      # If we checked, do another dry run to warm back up.
-      run_n_iters(1)
+      # 5. Check.
+      # TODO: this checks seems to be always true as `check_np` is a function
+      # defined to be just `pass` at the base class level, nobody overrides it as
+      # attribute to be None.
+      if self.problem_definition.check_np is not None:
+        self.problem_definition.check_np(*np_input_and_outputs)
 
     # 5. Showtime.
-    return timed_invoke(run_n_iters=run_n_iters,
+    return timed_invoke(run_for_n_iters=run_for_n_iters,
                         gflop_count=self.problem_definition.gflop_count_builder(
                             runtime_problem_sizes_dict),
                         gbyte_count=self.problem_definition.gbyte_count_builder(
@@ -438,12 +423,15 @@ def _parse_dimension_list(argument: str) -> Sequence[str]:
   return argument.split(',')
 
 
-def test_argparser(benchmark_name: str, \
-                   default_n_iters: int,
-                   default_problem_sizes_list: Sequence[Sequence[int]],
-                   default_expert_list: Sequence[str],
-                   default_dynamic_at_compile_time_list: Sequence[Sequence[str]],
-                   default_spec_list: Sequence[str]) -> argparse.Namespace:
+def add_argparser_arguments(
+    parser: argparse.ArgumentParser, \
+    default_problem_sizes_list: Sequence[Sequence[int]],
+    benchmark_name: str = 'Benchmark',
+    default_n_iters: int = 100,
+    default_expert_list: Sequence[str] = '',
+    default_dynamic_at_compile_time_list: Sequence[
+      Sequence[str]] = [],
+    default_spec_list: Sequence[str] = []) -> argparse.Namespace:
   """Test argument parser.
 
   Creates an argument parser and returns the parsed arguments.
@@ -456,7 +444,6 @@ def test_argparser(benchmark_name: str, \
   default_dynamic_at_compile_time_list: Default dynamic at compile time dimensions.
   default_spec_list: Default specification list.
   """
-  parser = argparse.ArgumentParser(description=benchmark_name)
   parser.add_argument('--n_iters',
                       '-i',
                       type=int,
@@ -493,6 +480,30 @@ def test_argparser(benchmark_name: str, \
                       nargs='?',
                       help='dump file (e.g., --dump_data /tmp/data.json)',
                       default='')
+
+def test_argparser(benchmark_name: str, \
+                   default_n_iters: int,
+                   default_problem_sizes_list: Sequence[Sequence[int]],
+                   default_expert_list: Sequence[str],
+                   default_dynamic_at_compile_time_list: Sequence[Sequence[str]],
+                   default_spec_list: Sequence[str]) -> argparse.Namespace:
+  """Test argument parser.
+
+  Creates an argument parser and returns the parsed arguments.
+
+  Arguments:
+  benchmark_name: Benchmark name.
+  default_n_iters: Default number of iterations.
+  default_problem_sizes_list: Default problem sizes.
+  default_expert_list: Default experts.
+  default_dynamic_at_compile_time_list: Default dynamic at compile time dimensions.
+  default_spec_list: Default specification list.
+  """
+  parser = argparse.ArgumentParser(description=benchmark_name)
+  add_argparser_arguments(parser, benchmark_name, default_n_iters,
+                          default_problem_sizes_list, default_expert_list,
+                          default_dynamic_at_compile_time_list,
+                          default_spec_list)
   return parser.parse_args(sys.argv[1:])
 
 
@@ -587,6 +598,7 @@ def test_harness(problem_factory: Callable[
         print(f'\nCompilation expert {expert_name}')
         problem = ProblemInstance(problem_definition, np_types)
 
+        start = time.time()
         problem.compile(
             entry_point_name='main',
             fun_to_benchmark_name=function_name,
@@ -594,12 +606,15 @@ def test_harness(problem_factory: Callable[
             transform=expert,
             dump_ir_to_file=kwargs.get('dump_ir_to_file', ''),
             zero_at_each_iteration=kwargs.get('zero_at_each_iteration', False))
+        print(f'Compile time {time.time() - start}')
 
+        start = time.time()
         timing_results = problem.run(
             n_iters=n_iters,
             entry_point_name='main',
             runtime_problem_sizes_dict=runtime_problem_sizes_dict,
             dump_obj_to_file=kwargs.get('dump_obj_to_file', ''))
+        print(f'Run time {time.time() - start}')
 
         measurements.append(
             function_name,

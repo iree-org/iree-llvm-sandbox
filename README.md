@@ -148,9 +148,11 @@ numactl --hardware
 echo 0 > /proc/sys/kernel/randomize_va_space
 
 # Disable the sibling of CPU 4.
-cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list 
+cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list
+
 # E.g. on a 36 core system, this should return 4,40, use a shift of 36 for rest.
 echo 0 > /sys/devices/system/cpu/cpu$((4 + 36))/online
+
 # Disable the siblings of CPU 8-15, we'll use those for parallel runs.
 for i in $(seq 0 16); do \
   echo 0 /sys/devices/system/cpu/cpu$(( ${i} + 36))/online; \
@@ -165,10 +167,13 @@ done
 #   https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 
 cset set -s system -c 16-35 -m 1
-for i in $(seq 0 15); do \
-  cset set -s sandbox_${i} -c ${i} -m 0 --cpu_exclusive
-done
-# cset set -s sandbox_parallel -c 8-15 -m 0 --cpu_exclusive
+
+#for i in $(seq 0 15); do \
+#  cset set -s sandbox_${i} -c ${i} -m 0 --cpu_exclusive
+#done
+
+cset set -s sandbox_parallel -c 0-15 -m 0 --cpu_exclusive
+
 cset proc -m -f root -t system
 
 ################################################################
