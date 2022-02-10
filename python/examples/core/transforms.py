@@ -1,8 +1,10 @@
 from mlir.ir import *
 from mlir.passmanager import PassManager
+import mlir.dialects.linalg_transform as tx
+from mlir.dialects import builtin, pdl
 
 from .variables import *
-from .transform import Transform, TransformationList
+from .transform import Transform
 
 import mlir.all_passes_registration
 
@@ -34,6 +36,33 @@ def _get_pad_str(transform: Transform) -> str:
   if transpose_paddings:
     pad_str = pad_str + f' transpose-paddings={",".join(transpose_paddings)}'
   return pad_str
+
+
+def make_pattern_name(fun_name: str, op_name: str):
+  return "match_" + op_name.replace('.','_') + "_in_" + fun_name
+
+
+def emit_transform_matcher(fun_name: str, op_name: str):
+  pattern = pdl.PatternOp(benefit=1, name=make_pattern_name(fun_name, op_name))
+  with InsertionPoint(pattern.body):
+    args = pdl.OperandsOp()
+    types = pdl.TypesOp()
+    pdl_op = pdl.OperationOp(op_name, args=[args], types=[types])
+    pdl.ApplyNativeConstraintOp('nestedInFunc', args=[pdl_op], params=[FlatSymbolRefAttr.get(fun_name)])
+    pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
+
+
+def emit_pattern_if_not_present(fun_name: str, op_name: str):
+  parent = InsertionPoint.current.block.owner.operation
+  while not isinstance(parent.opview, builtin.ModuleOp) and parent:
+    parent = parent.parent
+  assert parent, "Expected to find a ModuleOp as parent"
+  symbol_table = SymbolTable(parent)
+  pattern_name = make_pattern_name(fun_name, op_name)
+  if pattern_name not in symbol_table:
+    with InsertionPoint(parent.opview.body):
+      emit_transform_matcher(fun_name, op_name)
+  return pattern_name
 
 
 class ExperimentalFuseFillIntoTiledReductionOutput(Transform):
@@ -162,6 +191,8 @@ class Tile(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
+    self.fun_name = fun_name
+    self.op_name = op_name
     tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
     interchange_str = _get_size_list_as_str(name="tile-interchange",
                                             sizes=self.tile_interchange)
@@ -185,6 +216,26 @@ class Tile(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    tile_only = tx.TileOp(target,
+                          sizes=self.tile_sizes,
+                          interchange=self.tile_interchange,
+                          peel=self.peel,
+                          scalarize_dyn_dims=self.scalarize_dyn_dims)
+    # This is necessary to ensure the enabler transformations run between
+    # tiling and padding. In the interpreter, they can only run between
+    # transformations. In the strategy, they run between passes that
+    # constitute the conflated tile command that actually corresponds to
+    # SingleTilingExpertPass
+    if self.pad:
+      tx.TileOp(tile_only,
+                pad=self.pad,
+                pack_paddings=self.pack_paddings,
+                hoist_paddings=self.hoist_paddings,
+                transpose_paddings=self.transpose_paddings)
 
 
 class LinalgExtTile(Transform):
@@ -293,6 +344,8 @@ class Vectorize(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
+    self.fun_name = fun_name
+    self.op_name = op_name
     vectorize_paddings_str = ''
     if self.vectorize_paddings:
       vectorize_paddings_str = 'vectorize-padding'
@@ -309,6 +362,17 @@ class Vectorize(Transform):
                 f'cse')
     self._parse_variables_in_kwargs(kwargs)
     self.pipeline = (f'builtin.func({pipeline})')
+
+  def build_transform_ir(self):
+    # Emit the untargeted version if requested.
+    if not self.op_name:
+      tx.VectorizeOp(vectorize_padding=self.vectorize_paddings)
+      return
+
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    tx.VectorizeOp(target, vectorize_padding=self.vectorize_paddings)
+
 
 
 class Generalize(Transform):
@@ -375,6 +439,9 @@ class DecomposeToLowerDimensionalNamedOp(Transform):
                 f'     decompose-to-lower-dim }}')
     self.pipeline = (f'builtin.func({pipeline})')
 
+  def build_transform_ir(self):
+    tx.DecomposeOp()
+
 
 class Bufferize(Transform):
 
@@ -383,6 +450,9 @@ class Bufferize(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
+
+  def build_transform_ir(self):
+    tx.BufferizeOp()
 
 
 class LowerVectors(Transform):
@@ -418,6 +488,7 @@ class LowerVectors(Transform):
       stages = [stages]
 
     self._parse_variables_in_kwargs(kwargs)
+    self.stages = stages
 
     pipelines = [
         (f'linalg-vector-lowering{{'
@@ -441,6 +512,20 @@ class LowerVectors(Transform):
         print(module)
     return module
 
+  def build_transform_ir(self):
+    for name in ('max_transfer_rank', 'print_after_all'):
+      if getattr(self, name) != LowerVectors.variables[name][1]:
+        raise NotImplementedError(name + " not supported by the transform dialect")
+
+    for stage in sorted(self.stages):
+      tx.LowerVectorsOp(stages=[s + 1 for s in range(stage + 1)],
+        contraction_lowering=self.contraction_lowering,
+        multireduction_lowering=self.multi_reduction_lowering,
+        split_transfers=self.split_transfers,
+        unroll_vector_transfers=self.unroll_vector_transfers,
+        transpose_lowering=self.transpose_lowering,
+        transpose_avx2_lowering=self.transpose_avx2_lowering)
+
 
 class LowerToLLVM(Transform):
 
@@ -449,6 +534,9 @@ class LowerToLLVM(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = pipeline
+
+  def build_transform_ir(self):
+    tx.LowerToLLVMOp()
 
 
 class UnrollOneVectorOp(Transform):
@@ -486,6 +574,8 @@ class UnrollOneParentLoop(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
+    self.fun_name = fun_name
+    self.op_name = op_name
 
     pipeline = (f'unroll-one-parent-loop{{'
                 f'     anchor-func={fun_name} '
@@ -495,6 +585,12 @@ class UnrollOneParentLoop(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    loop = tx.GetParentLoopOp(target, num_loops=self.parent_loop_num)
+    tx.UnrollLoopOp(loop, factor=self.unroll_factor)
 
 
 class PipelineOneParentLoop(Transform):
@@ -507,6 +603,8 @@ class PipelineOneParentLoop(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
+    self.fun_name = fun_name
+    self.op_name = op_name
 
     pipeline = (f'pipeline-one-parent-loop{{'
                 f'     anchor-func={fun_name} '
@@ -518,6 +616,12 @@ class PipelineOneParentLoop(Transform):
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
 
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    loop = tx.GetParentLoopOp(target, num_loops=self.parent_loop_num)
+    tx.PipelineLoopOp(loop, iteration_interval=self.II, read_latency=self.read_latency)
+
 
 class OutlineOneParentLoop(Transform):
 
@@ -528,6 +632,8 @@ class OutlineOneParentLoop(Transform):
   def __init__(self, fun_name: str, op_name: str, result_func_name: str,
                **kwargs):
     self._parse_variables_in_kwargs(kwargs)
+    self.fun_name = fun_name
+    self.op_name = op_name
 
     pipeline = (f'outline-one-parent-loop{{'
                 f'     anchor-func={fun_name} '
@@ -537,6 +643,12 @@ class OutlineOneParentLoop(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    loop = tx.GetParentLoopOp(target, num_loops=self.parent_loop_num)
+    tx.OutlineLoopOp(loop, func_name=self.result_func_name)
 
 
 class ApplySchedule(Transform):
