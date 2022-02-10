@@ -141,7 +141,7 @@ func @vector_reduction(%laneid: index) {
     %0 = "some_def"() : () -> (vector<32xf32>)
 //       CHECK-SCF-IF:     %[[reduction:.*]] = vector.reduction
 //       CHECK-SCF-IF:     memref.store %[[reduction]], %[[buffer]][%[[c0]]]
-    %1 = vector.reduction "add", %0 : vector<32xf32> into f32
+    %1 = vector.reduction <add>, %0 : vector<32xf32> into f32
     vector_ext.yield %1 : f32
   }
 //       CHECK-SCF-IF:   }
