@@ -31,5 +31,6 @@ pdl.pattern @pdl_target : benefit(1) {
 }
 
 linalg_transform.sequence {
-  %1 = vectorize when @pdl_target {vectorize_padding = true}
+  %0 = match @pdl_target
+  vectorize %0 {vectorize_padding = true}
 }

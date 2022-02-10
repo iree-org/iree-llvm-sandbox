@@ -46,7 +46,8 @@ def ScopeOp : Linalg_Transform_Operation<"util.scope",
   let regions = (region AnyRegion:$body);
   let arguments = (ins Variadic<AnyType>:$ins);
   let results = (outs Variadic<AnyType>:$outs);
-  let assemblyFormat = "`(` operands `)` attr-dict-with-keyword $body `:` functional-type(operands, results)";
+  let assemblyFormat = [{ `(` operands `)` attr-dict-with-keyword $body
+                          `:` functional-type(operands, results) }];
 
   let verifier = [{ return RegionBranchOpInterface::verifyTypes(*this); }];
 }
@@ -88,16 +89,23 @@ def SequenceOp : Linalg_Transform_Operation<"sequence",
 
 //===----------------------------------------------------------------------===//
 
-def TargetableOpTrait : NativeOpTrait<"TargetableTransformOpTrait"> {
-  let cppNamespace = "::mlir";
+def MatchOp : Linalg_Transform_Operation<"match"> {
+  let description = [{ Find and return an op that matches the specific PDL
+  pattern. When executed inside a sequence, it returns all matching ops. }];
+
+  let arguments = (ins SymbolRefAttr:$targetMatcher);
+  let results = (outs PDL_Operation:$target);
+
+  let assemblyFormat = "$targetMatcher attr-dict";
 }
 
-def TileOp : Linalg_Transform_Operation<"tile", [TargetableOpTrait]> {
+//===----------------------------------------------------------------------===//
+
+def TileOp : Linalg_Transform_Operation<"tile"> {
   let description = [{Indicates that ops of a specific kind in the given
   function should be tiled with the options provided as attributes.}];
 
-  let arguments = (ins Optional<PDL_Operation>:$target,
-                   OptionalAttr<SymbolRefAttr>:$targetMatcher,
+  let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$peel,
@@ -113,8 +121,7 @@ def TileOp : Linalg_Transform_Operation<"tile", [TargetableOpTrait]> {
                   );
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "($target^)? (`when` $targetMatcher^)? attr-dict";
-
+  let assemblyFormat = "$target attr-dict";
   let hasVerifier = 1;
 }
 
@@ -129,17 +136,16 @@ def DecomposeOp : Linalg_Transform_Operation<"decompose"> {
   let assemblyFormat = "attr-dict";
 }
 
-def VectorizeOp : Linalg_Transform_Operation<"vectorize", [TargetableOpTrait]> {
+def VectorizeOp : Linalg_Transform_Operation<"vectorize"> {
   let description = [{Indiactes that ops of a specific kind in the given
   function should be vectorized with the options provided as attributes.}];
 
-  let arguments = (ins Optional<PDL_Operation>:$target,
-                   OptionalAttr<SymbolRefAttr>:$targetMatcher,
+  let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<BoolAttr, "false">:$vectorize_padding
                   );
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "($target^)? (`when` $targetMatcher^)? attr-dict";
+  let assemblyFormat = "$target attr-dict";
 }
 
 def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {
@@ -170,18 +176,16 @@ def LowerToLLVMOp : Linalg_Transform_Operation<"lower_to_llvm"> {
 
 //===----------------------------------------------------------------------===//
 
-def ExpertOp : Linalg_Transform_Operation<"expert", [TargetableOpTrait]> {
+def ExpertOp : Linalg_Transform_Operation<"expert"> {
   let description = [{A "transformation expert" that can be lowered to a
   sequence of transformations. The details of the lowering depend on the name
   and are expressed declaratively.}];
 
-  let arguments = (ins Optional<PDL_Operation>:$target,
-                   OptionalAttr<SymbolRefAttr>:$targetMatcher,
+  let arguments = (ins PDL_Operation:$target,
                    StrAttr:$expertName);
   let results = (outs PDL_Operation:$transformed);
 
-  let assemblyFormat = "`apply` $expertName (`to` $target^)? "
-                       "(`when` $targetMatcher^)? attr-dict";
+  let assemblyFormat = "`apply` $expertName `to` $target attr-dict";
 }
 
 #endif // LINALG_TRANSFORM_OPS
