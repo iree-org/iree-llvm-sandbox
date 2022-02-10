@@ -39,6 +39,7 @@
 #include "mlir/Dialect/Linalg/Transforms/CodegenStrategy.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
@@ -373,7 +374,12 @@ executeBufferizeOp(ModuleOp module,
                    linalg::transform::BufferizeOp bufferizeOp) {
   PassManager pm(module->getContext());
 
-  pm.addPass(createLinalgComprehensiveModuleBufferizePass());
+  bufferization::AnalysisBufferizationOptions options;
+  options.memCpyFn = [](OpBuilder &builder, Location loc, Value from,
+                        Value to) {
+    return success(linalg::makeMemRefCopyOp(builder, loc, from, to));
+  };
+  pm.addPass(createLinalgComprehensiveModuleBufferizePass(options));
   if (failed(pm.run(module)))
     return failure();
 
