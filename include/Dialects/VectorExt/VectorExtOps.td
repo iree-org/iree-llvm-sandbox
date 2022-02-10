@@ -15,8 +15,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 
 class VectorExt_Op<string mnemonic, list<Trait> traits = []> :
     Op<VectorExt_Dialect, mnemonic, traits> {
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
+  let hasCustomAssemblyFormat = 1;
 }
 
 def VectorExt_PredicateOp : VectorExt_Op<"predicate",

@@ -51,8 +51,8 @@ void PredicateOp::build(
   truePredicateBuilder(builder, result.location);
 }
 
-static ParseResult parsePredicateOp(OpAsmParser &parser,
-                                    OperationState &result) {
+ParseResult mlir::vector_ext::PredicateOp::parse(OpAsmParser &parser,
+                                                 OperationState &result) {
   // Create the regions for 'truePredicate'.
   result.regions.reserve(1);
   Region *truePredicateRegion = result.addRegion();
@@ -97,22 +97,22 @@ static ParseResult parsePredicateOp(OpAsmParser &parser,
   return success();
 }
 
-static void print(OpAsmPrinter &p, PredicateOp op) {
+void mlir::vector_ext::PredicateOp::print(OpAsmPrinter &p) {
   bool printBlockTerminators = false;
 
-  p << "(" << op.predicateMask() << ", [" << op.indices() << "], "
-    << op.incomingMask() << ") : " << op.predicateMask().getType();
-  if (!op.results().empty()) {
-    p << " -> (" << op.getResultTypes() << ")";
+  p << "(" << predicateMask() << ", [" << indices() << "], " << incomingMask()
+    << ") : " << predicateMask().getType();
+  if (!results().empty()) {
+    p << " -> (" << getResultTypes() << ")";
     // Print yield explicitly if the op defines values.
     printBlockTerminators = true;
   }
   p << " ";
-  p.printRegion(op.truePredicateRegion(),
+  p.printRegion(truePredicateRegion(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/printBlockTerminators);
 
-  p.printOptionalAttrDict(op->getAttrs());
+  p.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
 /// Given the region at `index`, or the parent operation if `index` is None,
@@ -139,21 +139,21 @@ void PredicateOp::getSuccessorRegions(
 // WarpSingleLaneOp
 //===----------------------------------------------------------------------===//
 
-static void print(OpAsmPrinter &p, WarpSingleLaneOp op) {
-  p << "(" << op.laneid() << ")";
-  if (!op.args().empty())
-    p << " args(" << op.args() << " : " << op.args().getTypes() << ")";
-  if (!op.results().empty())
-    p << " -> (" << op.results().getTypes() << ')';
+void mlir::vector_ext::WarpSingleLaneOp::print(OpAsmPrinter &p) {
+  p << "(" << laneid() << ")";
+  if (!args().empty())
+    p << " args(" << args() << " : " << args().getTypes() << ")";
+  if (!results().empty())
+    p << " -> (" << results().getTypes() << ')';
   p << " ";
-  p.printRegion(op.getRegion(),
+  p.printRegion(getRegion(),
                 /*printEntryBlockArgs=*/true,
-                /*printBlockTerminators=*/!op.results().empty());
-  p.printOptionalAttrDict(op->getAttrs());
+                /*printBlockTerminators=*/!results().empty());
+  p.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
-static ParseResult parseWarpSingleLaneOp(OpAsmParser &parser,
-                                         OperationState &result) {
+ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
+                                                      OperationState &result) {
   // Create the region.
   result.regions.reserve(1);
   Region *warpRegion = result.addRegion();

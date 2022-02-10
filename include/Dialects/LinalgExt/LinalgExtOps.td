@@ -176,10 +176,8 @@ def LinalgExt_TileOp : LinalgExt_PureOp<"tile",
     // TODO: helper for getting named region args without magic constants etc.
   }];
 
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-
-  let verifier = [{ return ::verify(*this); }];
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
 }
 
 def LinalgExt_TileYieldOp : LinalgExt_PureOp<"tile_yield", [
@@ -234,9 +232,8 @@ def LinalgExt_InParallelOp : LinalgExt_PureOp<"in_parallel", [
   let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$region);
 
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
 
   // The default builder does not add the proper body BBargs, roll our own.
   let skipDefaultBuilders = 1;
@@ -272,9 +269,8 @@ def LinalgExt_PerformConcurrentlyOp : LinalgExt_PureOp<"perform_concurrently", [
 
   let regions = (region SizedRegion<1>:$region);
 
-  let printer = [{ return ::print(p, *this); }];
-  let parser = [{ return ::parse$cppClass(parser, result); }];
-  let verifier = [{ return ::verify(*this); }];
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
 
   // TODO(apaszke, ntv): Add an interface for ops that can appear inside
   // perform_concurrently.

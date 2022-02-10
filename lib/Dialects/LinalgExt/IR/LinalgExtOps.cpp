@@ -190,27 +190,28 @@ void TileOp::build(mlir::OpBuilder &builder, mlir::OperationState &result,
 }
 
 // TODO(#81): Impl me.
-static LogicalResult verify(TileOp op) { return success(); }
+LogicalResult mlir::linalg_ext::TileOp::verify() { return success(); }
 
-static void print(OpAsmPrinter &p, TileOp op) {
-  p << ' ' << op.tile_size() << ' ';
-  if (op.tiled_dim() > 0)
-    p << "tiled_dim = " << op.tiled_dim() << ' ';
-  if (!op.outs().empty()) {
+void mlir::linalg_ext::TileOp::print(OpAsmPrinter &p) {
+  p << ' ' << tile_size() << ' ';
+  if (tiled_dim() > 0)
+    p << "tiled_dim = " << tiled_dim() << ' ';
+  if (!outs().empty()) {
     p << "outs(";
-    llvm::interleaveComma(op.outs(), p,
+    llvm::interleaveComma(outs(), p,
                           [&p](Value v) { p << v << ": " << v.getType(); });
     p << ')';
   }
-  p << " -> (" << op.getResultTypes() << ") ";
-  p.printRegion(op.region(),
+  p << " -> (" << getResultTypes() << ") ";
+  p.printRegion(region(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/true);
-  p.printOptionalAttrDict(op->getAttrs(),
+  p.printOptionalAttrDict(getOperation()->getAttrs(),
                           /*elidedAttrs=*/{TileOp::getTiledDimAttrName()});
 }
 
-static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
+ParseResult mlir::linalg_ext::TileOp::parse(OpAsmParser &parser,
+                                            OperationState &result) {
   auto &builder = parser.getBuilder();
 
   OpAsmParser::OperandType tileSizes;
@@ -275,47 +276,47 @@ static ParseResult parseTileOp(OpAsmParser &parser, OperationState &result) {
 // InParallelOp
 //===----------------------------------------------------------------------===//
 
-static LogicalResult verify(InParallelOp op) {
+LogicalResult mlir::linalg_ext::InParallelOp::verify() {
   // Check that the body defines as single block argument for the thread index.
-  auto *body = op.getBody();
+  auto *body = getBody();
   if (body->getNumArguments() != 1)
-    return op.emitOpError("body expects exactly one argument");
+    return emitOpError("body expects exactly one argument");
   if (!body->getArgument(0).getType().isIndex())
-    return op.emitOpError(
+    return emitOpError(
         "expected body first argument to be an index argument for "
         "the thread index");
 
   // Verify consistency between the result types and the terminator.
-  auto terminatorTypes = op.getTerminator().yieldedTypes();
-  auto opResults = op.getResults();
+  auto terminatorTypes = getTerminator().yieldedTypes();
+  auto opResults = getResults();
   if (opResults.size() != terminatorTypes.size())
-    return op.emitOpError("produces ")
+    return emitOpError("produces ")
            << opResults.size() << " results, but its terminator yields "
            << terminatorTypes.size() << " values";
   unsigned i = 0;
   for (auto e : llvm::zip(terminatorTypes, opResults)) {
     if (std::get<0>(e) != std::get<1>(e).getType())
-      return op.emitOpError()
-             << "type mismatch between " << i << "th result of in_parallel ("
-             << std::get<0>(e) << ") and " << i << "th result yielded by its "
-             << "terminator (" << std::get<1>(e).getType() << ")";
+      return emitOpError() << "type mismatch between " << i
+                           << "th result of in_parallel (" << std::get<0>(e)
+                           << ") and " << i << "th result yielded by its "
+                           << "terminator (" << std::get<1>(e).getType() << ")";
     i++;
   }
 
   return success();
 }
 
-static void print(OpAsmPrinter &p, InParallelOp op) {
-  p << ' ' << op.num_threads() << ' ';
-  p << " -> (" << op.getResultTypes() << ") ";
-  p.printRegion(op.region(),
+void mlir::linalg_ext::InParallelOp::print(OpAsmPrinter &p) {
+  p << ' ' << num_threads() << ' ';
+  p << " -> (" << getResultTypes() << ") ";
+  p.printRegion(region(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/true);
-  p.printOptionalAttrDict(op->getAttrs());
+  p.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
-static ParseResult parseInParallelOp(OpAsmParser &parser,
-                                     OperationState &result) {
+ParseResult mlir::linalg_ext::InParallelOp::parse(OpAsmParser &parser,
+                                                  OperationState &result) {
   auto &builder = parser.getBuilder();
 
   OpAsmParser::OperandType numThreads;
@@ -481,18 +482,21 @@ void ParallelInsertSliceOp::getCanonicalizationPatterns(
 //===----------------------------------------------------------------------===//
 
 // TODO(ntv,apaszke): Implement this
-static LogicalResult verify(PerformConcurrentlyOp op) { return success(); }
-
-static void print(OpAsmPrinter &p, PerformConcurrentlyOp op) {
-  p << " ";
-  p.printRegion(op.region(),
-                /*printEntryBlockArgs=*/false,
-                /*printBlockTerminators=*/false);
-  p.printOptionalAttrDict(op->getAttrs());
+LogicalResult mlir::linalg_ext::PerformConcurrentlyOp::verify() {
+  return success();
 }
 
-static ParseResult parsePerformConcurrentlyOp(OpAsmParser &parser,
-                                              OperationState &result) {
+void mlir::linalg_ext::PerformConcurrentlyOp::print(OpAsmPrinter &p) {
+  p << " ";
+  p.printRegion(region(),
+                /*printEntryBlockArgs=*/false,
+                /*printBlockTerminators=*/false);
+  p.printOptionalAttrDict(getOperation()->getAttrs());
+}
+
+ParseResult
+mlir::linalg_ext::PerformConcurrentlyOp::parse(OpAsmParser &parser,
+                                               OperationState &result) {
   auto &builder = parser.getBuilder();
 
   SmallVector<OpAsmParser::OperandType, 8> regionOperands;
