@@ -132,21 +132,47 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 
 // CHECK-SCF-IF-LABEL: func @vector_reduction(
 //  CHECK-SCF-IF-SAME:     %[[laneid:.*]]: index)
-func @vector_reduction(%laneid: index) {
 //       CHECK-SCF-IF:   %[[c0:.*]] = arith.constant 0 : index
 //       CHECK-SCF-IF:   %[[is_lane_0:.*]] = arith.cmpi eq, %[[laneid]]
 //       CHECK-SCF-IF:   %[[buffer:.*]] = memref.alloc() : memref<1xf32>
 //       CHECK-SCF-IF:   scf.if %[[is_lane_0]] {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
-    %0 = "some_def"() : () -> (vector<32xf32>)
 //       CHECK-SCF-IF:     %[[reduction:.*]] = vector.reduction
 //       CHECK-SCF-IF:     memref.store %[[reduction]], %[[buffer]][%[[c0]]]
-    %1 = vector.reduction <add>, %0 : vector<32xf32> into f32
-    vector_ext.yield %1 : f32
-  }
 //       CHECK-SCF-IF:   }
 //       CHECK-SCF-IF:   %[[broadcasted:.*]] = memref.load %[[buffer]][%[[c0]]]
 //       CHECK-SCF-IF:   vector.print %[[broadcasted]] : f32
+
+// CHECK-LABEL: func @vector_reduction(
+//  CHECK-SAME:     %[[laneid:.*]]: index)
+//   CHECK-DAG:   %[[c0:.*]] = arith.constant 0 : i32
+//   CHECK-DAG:   %[[c1:.*]] = arith.constant 1 : i32
+//   CHECK-DAG:   %[[c2:.*]] = arith.constant 2 : i32
+//   CHECK-DAG:   %[[c4:.*]] = arith.constant 4 : i32
+//   CHECK-DAG:   %[[c8:.*]] = arith.constant 8 : i32
+//   CHECK-DAG:   %[[c16:.*]] = arith.constant 16 : i32
+//   CHECK-DAG:   %[[c32:.*]] = arith.constant 32 : i32
+//       CHECK:   %[[warp_op:.*]] = vector_ext.warp_execute_on_lane_0(%[[laneid]]) -> (vector<1xf32>) {
+//       CHECK:     vector_ext.yield %{{.*}} : vector<32xf32>
+//       CHECK:   }
+//       CHECK:   %[[a:.*]] = vector.extract %[[warp_op]][0] : vector<1xf32>
+//       CHECK:   %[[r0:.*]], %{{.*}} = gpu.shuffle  down %[[a]], %[[c16]], %[[c32]]
+//       CHECK:   %[[a0:.*]] = arith.addf %[[a]], %[[r0]]
+//       CHECK:   %[[r1:.*]], %{{.*}} = gpu.shuffle  down %[[a0]], %[[c8]], %[[c32]]
+//       CHECK:   %[[a1:.*]] = arith.addf %[[a0]], %[[r1]]
+//       CHECK:   %[[r2:.*]], %{{.*}} = gpu.shuffle  down %[[a1]], %[[c4]], %[[c32]]
+//       CHECK:   %[[a2:.*]] = arith.addf %[[a1]], %[[r2]]
+//       CHECK:   %[[r3:.*]], %{{.*}} = gpu.shuffle  down %[[a2]], %[[c2]], %[[c32]]
+//       CHECK:   %[[a3:.*]] = arith.addf %[[a2]], %[[r3]]
+//       CHECK:   %[[r4:.*]], %{{.*}} = gpu.shuffle  down %[[a3]], %[[c1]], %[[c32]]
+//       CHECK:   %[[a4:.*]] = arith.addf %[[a3]], %[[r4]]
+//       CHECK:   %[[broadcasted:.*]], %{{.*}} = gpu.shuffle  idx %[[a4]], %[[c0]], %[[c32]]
+//       CHECK:   vector.print %[[broadcasted]] : f32
+func @vector_reduction(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+    %0 = "some_def"() : () -> (vector<32xf32>)
+    %1 = vector.reduction <add>, %0 : vector<32xf32> into f32
+    vector_ext.yield %1 : f32
+  }
   vector.print %r : f32
   return
 }

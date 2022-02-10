@@ -8,8 +8,10 @@ add_mlir_library(MLIRVectorExtTransform
 
   LINK_LIBS PUBLIC
   MLIRAffine
+  MLIRGPUOps
   MLIRIR
   MLIRLinalg
   MLIRVector
   MLIRVectorExt
+  MLIRVectorUtils
 )
