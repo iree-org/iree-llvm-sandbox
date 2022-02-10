@@ -214,8 +214,7 @@ executeDecomposeOp(ModuleOp module,
   MLIRContext *ctx = module->getContext();
   RewritePatternSet patterns(ctx);
   // TODO: make this targetable.
-  // populateDecomposeConvolutionPatterns(patterns,
-  //                                      makeTransformationFilter(target));
+  populateDecomposeConvolutionPatterns(patterns, LinalgTransformationFilter());
   if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns))))
     return failure();
 
