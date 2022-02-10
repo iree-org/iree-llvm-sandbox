@@ -60,6 +60,8 @@ class LowerVectorsOp:
                stages: IntListArg = None,
                contraction_lowering: StringArg = None,
                multireduction_lowering: StringArg = None,
+               split_transfers: StringArg = None,
+               unroll_vector_transfers: BoolArg = None,
                transpose_lowering: StringArg = None,
                transpose_avx2_lowering: BoolArg = None,
                loc=None,
@@ -69,12 +71,16 @@ class LowerVectorsOp:
                                                "outerproduct")
     multireduction_lowering = _ensure_string_attr(multireduction_lowering,
                                                   "innerparallel")
+    split_transfers = _ensure_string_attr(split_transfers, "linalg-copy")
+    unroll_vector_transfers = _ensure_bool_attr(unroll_vector_transfers, True)
     transpose_lowering = _ensure_string_attr(transpose_lowering, "eltwise")
     transpose_avx2_lowering = _ensure_bool_attr(transpose_avx2_lowering, False)
 
     super().__init__(stages,
                      contraction_lowering,
                      multireduction_lowering,
+                     split_transfers,
+                     unroll_vector_transfers,
                      transpose_lowering,
                      transpose_avx2_lowering,
                      loc=loc,

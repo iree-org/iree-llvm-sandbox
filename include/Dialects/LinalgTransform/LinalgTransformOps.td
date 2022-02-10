@@ -151,6 +151,8 @@ def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {
     (ins DefaultValuedAttr<I64ArrayAttr, "{0, 1, 2, 3, 4, 5, 6}">:$stages,
      DefaultValuedAttr<StrAttr, "\"outerproduct\"">:$contraction_lowering,
      DefaultValuedAttr<StrAttr, "\"innerparallel\"">:$multireduction_lowering,
+     DefaultValuedAttr<StrAttr, "\"linalg-copy\"">:$split_transfers,
+     DefaultValuedAttr<BoolAttr, "true">:$unroll_vector_transfers,
      DefaultValuedAttr<StrAttr, "\"eltwise\"">:$transpose_lowering,
      DefaultValuedAttr<BoolAttr, "false">:$transpose_avx2_lowering
     );

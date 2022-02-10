@@ -47,6 +47,7 @@
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Vector/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Rewrite/PatternApplicator.h"
@@ -303,15 +304,23 @@ executeLowerVectorsOp(ModuleOp module,
           .Case("dot", vector::VectorContractLowering::Dot)
           .Case("outerproduct", vector::VectorContractLowering::OuterProduct)
           .Default(vector::VectorContractLowering::OuterProduct);
+  // TODO: fix the annoying name mismatch (vector-transfers vs vector-transfer).
+  vector::VectorTransferSplit vectorTransferSplit =
+      llvm::StringSwitch<vector::VectorTransferSplit>(lowerVectorsOp.split_transfers())
+      .Case("none", vector::VectorTransferSplit::None)
+      .Case("linalg-copy", vector::VectorTransferSplit::LinalgCopy)
+      .Case("vector-transfers", vector::VectorTransferSplit::VectorTransfer)
+      .Default(vector::VectorTransferSplit::None);
 
   vector::VectorTransformsOptions vectorTransformOptions;
   vectorTransformOptions.setVectorTransformsOptions(vectorContractLowering)
       .setVectorMultiReductionLowering(vectorMultiReductionLowering)
-      .setVectorTransposeLowering(vectorTransposeLowering);
+      .setVectorTransposeLowering(vectorTransposeLowering)
+      .setVectorTransferSplit(vectorTransferSplit);
 
   VectorTransferToSCFOptions vectorTransferToSCFOptions =
       VectorTransferToSCFOptions()
-          .enableFullUnroll(true)
+          .enableFullUnroll(lowerVectorsOp.unroll_vector_transfers())
           .enableLowerPermutationMaps();
 
   int maxTransferRank = 1;
