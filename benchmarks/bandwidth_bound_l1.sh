@@ -14,7 +14,7 @@ function copy_2d_static_l1_repro() {
   # Passing alwaysinline reduces the variance that is otherwise too high for 
   # small L1 copies.
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.copy.copy_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list Tile8x32Peel --problem_sizes_list 10,32 --n_iters=10000)
   (${COMMAND} --expert_list Tile6x32Peel --problem_sizes_list 10,48 --n_iters=10000)
@@ -60,7 +60,7 @@ function copy_2d_static_l1_repro() {
 
 function transpose_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.transpose.transpose_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,32 --n_iters=10000)
   (${COMMAND} --expert_list TripleTile4x8Shuffle --problem_sizes_list 10,48 --n_iters=10000)
@@ -105,7 +105,7 @@ function transpose_2d_static_l1_repro() {
 
 function row_reduction_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.reduction.row_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list Tile4x64PeelInnerReduction --problem_sizes_list 10,32 --n_iters=10000)
   (${COMMAND} --expert_list Tile8x64PeelInnerReduction --problem_sizes_list 10,48 --n_iters=10000)
@@ -150,7 +150,7 @@ function row_reduction_2d_static_l1_repro() {
 
 function column_reduction_2d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.reduction.column_reduction_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
   
   (${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 10,32 --n_iters=10000)
   (${COMMAND} --expert_list Tile4x16PeelInnerParallel --problem_sizes_list 10,48 --n_iters=10000)

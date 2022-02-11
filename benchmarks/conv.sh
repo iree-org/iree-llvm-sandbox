@@ -10,7 +10,7 @@ export BASE_SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 source ${BASE_SCRIPT_PATH}/benchmark.sh
 
 function conv_1d_repro() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.conv.conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   STRIDES_AND_DILATIONS='[1],[1]'
   (${COMMAND} --expert_list SingleTiling3DPeel --problem_sizes_list 1,8,32,3,64,${STRIDES_AND_DILATIONS} --n_iters=1000)
@@ -50,7 +50,7 @@ function conv_1d_repro() {
 }
 
 function conv_2d_repro() {
-  COMMAND="cset proc -s sandbox -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.conv.conv_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   STRIDES_AND_DILATIONS='[1,1],[1,1]'
   (${COMMAND} --expert_list SingleTiling3DPeel --problem_sizes_list 1,8,8,32,3,3,64${STRIDES_AND_DILATIONS} --n_iters=1000)

@@ -152,8 +152,8 @@ cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list
 # E.g. on a 36 core system, this should return 4,40, use a shift of 36 for rest.
 echo 0 > /sys/devices/system/cpu/cpu$((4 + 36))/online
 # Disable the siblings of CPU 8-15, we'll use those for parallel runs.
-for i in $(seq 8 15); do \
-  echo 0 /sys/devices/system/cpu/cpu$(( ${i} + 34))/online; \
+for i in $(seq 0 16); do \
+  echo 0 /sys/devices/system/cpu/cpu$(( ${i} + 36))/online; \
 done
 
 ################################################################
@@ -164,9 +164,11 @@ done
 # Instead, reproduce the following finer-grained instructions:
 #   https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 
-cset set -c 0-3,5-7,16-35,36-39,41-43,52-71 -s system -s system
-cset set -s sandbox -c 4 -m 0 --cpu_exclusive
-cset set -s sandbox_parallel -c 8-15 -m 0 --cpu_exclusive
+cset set -s system -c 16-35 -m 1
+for i in $(seq 0 15); do \
+  cset set -s sandbox_${i} -c ${i} -m 0 --cpu_exclusive
+done
+# cset set -s sandbox_parallel -c 8-15 -m 0 --cpu_exclusive
 cset proc -m -f root -t system
 
 ################################################################
@@ -175,8 +177,8 @@ cset proc -m -f root -t system
 
 echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
 echo performance > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
-for i in $(seq 8 15); do \
-  echo performance > /sys/devices/system/cpu/cpu$(( ${i} + 34))/cpufreq/scaling_governor;\
+for i in $(seq 0 16); do \
+  echo performance > /sys/devices/system/cpu/cpu$(( ${i} ))/cpufreq/scaling_governor;\
 done
 
 ################################################################
