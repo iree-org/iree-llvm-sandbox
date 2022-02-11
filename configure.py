@@ -214,6 +214,11 @@ def main(args):
                 "mlir-cpu-runner", "mlir_runner_utils", "mlir_c_runner_utils", \
                 "mlir_async_runtime_copy", "llvm-mca", "llvm-objdump", "llc", "opt", \
                 "FileCheck"]
+
+  if args.enable_alp:
+    cmake_args.append("clang")
+    cmake_args.append("clang-cpp")
+
   print(f"-- Performing initial build: {' '.join(cmake_args)}")
   subprocess.check_call(cmake_args, cwd=build_dir)
 
