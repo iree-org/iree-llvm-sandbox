@@ -100,6 +100,100 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
                                      b.getZeroAttr(t));
 }
 
+template <typename ConfigOpTy>
+static void removeCurrentTarget(ConfigOpTy configOp,
+                                TransformOpMapping &operations) {
+  // Since there is only one allowed use of the value in the transformation
+  // dialect, we can remove it from the mapping after processing its only user.
+  // This ensures we don't accidentally keep pointers to operations that may
+  // have been deleted by the current transformation.
+  if (!configOp.target())
+    return;
+  Value target = configOp.target();
+  assert(target.hasOneUse() && "expected values corresponding to transformed "
+                               "operations to have one use");
+  operations.erase(target);
+}
+
+/// Applies `transform` with options provided by `configOp` to all operations
+/// specified as targets by `configOp`.
+template <typename ConfigOpTy, typename FnTy>
+static LogicalResult executeTransformOnEach(ModuleOp module,
+                                            ConfigOpTy configOp, FnTy transform,
+                                            TransformOpMapping &operations) {
+  auto it = operations.find(configOp.target());
+  if (it == operations.end()) {
+    LLVM_DEBUG(DBGS() << "failed to find a target for:\n" << configOp << "\n");
+    return failure();
+  }
+  ArrayRef<Operation *> targets = it->second;
+
+  using TransformedOpType =
+      typename llvm::function_traits<FnTy>::template arg_t<0>;
+  SmallVector<Operation *> results = functional::applyForEach(
+      targets, [&](Operation *op, PatternRewriter &) -> FailureOr<Operation *> {
+        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
+        auto specificOp =
+            functional::detail::IsaOr<TransformedOpType>::dyn_cast(op);
+        if (!specificOp) {
+          LLVM_DEBUG(DBGS() << "unexpected operation type\n");
+          return failure();
+        }
+        auto result = transform(specificOp, configOp);
+        LLVM_DEBUG(DBGS() << "transformation "
+                          << (failed(result) ? "failed" : "succeeded") << "\n");
+        if (failed(result))
+          return failure();
+        return result->getOperation();
+      });
+
+  // All transformations must succeed.
+  if (results.size() != targets.size())
+    return failure();
+
+  bool inserted =
+      operations.insert({configOp.transformed(), std::move(results)}).second;
+  assert(inserted && "value is already associated with another operation list");
+  (void)inserted;
+
+  removeCurrentTarget(configOp, operations);
+  return success();
+}
+
+template <typename ConfigOpTy, typename FnTy>
+static LogicalResult
+executeNonReturningTransformOnEach(ModuleOp module, ConfigOpTy configOp,
+                                   FnTy transform,
+                                   TransformOpMapping &operations) {
+  auto it = operations.find(configOp.target());
+  if (it == operations.end()) {
+    LLVM_DEBUG(DBGS() << "failed to find a target for:\n" << configOp << "\n");
+    return failure();
+  }
+  ArrayRef<Operation *> targets = it->second;
+
+  using TransformedOpType =
+      typename llvm::function_traits<FnTy>::template arg_t<0>;
+  for (Operation *op : targets) {
+    LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
+    auto specificOp =
+        functional::detail::IsaOr<TransformedOpType>::dyn_cast(op);
+    if (!specificOp) {
+      LLVM_DEBUG(DBGS() << "unexpected operation type\n");
+      return failure();
+    }
+    LogicalResult result = transform(specificOp, configOp);
+    LLVM_DEBUG(DBGS() << "transformation "
+                      << (failed(result) ? "failed" : "succeeded") << "\n");
+    if (failed(result))
+      return failure();
+  }
+
+  removeCurrentTarget(configOp, operations);
+  return success();
+}
+
+
 //===----------------------------------------------------------------------===//
 // Functional Rewrite Helpers
 //===----------------------------------------------------------------------===//
@@ -238,16 +332,9 @@ executeDecomposeOp(ModuleOp module,
   return success();
 }
 
-/// Applies the transformation specified by the given vectorize operation to the
-/// given target operation AND some related operations.Populates `results` with
-/// transformation operations for further transformations if the pattern applied
-/// successfully (currently, the main "contraction" op after vectorization).
-static FailureOr<LinalgOp>
-executeVectorizeOp(LinalgOp target,
-                   linalg::transform::VectorizeOp vectorizeOp) {
-  // TODO: this is copy-pasta from LinalgStrategyVectorizePass, it shouldn't be.
-  MLIRContext *ctx = target->getContext();
-  RewritePatternSet patterns(ctx);
+static void configureVectorizationPatterns(transform::VectorizeOp vectorizeOp,
+                                           RewritePatternSet &patterns) {
+  MLIRContext *ctx = vectorizeOp->getContext();
   vector::populateVectorTransferPermutationMapLoweringPatterns(patterns);
   vector::populateVectorReductionToContractPatterns(patterns);
   patterns.add<linalg::LinalgCopyVTRForwardingPattern,
@@ -257,6 +344,19 @@ executeVectorizeOp(LinalgOp target,
   vector::TransferWriteOp::getCanonicalizationPatterns(patterns, ctx);
   if (vectorizeOp.vectorize_padding())
     linalg::populatePadOpVectorizationPatterns(patterns);
+}
+
+/// Applies the transformation specified by the given vectorize operation to the
+/// given target operation AND some related operations.Populates `results` with
+/// transformation operations for further transformations if the pattern applied
+/// successfully (currently, the main "contraction" op after vectorization).
+static FailureOr<LinalgOp>
+executeTargetedVectorizeOp(LinalgOp target,
+                           linalg::transform::VectorizeOp vectorizeOp) {
+  // TODO: this is copy-pasta from LinalgStrategyVectorizePass, it shouldn't be.
+  MLIRContext *ctx = target->getContext();
+  RewritePatternSet patterns(ctx);
+  configureVectorizationPatterns(vectorizeOp, patterns);
   LinalgVectorizationPattern pattern(vectorizeOp.getContext());
   auto functionalVectorize = [&](LinalgOp op, PatternRewriter &rewriter) {
     return pattern.matchAndRewrite(op, rewriter);
@@ -278,6 +378,21 @@ executeVectorizeOp(LinalgOp target,
   // want to go on and keep the original for continuation. Should we have
   // some notion of transformation optionality vs. mandatory (like lowering)?
   // How to find ops that were not replaced?
+}
+
+static LogicalResult executeVectorizeOp(ModuleOp module,
+                                        transform::VectorizeOp vectorizeOp,
+                                        TransformOpMapping &operations) {
+  if (vectorizeOp.target())
+    return executeTransformOnEach(module, vectorizeOp,
+                                  &executeTargetedVectorizeOp, operations);
+
+  MLIRContext *ctx = vectorizeOp->getContext();
+  RewritePatternSet patterns(ctx);
+  patterns.add<LinalgVectorizationPattern>(ctx);
+  configureVectorizationPatterns(vectorizeOp, patterns);
+  return applyPatternsTrackAndFoldGreedily(module, operations,
+                                           std::move(patterns));
 }
 
 /// Returns true of the numbered vector lowering stage is included into the list
@@ -624,99 +739,6 @@ static LogicalResult performEnablerTransformations(
 // Linalg Interpreter Driver
 //===----------------------------------------------------------------------===//
 
-template <typename ConfigOpTy>
-static void removeCurrentTarget(ConfigOpTy configOp,
-                                TransformOpMapping &operations) {
-  // Since there is only allowed use of the value in the transformation dialect,
-  // we can remove it from the mapping after processing its only user. This
-  // ensures we don't accidentally keep pointers to operations that may have
-  // been deleted by the current transformation.
-  if (!configOp.target())
-    return;
-  Value target = configOp.target();
-  assert(target.hasOneUse() && "expected values corresponding to transformed "
-                               "operations to have one use");
-  operations.erase(target);
-}
-
-/// Applies `transform` with options provided by `configOp` to all operations
-/// specified as targets by `configOp`.
-template <typename ConfigOpTy, typename FnTy>
-static LogicalResult executeTransformOnEach(ModuleOp module,
-                                            ConfigOpTy configOp, FnTy transform,
-                                            TransformOpMapping &operations) {
-  auto it = operations.find(configOp.target());
-  if (it == operations.end()) {
-    LLVM_DEBUG(DBGS() << "failed to find a target for:\n" << configOp << "\n");
-    return failure();
-  }
-  ArrayRef<Operation *> targets = it->second;
-
-  using TransformedOpType =
-      typename llvm::function_traits<FnTy>::template arg_t<0>;
-  SmallVector<Operation *> results = functional::applyForEach(
-      targets, [&](Operation *op, PatternRewriter &) -> FailureOr<Operation *> {
-        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
-        auto specificOp =
-            functional::detail::IsaOr<TransformedOpType>::dyn_cast(op);
-        if (!specificOp) {
-          LLVM_DEBUG(DBGS() << "unexpected operation type\n");
-          return failure();
-        }
-        auto result = transform(specificOp, configOp);
-        LLVM_DEBUG(DBGS() << "transformation "
-                          << (failed(result) ? "failed" : "succeeded") << "\n");
-        if (failed(result))
-          return failure();
-        return result->getOperation();
-      });
-
-  // All transformations must succeed.
-  if (results.size() != targets.size())
-    return failure();
-
-  bool inserted =
-      operations.insert({configOp.transformed(), std::move(results)}).second;
-  assert(inserted && "value is already associated with another operation list");
-  (void)inserted;
-
-  removeCurrentTarget(configOp, operations);
-  return success();
-}
-
-template <typename ConfigOpTy, typename FnTy>
-static LogicalResult
-executeNonReturningTransformOnEach(ModuleOp module, ConfigOpTy configOp,
-                                   FnTy transform,
-                                   TransformOpMapping &operations) {
-  auto it = operations.find(configOp.target());
-  if (it == operations.end()) {
-    LLVM_DEBUG(DBGS() << "failed to find a target for:\n" << configOp << "\n");
-    return failure();
-  }
-  ArrayRef<Operation *> targets = it->second;
-
-  using TransformedOpType =
-      typename llvm::function_traits<FnTy>::template arg_t<0>;
-  for (Operation *op : targets) {
-    LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
-    auto specificOp =
-        functional::detail::IsaOr<TransformedOpType>::dyn_cast(op);
-    if (!specificOp) {
-      LLVM_DEBUG(DBGS() << "unexpected operation type\n");
-      return failure();
-    }
-    LogicalResult result = transform(specificOp, configOp);
-    LLVM_DEBUG(DBGS() << "transformation "
-                      << (failed(result) ? "failed" : "succeeded") << "\n");
-    if (failed(result))
-      return failure();
-  }
-
-  removeCurrentTarget(configOp, operations);
-  return success();
-}
-
 /// Applies the transformation specified by the given Linalg Transform dialect
 /// operation to the given target operation. The `operations` table contains the
 /// mapping between SSA values that correspond to operation handles produced and
@@ -733,10 +755,8 @@ static LogicalResult executeTransform(Operation *operation, ModuleOp module,
   if (auto decomposeOp = dyn_cast<transform::DecomposeOp>(operation))
     return executeDecomposeOp(module, decomposeOp);
 
-  if (auto vectorizeOp = dyn_cast<transform::VectorizeOp>(operation)) {
-    return executeTransformOnEach(module, vectorizeOp, &executeVectorizeOp,
-                                  operations);
-  }
+  if (auto vectorizeOp = dyn_cast<transform::VectorizeOp>(operation))
+    return executeVectorizeOp(module, vectorizeOp, operations);
 
   if (auto lowerVectorsOp =
           dyn_cast<transform::LowerVectorsOp>(operation))

@@ -19,6 +19,10 @@ linalg_transform.sequence {
   %4 = match @match2
   // CHECK: %{{.*}} = vectorize %[[OPS2]]
   vectorize %4
+  // CHECK-NOT: %
+  // CHECK: vectorize
+  // CHECK-NOT: %
+  vectorize
   // CHECK: bufferize
   bufferize
   // CHECK: lower_vectors {multireduction_lowering = "innerreduce"}

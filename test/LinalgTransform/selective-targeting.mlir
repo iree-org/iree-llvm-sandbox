@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -linalg-interp-transforms | FileCheck %s
+// RUN: mlir-proto-opt %s -linalg-interp-transforms -split-input-file | FileCheck %s
 
 // CHECK-LABEL: func @matmul_tensors(
 func @matmul_tensors(
@@ -73,4 +73,62 @@ linalg_transform.sequence {
   tile %0 {sizes = [4, 4, 4], pad = false}
   %1 = match @pdl_target_attrC
   vectorize %1
+}
+
+// -----
+
+// CHECK-LABEL: @vectorize_one
+func @vectorize_one(
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32>,
+  %arg3: tensor<128x128xf32> {linalg.inplaceable = true})
+    -> tensor<128x128xf32> {
+  // CHECK: vector.contract
+  %0 = linalg.matmul {test.attrA}
+                     ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
+                     outs(%arg2: tensor<128x128xf32>)
+    -> tensor<128x128xf32>
+  // CHECK: linalg.matmul
+  %1 = linalg.matmul ins(%arg0, %0: tensor<128x128xf32>, tensor<128x128xf32>)
+                     outs(%arg3: tensor<128x128xf32>)
+    -> tensor<128x128xf32>
+  return %1 : tensor<128x128xf32>
+}
+
+pdl.pattern @pdl_target : benefit(1) {
+  %args = operands
+  %results = types
+  %attr = attribute
+  %0 = operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrA" = %attr}-> (%results : !pdl.range<type>)
+  apply_native_constraint "nestedInFunc"[@vectorize_one](%0 : !pdl.operation)
+  // TODO: we don't want this, but it is the required terminator for pdl.pattern
+  rewrite %0 with "linalg_transform.apply"
+}
+
+linalg_transform.sequence {
+  %0 = match @pdl_target
+  vectorize %0
+}
+
+
+// -----
+
+// CHECK-LABEL: @vectorize_all
+func @vectorize_all(
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32>,
+  %arg3: tensor<128x128xf32> {linalg.inplaceable = true})
+    -> tensor<128x128xf32> {
+  // CHECK: vector.contract
+  %0 = linalg.matmul {test.attrA}
+                     ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
+                     outs(%arg2: tensor<128x128xf32>)
+    -> tensor<128x128xf32>
+  // CHECK: vector.contract
+  %1 = linalg.matmul ins(%arg0, %0: tensor<128x128xf32>, tensor<128x128xf32>)
+                     outs(%arg3: tensor<128x128xf32>)
+    -> tensor<128x128xf32>
+  return %1 : tensor<128x128xf32>
+}
+
+linalg_transform.sequence {
+  vectorize
 }

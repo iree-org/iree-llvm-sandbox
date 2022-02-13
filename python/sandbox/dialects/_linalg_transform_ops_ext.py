@@ -156,15 +156,15 @@ class TileOp:
 class VectorizeOp:
 
   def __init__(self,
-               target: Union[ir.Value, ir.Operation, ir.OpView],
+               target: Optional[Union[ir.Value, ir.Operation, ir.OpView]] = None,
                *,
-               vectorize_padding: BoolArg,
+               vectorize_padding: BoolArg = None,
                loc=None,
                ip=None):
     operation_type = pdl.OperationType.get()
 
     super().__init__(
-        operation_type,
+        operation_type if target is not None else None,
         target,
         _ensure_bool_attr(vectorize_padding, False),
         loc=loc,
