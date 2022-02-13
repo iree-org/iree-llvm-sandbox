@@ -165,7 +165,60 @@ class MatmulBiasAddProblem(ProblemDefinition):
         [M, N],
     ]
 
-  # TODO: tensors_np_builder and check_np.
+  def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
+    """GFlop builder function.
+
+    Given a mapping between dimension names / op attributes and their numeric
+    values, return the number of GFlops computed.
+    """
+    M, N, K = sizes["M"], sizes["N"], sizes["K"]
+    return float(2.0 * M * N * K + M * N) / float(1e9)
+
+  def gbyte_count_builder(self, sizes: Mapping[str, Any],
+                          types: Sequence[np.dtype]) -> float:
+    """GByte builder function.
+
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of data types, return the number of GBytes read or
+    written.
+    """
+    M, N, K = sizes["M"], sizes["N"], sizes["K"]
+    lhs_np_type, rhs_np_type, acc_np_type, _, res_np_type = types
+    return float(M * K * np.dtype(lhs_np_type).itemsize +
+                 K * N * np.dtype(rhs_np_type).itemsize +
+                 M * N * np.dtype(res_np_type).itemsize +
+                 N * np.dtype(acc_np_type).itemsize +
+                 M * N * np.dtype(res_np_type).itemsize) / float(1e9)
+
+  def tensors_np_builder(self, sizes: Mapping[str, Any],
+                         types: Sequence[np.dtype]) -> List[np.dtype]:
+    """NumPy tensors building function.
+
+    Given a mapping between dimension names / op attributes and their numeric
+    values, and a list of NumPy elemental types, return constructed NP values of
+    shapes given by `shape_builder` and specified elemental types.
+    """
+    shapes = self.shapes_builder(sizes)
+    tensors = [
+        realign(np.random.rand(*s).astype(t), byte_alignment=64)
+        for s, t in zip(shapes, types)
+    ]
+    tensors[len(tensors) - 1].fill(0.)
+    tensors[len(tensors) - 2].fill(0.)
+    return tensors
+
+  def check_np(self, A: np.dtype, B: np.dtype, C: np.dtype, D: np.dtype,
+               E: np.dtype) -> None:
+    """NumPy checking function.
+
+    Given a list of NumPy values, check the precomputed results matches those of
+    the expected reference implementation.
+    """
+    res = np.dot(A, B) + C
+    if not np.allclose(E, res):
+      delta = E - res
+      max_abs_delta = max(delta.max(), delta.min(), key=abs)
+      raise Exception(f"max_abs_delta: {max_abs_delta} -> FAILURE ")
 
   def types_mlir_builder(self, sizes: Mapping[str, Any],
                          types: Sequence[Type]) -> List[Type]:
