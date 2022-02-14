@@ -137,15 +137,17 @@ def DecomposeOp : Linalg_Transform_Operation<"decompose"> {
 }
 
 def VectorizeOp : Linalg_Transform_Operation<"vectorize"> {
-  let description = [{Indiactes that ops of a specific kind in the given
-  function should be vectorized with the options provided as attributes.}];
+  let description = [{Indiactes that vectorization should be performed. If a
+  target handle is provided, only vectorizes the operations pointed to by the
+  handle. Otherwise vectorizes the entire module. Vectorization options are
+  provided as operation attributes.}];
 
-  let arguments = (ins PDL_Operation:$target,
+  let arguments = (ins Optional<PDL_Operation>:$target,
                    DefaultValuedAttr<BoolAttr, "false">:$vectorize_padding
                   );
-  let results = (outs PDL_Operation:$transformed);
+  let results = (outs Optional<PDL_Operation>:$transformed);
 
-  let assemblyFormat = "$target attr-dict";
+  let hasCustomAssemblyFormat = 1;
 }
 
 def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {

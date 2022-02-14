@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
+#include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Diagnostics.h"
@@ -74,6 +75,32 @@ LogicalResult transform::TileOp::verify() {
     }
   }
   return success();
+}
+
+ParseResult transform::VectorizeOp::parse(OpAsmParser &parser,
+                                          OperationState &result) {
+  auto operationType = pdl::OperationType::get(parser.getContext());
+  OpAsmParser::OperandType target;
+  OptionalParseResult parseResult = parser.parseOptionalOperand(target);
+  if (parseResult.hasValue()) {
+    if (parseResult.getValue().failed() ||
+        parser.parseOptionalAttrDict(result.attributes) ||
+        parser.resolveOperand(target, operationType, result.operands) ||
+        parser.addTypeToList(operationType, result.types)) {
+      return failure();
+    }
+  } else {
+    if (parser.parseOptionalAttrDict(result.attributes)) {
+      return failure();
+    }
+  }
+  return success();
+}
+
+void transform::VectorizeOp::print(OpAsmPrinter &printer) {
+  if (target())
+    printer << " " << target() << " ";
+  printer.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
 #define GET_OP_CLASSES
