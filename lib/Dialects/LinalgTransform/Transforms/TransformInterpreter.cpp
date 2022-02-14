@@ -559,7 +559,19 @@ executeLowerToLLVMOp(ModuleOp module,
   pm.addPass(createMemRefToLLVMPass());
   pm.addPass(createLowerToLLVMPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
-  return pm.run(module);
+  if (failed(pm.run(module)))
+    return failure();
+
+  // Make all arguments noalias for now.
+  // FIXME: this is a terrible hack!
+  module.walk([](LLVM::LLVMFuncOp funcOp) {
+    for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
+      if (!funcOp.getType().getParamType(i).isa<LLVM::LLVMPointerType>())
+        continue;
+      funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
+    }
+  });
+  return success();
 }
 
 static FailureOr<scf::ForOp>
