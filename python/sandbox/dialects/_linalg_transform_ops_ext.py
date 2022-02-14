@@ -64,13 +64,11 @@ def _ensure_string_attr(value: StringArg):
 class MatchOp:
   """Specialization for the MatchOp class."""
 
-  def __init__(self, target):
+  def __init__(self, target: Union[str, ir.FlatSymbolRefAttr]):
     if isinstance(target, str):
       target = ir.FlatSymbolRefAttr.get(target)
 
-    # FIXME: don't rely on parsing when the PDL dialect is available in Python
-    operation_type = ir.Type.parse("!pdl.operation")
-
+    operation_type = pdl.OperationType.get()
     super().__init__(operation_type, target)
 
 
