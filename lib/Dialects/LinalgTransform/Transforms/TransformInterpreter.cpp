@@ -248,6 +248,9 @@ static LogicalResult executeMatchOp(transform::MatchOp op, ModuleOp module,
   if (failed(ops))
     return failure();
   LLVM_DEBUG(DBGS() << "matched " << ops->size() << " ops\n");
+  if (op.target().use_empty())
+    return success();
+
   operations.try_emplace(op.target(), std::move(*ops));
   return checkSingleHandle(op.target(), operations);
 }
