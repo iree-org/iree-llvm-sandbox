@@ -59,7 +59,10 @@ def all_experts(fun_name: str):
                            transpose_paddings2=[[1, 0], [0, 1], [0, 1]],
                            ))
           .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
+          .then(Bufferize)
+          .then(LinalgExtInParallelToAsync)
+          .then(LowerVectors)
+          .then(LowerToLLVM)
         ]
     ]
   ]

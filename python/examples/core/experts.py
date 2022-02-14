@@ -10,8 +10,7 @@ from .transform import TransformListFactory, TransformationList
 # not possible to deactivate bufferization, vectorization or lowering or make
 # them apply partially.
 ###############################################################################
-LoweringOnlyExpert = Bufferize.then(LinalgExtInParallelToAsync).then(
-    LowerVectors).then(LowerToLLVM)
+LoweringOnlyExpert = Bufferize.then(LowerVectors).then(LowerToLLVM)
 SingleTilingExpert = Tile.then(DecomposeToLowerDimensionalNamedOp).then(
     Vectorize).then(LoweringOnlyExpert)
 DoubleTilingExpert = Tile.then(SingleTilingExpert)
