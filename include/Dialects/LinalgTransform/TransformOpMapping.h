@@ -17,7 +17,7 @@ namespace mlir {
 class Operation;
 class Value;
 
-using TransformOpMapping = DenseMap<Value, SmallVector<linalg::LinalgOp>>;
+using TransformOpMapping = DenseMap<Value, SmallVector<Operation *>>;
 } // namespace mlir
 
 #endif // MLIR_DIALECT_LINALG_RANSFORMS_TRANSFORMOPMAPPING_H

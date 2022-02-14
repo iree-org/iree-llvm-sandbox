@@ -165,6 +165,7 @@ template <typename OpT>
 struct IsaOr {
   static bool apply(Operation *op) { return isa<OpT>(op); }
   static OpT cast(Operation *op) { return ::mlir::cast<OpT>(op); }
+  static OpT dyn_cast(Operation *op) { return ::mlir::dyn_cast<OpT>(op); }
 };
 /// In the special case, nothing needs to be done. Just pass the generic op
 /// directly into the pattern.
@@ -172,6 +173,7 @@ template <>
 struct IsaOr<Operation *> {
   static bool apply(Operation *op) { return true; }
   static Operation *cast(Operation *op) { return op; }
+  static Operation *dyn_cast(Operation *op) { return op; }
 };
 
 /// A sequence here is a tuple of unique functions. However, when constructing

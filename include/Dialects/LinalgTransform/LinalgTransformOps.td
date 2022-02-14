@@ -174,6 +174,44 @@ def LowerToLLVMOp : Linalg_Transform_Operation<"lower_to_llvm"> {
   let assemblyFormat = "attr-dict";
 }
 
+def GetParentLoopOp : Linalg_Transform_Operation<"get_parent_loop"> {
+  let description = [{Obtains a handle to a parent loop of the given
+  operation.}];
+
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<Confined<I64Attr, [IntPositive]>,
+                                     "1">:$num_loops);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+}
+
+def UnrollLoopOp : Linalg_Transform_Operation<"unroll_loop"> {
+  let description = [{Unrolls the given loop with the given unroll factor.}];
+
+  let arguments = (ins PDL_Operation:$target,
+                   Confined<I64Attr, [IntPositive]>:$factor);
+  
+  let assemblyFormat = "$target attr-dict";
+}
+
+def PipelineLoopOp : Linalg_Transform_Operation<"pipeline_loop"> {
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<I64Attr, "1">:$iteration_interval,
+                   DefaultValuedAttr<I64Attr, "10">:$read_latency);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+}
+
+def OutlineLoopOp : Linalg_Transform_Operation<"outline_loop"> {
+  let arguments = (ins PDL_Operation:$target,
+                   StrAttr:$func_name);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+}
+
 //===----------------------------------------------------------------------===//
 
 def ExpertOp : Linalg_Transform_Operation<"expert"> {

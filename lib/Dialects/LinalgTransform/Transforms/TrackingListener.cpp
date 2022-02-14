@@ -8,7 +8,9 @@
 
 #include "TrackingListener.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "tracking-listener"
@@ -50,6 +52,41 @@ static LinalgOp findSingleLinalgOpDefiningAll(ValueRange range) {
   return sourceOp;
 }
 
+/// Find the scf "for" op that defines all values in the range.
+static scf::ForOp findSingleForOpDefiningAll(ValueRange range) {
+  scf::ForOp forOp = nullptr;
+  for (Value value : range) {
+    if (auto currentSourceOp = value.getDefiningOp<scf::ForOp>()) {
+      if (!forOp || forOp == currentSourceOp) {
+        forOp = currentSourceOp;
+        continue;
+      }
+      LLVM_DEBUG(
+          DBGS() << "different source scf.for ops when replacing one op\n");
+    }
+
+    LLVM_DEBUG(
+        DBGS()
+        << "could not find a source scf.for when replacing another scf.for\n");
+    return nullptr;
+  }
+  return forOp;
+}
+
+// Find a single op that defines all values in the range, optionally
+// transitively through other operations in an op-specific way.
+static Operation *findSingleDefiningOp(Operation *replacedOp,
+                                       ValueRange range) {
+  return llvm::TypeSwitch<Operation *, Operation *>(replacedOp)
+      .Case<LinalgOp>([&](LinalgOp) -> Operation * {
+        return findSingleLinalgOpDefiningAll(range);
+      })
+      .Case<scf::ForOp>([&](scf::ForOp) -> Operation * {
+        return findSingleForOpDefiningAll(range);
+      })
+      .Default([](Operation *) -> Operation * { return nullptr; });
+}
+
 TrackingListener::TrackingListener(
     TransformOpMapping &trackedOperations)
     : trackedOperations(trackedOperations) {
@@ -60,23 +97,18 @@ TrackingListener::TrackingListener(
 
 void TrackingListener::notifyOperationReplaced(Operation *op,
                                                ValueRange newValues) {
-  auto linalgOp = dyn_cast<LinalgOp>(op);
-  if (!linalgOp)
-    return;
-
   // Exit early if the op is not tracked.
-  auto keyIt = trackedOperationKeys.find(linalgOp);
+  auto keyIt = trackedOperationKeys.find(op);
   if (keyIt == trackedOperationKeys.end())
     return;
   Value key = keyIt->second;
 
-  LinalgOp replacement = findSingleLinalgOpDefiningAll(newValues);
-  assert(replacement &&
-         "replacing a linalg op, but could not find the replacement op");
+  Operation *replacement = findSingleDefiningOp(op, newValues);
+  assert(replacement && "but could not find the replacement op");
 
   LLVM_DEBUG(DBGS() << "replacing tracked " << *op << " with " << *replacement
                     << " for " << key << "\n");
-  auto iter = llvm::find(trackedOperations[key], linalgOp);
+  auto iter = llvm::find(trackedOperations[key], op);
   assert(iter != trackedOperations[key].end() &&
          "expected to find the tracked operation list by key");
   *iter = replacement;
@@ -86,18 +118,14 @@ void TrackingListener::notifyOperationReplaced(Operation *op,
   // invariant. Note that operations are pointer-like so we must ensure the
   // absence of accidental reuse of the pointer address with some deleted
   // operation that stayed in this mapping.
-  trackedOperationKeys.erase(linalgOp);
+  trackedOperationKeys.erase(op);
   bool replaced = trackedOperationKeys.try_emplace(replacement, key).second;
   assert(replaced && "operation is already associated with another key");
   (void)replaced;
 }
 
 void TrackingListener::notifyOperationRemoved(Operation *op) {
-  auto linalgOp = dyn_cast<LinalgOp>(op);
-  if (!linalgOp)
-    return;
-
-  auto keyIt = trackedOperationKeys.find(linalgOp);
+  auto keyIt = trackedOperationKeys.find(op);
   if (keyIt == trackedOperationKeys.end())
     return;
   Value key = keyIt->second;
@@ -106,11 +134,11 @@ void TrackingListener::notifyOperationRemoved(Operation *op) {
 
   // If a tracked operation is CSE'd, then any further transformations are
   // redundant. Just remove it.
-  trackedOperationKeys.erase(linalgOp);
+  trackedOperationKeys.erase(op);
   auto listIt = trackedOperations.find(key);
   assert(listIt != trackedOperations.end() && "malformed operation map");
   auto &list = listIt->second;
-  auto opIt = llvm::find(list, linalgOp);
+  auto opIt = llvm::find(list, op);
   assert(opIt != list.end() && "malformed operation map");
   list.erase(opIt);
 }

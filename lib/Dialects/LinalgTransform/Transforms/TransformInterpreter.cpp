@@ -18,9 +18,12 @@
 #include "Dialects/LinalgTransform/SimplePatternRewriter.h"
 #include "Dialects/LinalgTransform/TrackingCSE.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
+#include "Dialects/LinalgTransform/TransformOpMapping.h"
 #include "FunctionHelpers.h"
 #include "PDL.h"
+#include "TrackingListener.h"
 #include "Transforms/Functional.h"
+#include "Transforms/Listener.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"
@@ -117,8 +120,10 @@ static FailureOr<LinalgOp> forwardOp(LinalgOp op, PatternRewriter &rewriter) {
 /// and store them in the operation map.
 static LogicalResult executeMatchOp(transform::MatchOp op, ModuleOp module,
                                     TransformOpMapping &operations) {
-  FailureOr<SmallVector<LinalgOp>> ops = findMatchingOps(op, module);
-  if (failed(ops)) return failure();
+  FailureOr<SmallVector<Operation *>> ops = findMatchingOps(op, module);
+  if (failed(ops))
+    return failure();
+  LLVM_DEBUG(DBGS() << "matched " << ops->size() << " ops\n");
   operations.try_emplace(op.target(), std::move(*ops));
   return success();
 }
@@ -432,6 +437,133 @@ executeLowerToLLVMOp(ModuleOp module,
   return pm.run(module);
 }
 
+static FailureOr<scf::ForOp>
+executeGetParentLoopOp(Operation *source,
+                       linalg::transform::GetParentLoopOp getParentLoopOp) {
+  int64_t nLoops = getParentLoopOp.num_loops();
+  for (int64_t i = 0; i < nLoops; ++i) {
+    source = source->getParentOfType<scf::ForOp>();
+    if (!source) {
+      getParentLoopOp.emitError() << "the transformed op is enclosed by " << i
+                                  << " loops, but " << nLoops << " expected";
+      return failure();
+    }
+  }
+  return cast<scf::ForOp>(source);
+}
+
+static LogicalResult
+executeUnrollLoopOp(scf::ForOp loop,
+                    linalg::transform::UnrollLoopOp unrollLoopOp) {
+  return loopUnrollByFactor(loop, unrollLoopOp.factor());
+}
+
+static void
+loopScheduling(scf::ForOp forOp,
+               std::vector<std::pair<Operation *, unsigned>> &schedule,
+               unsigned II, unsigned readLatency) {
+  auto getLatency = [&](Operation *op) {
+    if (isa<vector::TransferReadOp>(op))
+      return readLatency;
+    return unsigned(1);
+  };
+
+  DenseMap<Operation *, unsigned> opCycles;
+  std::map<unsigned, std::vector<Operation *>> wrappedSchedule;
+  for (Operation &op : forOp.getBody()->getOperations()) {
+    if (isa<scf::YieldOp>(op))
+      continue;
+    unsigned earlyCycle = 0;
+    for (Value operand : op.getOperands()) {
+      Operation *def = operand.getDefiningOp();
+      if (!def)
+        continue;
+      earlyCycle = std::max(earlyCycle, opCycles[def] + getLatency(def));
+    }
+    opCycles[&op] = earlyCycle;
+    wrappedSchedule[earlyCycle % II].push_back(&op);
+  }
+  for (auto it : wrappedSchedule) {
+    for (Operation *op : it.second) {
+      unsigned cycle = opCycles[op];
+      schedule.push_back(std::make_pair(op, cycle / II));
+    }
+  }
+}
+
+static FailureOr<scf::ForOp>
+executePipelineLoopOp(scf::ForOp loop,
+                      linalg::transform::PipelineLoopOp pipelineLoopOp) {
+  // TODO: make the pipelining pattern return the transformed loop.
+  if (!pipelineLoopOp->getUses().empty()) {
+    InFlightDiagnostic diag = pipelineLoopOp.emitError()
+                              << "NYI: cannot target the result of pipelining";
+    diag.attachNote(pipelineLoopOp->use_begin()->getOwner()->getLoc())
+        << "use here";
+    return failure();
+  }
+
+  scf::PipeliningOption schedule;
+  schedule.getScheduleFn =
+      [pipelineLoopOp](
+          scf::ForOp forOp,
+          std::vector<std::pair<Operation *, unsigned>> &schedule) mutable {
+        loopScheduling(forOp, schedule, pipelineLoopOp.iteration_interval(),
+                       pipelineLoopOp.read_latency());
+      };
+
+  RewritePatternSet patterns(loop->getContext());
+  scf::populateSCFLoopPipeliningPatterns(patterns, schedule);
+  assert(patterns.getNativePatterns().size() == 1 &&
+         "expected one pipelining pattern");
+  auto functionalPattern = [&patterns](scf::ForOp forOp,
+                                       PatternRewriter &rewriter) {
+    RewritePattern *pattern = patterns.getNativePatterns().front().get();
+    return pattern->matchAndRewrite(forOp, rewriter);
+  };
+  if (failed(functional::applyAt(loop, std::move(functionalPattern))))
+    return failure();
+
+  return scf::ForOp();
+}
+
+scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
+  op->dump();
+  if (op->getNumRegions() != 1)
+    return nullptr;
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPoint(op);
+  scf::ExecuteRegionOp executeRegionOp =
+      b.create<scf::ExecuteRegionOp>(op->getLoc(), op->getResultTypes());
+  {
+    OpBuilder::InsertionGuard g(b);
+    b.setInsertionPointToStart(&executeRegionOp.getRegion().emplaceBlock());
+    Operation *clonedOp = b.cloneWithoutRegions(*op);
+    Region &clonedRegion = clonedOp->getRegions().front();
+    assert(clonedRegion.empty() && "expected empty region");
+    b.inlineRegionBefore(op->getRegions().front(), clonedRegion,
+                         clonedRegion.end());
+    b.create<scf::YieldOp>(op->getLoc(), clonedOp->getResults());
+  }
+  b.replaceOp(op, executeRegionOp.getResults());
+  return executeRegionOp;
+}
+
+static FailureOr<FuncOp>
+executeOutlineLoopOp(scf::ForOp loop,
+                     linalg::transform::OutlineLoopOp outlineLoopOp,
+                     TransformOpMapping &operations) {
+  PatternRewriterListener rewriter(loop->getContext());
+  TrackingListener listener(operations);
+  rewriter.addListener(&listener);
+  Location loc = loop.getLoc();
+  scf::ExecuteRegionOp exec = outlineInExecuteRegion(rewriter, loop);
+  assert(exec && "failed to produce execute_region");
+  FailureOr<FuncOp> outlined = outlineSingleBlockRegion(
+      rewriter, loc, exec.getRegion(), outlineLoopOp.func_name());
+  return outlined;
+}
+
 /// Run enabling transformations (LICM and its variants, single-iteration loop
 /// removal, CSE) on the given function.
 static LogicalResult performEnablerTransformations(
@@ -486,21 +618,51 @@ static LogicalResult performEnablerTransformations(
 // Linalg Interpreter Driver
 //===----------------------------------------------------------------------===//
 
+template <typename ConfigOpTy>
+static void removeCurrentTarget(ConfigOpTy configOp,
+                                TransformOpMapping &operations) {
+  // Since there is only allowed use of the value in the transformation dialect,
+  // we can remove it from the mapping after processing its only user. This
+  // ensures we don't accidentally keep pointers to operations that may have
+  // been deleted by the current transformation.
+  if (!configOp.target())
+    return;
+  Value target = configOp.target();
+  assert(target.hasOneUse() && "expected values corresponding to transformed "
+                               "operations to have one use");
+  operations.erase(target);
+}
+
 /// Applies `transform` with options provided by `configOp` to all operations
 /// specified as targets by `configOp`.
-template <typename OpTy, typename FnTy>
-static LogicalResult
-executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
-                       DenseMap<Value, SmallVector<LinalgOp>> &operations) {
-  ArrayRef<LinalgOp> targets = operations.find(configOp.target())->second;
+template <typename ConfigOpTy, typename FnTy>
+static LogicalResult executeTransformOnEach(ModuleOp module,
+                                            ConfigOpTy configOp, FnTy transform,
+                                            TransformOpMapping &operations) {
+  auto it = operations.find(configOp.target());
+  if (it == operations.end()) {
+    LLVM_DEBUG(DBGS() << "failed to find a target for:\n" << configOp << "\n");
+    return failure();
+  }
+  ArrayRef<Operation *> targets = it->second;
 
-  SmallVector<LinalgOp> results =
-      functional::applyForEach(targets, [&](LinalgOp op, PatternRewriter &) {
-        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n";);
-        auto result = transform(op, configOp);
+  using TransformedOpType =
+      typename llvm::function_traits<FnTy>::template arg_t<0>;
+  SmallVector<Operation *> results = functional::applyForEach(
+      targets, [&](Operation *op, PatternRewriter &) -> FailureOr<Operation *> {
+        LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
+        auto specificOp =
+            functional::detail::IsaOr<TransformedOpType>::dyn_cast(op);
+        if (!specificOp) {
+          LLVM_DEBUG(DBGS() << "unexpected operation type\n");
+          return failure();
+        }
+        auto result = transform(specificOp, configOp);
         LLVM_DEBUG(DBGS() << "transformation "
                           << (failed(result) ? "failed" : "succeeded") << "\n");
-        return result;
+        if (failed(result))
+          return failure();
+        return result->getOperation();
       });
 
   // All transformations must succeed.
@@ -512,16 +674,40 @@ executeTransformOnEach(ModuleOp module, OpTy configOp, FnTy transform,
   assert(inserted && "value is already associated with another operation list");
   (void)inserted;
 
-  // Since there is only allowed use of the value in the transformation dialect,
-  // we can remove it from the mapping after processing its only user. This
-  // ensures we don't accidentally keep pointers to operations that may have
-  // been deleted by the current transformation.
-  if (configOp.target()) {
-    Value target = configOp.target();
-    assert(target.hasOneUse());
-    operations.erase(target);
+  removeCurrentTarget(configOp, operations);
+  return success();
+}
+
+template <typename ConfigOpTy, typename FnTy>
+static LogicalResult
+executeNonReturningTransformOnEach(ModuleOp module, ConfigOpTy configOp,
+                                   FnTy transform,
+                                   TransformOpMapping &operations) {
+  auto it = operations.find(configOp.target());
+  if (it == operations.end()) {
+    LLVM_DEBUG(DBGS() << "failed to find a target for:\n" << configOp << "\n");
+    return failure();
+  }
+  ArrayRef<Operation *> targets = it->second;
+
+  using TransformedOpType =
+      typename llvm::function_traits<FnTy>::template arg_t<0>;
+  for (Operation *op : targets) {
+    LLVM_DEBUG(DBGS() << "attempting to transform: " << op << "\n");
+    auto specificOp =
+        functional::detail::IsaOr<TransformedOpType>::dyn_cast(op);
+    if (!specificOp) {
+      LLVM_DEBUG(DBGS() << "unexpected operation type\n");
+      return failure();
+    }
+    LogicalResult result = transform(specificOp, configOp);
+    LLVM_DEBUG(DBGS() << "transformation "
+                      << (failed(result) ? "failed" : "succeeded") << "\n");
+    if (failed(result))
+      return failure();
   }
 
+  removeCurrentTarget(configOp, operations);
   return success();
 }
 
@@ -555,6 +741,30 @@ static LogicalResult executeTransform(Operation *operation, ModuleOp module,
 
   if (auto lowerToLLVMOp = dyn_cast<transform::LowerToLLVMOp>(operation))
     return executeLowerToLLVMOp(module, lowerToLLVMOp);
+
+  if (auto getParentLoopOp = dyn_cast<transform::GetParentLoopOp>(operation)) {
+    return executeTransformOnEach(module, getParentLoopOp,
+                                  executeGetParentLoopOp, operations);
+  }
+
+  if (auto unrollLoopOp = dyn_cast<transform::UnrollLoopOp>(operation)) {
+    return executeNonReturningTransformOnEach(module, unrollLoopOp,
+                                              executeUnrollLoopOp, operations);
+  }
+
+  if (auto pipelineLoopOp = dyn_cast<transform::PipelineLoopOp>(operation)) {
+    return executeTransformOnEach(module, pipelineLoopOp, executePipelineLoopOp,
+                                  operations);
+  }
+
+  if (auto outlineLoopOp = dyn_cast<transform::OutlineLoopOp>(operation)) {
+    return executeTransformOnEach(
+        module, outlineLoopOp,
+        [&](scf::ForOp forOp, transform::OutlineLoopOp configOp) {
+          return executeOutlineLoopOp(forOp, configOp, operations);
+        },
+        operations);
+  }
 
   return operation->emitError() << "unknown transformation operation";
 }
