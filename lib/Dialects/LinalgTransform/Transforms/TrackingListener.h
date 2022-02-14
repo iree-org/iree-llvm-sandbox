@@ -20,6 +20,11 @@ namespace linalg {
 class TrackingListener : public RewriteListener {
 public:
   TrackingListener(TransformOpMapping &trackedOperations);
+  ~TrackingListener() {
+#ifndef NDEBUG
+    assert(errorStateChecked && "must check listener error state");
+#endif // NDEBUG
+  }
 
   /// When a tracked linalg operation is replaced, try to find a single linalg
   /// op responsible for the replacement values and substitute the handle of the
@@ -31,12 +36,30 @@ public:
   /// tracked operation list.
   void notifyOperationRemoved(Operation *op) override;
 
+  /// Emits an error pointing at the given operation. Use this instead of
+  /// directly emitting an error on the operation to set the listener into the
+  /// error state and thus communicate with its user.
+  InFlightDiagnostic emitError(Operation *op, const llvm::Twine &message = {});
+
+  /// Converts the current error state into LogicalResult and clears it.
+  LogicalResult checkErrorState() {
+    LogicalResult result = failure(hadErrors);
+#ifndef NDEBUG
+    errorStateChecked = true;
+#endif // NDEBUG
+    return result;
+  }
+
 private:
   /// A reference to the tracked operations in the interpreter.
   TransformOpMapping &trackedOperations;
   /// A map from a tracked operation (LinalgOp cannot be used as a key) to its
   /// key in the map.
   DenseMap<Operation *, Value> trackedOperationKeys;
+  bool hadErrors = false;
+#ifndef NDEBUG
+  bool errorStateChecked = false;
+#endif // NDEBUG
 };
 } // namespace linalg
 } // namespace mlir

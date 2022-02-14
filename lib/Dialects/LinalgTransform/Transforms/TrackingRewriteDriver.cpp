@@ -16,5 +16,7 @@ LogicalResult mlir::applyPatternsTrackAndFoldGreedily(
     Operation *root, TransformOpMapping &trackedOperations,
     const FrozenRewritePatternSet &patterns, GreedyRewriteConfig config) {
   linalg::TrackingListener listener(trackedOperations);
-  return applyPatternsAndFoldGreedily(root, patterns, config, &listener);
+  if (failed(applyPatternsAndFoldGreedily(root, patterns, config, &listener)))
+    return failure();
+  return listener.checkErrorState();
 }

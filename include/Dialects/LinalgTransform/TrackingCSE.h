@@ -14,9 +14,10 @@
 namespace mlir {
 class DominanceInfo;
 
-void eliminateCommonSubexpressionsWithTrackedOps(
-    Operation *root, TransformOpMapping &trackedOps,
-    DominanceInfo *domInfo = nullptr);
+LogicalResult
+eliminateCommonSubexpressionsWithTrackedOps(Operation *root,
+                                            TransformOpMapping &trackedOps,
+                                            DominanceInfo *domInfo = nullptr);
 } // namespace mlir
 
 #endif // MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGCSE_H

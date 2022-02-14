@@ -97,6 +97,10 @@ TrackingListener::TrackingListener(
 
 void TrackingListener::notifyOperationReplaced(Operation *op,
                                                ValueRange newValues) {
+  // Don't attempt to track in error state.
+  if (hadErrors)
+    return;
+
   // Exit early if the op is not tracked.
   auto keyIt = trackedOperationKeys.find(op);
   if (keyIt == trackedOperationKeys.end())
@@ -104,7 +108,10 @@ void TrackingListener::notifyOperationReplaced(Operation *op,
   Value key = keyIt->second;
 
   Operation *replacement = findSingleDefiningOp(op, newValues);
-  assert(replacement && "but could not find the replacement op");
+  if (!replacement) {
+    emitError(op) << "could not find replacement for tracked op";
+    return;
+  }
 
   LLVM_DEBUG(DBGS() << "replacing tracked " << *op << " with " << *replacement
                     << " for " << key << "\n");
@@ -120,11 +127,23 @@ void TrackingListener::notifyOperationReplaced(Operation *op,
   // operation that stayed in this mapping.
   trackedOperationKeys.erase(op);
   bool replaced = trackedOperationKeys.try_emplace(replacement, key).second;
-  assert(replaced && "operation is already associated with another key");
-  (void)replaced;
+  if (!replaced) {
+    InFlightDiagnostic diag =
+        emitError(replacement)
+        << "replacement operation is already associated with another key";
+    diag.attachNote(op->getLoc()) << "replacing this operation";
+    diag.attachNote(trackedOperationKeys.lookup(replacement).getLoc())
+        << "old key";
+    diag.attachNote(key.getLoc()) << "new key";
+    return;
+  }
 }
 
 void TrackingListener::notifyOperationRemoved(Operation *op) {
+  // Don't attempt to track in error state.
+  if (hadErrors)
+    return;
+
   auto keyIt = trackedOperationKeys.find(op);
   if (keyIt == trackedOperationKeys.end())
     return;
@@ -141,6 +160,15 @@ void TrackingListener::notifyOperationRemoved(Operation *op) {
   auto opIt = llvm::find(list, op);
   assert(opIt != list.end() && "malformed operation map");
   list.erase(opIt);
+}
+
+InFlightDiagnostic TrackingListener::emitError(Operation *op,
+                                               const llvm::Twine &message) {
+  hadErrors = true;
+#ifndef NDEBUG
+  errorStateChecked = false;
+#endif // NDEBUG
+  return op->emitError(message);
 }
 } // namespace linalg
 } // namespace mlir

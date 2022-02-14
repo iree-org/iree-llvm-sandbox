@@ -13,9 +13,10 @@
 
 using namespace mlir;
 
-void mlir::eliminateCommonSubexpressionsWithTrackedOps(
-    Operation *root, TransformOpMapping &trackedOps,
-    DominanceInfo *domInfo) {
+LogicalResult mlir::eliminateCommonSubexpressionsWithTrackedOps(
+    Operation *root, TransformOpMapping &trackedOps, DominanceInfo *domInfo) {
   linalg::TrackingListener listener(trackedOps);
-  (void)eliminateCommonSubexpressions(root, domInfo, &listener);
+  if (failed(eliminateCommonSubexpressions(root, domInfo, &listener)))
+    return failure();
+  return listener.checkErrorState();
 }

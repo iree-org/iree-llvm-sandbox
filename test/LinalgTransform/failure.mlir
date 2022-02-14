@@ -99,3 +99,33 @@ linalg_transform.sequence {
   // expected-error@below {{failed to apply}}
   outline_loop %0 {func_name = "outlined"}
 }
+
+// -----
+
+func @no_replacement(
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>,
+  %arg2: tensor<128x128xf32> {linalg.inplaceable = true})
+    -> tensor<128x128xf32> {
+  // expected-error @below {{could not find replacement for tracked op}}
+  %0 = linalg.matmul {test.attrA}
+                     ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
+                     outs(%arg2: tensor<128x128xf32>)
+    -> tensor<128x128xf32>
+  return %0 : tensor<128x128xf32>
+}
+
+pdl.pattern @pdl_target : benefit(1) {
+  %args = operands
+  %results = types
+  %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
+  apply_native_constraint "nestedInFunc"[@no_replacement](%0 : !pdl.operation)
+  // TODO: we don't want this, but it is the required terminator for pdl.pattern
+  rewrite %0 with "linalg_transform.apply"
+}
+
+linalg_transform.sequence {
+  %0 = match @pdl_target
+  // expected-error @below {{failed to apply}}
+  vectorize
+  tile %0
+}

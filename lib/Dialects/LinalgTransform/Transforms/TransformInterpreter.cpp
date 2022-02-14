@@ -151,10 +151,14 @@ static LogicalResult executeTransformOnEach(ModuleOp module,
   if (results.size() != targets.size())
     return failure();
 
-  bool inserted =
-      operations.insert({configOp.transformed(), std::move(results)}).second;
-  assert(inserted && "value is already associated with another operation list");
-  (void)inserted;
+  // Avoid tracking the ops if the handles are not going to be used.
+  if (!configOp.transformed().use_empty()) {
+    bool inserted =
+        operations.insert({configOp.transformed(), std::move(results)}).second;
+    assert(inserted &&
+           "value is already associated with another operation list");
+    (void)inserted;
+  }
 
   removeCurrentTarget(configOp, operations);
   return success();
@@ -682,6 +686,8 @@ executeOutlineLoopOp(scf::ForOp loop,
   assert(exec && "failed to produce execute_region");
   FailureOr<FuncOp> outlined = outlineSingleBlockRegion(
       rewriter, loc, exec.getRegion(), outlineLoopOp.func_name());
+  if (failed(listener.checkErrorState()))
+    return failure();
   return outlined;
 }
 
@@ -719,8 +725,7 @@ static LogicalResult performEnablerTransformations(
   if (options.hoistRedundantVectorTransfersOnTensor)
     hoistRedundantVectorTransfersOnTensor(func);
 
-  eliminateCommonSubexpressionsWithTrackedOps(func, operations);
-  return success();
+  return eliminateCommonSubexpressionsWithTrackedOps(func, operations);
 }
 
 /// Run enabling transformations on the given model while preserving the
@@ -813,7 +818,10 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
 
   // Run the canonicalizations upfront so we don't match and transform
   // operations only to drop them later.
-  eliminateCommonSubexpressionsWithTrackedOps(module, operations);
+  if (failed(eliminateCommonSubexpressionsWithTrackedOps(module, operations))) {
+    LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
+    return failure();
+  }
   if (failed(applyPatternsTrackAndFoldGreedily(module, operations, patterns))) {
     LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
     return failure();
@@ -833,7 +841,11 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     // TODO: consider better targeting than module-level transformations here:
     // e.g., the enabler internals can apply to one function only. Furthermore,
     // we don't need all of enabler transformations after/before all passes.
-    eliminateCommonSubexpressionsWithTrackedOps(module, operations);
+    if (failed(
+            eliminateCommonSubexpressionsWithTrackedOps(module, operations))) {
+      LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
+      return failure();
+    }
 
     // TODO: this runs CSE internally, mostly redundant with the above.
     if (failed(performEnablerTransformations(module, operations))) {
