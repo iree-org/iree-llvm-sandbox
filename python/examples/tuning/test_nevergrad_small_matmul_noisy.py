@@ -11,6 +11,7 @@ import mlir.dialects.linalg_transform as transform
 from ..core.experts import *
 from ..core.harness import *
 from ..core.nevergrad_tuner_utils import *
+from ..core.pdl_utils import *
 from ..core.transforms import *
 from ..core.utils import *
 
@@ -71,17 +72,25 @@ class NGScheduler:
   # TODO: generate a unique name for the matcher.
   # TODO: generate a tight matcher for the generic (e.g. isMatmulOp with
   # fixed size).
-  def matcher(self, module, benefit: int = 1):
-    pdl_pattern = None
+  def matcher(self, module, search_sizes: Sequence[int], benefit: int = 1):
     pdl_pattern_name = 'match_linalg_generic'
-    with InsertionPoint(module.body):
-      pdl_pattern = pdl.PatternOp(benefit=benefit, name=pdl_pattern_name)
-      with ir.InsertionPoint(pdl_pattern.body):
-        args = pdl.OperandsOp()
-        types = pdl.TypesOp()
-        # TODO: matcher constraints
-        pdl_op = pdl.OperationOp('linalg.generic', args=[args], types=[types])
-        pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
+    search_M, search_N, search_K = search_sizes
+
+    def is_divisible_by(operand_number: int, dim: int, divisor: int):
+      return make_constraint_operand_dim_divisible_by(operand_number, dim,
+                                                      divisor)
+
+    make_single_op_pdl_pattern(
+        module,
+        pdl_pattern_name,
+        'linalg.generic',
+        constraints_builder_list=[
+            is_divisible_by(operand_number=0, dim=0, divisor=search_M),
+            is_divisible_by(operand_number=0, dim=1, divisor=search_K),
+            is_divisible_by(operand_number=1, dim=1, divisor=search_N),
+            make_constraint_is_equivalent_to_op('linalg.matmul')
+        ],
+        benefit=benefit)
     return pdl_pattern_name
 
   # TODO: more advanced schedules, atm we just TileAndVectorize.
@@ -100,7 +109,7 @@ class NGScheduler:
     peel = [x for x in range(nnz)]
     peel = []  # TODO: enable peeling once handles are fixed.
     with InsertionPoint(module.body):
-      pdl_pattern_name = self.matcher(module, benefit)
+      pdl_pattern_name = self.matcher(module, search_sizes, benefit)
       sequence = transform.SequenceOp()
       with ir.InsertionPoint(sequence.body.blocks[0]):
         matched = transform.MatchOp(pdl_pattern_name)

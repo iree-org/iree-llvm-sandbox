@@ -39,7 +39,7 @@ def _get_pad_str(transform: Transform) -> str:
 
 
 def make_pattern_name(fun_name: str, op_name: str):
-  return "match_" + op_name.replace('.','_') + "_in_" + fun_name
+  return "match_" + op_name.replace('.', '_') + "_in_" + fun_name
 
 
 def emit_transform_matcher(fun_name: str, op_name: str):
@@ -48,7 +48,9 @@ def emit_transform_matcher(fun_name: str, op_name: str):
     args = pdl.OperandsOp()
     types = pdl.TypesOp()
     pdl_op = pdl.OperationOp(op_name, args=[args], types=[types])
-    pdl.ApplyNativeConstraintOp('nestedInFunc', args=[pdl_op], params=[FlatSymbolRefAttr.get(fun_name)])
+    pdl.ApplyNativeConstraintOp('nestedInFunc',
+                                args=[pdl_op],
+                                params=[FlatSymbolRefAttr.get(fun_name)])
     pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
 
 
@@ -374,7 +376,6 @@ class Vectorize(Transform):
     tx.VectorizeOp(target, vectorize_padding=self.vectorize_paddings)
 
 
-
 class Generalize(Transform):
   """Transform a named operation to its generic form.
 
@@ -515,16 +516,17 @@ class LowerVectors(Transform):
   def build_transform_ir(self):
     for name in ('max_transfer_rank', 'print_after_all'):
       if getattr(self, name) != LowerVectors.variables[name][1]:
-        raise NotImplementedError(name + " not supported by the transform dialect")
+        raise NotImplementedError(name +
+                                  " not supported by the transform dialect")
 
     for stage in sorted(self.stages):
       tx.LowerVectorsOp(stages=[s + 1 for s in range(stage + 1)],
-        contraction_lowering=self.contraction_lowering,
-        multireduction_lowering=self.multi_reduction_lowering,
-        split_transfers=self.split_transfers,
-        unroll_vector_transfers=self.unroll_vector_transfers,
-        transpose_lowering=self.transpose_lowering,
-        transpose_avx2_lowering=self.transpose_avx2_lowering)
+                        contraction_lowering=self.contraction_lowering,
+                        multireduction_lowering=self.multi_reduction_lowering,
+                        split_transfers=self.split_transfers,
+                        unroll_vector_transfers=self.unroll_vector_transfers,
+                        transpose_lowering=self.transpose_lowering,
+                        transpose_avx2_lowering=self.transpose_avx2_lowering)
 
 
 class LowerToLLVM(Transform):
@@ -620,7 +622,9 @@ class PipelineOneParentLoop(Transform):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
                                                     self.op_name))
     loop = tx.GetParentLoopOp(target, num_loops=self.parent_loop_num)
-    tx.PipelineLoopOp(loop, iteration_interval=self.II, read_latency=self.read_latency)
+    tx.PipelineLoopOp(loop,
+                      iteration_interval=self.II,
+                      read_latency=self.read_latency)
 
 
 class OutlineOneParentLoop(Transform):
