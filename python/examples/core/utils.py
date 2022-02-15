@@ -118,3 +118,18 @@ def realign(allocated_unaligned: np.ndarray, byte_alignment: int = 64):
   np.copyto(allocated_aligned, allocated_unaligned)
   assert allocated_aligned.ctypes.data % byte_alignment == 0
   return allocated_aligned
+
+
+def compute_quantiles(measurements: Sequence[float]) -> Sequence[float]:
+  n_iters = len(measurements)
+  return [ \
+      measurements[0],
+      measurements[((n_iters * 1) // 100)],
+      measurements[((n_iters * 10) // 100)],
+      measurements[((n_iters * 25) // 100)],
+      measurements[((n_iters * 50) // 100)],
+      measurements[((n_iters * 75) // 100)],
+      measurements[((n_iters * 90) // 100)],
+      measurements[((n_iters * 99) // 100)],
+      measurements[-1]
+         ]

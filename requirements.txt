@@ -22,3 +22,6 @@ lit
 pandas
 matplotlib
 seaborn
+
+# Tuning.
+nevergrad
