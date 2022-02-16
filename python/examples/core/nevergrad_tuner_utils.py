@@ -1,16 +1,77 @@
-from typing import Sequence
+import typing as tp
 
 from argparse import ArgumentParser
-import nevergrad as ng
 import numpy as np
 from typing import Callable, Sequence
+
+import mlir.ir as ir
 
 debug_constraints = False
 
 
-# Search tile sizes must either be 0 or divide the problem size.
+def save_module(module, module_save_filename):
+  """Helper function to save a module to a file."""
+
+  with open(module_save_filename, 'w') as f:
+    f.write(str(module))
+  print(f'Module saved in {module_save_filename}')
+
+
+class NGSchedulerInterface:
+  """Generic interface for schedule search via nevergrad."""
+
+  def build_compile_time_problem_sizes(self):
+    """Build the dictionary of (dimension_name, size) giving the sizes to compile"""
+    pass
+
+  def set_optimizer(self, search_strategy: str, budget: int):
+    """Set up the nevergrad optimizer, with its instrumentation and constraints"""
+    pass
+
+  def validate_proposal(self, proposal) -> bool:
+    """Validate a proposal made by the optimizer.
+    
+    This handles the case where our search space is too sparse and the optimizer
+    may want to override our constraints set.
+    """
+    pass
+
+  def create_matchers(self, module, benefit: int = 1):
+    """Create the PDL matchers 
+    
+    Create the PDL IR for matchers / constraints inside `module`.
+    """
+    pass
+
+  def schedule(self, module, proposal, benefit: int = 1):
+    """Create the PDL matchers 
+    
+    Create the PDL IR for schedule inside `module`.
+    """
+    pass
+
+  def save_proposal_as_module(self,
+                              proposal,
+                              module_save_filename,
+                              benefit: int = 1):
+    with ir.Context() as ctx, ir.Location.unknown() as loc:
+      module = ir.Module.create()
+      self.schedule(module, proposal, benefit)
+      save_module(module, module_save_filename)
+      with open(module_save_filename, 'w') as f:
+        f.write(str(module))
+
+
+################################################################################
+### Nevergrad constraints.
+### TODO: somehow connect to PDL matchers.
+################################################################################
+
+
 def constraint_all_must_divide(problem_sizes: Sequence[int],
                                search_sizes: Sequence[int]):
+  """Constraint to specify `search_sizes` are either 0 or divide `problem_sizes`."""
+
   if debug_constraints:
     print(f'C1 problem_sizes:{problem_sizes} vs search_sizes:{search_sizes}')
 
@@ -20,10 +81,11 @@ def constraint_all_must_divide(problem_sizes: Sequence[int],
   return True
 
 
-# Search sizes must not yield too much unrolling.
 def constraint_unrolling_not_too_big(problem_sizes: Sequence[int],
                                      search_sizes: Sequence[int],
                                      unrolling_limit: int):
+  """Constraint to specify `search_sizes` do not yield too much unrolling."""
+
   if debug_constraints:
     print(f'C2 problem_sizes:{problem_sizes} vs search_sizes:{search_sizes}')
 
@@ -35,9 +97,10 @@ def constraint_unrolling_not_too_big(problem_sizes: Sequence[int],
   return prod < unrolling_limit
 
 
-# Search sizes must be smaller than the problem size.
 def constraint_in_bounds(problem_sizes: Sequence[int],
                          search_sizes: Sequence[int]):
+  """Constraint to limit `search_sizes` to the extent of the problem_sizes."""
+
   if debug_constraints:
     print(f'C3 problem_sizes:{problem_sizes} vs search_sizes:{search_sizes}')
 
@@ -47,10 +110,11 @@ def constraint_in_bounds(problem_sizes: Sequence[int],
   return True
 
 
-# Volume must not be smaller than both a limit and a fraction of problem size.
 def constraint_volume_not_too_small(
     problem_sizes: Sequence[int], search_sizes: Sequence[int],
     volume_limit: int, volume_relative_percentage_lower_bound: int):
+  """Constraint to skip `search_sizes` that would yield a too small volume."""
+
   if debug_constraints:
     print(f'C4 problem_sizes:{problem_sizes} vs search_sizes:{search_sizes}')
 
@@ -64,16 +128,17 @@ def constraint_volume_not_too_small(
     100 * search_size_prod + 1 > volume_relative_percentage_lower_bound * size_prod
 
 
-# Entry point to combine all size constraints.
 def size_constraints_conjunction_satisfied(
     problem_sizes: Sequence[int],
     search_sizes: Sequence[int],
     unrolling_limit: int = 10000,
     volume_limit: int = 16,
     volume_relative_percentage_lower_bound: int = 25):
+  """Constraint to perform the conjunction of known constraints."""
+
   return constraint_unrolling_not_too_big(problem_sizes,   \
-                                         search_sizes,    \
-                                         unrolling_limit) \
+                                          search_sizes,    \
+                                          unrolling_limit) \
       and constraint_volume_not_too_small(problem_sizes, \
                                           search_sizes,  \
                                           volume_limit,  \
@@ -92,84 +157,12 @@ def dispatch_size_constraints_conjunction_satisfied(
                                                 proposed_search_sizes)
 
 
-# State that is shared across parent and children processes in a MP run.
-# All information within this state must "pickle".
-class IPCState:
-
-  def __init__(self, success: bool, throughputs: Sequence, problem=None):
-    self.success = success
-    self.throughputs = throughputs
-    self.problem = problem
-
-
-class NGExecution:
-
-  def __init__(self, proposal, problem_instance):
-    self.proposal = proposal
-    self.problem_instance = problem_instance
-
-
-class NGMPExecution(NGExecution):
-
-  def __init__(self, proposal, problem_instance, process, ipc_dict):
-    super().__init__(proposal, problem_instance)
-    self.process = process
-    self.ipc_dict = ipc_dict
-
-  def future_ipc_state(self):
-    return self.ipc_dict['result']
-
-
-# Root process sleeps and synchronizes all forked bulk_synchronous processes.
-# Additionally, this updates the NGMPExecutions accordingly for further
-# processing across the single/multi process boundary:
-#   1. on a timeout or an exception, the corresponding entry in processes and
-#      problem_instances is set to None to avoid touching them again in the
-#      future.
-#   2. on a successful finish, the corresponding entry in problem_instances is
-#      set to the corresponding ipc_dict['problem']. This is used to
-#      communicated back the compiled state of the problem across the single/multi
-#      process boundary.
-def join_bulk_synchronous_processes(ng_mp_executions: Sequence[NGMPExecution],
-                                    timeout: float):
-  import time
-  remaining_time = timeout
-  found_alive = True
-  joined_with_root = [False for p in ng_mp_executions]
-  # Busy-wait to implement a simple polling mechanism.
-  while found_alive and remaining_time > 0:
-    found_alive = False
-    remaining_time = remaining_time - 0.1
-    time.sleep(0.1)
-    for idx in range(len(ng_mp_executions)):
-      # This process was already joined, skip.
-      if joined_with_root[idx] is True:
-        continue
-
-      process = ng_mp_executions[idx].process
-      # This process finished by itself, join with it and mark it joined.
-      if not process.is_alive():
-        process.join()
-        joined_with_root[idx] = True
-        continue
-
-      # Otherwise, we found an alive process, continue until timer expires.
-      found_alive = True
-
-  # Timer is up, any alive processes now need to be terminated.
-  for joined, execution in zip(joined_with_root, ng_mp_executions):
-    if joined:
-      continue
-    print(f'timeout: {execution.proposal} did not complete within {timeout}s')
-    execution.process.terminate()
-    execution.process.join()
-    # Override to return a failed IPCState and signify infinite relative_error.
-    execution.future_ipc_state = lambda: IPCState(success=False,
-                                                  throughputs=None)
-
-
-# Add tuning-specific arguments to the parser.
+################################################################################
+### Argparser
+################################################################################
 def add_argparser_tuning_arguments(parser: ArgumentParser):
+  """Add tuning-specific arguments to the parser."""
+
   parser.add_argument('--machine-peak', type=int, nargs='?', default=192)
   parser.add_argument('--metric-to-measure',
                       type=str,
@@ -189,8 +182,8 @@ def add_argparser_tuning_arguments(parser: ArgumentParser):
   parser.add_argument(
       '--search-strategy',
       type=str,
-      nargs='+',
-      default=['RandomSearch'],
+      nargs='?',
+      default='RandomSearch',
   )
   parser.add_argument('--timeout-per-compilation',
                       type=int,
