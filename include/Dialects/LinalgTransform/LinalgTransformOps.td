@@ -18,6 +18,7 @@ include "mlir/IR/OpBase.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/Dialect/PDL/IR/PDLTypes.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def Linalg_Transform_Dialect : Dialect {
   let name = "linalg_transform";

@@ -169,4 +169,8 @@ linalg_transform.sequence {
   // expected-error @below {{failed to apply}}
   // expected-note @below {{handle}}
   %1 = match @pdl_target2
+  
+  // Add references to handles produced by match so that they are not DCE'd.
+  tile %0
+  tile %1
 }
