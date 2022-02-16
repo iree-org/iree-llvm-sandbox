@@ -69,16 +69,13 @@ class Transform:
   Searchable transformation parameters must be listed in the `variables` field.
   """
 
-  variables: tp.Mapping[str, tp.Union[tp.Type[Transform],
-                                      tp.Tuple[tp.Type[Transform],
+  variables: tp.Mapping[str, tp.Union[tp.Type[Variable],
+                                      tp.Tuple[tp.Type[Variable],
                                                tp.Any]]] = dict()
 
-  module: Module
   fun_name: str
 
   def __call__(self, module: Module, fun_name: str):
-    self.module = module
-    self.fun_name = fun_name
     PassManager.parse(self.pipeline).run(module)
     return module
 
@@ -115,6 +112,9 @@ class Transform:
     """Create a new transformation list from the current and another
     transformation."""
     return self.then(other)
+
+  def build_transform_ir(self):
+    raise NotImplementedError(self.__class__.__name__ + " does not implement build_transform_ir")
 
 
 class PrintIR(Transform):
