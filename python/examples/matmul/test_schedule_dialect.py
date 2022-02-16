@@ -3,13 +3,12 @@
 # This file contains small benchmarks with reasonably-sized problem/tiling sizes
 # and codegen options.
 
-import mlir.iree_sandbox as sandbox
 import mlir.ir as ir
-import mlir.dialects.pdl as pdl
 import mlir.dialects.linalg_transform as transform
 
 from ..core.experts import *
 from ..core.harness import *
+from ..core.pdl_utils import *
 from ..core.transforms import *
 
 from ..contraction.definitions import EinsumProblem
@@ -24,25 +23,60 @@ keys = ['m', 'n', 'k']
 
 
 def add_tile_schedule(module):
-  with InsertionPoint(module.body):
-    pdl_pattern_name = 'pdl_pattern_name'
-    pdl_pattern = pdl.PatternOp(benefit=1, name=pdl_pattern_name)
-    with ir.InsertionPoint(pdl_pattern.body):
-      args = pdl.OperandsOp()
-      types = pdl.TypesOp()
-      pdl_op = pdl.OperationOp('linalg.generic', args=[args], types=[types])
-      pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
+  tile_sizes = [6, 16, 1]
+  tile_1_d_x_x = True
+  tile_1_s_d_x = False
 
+  #                  M=A.0   N=B.1   K=A.1
+  dimM, dimN, dimK = [0, 0], [1, 1], [0, 1]
+  isa_linalg_matmul = match_op_with_sizes_multiple_of(
+      module, equivalent_op_name='linalg.matmul')
+  isa_linalg_matmul_d_x_x = match_op_with_dynamic_or_static_sizes(
+      module,
+      equivalent_op_name='linalg.matmul',
+      dynamic_spec_list=['d'],
+      op_dim_spec_list=[dimM])
+  isa_linalg_matmul_s_d_x = match_op_with_dynamic_or_static_sizes(
+      module,
+      equivalent_op_name='linalg.matmul',
+      dynamic_spec_list=['s', 'd'],
+      op_dim_spec_list=[dimM, dimN])
+  isa_linalg_matmul_s_s_d = match_op_with_dynamic_or_static_sizes(
+      module,
+      equivalent_op_name='linalg.matmul',
+      dynamic_spec_list=['s', 's', 'd'],
+      op_dim_spec_list=[dimM, dimN, dimK])
+  isa_linalg_matmul_s_s_s = match_op_with_dynamic_or_static_sizes(
+      module,
+      equivalent_op_name='linalg.matmul',
+      dynamic_spec_list=['s', 's', 's'],
+      op_dim_spec_list=[dimM, dimN, dimK])
+  with InsertionPoint(module.body):
     sequence = transform.SequenceOp()
     with ir.InsertionPoint(sequence.body.blocks[0]):
-      transform.TileOp(pdl_pattern_name, sizes=[12, 32, 1], pad=False)
+      matched = transform.MatchOp(isa_linalg_matmul)
+      transform.TileOp(matched, sizes=tile_sizes, peel=[0, 1, 2])
+
+      if tile_1_d_x_x:
+        matched = transform.MatchOp(isa_linalg_matmul_d_x_x)
+        transform.TileOp(matched, sizes=[1])
+
+      if tile_1_s_d_x:
+        matched = transform.MatchOp(isa_linalg_matmul_s_d_x)
+        transform.TileOp(matched, sizes=[0, 1])
+
+      matched = transform.MatchOp(isa_linalg_matmul_s_s_s)
+      transform.VectorizeOp(matched)
+
       transform.BufferizeOp()
-      transform.LowerVectorsOp()
+      for i in range(7):
+        transform.LowerVectorsOp(stages=list(j + 1 for j in range(i + 1)))
+
       transform.LowerToLLVMOp()
 
 
 def main():
-  problem_size_list = [[1000, 1000, 1000]]
+  problem_size_list = [[60, 60, 60]]
 
   for sizes in problem_size_list:
     problem = ProblemInstance(EinsumProblem('mk,kn', 'mnk', 2),
@@ -56,7 +90,7 @@ def main():
         dump_ir_to_file='/tmp/abc.mlir')
 
     problem.run(
-        n_iters=1,
+        n_iters=100,
         entry_point_name='main',
         runtime_problem_sizes_dict=problem.compile_time_problem_sizes_dict,
         dump_obj_to_file='/tmp/abc.o')
