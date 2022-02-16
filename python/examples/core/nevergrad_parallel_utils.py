@@ -1,10 +1,15 @@
 from contextlib import redirect_stdout, redirect_stderr
 import io
-import numpy as np
+import math
 import multiprocessing as mp
+import numpy as np
 import os
+from prwlock import RWLock
 import signal
 import sys
+import threading
+import time
+import traceback
 import typing as tp
 
 from ..core.harness import *
@@ -39,71 +44,213 @@ class NGEvaluation:
 class NGMPEvaluation(NGEvaluation):
   """Handle to a multiprocess nevergrad evaluation."""
 
-  def __init__(self, proposal, problem_instance, process, ipc_dict, time_left):
+  def __init__(self, proposal, problem_instance, process, ipc_dict):
     super().__init__(proposal, problem_instance)
     self.process = process
     self.ipc_dict = ipc_dict
-    self.time_left = time_left
     self.joined_with_root = False
 
   def ipc_state(self):
-    return self.ipc_dict['result'] if 'result' in self.ipc_dict else None
+    return self.ipc_dict['result'] if 'result' in self.ipc_dict else \
+      IPCState(success=False, throughputs=None)
+
+
+class ProcessManagementHelper(object):
+  """Helper class to centralize the management of task and lock lists.
+
+  The general setup is that every compile + benchmark job is mapped to the first  
+  free slot in the `tasks` list; i.e. in the range:
+    0 1 2 .... parsed_args.num_parallel_tasks
+
+  The compilation phase of a task "idx" is pinned to CPU "idx % cpu_count(). 
+  If num_parallel_tasks > cpu_count, multiple compilation phases may be pinned 
+  to the same CPU and run in parallel. 
+  Before the compilation begins, a reader lock is acquired for the pinned CPU.
+
+  The benchmark phase of a task "idx" is pinned to the CPU range 
+  "[floor((idx % cpu_count()) / num_cpus_per_benchmark) * num_cpus_per_benchmark; 
+   (floor((idx % cpu_count()) / num_cpus_per_benchmark) + 1) * num_cpus_per_benchmark)", 
+  which exclusively runs the benchmark of task "idx". 
+  Before the benchmark starts, a writer lock is acquired.
+
+  Note that all all CPUs in a benchmark CPU range share the same lock.
+  As a consequence, each lock `lock_idx` locks CPUs in the range: 
+    [lock_idx * parsed_args.num_cpus_per_benchmark, 
+    (lock_idx + 1) * parsed_args.num_cpus_per_benchmark - 1).
+  """
+
+  def __init__(self, num_cpus_per_benchmark: int, num_parallel_tasks: int):
+    self.num_cpus_per_benchmark = num_cpus_per_benchmark
+    assert self.cpu_count() % num_cpus_per_benchmark == 0, \
+      f'num_cpus_per_benchmark: {num_cpus_per_benchmark} ' + \
+      f'must divide the number of cpus: {self.cpu_count()}'
+
+    self.num_concurrent_benchmarks = \
+      int(self.cpu_count() / self.num_cpus_per_benchmark)
+
+    self.mp_manager = mp.Manager()
+    self.num_parallel_tasks = num_parallel_tasks
+    self.tasks = [None] * self.num_parallel_tasks
+    self.benchmark_locks = [
+        RWLock() for idx in range(self.num_concurrent_benchmarks)
+    ]
+
+  def get_benchmark_lock_idx(self, task_idx: int):
+    """Get the index of the lock to run the benchmarking of task task_idx.
+    """
+    num_tasks_per_lock = math.ceil((task_idx + 1) / len(self.benchmark_locks))
+    return int(task_idx / num_tasks_per_lock)
+
+  def get_benchmark_lock(self, task_idx: int):
+    """Get the lock to run the benchmarking of task task_idx.
+    """
+    return self.benchmark_locks[self.get_benchmark_lock_idx(task_idx)]
+
+  def cpu_count(self):
+    """Return the number of CPUs on which processes can be scheduled."""
+    return len(os.sched_getaffinity(0))
+
+  def get_compilation_cpu(self, task_idx: int):
+    """Get the (single) CPU to run the compilation of task task_idx.
+    """
+    cpu_min, cpu_max = self.get_benchmark_cpu_range(task_idx)
+    return cpu_min + task_idx % (cpu_max - cpu_min)
+
+  def get_benchmark_cpu_range(self, task_idx: int):
+    """ Get the [min, max) CPU range to run the benchmarking of task task_idx.
+    """
+    lock_idx = self.get_benchmark_lock_idx(task_idx)
+    return lock_idx * self.num_cpus_per_benchmark, \
+           (lock_idx + 1) * self.num_cpus_per_benchmark
+
+  def get_first_free_slot_or_sync(self, scheduler, optimizer, throughputs,
+                                  parsed_args):
+    """Return the first index of a None entry in self.tasks.
+    
+    Wait and join at least one process if no such entry exists.
+    """
+    best = 0
+    # Find the first empty slot in tasks.
+    if not None in self.tasks:
+      # Join at least one process if nothing is available.
+      processes_joined = join_at_least_one_process(self.tasks)
+      assert len(processes_joined) > 0, "no processes were joined"
+      for process_idx in processes_joined:
+        throughput = tell_joined_process(self.tasks, process_idx, scheduler,
+                                         optimizer, throughputs, parsed_args)
+        throughput = int(throughput)
+        best = throughput if throughput > best else best
+        self.tasks[process_idx] = None
+
+    # We are sure there is at least one empty slot.
+    return self.tasks.index(None), best
 
 
 def compile_and_run_checked_mp(problem: ProblemInstance, \
+                               lock: RWLock,
+                               compilation_cpu: int,
+                               benchmark_cpu_min: int,
+                               benchmark_cpu_max: int,
                                scheduler: NGSchedulerInterface,
                                proposal,
                                n_iters: int,
+                               timeout_compile: float,
+                               timeout_benchmark: float,
                                ipc_dict: dict):
   """Entry point to compile and run while catching and reporting exceptions.
 
-  This can run in interruptible multiprocess mode.
+  This is run in interruptible multiprocess mode.
+
   ipc_dict must be provided, and it is used to return information across the
   root / children process boundary:
     - 'throughputs': the measured throughputs.
     - 'success': the return status.
-  """
-  try:
 
+  Acquire lock in read mode and spawn a compile thread, joined with a 
+  `timeout_compile` timeout to perform the compile part of the job. 
+  The compilation is always run on a single CPU, set by a taskset command.
+
+  Acquire lock in write mode and spawn a benchmark thread, joined with a 
+  `timeout_benchmark` timeout to perform the benchmark part of the job. 
+  The benchmark may be run on multiple CPUs, set by a taskset command.
+
+  Upon SIGTERM triggered by the parent, locks are simply dropped on the floor
+  and everything stops.
+  """
+  # Sanity check: ensure compilation and benchmark on the same set of CPUs.
+  assert benchmark_cpu_min <= compilation_cpu and compilation_cpu < benchmark_cpu_max, \
+    f'compilation_cpu: {compilation_cpu} is not in range [{benchmark_cpu_min}, {benchmark_cpu_max})'
+
+  # Function called in the compilation thread.
+  def compile():
     # Construct the schedule and save the module in case we need to replay later.
     def schedule_and_save(module):
       scheduler.schedule(module, proposal)
       # TODO: save and report on error.
 
+    problem.compile_with_schedule_builder( \
+      entry_point_name=scheduler.entry_point_name,
+      fun_to_benchmark_name=scheduler.fun_to_benchmark_name,
+      compile_time_problem_sizes_dict=scheduler.
+      build_compile_time_problem_sizes(),
+      schedule_builder=schedule_and_save)
+
+  throughputs_placeholder = []
+
+  # Function called in the benchmark thread.
+  def benchmark():
+    throughputs_placeholder.append(
+        problem.run(
+            n_iters=n_iters,
+            entry_point_name=scheduler.entry_point_name,
+            runtime_problem_sizes_dict=problem.compile_time_problem_sizes_dict))
+
+  try:
+
     f = io.StringIO()
     with redirect_stdout(f):
-      problem.compile_with_schedule_builder(
-          entry_point_name=scheduler.entry_point_name,
-          fun_to_benchmark_name=scheduler.fun_to_benchmark_name,
-          compile_time_problem_sizes_dict= \
-            scheduler.build_compile_time_problem_sizes(),
-          schedule_builder=schedule_and_save)
+      # Pin compile part of the process to the unique compilation_cpu.
+      print(f'compilation_cpu: {compilation_cpu}')
+      os.sched_setaffinity(os.getpid(), [compilation_cpu])
 
-      throughputs = problem.run(
-          n_iters=n_iters,
-          entry_point_name=scheduler.entry_point_name,
-          runtime_problem_sizes_dict=problem.compile_time_problem_sizes_dict)
+      # Acquire, spawn a new thread, start and join with timeout, release.
+      lock.acquire_read()
+      t = threading.Thread(target=compile)
+      t.start()
+      t.join(timeout_compile)
+      lock.release()
+      if t.is_alive():
+        exit(1)
+
+      # Pin benchmark part of the process to the cpu_min-cpu_max range to allow
+      # parallel benchmarks without prohibitive interferences.
+      os.sched_setaffinity(
+          os.getpid(), [x for x in range(benchmark_cpu_min, benchmark_cpu_max)])
+      # Acquire, spawn a new thread, start and join with timeout, release.
+      lock.acquire_write()
+      t = threading.Thread(target=benchmark)
+      t.start()
+      t.join(timeout_benchmark)
+      lock.release()
+      if t.is_alive():
+        exit(1)
 
     # TODO: redirect to a file if we want this information.
     f.flush()
 
-    ipc_dict['result'] = IPCState(success=True, throughputs=throughputs)
+    ipc_dict['result'] = IPCState(success=True,
+                                  throughputs=throughputs_placeholder[0])
+
   except Exception as e:
-    import traceback
     traceback.print_exc()
+    lock.release()
     # TODO: save to replay errors.
     print(e)
-    ipc_dict['result'] = IPCState(success=False, throughputs=None)
 
-
-def cpu_count():
-  return len(os.sched_getaffinity(0))
-
-def ask_and_fork_process(mp_manager: mp.Manager, \
+def ask_and_fork_process(pmh: ProcessManagementHelper, \
                          problem_definition: ProblemDefinition,
                          problem_types: tp.Sequence[np.dtype],
-                         ng_mp_evaluations: tp.Sequence[NGMPEvaluation],
-                         evaluation_slot_idx: int,
+                         task_idx: int,
                          scheduler: NGSchedulerInterface,
                          optimizer,
                          parsed_args):
@@ -115,33 +262,38 @@ def ask_and_fork_process(mp_manager: mp.Manager, \
   # ExecutionEngine.
   problem_instance = ProblemInstance(problem_definition, problem_types)
 
+  compilation_cpu = pmh.get_compilation_cpu(task_idx)
+  benchmark_cpu_min, benchmark_cpu_max = pmh.get_benchmark_cpu_range(task_idx)
+  lock = pmh.get_benchmark_lock(task_idx)
+
   # Start process that compiles and runs.
-  ipc_dict = mp_manager.dict()
+  ipc_dict = pmh.mp_manager.dict()
   p = mp.Process(target=compile_and_run_checked_mp,
                  args=[
-                     problem_instance, scheduler, proposal, parsed_args.n_iters,
-                     ipc_dict
+                   problem_instance, \
+                   lock,
+                   compilation_cpu,
+                   benchmark_cpu_min,
+                   benchmark_cpu_max,
+                   scheduler,
+                   proposal,
+                   parsed_args.n_iters,
+                   parsed_args.timeout_per_compilation,
+                   parsed_args.timeout_per_benchmark,
+                   ipc_dict
                  ])
   p.start()
-  # Best effort pin process in a round-robin fashion.
-  # This is noisy so suppress its name.
-  f = io.StringIO()
-  with redirect_stdout(f):
-    os.system(
-        f'taskset -p -c {evaluation_slot_idx % cpu_count()} {p.pid} > /dev/null 2>&1'
-    )
+
   # Append NGMPEvaluation. After synchronization results will be available
   # in ipc_dict['result'].
-  ng_mp_evaluations[evaluation_slot_idx] = NGMPEvaluation(
-      proposal=proposal,
-      problem_instance=problem_instance,
-      process=p,
-      ipc_dict=ipc_dict,
-      time_left=parsed_args.timeout_per_compilation)
+  pmh.tasks[task_idx] = NGMPEvaluation(proposal=proposal,
+                                       problem_instance=problem_instance,
+                                       process=p,
+                                       ipc_dict=ipc_dict)
 
 
-def tell_joined_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation], \
-                        evaluation_slot_idx: int,
+def tell_joined_process(tasks: tp.Sequence[NGMPEvaluation], \
+                        task_idx: int,
                         scheduler: NGSchedulerInterface,
                         optimizer,
                         # TODO: extract info from final recommendation instead
@@ -150,11 +302,11 @@ def tell_joined_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation], \
                         parsed_args):
   """Tell the result for the proposal from a joined evaluation process."""
 
-  ng_mp_evaluation = ng_mp_evaluations[evaluation_slot_idx]
-  ipc_state = ng_mp_evaluation.ipc_state()
+  task = tasks[task_idx]
+  ipc_state = task.ipc_state()
 
   if not ipc_state.success:
-    optimizer.tell(ng_mp_evaluation.proposal, 1)
+    optimizer.tell(task.proposal, 1)
     return 0
 
   process_throughputs = ipc_state.throughputs[parsed_args.metric_to_measure]
@@ -165,7 +317,7 @@ def tell_joined_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation], \
   throughput = compute_quantiles(process_throughputs)[6]
   relative_error = \
     (parsed_args.machine_peak - throughput) / parsed_args.machine_peak
-  optimizer.tell(ng_mp_evaluation.proposal, relative_error)
+  optimizer.tell(task.proposal, relative_error)
   throughputs.append(throughput)
   return throughput
 
@@ -175,6 +327,8 @@ def finalize_parallel_search(scheduler: NGSchedulerInterface, \
                              throughputs: tp.Sequence[float],
                              parsed_args):
   """Report and save the best proposal after search finished."""
+  if len(throughputs) == 0:
+    return
 
   # TODO: better handling of result saving, aggregation etc etc.
   final_module_filename = None
@@ -201,64 +355,35 @@ def finalize_parallel_search(scheduler: NGSchedulerInterface, \
 ################################################################################
 
 
-def join_at_least_one_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation]):
-  """ Join at least one process in `ng_mp_evaluations`.
+def join_at_least_one_process(tasks: tp.Sequence[NGMPEvaluation]):
+  """ Join at least one process in `tasks`.
 
-  Note: `ng_mp_evaluations` may contain `None` entries (i.e. empty slots).
+  Note: `tasks` may contain `None` entries (i.e. empty slots).
   These are just skipped.
 
   The parent process performs busy-waiting until it has synchronized at least 
   one process (either because it terminated or because it timed out).
-  
-  Additionally, update `ng_mp_evaluations` for further processing across the 
-  single / multi process boundary:
-    1. on a timeout or an exception, the ipc_state entry in the corresponding
-      ng_mp_evaluation has its success status set to False.
-    2. on a successful finish, the ipc_state entry in the corresponding
-      ng_mp_evaluations succeeded ad contains the throughputs. This is used to
-      communicate back the compiled state of the problem across the single / 
-      multiprocess boundary.
   """
 
-  import time
-  sleep_time = 0.1
+  sleep_time = 1e-3
 
-  # Iterate on evaluations until we find one that has been marked 'joined'.
+  # Iterate on tasks until we find one that has been marked 'joined'.
   done = False
   while not done:
     time.sleep(sleep_time)
-    for idx in range(len(ng_mp_evaluations)):
+    for idx in range(len(tasks)):
       # Invariant: Always decrease the timer for this process.
-      evaluation = ng_mp_evaluations[idx]
-      if evaluation is None:
+      task = tasks[idx]
+      if task is None:
         continue
-      evaluation.time_left = evaluation.time_left - sleep_time
 
-      # This process was already joined, skip.
-      evaluation = ng_mp_evaluations[idx]
-      assert evaluation.joined_with_root == False, "Evaluation already joined"
-
-      process = evaluation.process
+      process = task.process
       # This process finished by itself, join with it and mark it joined.
       if not process.is_alive():
         process.join()
-        evaluation.joined_with_root = True
+        task.joined_with_root = True
         done = True
         continue
-
-      # This process timed out, terminate, join and mark it joined.
-      if evaluation.time_left <= 0:
-        f = io.StringIO()
-        with redirect_stdout(f):
-          print(f'timeout: {evaluation.proposal} did not complete')
-          # TODO: redirect to a file if we want this information.
-          f.flush()
-        evaluation.process.terminate()
-        evaluation.process.join()
-        # Override to return a failed IPCState and signify infinite relative_error.
-        evaluation.ipc_state = lambda: IPCState(success=False, throughputs=None)
-        evaluation.joined_with_root = True
-        done = True
 
       # This process needs to continue.
 
@@ -266,7 +391,7 @@ def join_at_least_one_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation]):
       break
 
   return [
-      idx for idx, e in enumerate(ng_mp_evaluations)
+      idx for idx, e in enumerate(tasks)
       if e is not None and e.joined_with_root == True
   ]
 
@@ -275,30 +400,41 @@ def join_at_least_one_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation]):
 ### Multiprocess optimization loops.
 ################################################################################
 
-global interrupted
-
 def async_optim_loop(problem_definition: ProblemDefinition, \
                      scheduler: NGSchedulerInterface,
                      optimizer,
                      parsed_args):
   """Asynchronous NG scheduling problem with multi-process evaluation of proposals.
   """
-  mp_manager = mp.Manager()
 
-  # TODO: extract info from final recommendation instead of an auxiliary `throughputs` list
+  # TODO: extract info from final recommendation instead of an auxiliary
+  # `throughputs` list.
   search_number = 0
   throughputs = []
-  ng_mp_evaluations = [None] * parsed_args.num_compilation_processes
+  pmh = ProcessManagementHelper(parsed_args.num_cpus_per_benchmark,
+                                parsed_args.num_parallel_tasks)
 
-  interrupted = []
+  interrupted = [False]
+
+  root_pid = os.getpid()
 
   def signal_handler(sig, frame):
-    interrupted.append(True)
+    if root_pid != os.getpid():
+      return
+    interrupted[0] = True
+    print(f'Ctrl+C received from pid {os.getpid()}')
+    for idx, task in enumerate(pmh.tasks):
+      if task is not None:
+        task.process.kill()
+        pmh.tasks[idx] = None
+    print('Killed children processes')
+    finalize_parallel_search(scheduler, optimizer, throughputs, parsed_args)
+    exit(1)
 
   signal.signal(signal.SIGINT, signal_handler)
 
   best = 0
-  while len(interrupted) == 0 and search_number < parsed_args.search_budget:
+  while not interrupted[0] and search_number < parsed_args.search_budget:
     if search_number % 10 == 1:
       sys.stdout.write(f'*******\t' +
                        f'{parsed_args.search_strategy} optimization iter ' +
@@ -306,46 +442,29 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
                        f'best so far: {best} GUnits/s\r')
       sys.stdout.flush()
 
-    # Find the first empty slot in ng_mp_evaluations.
-    if not None in ng_mp_evaluations:
-      # Join at least one process if nothing is available.
-      processes_joined = join_at_least_one_process(ng_mp_evaluations)
-      assert len(processes_joined) > 0, "no processes were joined"
-      for process_idx in processes_joined:
-        throughput = tell_joined_process(ng_mp_evaluations, process_idx,
-                                         scheduler, optimizer, throughputs,
-                                         parsed_args)
-        throughput = int(throughput)
-        best = throughput if throughput > best else best
-        ng_mp_evaluations[process_idx] = None
-
-    # We are sure there is at least one empty slot.
-    compilation_number = ng_mp_evaluations.index(None)
+    # task_idx is an empty slot, subject to synchronizations.
+    task_idx, best_synced = pmh.get_first_free_slot_or_sync(
+        scheduler, optimizer, throughputs, parsed_args)
+    best = best_synced if best_synced > best else best
 
     # Fill that empty slot.
-    ask_and_fork_process(mp_manager, problem_definition, [np.float32] * 3,
-                         ng_mp_evaluations, compilation_number, scheduler,
-                         optimizer, parsed_args)
+    ask_and_fork_process(pmh, problem_definition, [np.float32] * 3, task_idx,
+                         scheduler, optimizer, parsed_args)
 
     search_number = search_number + 1
 
-  if interrupted:
-    for e in ng_mp_evaluations:
-      if e is not None:
-        e.time_left = 0
-    print('\n')
-
   # Tell tail what's what.
-  while any(e is not None for e in ng_mp_evaluations):
+  while not interrupted[0] and any(e is not None for e in pmh.tasks):
     # Join at least one process if nothing is available.
-    processes_joined = join_at_least_one_process(ng_mp_evaluations)
-    assert len(processes_joined) > 0, "no processes were joined"
-    for process_idx in processes_joined:
-      throughput = tell_joined_process(ng_mp_evaluations, process_idx,
-                                       scheduler, optimizer, throughputs,
-                                       parsed_args)
+    tasks_joined = join_at_least_one_process(pmh.tasks)
+    assert len(tasks_joined) > 0, "no processes were joined"
+    for task_idx in tasks_joined:
+      throughput = tell_joined_process(pmh.tasks, task_idx, scheduler,
+                                       optimizer, throughputs, parsed_args)
       throughput = int(throughput)
       best = throughput if throughput > best else best
-      ng_mp_evaluations[process_idx] = None
+      pmh.tasks[task_idx] = None
 
   finalize_parallel_search(scheduler, optimizer, throughputs, parsed_args)
+
+  print('Done')

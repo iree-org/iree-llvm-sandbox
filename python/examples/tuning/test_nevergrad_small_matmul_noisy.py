@@ -79,14 +79,6 @@ class NGScheduler(NGSchedulerInterface):
   def extract_tile_partial_by_one_from_proposal(self, proposal):
     return [x for x in proposal.kwargs[self.tile_partial_by_one_search_keyword]]
 
-  # Optimizer may want to override our constraints set.
-  def validate_proposal(self, proposal):
-    if not size_constraints_conjunction_satisfied(
-        self.problem_sizes,
-        self.extract_register_tile_sizes_from_proposal(proposal)):
-      return False
-    return True
-
   # TODO: Evolve to python-metaprogrammed PDLL constraints.
   def create_matchers(self, module, benefit: int = 1):
     #                  M=A.0   N=B.1   K=A.1
@@ -169,12 +161,13 @@ class NGScheduler(NGSchedulerInterface):
 
         transform.LowerToLLVMOp()
 
-def make_optimizer(scheduler: NGSchedulerInterface,
-                   search_strategy: str,
+
+def make_optimizer(scheduler: NGSchedulerInterface, search_strategy: str,
                    budget: int):
   optimizer = ng.optimizers.registry[search_strategy](
       parametrization=scheduler.instrumentation, budget=budget)
   return optimizer
+
 
 def main():
   argparser = ArgumentParser()
