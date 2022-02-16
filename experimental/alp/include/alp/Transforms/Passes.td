@@ -29,19 +29,21 @@ def ExtractKernelTailPass: Pass<"alp-extract-kernel-tail", "ModuleOp"> {
   ];
 }
 
-def ModuloSchedulingPass: FunctionPass<"alp-modulo-scheduling"> {
+def ModuloSchedulingPass: Pass<"alp-modulo-scheduling", "FuncOp"> {
   let summary = "Pass to modulo-schedule a loop.";
   let constructor = "mlir::createModuloSchedulingPass()";
   let options = [
 
     Option<"unrolling", "unrolling", /*type*/"int", /*default=*/"2",
       "Unrolling level before scheduling the loop.">,
+    Option<"distance", "distance", /*type*/"int", /*default=*/"1",
+      "Unrolling level before scheduling the loop.">,
     Option<"interleave", "interleave", /*type*/"bool", /*default=*/"false",
       "interleave the kernel computation while modulo scheduling.">,
   ];
 }
 
-def LegalizePass: FunctionPass<"alp-legalize"> {
+def LegalizePass: Pass<"alp-legalize", "FuncOp"> {
   let summary = "Pass to legalize vector operations.";
   let constructor = "mlir::createLegalizePass()";
   let options = [
@@ -51,5 +53,15 @@ def LegalizePass: FunctionPass<"alp-legalize"> {
       "Size of the vector we want to legalize on.">,
   ];
 }
+
+def ForToDoWhileLoop: Pass<"alp-for-to-dowhile", "FuncOp"> {
+  let summary = "Pass to legalize vector operations.";
+  let constructor = "mlir::createForToDoWhileLoopPass()";
+  let options = [
+    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"\"kernel\"",
+      "Which func op is the anchor to latch on.">,
+  ];
+}
+
 
 #endif // ALP_LLVM_SANDBOX_PASSES

@@ -2,6 +2,7 @@ add_mlir_library(ExperimentalAlpTransforms
   extract_kernel_pass.cpp
   modulo_scheduling_pass.cpp
   legalize_vector.cpp
+  for_to_dowhile_loop.cpp
 
   LINK_LIBS PRIVATE
   MLIRLinalg

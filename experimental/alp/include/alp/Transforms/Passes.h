@@ -24,10 +24,13 @@ std::unique_ptr<mlir::OperationPass<ModuleOp>> createExtractKernelPass();
 std::unique_ptr<mlir::OperationPass<ModuleOp>> createExtractKernelTailPass();
 
 /// Create a pass to modulo-schedule the kernel
-std::unique_ptr<mlir::FunctionPass> createModuloSchedulingPass();
+std::unique_ptr<mlir::OperationPass<FuncOp>> createModuloSchedulingPass();
 
 /// Create a pass to legalize vectors in a given function
-std::unique_ptr<mlir::FunctionPass> createLegalizePass();
+std::unique_ptr<mlir::OperationPass<FuncOp>> createLegalizePass();
+
+/// Create a pass to transform a For-Loop to a Do-While loop
+std::unique_ptr<mlir::OperationPass<FuncOp>> createForToDoWhileLoopPass();
 
 //===----------------------------------------------------------------------===//
 // Registration
