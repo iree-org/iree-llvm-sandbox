@@ -24,8 +24,8 @@ keys = ['m', 'n', 'k']
 
 def add_tile_schedule(module):
   tile_sizes = [6, 16, 1]
-  tile_1_d_x_x = True
-  tile_1_s_d_x = False
+  tile_d_x_x_by_1 = True
+  tile_s_d_x_by_0_1 = False
 
   #                  M=A.0   N=B.1   K=A.1
   dimM, dimN, dimK = [0, 0], [1, 1], [0, 1]
@@ -57,11 +57,11 @@ def add_tile_schedule(module):
       matched = transform.MatchOp(isa_linalg_matmul)
       transform.TileOp(matched, sizes=tile_sizes, peel=[0, 1, 2])
 
-      if tile_1_d_x_x:
+      if tile_d_x_x_by_1:
         matched = transform.MatchOp(isa_linalg_matmul_d_x_x)
         transform.TileOp(matched, sizes=[1])
 
-      if tile_1_s_d_x:
+      if tile_s_d_x_by_0_1:
         matched = transform.MatchOp(isa_linalg_matmul_s_d_x)
         transform.TileOp(matched, sizes=[0, 1])
 

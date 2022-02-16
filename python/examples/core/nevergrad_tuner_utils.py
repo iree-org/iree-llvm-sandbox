@@ -71,8 +71,7 @@ def size_constraints_conjunction_satisfied(
     unrolling_limit: int = 10000,
     volume_limit: int = 16,
     volume_relative_percentage_lower_bound: int = 25):
-  return constraint_all_must_divide(problem_sizes, search_sizes) \
-    and constraint_unrolling_not_too_big(problem_sizes,   \
+  return constraint_unrolling_not_too_big(problem_sizes,   \
                                          search_sizes,    \
                                          unrolling_limit) \
       and constraint_volume_not_too_small(problem_sizes, \
