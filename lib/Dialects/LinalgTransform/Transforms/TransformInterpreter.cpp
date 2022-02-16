@@ -115,6 +115,30 @@ static void removeCurrentTarget(ConfigOpTy configOp,
   operations.erase(target);
 }
 
+/// Checks that operations associated with `handle` in `operations` are not
+/// associated with any other handle. Emits errors if they are.
+// TODO: refactor this by having a proper class for TransformOpMapping instead
+// of a type alias.
+static LogicalResult checkSingleHandle(Value handle, const TransformOpMapping &operations) {
+  const SmallVector<Operation *> &currentOperationList = operations.lookup(handle);
+  llvm::SmallPtrSet<Operation *, 4> currentOperationSet(
+      currentOperationList.begin(), currentOperationList.end());
+  for (const auto &kvp : operations) {
+    if (kvp.getFirst() == handle)
+      continue;
+    for (Operation *trackedOp : kvp.getSecond()) {
+      if (currentOperationSet.contains(trackedOp)) {
+        InFlightDiagnostic diag = trackedOp->emitError()
+                                  << "operation tracked by two handles";
+        diag.attachNote(handle.getLoc()) << "handle";
+        diag.attachNote(kvp.getFirst().getLoc()) << "handle";
+        return diag;
+      }
+    }
+  }
+  return success();
+}
+
 /// Applies `transform` with options provided by `configOp` to all operations
 /// specified as targets by `configOp`.
 template <typename ConfigOpTy, typename FnTy>
@@ -158,6 +182,8 @@ static LogicalResult executeTransformOnEach(ModuleOp module,
     assert(inserted &&
            "value is already associated with another operation list");
     (void)inserted;
+    if (failed(checkSingleHandle(configOp.transformed(), operations)))
+      return failure();
   }
 
   removeCurrentTarget(configOp, operations);
@@ -197,7 +223,6 @@ executeNonReturningTransformOnEach(ModuleOp module, ConfigOpTy configOp,
   return success();
 }
 
-
 //===----------------------------------------------------------------------===//
 // Functional Rewrite Helpers
 //===----------------------------------------------------------------------===//
@@ -224,7 +249,7 @@ static LogicalResult executeMatchOp(transform::MatchOp op, ModuleOp module,
     return failure();
   LLVM_DEBUG(DBGS() << "matched " << ops->size() << " ops\n");
   operations.try_emplace(op.target(), std::move(*ops));
-  return success();
+  return checkSingleHandle(op.target(), operations);
 }
 
 /// Applies the pad pattern to the given target operation as indicated by the

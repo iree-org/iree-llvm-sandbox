@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt -linalg-interp-transforms -split-input-file -verify-diagnostics -allow-unregistered-dialect
+// RUN: mlir-proto-opt -linalg-interp-transforms -split-input-file -verify-diagnostics -allow-unregistered-dialect %s
 
 // This cannot be vectorized because of dynamic tensor shapes. We expect the
 // pass fail and report an error at the vectorization operation below.
@@ -128,4 +128,45 @@ linalg_transform.sequence {
   // expected-error @below {{failed to apply}}
   vectorize
   tile %0
+}
+
+// -----
+
+func @repeated_match(
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>,
+  %arg2: tensor<128x128xf32> {linalg.inplaceable = true})
+    -> tensor<128x128xf32> {
+  // expected-error @below {{operation tracked by two handles}}
+  %0 = linalg.matmul {test.attrA}
+                     ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
+                     outs(%arg2: tensor<128x128xf32>)
+    -> tensor<128x128xf32>
+  return %0 : tensor<128x128xf32>
+}
+
+pdl.pattern @pdl_target1 : benefit(1) {
+  %args = operands
+  %results = types
+  %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
+  apply_native_constraint "nestedInFunc"[@repeated_match](%0 : !pdl.operation)
+  // TODO: we don't want this, but it is the required terminator for pdl.pattern
+  rewrite %0 with "linalg_transform.apply"
+}
+
+// An exact copy of the above, but with a different name.
+pdl.pattern @pdl_target2 : benefit(1) {
+  %args = operands
+  %results = types
+  %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
+  apply_native_constraint "nestedInFunc"[@repeated_match](%0 : !pdl.operation)
+  // TODO: we don't want this, but it is the required terminator for pdl.pattern
+  rewrite %0 with "linalg_transform.apply"
+}
+
+linalg_transform.sequence {
+  // expected-note @below {{handle}}
+  %0 = match @pdl_target1
+  // expected-error @below {{failed to apply}}
+  // expected-note @below {{handle}}
+  %1 = match @pdl_target2
 }
