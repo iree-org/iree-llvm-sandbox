@@ -134,6 +134,35 @@ class PrintIR(Transform):
     return module
 
 
+class SaveIR(Transform):
+  """Save intermediate IR.
+
+    Save the module and do not change it. The transform can be configured as
+    follows:
+    * `file_name`: Base path to use to save the intermediate IRs.
+    * `id`: Suffix identifier to differentiate intermediate transforms
+    """
+
+  def __init__(self, file_name, t, id=0, **kwargs):
+    assert hasattr(t, "pipeline") or hasattr(t, "pipelines"), "missing attr"
+    self.pipelines = [t.pipeline] if hasattr(t, "pipeline") else t.pipelines
+    self.file_name = file_name
+    self.transform = t
+    self.id = id
+
+  def __call__(self, module: Module, fun_name: str):
+    base = os.path.splitext(self.file_name)[0]
+    transform_name = type(self.transform).__name__
+    base_transform = f"{base}.{self.id}" if self.id else f"{base}"
+    final_path = f"{base_transform}.{transform_name}.mlir"
+    f = open(final_path, "w")
+    for pipeline in self.pipelines:
+      f.write(f"// mlir-proto-opt -pass-pipeline={pipeline}\n")
+    f.write(str(module))
+    f.close()
+    return module
+
+
 class PrintPipeline(Transform):
   """Print the pipeline of the transform.
 
@@ -207,6 +236,19 @@ class TransformationList:
       if (after_all and 'LowerToLLVM' not in str(t)) or \
          (llvm and 'LowerToLLVM' in str(t)):
         transforms.append(PrintIR(name=str(t)))
+    return TransformationList(transforms=transforms)
+
+  def save_ir(self,
+              file_name,
+              after_all: bool = False,
+              llvm: bool = False) -> TransformationList:
+    """Return a new transformation list that save the IR at the given points."""
+    transforms = []
+    for id, t in enumerate(self.transforms):
+      transforms.append(t)
+      if (after_all and
+          "LowerToLLVM" not in str(t)) or (llvm and "LowerToLLVM" in str(t)):
+        transforms.append(SaveIR(file_name, t, id))
     return TransformationList(transforms=transforms)
 
   def print_pipeline(
