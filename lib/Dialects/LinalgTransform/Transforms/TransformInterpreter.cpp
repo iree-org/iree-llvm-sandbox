@@ -692,7 +692,7 @@ executePipelineLoopOp(scf::ForOp loop,
   return scf::ForOp();
 }
 
-scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
+static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
   op->dump();
   if (op->getNumRegions() != 1)
     return nullptr;
