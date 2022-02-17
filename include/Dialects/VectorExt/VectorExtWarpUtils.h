@@ -10,6 +10,7 @@
 #define DIALECT_VECTOREXT_VECTORWARPUTILS_H_
 
 #include "llvm/ADT/STLExtras.h"
+#include "Dialects/VectorExt/VectorExtOps.h"
 
 namespace mlir {
 class RewritePatternSet;

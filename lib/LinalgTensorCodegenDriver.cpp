@@ -490,7 +490,7 @@ void UnrollOneParentLoopPass::runOnOperation() {
   });
 }
 
-scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
+static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
   if (op->getNumRegions() != 1)
     return nullptr;
   OpBuilder::InsertionGuard g(b);
