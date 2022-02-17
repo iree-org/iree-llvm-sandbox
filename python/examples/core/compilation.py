@@ -137,8 +137,9 @@ def emit_benchmarking_function(name: str,
     loop = scf.ForOp(zero, n_iterations, one, iter_args)
     with InsertionPoint(loop.body):
       start = std.CallOp(nano_time, [])
-      call = std.CallOp(
-          func, wrapper.arguments[:-num_results - 1] + loop.inner_iter_args)
+      args = list(wrapper.arguments[:-num_results - 1])
+      args.extend(loop.inner_iter_args)
+      call = std.CallOp(func, args)
       end = std.CallOp(nano_time, [])
       time = arith.SubIOp(end, start)
       memref.StoreOp(time, timer_buffer, [loop.induction_variable])
