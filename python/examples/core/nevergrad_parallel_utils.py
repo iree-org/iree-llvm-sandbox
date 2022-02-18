@@ -70,6 +70,7 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       scheduler.schedule(module, proposal)
       # TODO: save and report on error.
 
+    start = time.time()
     f = io.StringIO()
     with redirect_stdout(f):
       problem.compile_with_schedule_builder(
@@ -86,6 +87,18 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
 
     # TODO: redirect to a file if we want this information.
     f.flush()
+
+    register_tile_sizes = scheduler.extract_register_tile_sizes_from_proposal(
+        proposal)
+    register_interchange = scheduler.extract_register_interchange_from_proposal(
+        proposal)
+    tile_partial_by_one = scheduler.extract_tile_partial_by_one_from_proposal(
+        proposal)
+    xxx = compute_quantiles(throughputs['gflop_per_s_per_iter'])[6]
+    print(f'Time: {time.time() - start} ' + \
+          f'Register tile sizes: {register_tile_sizes} ' +
+          f'Register interchange: {register_interchange} ' +
+          f'Tile partial by one: {tile_partial_by_one} ' + f'{xxx} GUnits/s')
 
     ipc_dict['result'] = IPCState(success=True, throughputs=throughputs)
   except Exception as e:
@@ -306,6 +319,7 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
 
   best = 0
   while len(interrupted) == 0 and search_number < parsed_args.search_budget:
+    start_iter = time.time()
     if search_number % 10 == 1:
       sys.stdout.write(f'*******\t' +
                        f'{parsed_args.search_strategy} optimization iter ' +
@@ -316,24 +330,33 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
     # Find the first empty slot in ng_mp_evaluations.
     if not None in ng_mp_evaluations:
       # Join at least one process if nothing is available.
+      start = time.time()
       processes_joined = join_at_least_one_process(ng_mp_evaluations)
       assert len(processes_joined) > 0, "no processes were joined"
+      print(
+          f'Joined {len(processes_joined)} processes in {time.time() - start}')
+
+      start = time.time()
       for process_idx in processes_joined:
         throughput = tell_joined_process(ng_mp_evaluations, process_idx,
                                          scheduler, throughputs, parsed_args)
         throughput = int(throughput)
         best = throughput if throughput > best else best
         ng_mp_evaluations[process_idx] = None
+      print(f'Told {len(processes_joined)} processes in {time.time() - start}')
 
     # We are sure there is at least one empty slot.
     compilation_number = ng_mp_evaluations.index(None)
 
     # Fill that empty slot.
+    start = time.time()
     ask_and_fork_process(mp_manager, problem_definition, [np.float32] * 3,
                          ng_mp_evaluations, compilation_number, scheduler,
                          parsed_args)
+    print(f'Forked process @{compilation_number} in {time.time() - start}')
 
     search_number = search_number + 1
+    print(f'Dispatch iteration took {time.time() - start_iter}')
 
   if interrupted:
     for e in ng_mp_evaluations:
