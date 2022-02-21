@@ -59,24 +59,12 @@ class NGScheduler(NGSchedulerInterface):
         register_tile_sizes=self.register_tile_sizes,
         register_interchange=self.register_interchange,
         tile_partial_by_one=self.tile_partial_by_one)
-    self.optimizer = None
 
   def build_compile_time_problem_sizes(self):
     return {k: v for k, v in zip(keys, self.problem_sizes)}
 
   def build_compile_time_elemental_problem_types(self):
     return {k: v for k, v in zip(keys, self.problem_sizes)}
-
-  def set_optimizer(self, search_strategy: str, budget: int):
-
-    def constraints_fun(proposal):
-      return dispatch_size_constraints_conjunction_satisfied( \
-        self.problem_sizes, proposal, self.register_tile_sizes_search_keyword)
-
-    self.search_strategy = search_strategy
-    self.optimizer = ng.optimizers.registry[self.search_strategy](
-        parametrization=self.instrumentation, budget=budget)
-    self.optimizer.parametrization.register_cheap_constraint(constraints_fun)
 
   # Unwrap the np.array from NG's ask() kwargs.
   def extract_register_tile_sizes_from_proposal(self, proposal):
@@ -181,6 +169,12 @@ class NGScheduler(NGSchedulerInterface):
 
         transform.LowerToLLVMOp()
 
+def make_optimizer(scheduler: NGSchedulerInterface,
+                   search_strategy: str,
+                   budget: int):
+  optimizer = ng.optimizers.registry[search_strategy](
+      parametrization=scheduler.instrumentation, budget=budget)
+  return optimizer
 
 def main():
   argparser = ArgumentParser()
@@ -201,10 +195,10 @@ def main():
     problem_definition = problem_definition,
     problem_sizes = parsed_args.problem_sizes_list[0])
 
-  scheduler.set_optimizer(parsed_args.search_strategy,
-                          parsed_args.search_budget)
+  optimizer = make_optimizer(scheduler, parsed_args.search_strategy,
+                             parsed_args.search_budget)
 
-  async_optim_loop(problem_definition, scheduler, parsed_args)
+  async_optim_loop(problem_definition, scheduler, optimizer, parsed_args)
 
 
 if __name__ == '__main__':

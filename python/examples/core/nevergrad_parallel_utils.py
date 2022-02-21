@@ -105,25 +105,15 @@ def ask_and_fork_process(mp_manager: mp.Manager, \
                          ng_mp_evaluations: tp.Sequence[NGMPEvaluation],
                          evaluation_slot_idx: int,
                          scheduler: NGSchedulerInterface,
+                         optimizer,
                          parsed_args):
   """Ask for the next proposal and fork its evaluation in a new process"""
 
-  proposal = scheduler.optimizer.ask()
+  proposal = optimizer.ask()
 
   # Create problem instance, which holds the compiled module and the
   # ExecutionEngine.
   problem_instance = ProblemInstance(problem_definition, problem_types)
-
-  # The optimizer may chose to ignore our constraints.
-  # Override this, do not evaluate and just give it max cost.
-  if not scheduler.validate_proposal(proposal):
-    ng_mp_evaluations[evaluation_slot_idx] = NGMPEvaluation(
-        proposal=proposal,
-        problem_instances=None,
-        process=None,
-        ipc_state=None,
-        time_left=parsed_args.timeout_per_compilation)
-    return
 
   # Start process that compiles and runs.
   ipc_dict = mp_manager.dict()
@@ -153,6 +143,7 @@ def ask_and_fork_process(mp_manager: mp.Manager, \
 def tell_joined_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation], \
                         evaluation_slot_idx: int,
                         scheduler: NGSchedulerInterface,
+                        optimizer,
                         # TODO: extract info from final recommendation instead
                         # of an auxiliary `throughputs` list.
                         throughputs: tp.Sequence[float],
@@ -163,7 +154,7 @@ def tell_joined_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation], \
   ipc_state = ng_mp_evaluation.ipc_state()
 
   if not ipc_state.success:
-    scheduler.optimizer.tell(ng_mp_evaluation.proposal, 1)
+    optimizer.tell(ng_mp_evaluation.proposal, 1)
     return 0
 
   process_throughputs = ipc_state.throughputs[parsed_args.metric_to_measure]
@@ -174,12 +165,13 @@ def tell_joined_process(ng_mp_evaluations: tp.Sequence[NGMPEvaluation], \
   throughput = compute_quantiles(process_throughputs)[6]
   relative_error = \
     (parsed_args.machine_peak - throughput) / parsed_args.machine_peak
-  scheduler.optimizer.tell(ng_mp_evaluation.proposal, relative_error)
+  optimizer.tell(ng_mp_evaluation.proposal, relative_error)
   throughputs.append(throughput)
   return throughput
 
 
 def finalize_parallel_search(scheduler: NGSchedulerInterface, \
+                             optimizer,
                              throughputs: tp.Sequence[float],
                              parsed_args):
   """Report and save the best proposal after search finished."""
@@ -191,7 +183,7 @@ def finalize_parallel_search(scheduler: NGSchedulerInterface, \
   else:
     final_module_filename = '/tmp/module.mlir'
 
-  recommendation = scheduler.optimizer.recommend()
+  recommendation = optimizer.recommend()
   # TODO: extract information from saved and draw some graphs
   # TODO: extract info from final recommendation instead of an auxiliary `throughputs` list
   throughputs.sort()
@@ -287,6 +279,7 @@ global interrupted
 
 def async_optim_loop(problem_definition: ProblemDefinition, \
                      scheduler: NGSchedulerInterface,
+                     optimizer,
                      parsed_args):
   """Asynchronous NG scheduling problem with multi-process evaluation of proposals.
   """
@@ -320,7 +313,8 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
       assert len(processes_joined) > 0, "no processes were joined"
       for process_idx in processes_joined:
         throughput = tell_joined_process(ng_mp_evaluations, process_idx,
-                                         scheduler, throughputs, parsed_args)
+                                         scheduler, optimizer, throughputs,
+                                         parsed_args)
         throughput = int(throughput)
         best = throughput if throughput > best else best
         ng_mp_evaluations[process_idx] = None
@@ -331,7 +325,7 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
     # Fill that empty slot.
     ask_and_fork_process(mp_manager, problem_definition, [np.float32] * 3,
                          ng_mp_evaluations, compilation_number, scheduler,
-                         parsed_args)
+                         optimizer, parsed_args)
 
     search_number = search_number + 1
 
@@ -348,9 +342,10 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
     assert len(processes_joined) > 0, "no processes were joined"
     for process_idx in processes_joined:
       throughput = tell_joined_process(ng_mp_evaluations, process_idx,
-                                       scheduler, throughputs, parsed_args)
+                                       scheduler, optimizer, throughputs,
+                                       parsed_args)
       throughput = int(throughput)
       best = throughput if throughput > best else best
       ng_mp_evaluations[process_idx] = None
 
-  finalize_parallel_search(scheduler, throughputs, parsed_args)
+  finalize_parallel_search(scheduler, optimizer, throughputs, parsed_args)
