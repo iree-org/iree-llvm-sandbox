@@ -177,10 +177,6 @@ def add_argparser_tuning_arguments(parser: ArgumentParser):
                       type=int,
                       nargs='?',
                       default=1)
-  parser.add_argument('--num-concurrent-evaluations',
-                      type=int,
-                      nargs='?',
-                      default=1)
   parser.add_argument('--random-seed', type=int, nargs='?', default=42)
   parser.add_argument('--search-budget', type=int, nargs='?', default=100)
   parser.add_argument(

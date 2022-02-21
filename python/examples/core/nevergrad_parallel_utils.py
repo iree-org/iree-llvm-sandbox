@@ -3,7 +3,6 @@ import io
 import numpy as np
 import multiprocessing as mp
 import os
-from prwlock import RWLock
 import signal
 import sys
 import typing as tp
@@ -52,9 +51,6 @@ class NGMPEvaluation(NGEvaluation):
 
 
 def compile_and_run_checked_mp(problem: ProblemInstance, \
-                               lock: RWLock,
-                               cpu_min: int,
-                               cpu_max: int,
                                scheduler: NGSchedulerInterface,
                                proposal,
                                n_iters: int,
@@ -69,12 +65,6 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
   """
   try:
 
-    def signal_handler(sig, frame):
-      while lock.nlocks > 0:
-        lock.release()
-
-    signal.signal(signal.SIGTERM, signal_handler)
-
     # Construct the schedule and save the module in case we need to replay later.
     def schedule_and_save(module):
       scheduler.schedule(module, proposal)
@@ -82,26 +72,17 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
 
     f = io.StringIO()
     with redirect_stdout(f):
-      lock.acquire_read()
       problem.compile_with_schedule_builder(
           entry_point_name=scheduler.entry_point_name,
           fun_to_benchmark_name=scheduler.fun_to_benchmark_name,
           compile_time_problem_sizes_dict= \
             scheduler.build_compile_time_problem_sizes(),
           schedule_builder=schedule_and_save)
-      lock.release()
-
-      lock.acquire_write()
-      # Pin process to the cpu_min-cpu_max range to allow parallel evaluations
-      # without prohibitive interferences.
-      os.system(
-          f'taskset -p -c {cpu_min}-{cpu_max} {os.getpid()} > /dev/null 2>&1')
 
       throughputs = problem.run(
           n_iters=n_iters,
           entry_point_name=scheduler.entry_point_name,
           runtime_problem_sizes_dict=problem.compile_time_problem_sizes_dict)
-      lock.release()
 
     # TODO: redirect to a file if we want this information.
     f.flush()
@@ -110,9 +91,6 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
   except Exception as e:
     import traceback
     traceback.print_exc()
-    while lock.nlocks > 0:
-      lock.release()
-
     # TODO: save to replay errors.
     print(e)
     ipc_dict['result'] = IPCState(success=False, throughputs=None)
@@ -121,17 +99,7 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
 def cpu_count():
   return len(os.sched_getaffinity(0))
 
-
-def get_cpu_range_for_evaluation(parsed_args, evaluation_slot_idx):
-  num_cpus = cpu_count()
-  num_runs = parsed_args.num_concurrent_evaluations
-  max_cpus_per_concurrent_run = num_cpus / num_runs
-  return evaluation_slot_idx * max_cpus_per_concurrent_run, \
-         min((evaluation_slot_idx + 1) * max_cpus_per_concurrent_run,
-              num_cpus - 1)
-
 def ask_and_fork_process(mp_manager: mp.Manager, \
-                         lock: RWLock,
                          problem_definition: ProblemDefinition,
                          problem_types: tp.Sequence[np.dtype],
                          ng_mp_evaluations: tp.Sequence[NGMPEvaluation],
@@ -157,17 +125,16 @@ def ask_and_fork_process(mp_manager: mp.Manager, \
         time_left=parsed_args.timeout_per_compilation)
     return
 
-  cpu_min, cpu_max = get_cpu_range_for_evaluation(parsed_args,
-                                                  evaluation_slot_idx)
   # Start process that compiles and runs.
   ipc_dict = mp_manager.dict()
   p = mp.Process(target=compile_and_run_checked_mp,
                  args=[
-                     problem_instance, lock, cpu_min, cpu_max, scheduler,
-                     proposal, parsed_args.n_iters, ipc_dict
+                     problem_instance, scheduler, proposal, parsed_args.n_iters,
+                     ipc_dict
                  ])
   p.start()
-  # Pin process in a round-robin fashion. This is noisy so suppress its io.
+  # Best effort pin process in a round-robin fashion.
+  # This is noisy so suppress its name.
   f = io.StringIO()
   with redirect_stdout(f):
     os.system(
@@ -329,9 +296,6 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
   search_number = 0
   throughputs = []
   ng_mp_evaluations = [None] * parsed_args.num_compilation_processes
-  evaluation_locks = [
-      RWLock() for idx in range(parsed_args.num_concurrent_evaluations)
-  ]
 
   interrupted = []
 
@@ -363,11 +327,9 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
 
     # We are sure there is at least one empty slot.
     compilation_number = ng_mp_evaluations.index(None)
-    lock_idx = compilation_number % len(evaluation_locks)
 
     # Fill that empty slot.
-    ask_and_fork_process(mp_manager, evaluation_locks[lock_idx],
-                         problem_definition, [np.float32] * 3,
+    ask_and_fork_process(mp_manager, problem_definition, [np.float32] * 3,
                          ng_mp_evaluations, compilation_number, scheduler,
                          parsed_args)
 
