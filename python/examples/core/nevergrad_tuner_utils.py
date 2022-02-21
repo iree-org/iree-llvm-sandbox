@@ -24,18 +24,6 @@ class NGSchedulerInterface:
     """Build the dictionary of (dimension_name, size) giving the sizes to compile"""
     pass
 
-  def set_optimizer(self, search_strategy: str, budget: int):
-    """Set up the nevergrad optimizer, with its instrumentation and constraints"""
-    pass
-
-  def validate_proposal(self, proposal) -> bool:
-    """Validate a proposal made by the optimizer.
-    
-    This handles the case where our search space is too sparse and the optimizer
-    may want to override our constraints set.
-    """
-    pass
-
   def create_matchers(self, module, benefit: int = 1):
     """Create the PDL matchers 
     
