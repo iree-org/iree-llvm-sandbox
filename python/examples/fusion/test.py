@@ -73,7 +73,7 @@ def fill_matmul_bias_add_fusion():
   keys = ['M', 'N', 'K']
   n_iters = 1
   problem_size_list = [[24, 32, 48], [27, 37, 43]]
-  test_harness(lambda s, t: MatmulBiasAddProblem(), [[np.float32] * 5],
+  test_harness(lambda s, t: MatmulBiasAddProblem(), [[np.float32] * 4],
                test_sizes(keys, problem_size_list),
                [expert.print_ir(after_all=False, at_begin=False, llvm=False)],
                n_iters=n_iters,

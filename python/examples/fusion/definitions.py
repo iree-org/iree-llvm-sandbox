@@ -162,7 +162,6 @@ class MatmulBiasAddProblem(ProblemDefinition):
         [K, N],
         [N],
         [M, N],
-        [M, N],
     ]
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
@@ -183,10 +182,9 @@ class MatmulBiasAddProblem(ProblemDefinition):
     written.
     """
     M, N, K = sizes["M"], sizes["N"], sizes["K"]
-    lhs_np_type, rhs_np_type, acc_np_type, _, res_np_type = types
+    lhs_np_type, rhs_np_type, acc_np_type, res_np_type = types
     return float(M * K * np.dtype(lhs_np_type).itemsize +
                  K * N * np.dtype(rhs_np_type).itemsize +
-                 M * N * np.dtype(res_np_type).itemsize +
                  N * np.dtype(acc_np_type).itemsize +
                  M * N * np.dtype(res_np_type).itemsize) / float(1e9)
 
@@ -204,19 +202,18 @@ class MatmulBiasAddProblem(ProblemDefinition):
         for s, t in zip(shapes, types)
     ]
     tensors[len(tensors) - 1].fill(0.)
-    tensors[len(tensors) - 2].fill(0.)
     return tensors
 
-  def check_np(self, A: np.dtype, B: np.dtype, C: np.dtype, D: np.dtype,
-               E: np.dtype) -> None:
+  def check_np(self, A: np.dtype, B: np.dtype, C: np.dtype,
+               D: np.dtype) -> None:
     """NumPy checking function.
 
     Given a list of NumPy values, check the precomputed results matches those of
     the expected reference implementation.
     """
     res = np.dot(A, B) + C
-    if not np.allclose(E, res):
-      delta = E - res
+    if not np.allclose(D, res):
+      delta = D - res
       max_abs_delta = max(delta.max(), delta.min(), key=abs)
       raise Exception(f"max_abs_delta: {max_abs_delta} -> FAILURE ")
 
@@ -243,10 +240,9 @@ class MatmulBiasAddProblem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [types[-2]]))
+    func = builtin.FuncOp(name, (types, [types[-1]]))
     # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func,
-                                  inplaceable=[False, False, False, True, True])
+    attach_inplaceable_attributes(func, inplaceable=[False, False, False, True])
     attach_passthrough(
         func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
@@ -262,7 +258,7 @@ class MatmulBiasAddProblem(ProblemDefinition):
                              outs=[tensor_zero])
       bias_add = add_bias_to_2d(matmul,
                                 func.arguments[2],
-                                outs=[func.arguments[4]])
+                                outs=[func.arguments[3]])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       std.ReturnOp([bias_add])
