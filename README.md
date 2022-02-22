@@ -142,7 +142,7 @@ Run the following as root.
 numactl --hardware
 
 ################################################################
-# Prepare to run on CPU 4 only
+# Prepare to run on a subset of CPUs only
 ################################################################
 # Disable address space randomization.
 echo 0 > /proc/sys/kernel/randomize_va_space
@@ -153,8 +153,8 @@ cat /sys/devices/system/cpu/cpu4/topology/thread_siblings_list
 # E.g. on a 36 core system, this should return 4,40, use a shift of 36 for rest.
 echo 0 > /sys/devices/system/cpu/cpu$((4 + 36))/online
 
-# Disable the siblings of CPU 8-15, we'll use those for parallel runs.
-for i in $(seq 0 16); do \
+# Disable the siblings of CPU 0-31, we'll use those for parallel runs.
+for i in $(seq 0 31); do \
   echo 0 /sys/devices/system/cpu/cpu$(( ${i} + 36))/online; \
 done
 
@@ -166,13 +166,13 @@ done
 # Instead, reproduce the following finer-grained instructions:
 #   https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 
-cset set -s system -c 16-35 -m 1
+cset set -s system -c 32-35 -m 1
 
-#for i in $(seq 0 15); do \
+#for i in $(seq 0 32); do \
 #  cset set -s sandbox_${i} -c ${i} -m 0 --cpu_exclusive
 #done
 
-cset set -s sandbox_parallel -c 0-15 -m 0 --cpu_exclusive
+cset set -s sandbox_parallel -c 0-31 -m 0 --cpu_exclusive
 
 cset proc -m -f root -t system
 
@@ -182,7 +182,7 @@ cset proc -m -f root -t system
 
 echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
 echo performance > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
-for i in $(seq 0 16); do \
+for i in $(seq 0 31); do \
   echo performance > /sys/devices/system/cpu/cpu$(( ${i} ))/cpufreq/scaling_governor;\
 done
 

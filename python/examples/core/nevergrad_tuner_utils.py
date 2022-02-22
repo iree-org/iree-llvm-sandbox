@@ -161,7 +161,8 @@ def add_argparser_tuning_arguments(parser: ArgumentParser):
       type=str,
       nargs='?',
   )
-  parser.add_argument('--num-compilation-processes',
+  parser.add_argument('--num-parallel-tasks', type=int, nargs='?', default=1)
+  parser.add_argument('--num-cpus-per-benchmark',
                       type=int,
                       nargs='?',
                       default=1)
@@ -174,11 +175,11 @@ def add_argparser_tuning_arguments(parser: ArgumentParser):
       default='RandomSearch',
   )
   parser.add_argument('--timeout-per-compilation',
-                      type=int,
+                      type=float,
                       nargs='?',
                       default=5)
   # Until ExecutionEngine pickles, we are both compiling and evaluating.
-  parser.add_argument('--timeout-per-evaluation',
-                      type=int,
+  parser.add_argument('--timeout-per-benchmark',
+                      type=float,
                       nargs='?',
-                      default=5)
+                      default=1)
