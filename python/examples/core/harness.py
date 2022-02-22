@@ -510,10 +510,14 @@ def test_argparser(benchmark_name: str, \
   default_spec_list: Default specification list.
   """
   parser = argparse.ArgumentParser(description=benchmark_name)
-  add_argparser_arguments(parser, benchmark_name, default_n_iters,
-                          default_problem_sizes_list, default_expert_list,
-                          default_dynamic_at_compile_time_list,
-                          default_spec_list)
+  add_argparser_arguments(
+      parser=parser,
+      benchmark_name=benchmark_name,
+      default_n_iters=default_n_iters,
+      default_problem_sizes_list=default_problem_sizes_list,
+      default_expert_list=default_expert_list,
+      default_dynamic_at_compile_time_list=default_dynamic_at_compile_time_list,
+      default_spec_list=default_spec_list)
   return parser.parse_args(sys.argv[1:])
 
 
