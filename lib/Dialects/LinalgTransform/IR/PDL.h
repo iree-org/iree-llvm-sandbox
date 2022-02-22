@@ -10,11 +10,11 @@
 #define IREE_LLVM_SANDBOX_DIALECTS_LINALGTRANSFORM_TRANSFORMS_PDL_H
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
-#include "llvm/ADT/SmallVector.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/LLVM.h"
+#include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 namespace linalg {
@@ -28,7 +28,7 @@ findMatchingOps(transform::MatchOp op, ModuleOp module) {
   return findMatchingOps(op, op.targetMatcher(), module);
 }
 
-}  // namespace linalg
-}  // namespace mlir
+} // namespace linalg
+} // namespace mlir
 
-#endif  // IREE_LLVM_SANDBOX_DIALECTS_LINALGTRANSFORM_TRANSFORMS_PDL_H
+#endif // IREE_LLVM_SANDBOX_DIALECTS_LINALGTRANSFORM_TRANSFORMS_PDL_H

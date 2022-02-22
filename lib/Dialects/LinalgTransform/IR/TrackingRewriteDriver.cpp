@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
-#include "TrackingListener.h"
+#include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Transforms/ListenerGreedyPatternRewriteDriver.h"
 
 using namespace mlir;

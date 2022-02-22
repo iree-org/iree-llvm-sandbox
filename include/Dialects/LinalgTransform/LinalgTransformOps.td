@@ -14,11 +14,11 @@
 #ifndef LINALG_TRANSFORM_OPS
 #define LINALG_TRANSFORM_OPS
 
+include "Dialects/LinalgTransform/TransformOpInterface.td"
 include "mlir/IR/OpBase.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/Dialect/PDL/IR/PDLTypes.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
-include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def Linalg_Transform_Dialect : Dialect {
   let name = "linalg_transform";
@@ -37,6 +37,10 @@ class Linalg_Transform_Operation<string name, list<Trait> props = []>
     : Op<Linalg_Transform_Dialect, name, props> {
   let cppNamespace = "::mlir::linalg::transform";
 }
+
+class Transform_Op<string name, list<Trait> props = []>
+    : Linalg_Transform_Operation<name, !listconcat(props, [
+      DeclareOpInterfaceMethods<TransformOpInterface, ["apply"]>])>;
 
 //===----------------------------------------------------------------------===//
 
@@ -90,7 +94,7 @@ def SequenceOp : Linalg_Transform_Operation<"sequence",
 
 //===----------------------------------------------------------------------===//
 
-def MatchOp : Linalg_Transform_Operation<"match"> {
+def MatchOp : Transform_Op<"match"> {
   let description = [{ Find and return an op that matches the specific PDL
   pattern. When executed inside a sequence, it returns all matching ops. }];
 
@@ -102,7 +106,8 @@ def MatchOp : Linalg_Transform_Operation<"match"> {
 
 //===----------------------------------------------------------------------===//
 
-def TileOp : Linalg_Transform_Operation<"tile"> {
+def TileOp : Linalg_Transform_Operation<"tile",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
   let description = [{Indicates that ops of a specific kind in the given
   function should be tiled with the options provided as attributes.}];
 
@@ -124,20 +129,25 @@ def TileOp : Linalg_Transform_Operation<"tile"> {
 
   let assemblyFormat = "$target attr-dict";
   let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::linalg::LinalgOp> applyToOne(
+        ::mlir::linalg::LinalgOp target);
+  }];
 }
 
-def BufferizeOp : Linalg_Transform_Operation<"bufferize"> {
+def BufferizeOp : Transform_Op<"bufferize"> {
   let description = [{Indicates that the entire module should be bufferized.}];
   let assemblyFormat = "attr-dict";
 }
 
-def DecomposeOp : Linalg_Transform_Operation<"decompose"> {
+def DecomposeOp : Transform_Op<"decompose"> {
   let description = [{Indicates that ops in the entire module should be
   decomposed into lower-level components.}];
   let assemblyFormat = "attr-dict";
 }
 
-def VectorizeOp : Linalg_Transform_Operation<"vectorize"> {
+def VectorizeOp : Transform_Op<"vectorize"> {
   let description = [{Indiactes that vectorization should be performed. If a
   target handle is provided, only vectorizes the operations pointed to by the
   handle. Otherwise vectorizes the entire module. Vectorization options are
@@ -151,7 +161,7 @@ def VectorizeOp : Linalg_Transform_Operation<"vectorize"> {
   let hasCustomAssemblyFormat = 1;
 }
 
-def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {
+def LowerVectorsOp : Transform_Op<"lower_vectors"> {
   let description = [{Indicates that the vector operations in the entire
   module should be lowered to simpler primitives (multiple stages of lowering
   be executed at once).}];
@@ -169,7 +179,7 @@ def LowerVectorsOp : Linalg_Transform_Operation<"lower_vectors"> {
   let assemblyFormat = "attr-dict";
 }
 
-def LowerToLLVMOp : Linalg_Transform_Operation<"lower_to_llvm"> {
+def LowerToLLVMOp : Transform_Op<"lower_to_llvm"> {
   let description = [{Indicates that the entire module should be converted
   to the LLVM dialect. This is expected to be the last transformation in
   a sequence.}];
@@ -177,7 +187,8 @@ def LowerToLLVMOp : Linalg_Transform_Operation<"lower_to_llvm"> {
   let assemblyFormat = "attr-dict";
 }
 
-def GetParentLoopOp : Linalg_Transform_Operation<"get_parent_loop"> {
+def GetParentLoopOp : Linalg_Transform_Operation<"get_parent_loop", [
+    TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
   let description = [{Obtains a handle to a parent loop of the given
   operation.}];
 
@@ -187,32 +198,51 @@ def GetParentLoopOp : Linalg_Transform_Operation<"get_parent_loop"> {
   let results = (outs PDL_Operation:$transformed);
 
   let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::scf::ForOp> applyToOne(Operation *source);
+  }];
 }
 
-def UnrollLoopOp : Linalg_Transform_Operation<"unroll_loop"> {
+def UnrollLoopOp : Linalg_Transform_Operation<"unroll_loop", [
+    TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
   let description = [{Unrolls the given loop with the given unroll factor.}];
 
   let arguments = (ins PDL_Operation:$target,
                    Confined<I64Attr, [IntPositive]>:$factor);
   
   let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    LogicalResult applyToOne(::mlir::scf::ForOp loop);
+  }];
 }
 
-def PipelineLoopOp : Linalg_Transform_Operation<"pipeline_loop"> {
+def PipelineLoopOp : Linalg_Transform_Operation<"pipeline_loop", [
+    TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<I64Attr, "1">:$iteration_interval,
                    DefaultValuedAttr<I64Attr, "10">:$read_latency);
   let results = (outs PDL_Operation:$transformed);
 
   let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::scf::ForOp> applyToOne(::mlir::scf::ForOp loop);
+  }];
 }
 
-def OutlineLoopOp : Linalg_Transform_Operation<"outline_loop"> {
+def OutlineLoopOp : Linalg_Transform_Operation<"outline_loop", [
+    DeclareOpInterfaceMethods<TransformOpInterface, ["apply"]>]> {
   let arguments = (ins PDL_Operation:$target,
                    StrAttr:$func_name);
   let results = (outs PDL_Operation:$transformed);
 
   let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::FuncOp> applyToOne(::mlir::scf::ForOp loop);
+  }];
 }
 
 //===----------------------------------------------------------------------===//
