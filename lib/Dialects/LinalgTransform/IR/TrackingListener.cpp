@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TrackingListener.h"
+#include "Dialects/LinalgTransform/TrackingListener.h"
 #include "mlir/Dialect/Linalg/IR/LinalgInterfaces.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -87,8 +87,7 @@ static Operation *findSingleDefiningOp(Operation *replacedOp,
       .Default([](Operation *) -> Operation * { return nullptr; });
 }
 
-TrackingListener::TrackingListener(
-    TransformOpMapping &trackedOperations)
+TrackingListener::TrackingListener(TransformOpMapping &trackedOperations)
     : trackedOperations(trackedOperations) {
   for (auto &pair : trackedOperations)
     for (Operation *op : pair.second)

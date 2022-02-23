@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/TrackingCSE.h"
-#include "TrackingListener.h"
+#include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Transforms/Listener.h"
 #include "Transforms/ListenerCSE.h"
 

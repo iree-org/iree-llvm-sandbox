@@ -9,12 +9,19 @@
 #ifndef MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 #define MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 
+#include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/OpDefinition.h"
 
+namespace mlir {
+namespace scf {
+class ForOp;
+}
+} // namespace mlir
+
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.h.inc"
-#include "mlir/IR/BuiltinAttributes.h"
 
 #define GET_OP_CLASSES
 #include "Dialects/LinalgTransform/LinalgTransformOps.h.inc"
