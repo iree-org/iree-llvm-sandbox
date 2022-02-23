@@ -110,7 +110,7 @@ python -m python.examples.matmul.test
 
 ```
 "${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/mlir-proto-opt \
-  ../iree-llvm-sandbox/test/test_constant.mlir \
+  ../iree-llvm-sandbox/test/constant.mlir \
   -linalg-comprehensive-module-bufferize
 ```
 
