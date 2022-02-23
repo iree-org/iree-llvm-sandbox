@@ -23,6 +23,7 @@ enable_testing()
 
 add_executable(iterator_tests
         tests/column_operator_test.cc
+        tests/reduce_operator_test.cc
         tests/utils_test.cc
     )
 target_include_directories(iterator_tests
