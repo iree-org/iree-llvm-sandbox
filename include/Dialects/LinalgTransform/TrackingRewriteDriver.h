@@ -13,6 +13,8 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 namespace mlir {
+struct RewriteListener;
+
 /// Apply the given list of transformations to the regions of the
 /// isolated-from-above operation `root` greedily until convergence. Update
 /// Linalg operations in values of `trackedOperations` if they are replaced by
@@ -20,7 +22,7 @@ namespace mlir {
 /// must be replaced with Linalg operations and must not be erased in the
 /// patterns.
 LogicalResult applyPatternsTrackAndFoldGreedily(
-    Operation *root, TransformOpMapping &trackedOperations,
+    Operation *root, RewriteListener &listener,
     const FrozenRewritePatternSet &patterns,
     GreedyRewriteConfig config = GreedyRewriteConfig());
 } // namespace mlir

@@ -7,16 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
-#include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Transforms/ListenerGreedyPatternRewriteDriver.h"
 
 using namespace mlir;
 
 LogicalResult mlir::applyPatternsTrackAndFoldGreedily(
-    Operation *root, TransformOpMapping &trackedOperations,
+    Operation *root, RewriteListener &listener,
     const FrozenRewritePatternSet &patterns, GreedyRewriteConfig config) {
-  linalg::TrackingListener listener(trackedOperations);
-  if (failed(applyPatternsAndFoldGreedily(root, patterns, config, &listener)))
-    return failure();
-  return listener.checkErrorState();
+  return applyPatternsAndFoldGreedily(root, patterns, config, &listener);
 }

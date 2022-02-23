@@ -9,14 +9,15 @@
 #ifndef MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGCSE_H
 #define MLIR_DIALECT_LINALG_TRANSFORMS_TRACKINGCSE_H
 
-#include "Dialects/LinalgTransform/TransformOpMapping.h"
-
 namespace mlir {
 class DominanceInfo;
+struct LogicalResult;
+class Operation;
+struct RewriteListener;
 
 LogicalResult
 eliminateCommonSubexpressionsWithTrackedOps(Operation *root,
-                                            TransformOpMapping &trackedOps,
+                                            RewriteListener &listener,
                                             DominanceInfo *domInfo = nullptr);
 } // namespace mlir
 

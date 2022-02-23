@@ -20,6 +20,15 @@ namespace linalg {
 class TrackingListener : public RewriteListener {
 public:
   TrackingListener(TransformOpMapping &trackedOperations);
+  TrackingListener(TrackingListener &&other)
+      : trackedOperations(other.trackedOperations),
+        trackedOperationKeys(std::move(other.trackedOperationKeys)),
+        hadErrors(other.hadErrors) {
+#ifndef NDEBUG
+    errorStateChecked = other.errorStateChecked;
+    other.errorStateChecked = true;
+#endif
+  }
   ~TrackingListener() {
 #ifndef NDEBUG
     assert(errorStateChecked && "must check listener error state");

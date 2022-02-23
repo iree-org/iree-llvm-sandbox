@@ -89,6 +89,10 @@ transform::TransformState::applyTransform(TransformOpInterface transform) {
   return success();
 }
 
+// Out-of-line definition to ensure vtable and metadata are emitted to a single
+// .o file.
+transform::TransformState::Extension::~Extension() {}
+
 //===----------------------------------------------------------------------===//
 // TransformResults
 //===----------------------------------------------------------------------===//

@@ -7,16 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/TrackingCSE.h"
-#include "Dialects/LinalgTransform/TrackingListener.h"
-#include "Transforms/Listener.h"
 #include "Transforms/ListenerCSE.h"
 
 using namespace mlir;
 
 LogicalResult mlir::eliminateCommonSubexpressionsWithTrackedOps(
-    Operation *root, TransformOpMapping &trackedOps, DominanceInfo *domInfo) {
-  linalg::TrackingListener listener(trackedOps);
-  if (failed(eliminateCommonSubexpressions(root, domInfo, &listener)))
-    return failure();
-  return listener.checkErrorState();
+    Operation *root, RewriteListener &listener, DominanceInfo *domInfo) {
+  return eliminateCommonSubexpressions(root, domInfo, &listener);
 }
