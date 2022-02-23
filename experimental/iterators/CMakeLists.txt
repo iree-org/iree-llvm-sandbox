@@ -9,6 +9,7 @@ enable_testing()
 add_executable(iterators
         src/main.cc
     )
+target_include_directories(iterators PUBLIC include)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
