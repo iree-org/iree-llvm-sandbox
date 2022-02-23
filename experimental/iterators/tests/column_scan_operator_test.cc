@@ -6,7 +6,9 @@
 
 TEST(ColumnScanTest, SingleColumn) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};
-  ColumnScanOperator<int32_t> scan(numbers);
+  auto scan = MakeColumnScanOperator(numbers);
+  scan.Open();
+
   decltype(scan)::ReturnType tuple;
 
   // Consume the four values
@@ -33,12 +35,16 @@ TEST(ColumnScanTest, SingleColumn) {
   // Check that we can test for the end again
   tuple = scan.ComputeNext();
   EXPECT_FALSE(tuple);
+
+  scan.Close();
 }
 
 TEST(ColumnScanTest, MultipleColumn) {
   std::vector<int32_t> column1 = {1, 2};
   std::vector<int32_t> column2 = {3, 4};
-  ColumnScanOperator<int32_t, int32_t> scan(column1, column2);
+  auto scan = MakeColumnScanOperator(column1, column2);
+  scan.Open();
+
   decltype(scan)::ReturnType tuple;
 
   // Consume the two values
@@ -55,4 +61,6 @@ TEST(ColumnScanTest, MultipleColumn) {
   // Check that we have reached the end
   tuple = scan.ComputeNext();
   EXPECT_FALSE(tuple);
+
+  scan.Close();
 }

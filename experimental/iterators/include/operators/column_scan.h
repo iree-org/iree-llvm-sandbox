@@ -41,4 +41,10 @@ class ColumnScanOperator {
   int64_t current_pos_;
 };
 
+template <typename... InputTypes>
+auto MakeColumnScanOperator(std::vector<InputTypes>... inputs) {
+  return ColumnScanOperator<InputTypes...>(inputs...);
+}
+
+
 #endif  // OPERATORS_COLUMN_SCAN_H
