@@ -139,11 +139,10 @@ class MatmulProblem(ProblemDefinition):
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
 @linalg_structured_op
-def add_bias_to_2d(I=TensorDef(T, S.M, S.N),
-                   Bias=TensorDef(T, S.N),
+def add_bias_to_2d(Bias=TensorDef(T, S.N),
                    O=TensorDef(T, S.M, S.N, output=True)):
   domain(D.m, D.n)
-  O[D.m, D.n] = I[D.m, D.n] + Bias[D.n]
+  O[D.m, D.n] = O[D.m, D.n] + Bias[D.n]
 
 
 class MatmulBiasAddProblem(ProblemDefinition):
@@ -161,7 +160,7 @@ class MatmulBiasAddProblem(ProblemDefinition):
         [M, K],
         [K, N],
         [N],
-        [M, N],
+        [M, N]
     ]
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
@@ -242,7 +241,8 @@ class MatmulBiasAddProblem(ProblemDefinition):
     # Actual benchmarked function called under entry_point_name.
     func = builtin.FuncOp(name, (types, [types[-1]]))
     # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=[False, False, False, True])
+    attach_inplaceable_attributes(func,
+                                  inplaceable=[False, False, False, True])
     attach_passthrough(
         func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
@@ -256,9 +256,9 @@ class MatmulBiasAddProblem(ProblemDefinition):
       matmul = linalg.matmul(func.arguments[0],
                              func.arguments[1],
                              outs=[tensor_zero])
-      bias_add = add_bias_to_2d(matmul,
-                                func.arguments[2],
-                                outs=[func.arguments[3]])
+      bias_add = add_bias_to_2d(func.arguments[2],
+                                outs=[matmul])
+
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       std.ReturnOp([bias_add])
