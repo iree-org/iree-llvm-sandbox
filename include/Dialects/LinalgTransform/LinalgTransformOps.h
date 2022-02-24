@@ -20,24 +20,12 @@
 namespace mlir {
 namespace scf {
 class ForOp;
-}
+} // namespace scf
 } // namespace mlir
 
 #include "Dialects/LinalgTransform/LinalgTransformOpsDialect.h.inc"
 
 #define GET_OP_CLASSES
 #include "Dialects/LinalgTransform/LinalgTransformOps.h.inc"
-
-namespace mlir {
-namespace linalg {
-
-class TrackingState : public transform::TransformState::Extension,
-                      public TrackingListener {
-public:
-  explicit TrackingState(transform::TransformState &state)
-      : TrackingListener(getMapping(state)) {}
-};
-} // namespace linalg
-} // namespace mlir
 
 #endif // MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H

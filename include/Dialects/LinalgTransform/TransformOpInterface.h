@@ -51,29 +51,110 @@ public:
   /// are identified by their type and a state can only have one extension of
   /// a particular type.
   class Extension {
+    friend class TransformState;
+
   public:
     // Out-of-line implementation to ensure vtable and metadata are emitted in
     // a single .o file.
     virtual ~Extension();
 
   protected:
-    // FIXME: this provides direct write access to the state internals, replace
-    // with more transactional methods.
-    TransformOpMapping &getMapping(TransformState &state) {
-      return state.operations;
+    Extension(TransformState &state) : state(state) {}
+
+    /// Read-only access to the mapping between transform IR values and payload
+    /// IR operations contained in the state.
+    const TransformOpMapping &getMapping() const { return state.operations; }
+
+    /// Notifies the extension that payload IR operations were associated with
+    /// the given transform IR handle. Concrete extensions that are willing to
+    /// be notified should override this method.
+    virtual void notifySetPayload(Value handle,
+                                  ArrayRef<Operation *> operations) {}
+    /// Notifies the extension that the association between a transform IR
+    /// handle and a list of payload IR operations is about to be removed.
+    /// Concrete extensions that are willing to be notified should override this
+    /// method.
+    virtual void notifyRemovePayload(Value handle,
+                                     ArrayRef<Operation *> operations) {}
+
+    /// Notifies the extension that the ops associated with the transform IR
+    /// handle changed. Concrete extensions that are willing to be notified
+    /// should override this method.
+    virtual void notifyUpdatePayload(Value handle, ArrayRef<Operation *> oldOps,
+                                     ArrayRef<Operation *> newOps) {}
+
+    /// Sets the payload IR ops associated with the given transform IR value.
+    /// Fails if this would result in multiple transform IR values with uses
+    /// corresponding to the same payload IR ops. This extension will NOT
+    /// be notified about this event.
+    LogicalResult setPayloadOps(Value handle,
+                                ArrayRef<Operation *> operations) {
+      propagatingSetPayload = true;
+      LogicalResult result = state.setPayloadOps(handle, operations);
+      propagatingSetPayload = false;
+      return result;
     }
+
+    /// Forgets the payload IR ops associated with the given transform IR value.
+    /// This extension will NOT be notified about this event.
+    void removePayloadOps(Value handle) {
+      propagatingRemovePayload = true;
+      state.removePayloadOps(handle);
+      propagatingRemovePayload = false;
+    }
+
+    /// Updates the payload IR ops associated with the given transform IR value.
+    /// The callback function is called once per associated operation and is
+    /// expected to return the modified operation or nullptr. In the latter
+    /// case, the corresponding operation is no longer associated with the
+    /// transform IR value. This extension will NOT be notified about it.
+    void updatePayloadOps(Value handle,
+                          function_ref<Operation *(Operation *)> callback) {
+      propagatingUpdatePayload = true;
+      state.updatePayloadOps(handle, callback);
+      propagatingUpdatePayload = false;
+    }
+
+  private:
+    /// Flags indicating whether a notifiable event originates at this
+    /// extension. If set, this extension is not notified about the event.
+    bool propagatingSetPayload = false;
+    bool propagatingRemovePayload = false;
+    bool propagatingUpdatePayload = false;
+
+    /// Sends notifications to about an event to the current extension. Expected
+    /// to be called by the TransformState only.
+    void sendNotifySetPayload(Value handle, ArrayRef<Operation *> operations) {
+      if (!propagatingSetPayload)
+        notifySetPayload(handle, operations);
+    }
+    void sendNotifyRemovePayload(Value handle,
+                                 ArrayRef<Operation *> operations) {
+      if (!propagatingRemovePayload)
+        notifyRemovePayload(handle, operations);
+    }
+    void sendNotifyUpdatePayload(Value handle, ArrayRef<Operation *> oldOps,
+                                 ArrayRef<Operation *> newOps) {
+      if (!propagatingUpdatePayload)
+        notifyUpdatePayload(handle, oldOps, newOps);
+    }
+
+    /// Back-reference to the state this is extending.
+    TransformState &state;
   };
 
   /// Adds a new extension of the type specifeid as template parameter,
   /// constructing it with the arguments provided. The extension is owned by the
   /// TransformState. It is expected that the state does not already have an
-  /// extension of the same type.
+  /// extension of the same type. Extension constructors are expected to take
+  /// a reference to TransformState as first argument, automatically supplied
+  /// by this call.
   template <typename Ty, typename... Args>
   Ty &addExtension(Args &&...args) {
     static_assert(
         std::is_base_of<Extension, Ty>::value,
         "only an class derived from TransformState::Extension is allowed here");
-    auto ptr = std::make_unique<Ty>(std::forward<Args>(args)...);
+    auto ptr = std::make_unique<Ty>(*this, std::forward<Args>(args)...);
     auto result = extensions.try_emplace(TypeID::get<Ty>(), std::move(ptr));
     assert(result.second && "extension already added");
     return *static_cast<Ty *>(result.first->second.get());
@@ -110,6 +191,14 @@ private:
 
   /// Forgets the payload IR ops associated with the given transform IR value.
   void removePayloadOps(Value value);
+
+  /// Updates the payload IR ops associated with the given transform IR value.
+  /// The callback function is called once per associated operation and is
+  /// expected to return the modified operation or nullptr. In the latter case,
+  /// the corresponding operation is no longer associated with the transform IR
+  /// value.
+  void updatePayloadOps(Value value,
+                        function_ref<Operation *(Operation *)> callback);
 
   /// The mapping between payload IR values and transform IR ops.
   TransformOpMapping operations;

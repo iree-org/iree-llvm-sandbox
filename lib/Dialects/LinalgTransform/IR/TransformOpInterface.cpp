@@ -66,11 +66,40 @@ transform::TransformState::setPayloadOps(Value value,
     }
   }
 
+  for (const auto &keyedExtension : extensions)
+    keyedExtension.getSecond()->sendNotifySetPayload(value, targets);
+
   return success();
 }
 
 void transform::TransformState::removePayloadOps(Value value) {
-  operations.erase(value);
+  auto it = operations.find(value);
+  if (it == operations.end())
+    return;
+
+  for (const auto &keyedExtension : extensions)
+    keyedExtension.getSecond()->sendNotifyRemovePayload(value, it->getSecond());
+
+  operations.erase(it);
+}
+
+void transform::TransformState::updatePayloadOps(
+    Value value, function_ref<Operation *(Operation *)> callback) {
+  auto it = operations.find(value);
+  assert(it != operations.end() && "unknown handle");
+  SmallVector<Operation *> &association = it->getSecond();
+  SmallVector<Operation *> updated;
+  updated.reserve(association.size());
+
+  for (Operation *op : association)
+    if (Operation *updatedOp = callback(op))
+      updated.push_back(updatedOp);
+
+  for (const auto &keyedExtension : extensions)
+    keyedExtension.getSecond()->sendNotifyUpdatePayload(value, association,
+                                                        updated);
+
+  std::swap(association, updated);
 }
 
 LogicalResult

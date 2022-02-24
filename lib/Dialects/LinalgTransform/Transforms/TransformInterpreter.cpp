@@ -138,32 +138,27 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
   FrozenRewritePatternSet patterns(std::move(patternList));
 
   transform::TransformState state(module);
+  TrackingListener &listener = state.addExtension<TrackingListener>();
 
-  {
-    TrackingListener &listener = state.addExtension<TrackingState>(state);
-    auto raii = llvm::make_scope_exit(
-        [&]() { state.removeExtension<TrackingState>(); });
-
-    // Run the canonicalizations upfront so we don't match and transform
-    // operations only to drop them later.
-    if (failed(checkedListenerTransform(
-            [&](TrackingListener &listener) {
-              return eliminateCommonSubexpressionsWithTrackedOps(module,
-                                                                 listener);
-            },
-            listener))) {
-      LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
-      return failure();
-    }
-    if (failed(checkedListenerTransform(
-            [&](TrackingListener &listener) {
-              return applyPatternsTrackAndFoldGreedily(module, listener,
-                                                       patterns);
-            },
-            listener))) {
-      LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
-      return failure();
-    }
+  // Run the canonicalizations upfront so we don't match and transform
+  // operations only to drop them later.
+  if (failed(checkedListenerTransform(
+          [&](TrackingListener &listener) {
+            return eliminateCommonSubexpressionsWithTrackedOps(module,
+                                                               listener);
+          },
+          listener))) {
+    LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
+    return failure();
+  }
+  if (failed(checkedListenerTransform(
+          [&](TrackingListener &listener) {
+            return applyPatternsTrackAndFoldGreedily(module, listener,
+                                                     patterns);
+          },
+          listener))) {
+    LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
+    return failure();
   }
 
   for (Operation &transform : sequence.body().front()) {
@@ -172,10 +167,6 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
 
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
-
-    TrackingListener &listener = state.addExtension<TrackingState>(state);
-    auto raii = llvm::make_scope_exit(
-        [&]() { state.removeExtension<TrackingState>(); });
 
     // Run CSE, enabling transformations and canonicalization. This is similar
     // to running the respective pass, but (a) keeps tracking the value/op

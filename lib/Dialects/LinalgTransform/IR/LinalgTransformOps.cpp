@@ -359,9 +359,7 @@ transform::VectorizeOp::apply(transform::TransformResults &results,
   RewritePatternSet patterns(ctx);
   patterns.add<LinalgVectorizationPattern>(ctx);
   configureVectorizationPatterns(*this, patterns);
-  TrackingListener &listener = state.addExtension<TrackingState>(state);
-  auto raii =
-      llvm::make_scope_exit([&]() { state.removeExtension<TrackingState>(); });
+  auto &listener = state.getExtension<TrackingListener>();
   LogicalResult applicationResult = applyPatternsTrackAndFoldGreedily(
       state.getTopLevel(), listener, std::move(patterns));
   LogicalResult listenerResult = listener.checkErrorState();
@@ -700,7 +698,7 @@ static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
 static FailureOr<FuncOp> outlineLoop(scf::ForOp loop, StringRef funcName,
                                      transform::TransformState &state) {
   PatternRewriterListener rewriter(loop->getContext());
-  TrackingListener &listener = state.addExtension<TrackingState>(state);
+  auto &listener = state.getExtension<TrackingListener>();
   rewriter.addListener(&listener);
   Location loc = loop.getLoc();
   scf::ExecuteRegionOp exec = outlineInExecuteRegion(rewriter, loop);
