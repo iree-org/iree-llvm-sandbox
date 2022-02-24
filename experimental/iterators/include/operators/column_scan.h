@@ -7,7 +7,7 @@
 
 template <typename... InputTypes>
 class ColumnScanOperator {
- public:
+public:
   using OutputTuple = std::tuple<InputTypes...>;
   using ReturnType = std::optional<OutputTuple>;
 
@@ -30,7 +30,7 @@ class ColumnScanOperator {
   }
   void Close() {}
 
- private:
+private:
   template <std::size_t... kIndices>
   std::optional<OutputTuple> ExtractCurrentTuple(
       const std::index_sequence<kIndices...> & /*unused*/) const {
@@ -46,5 +46,4 @@ auto MakeColumnScanOperator(std::vector<InputTypes>... inputs) {
   return ColumnScanOperator<InputTypes...>(inputs...);
 }
 
-
-#endif  // OPERATORS_COLUMN_SCAN_H
+#endif // OPERATORS_COLUMN_SCAN_H

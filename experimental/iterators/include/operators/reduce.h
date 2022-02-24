@@ -4,9 +4,8 @@
 #include <optional>
 #include <tuple>
 
-template <typename Upstream, typename ReduceFunction>
-class ReduceOperator {
- public:
+template <typename Upstream, typename ReduceFunction> class ReduceOperator {
+public:
   using OutputTuple = typename Upstream::OutputTuple;
   using ReturnType = std::optional<OutputTuple>;
 
@@ -32,7 +31,7 @@ class ReduceOperator {
   }
   void Close() { upstream_->Close(); }
 
- private:
+private:
   Upstream *const upstream_;
   ReduceFunction reduce_function_;
 };
@@ -44,4 +43,4 @@ auto MakeReduceOperator(Upstream *const upstream,
                                                   std::move(reduce_function));
 }
 
-#endif  // OPERATORS_REDUCE_H
+#endif // OPERATORS_REDUCE_H

@@ -10,7 +10,7 @@ void PrintTupleTail(std::ostream &ostream, const TupleType &tuple,
                     const std::index_sequence<kIndices...> & /*unused*/) {
   ((ostream << ", " << std::get<kIndices + 1>(tuple)), ...);
 }
-}  // namespace impl
+} // namespace impl
 
 template <typename... Types>
 void PrintTuple(std::ostream &ostream, const std::tuple<Types...> &tuple) {
@@ -27,7 +27,7 @@ void PrintTuple(std::ostream &ostream, const std::tuple<Types...> &tuple) {
 
 template <typename... Types>
 void PrintTuple(const std::tuple<Types...> &tuple) {
-    PrintTuple(std::cout, tuple);
+  PrintTuple(std::cout, tuple);
 }
 
-#endif  // UTILS_PRINT_H_
+#endif // UTILS_PRINT_H_

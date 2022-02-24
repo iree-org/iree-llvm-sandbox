@@ -62,5 +62,5 @@ TEST(ColumnScanTest, MultipleColumn) {
   tuple = scan.ComputeNext();
   EXPECT_FALSE(tuple);
 
-  scan.Close();
+  Scan.close();
 }
