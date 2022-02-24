@@ -4,43 +4,44 @@
 #include <optional>
 #include <tuple>
 
-template <typename Upstream, typename ReduceFunction> class ReduceOperator {
+template <typename UpstreamType, typename ReduceFunctionType>
+class ReduceOperator {
 public:
-  using OutputTuple = typename Upstream::OutputTuple;
+  using OutputTuple = typename UpstreamType::OutputTuple;
   using ReturnType = std::optional<OutputTuple>;
 
-  explicit ReduceOperator(Upstream *const upstream,
-                          ReduceFunction reduce_function)
-      : upstream_(upstream), reduce_function_(std::move(reduce_function)) {}
+  explicit ReduceOperator(UpstreamType *const Upstream,
+                          ReduceFunctionType ReduceFunction)
+      : Upstream(Upstream), ReduceFunction(std::move(ReduceFunction)) {}
 
-  void Open() { upstream_->Open(); }
-  ReturnType ComputeNext() {
+  void open() { Upstream->open(); }
+  ReturnType computeNext() {
     // Consume and handle first tuple
-    const auto first_tuple = upstream_->ComputeNext();
-    if (!first_tuple) {
+    const auto FirstTuple = Upstream->computeNext();
+    if (!FirstTuple) {
       return {};
     }
 
     // Aggregate remaining tuples
-    OutputTuple aggregate = first_tuple.value();
-    while (auto const tuple = upstream_->ComputeNext()) {
-      aggregate = reduce_function_(aggregate, tuple.value());
+    OutputTuple Aggregate = FirstTuple.value();
+    while (auto const Tuple = Upstream->computeNext()) {
+      Aggregate = ReduceFunction(Aggregate, Tuple.value());
     }
 
-    return aggregate;
+    return Aggregate;
   }
-  void Close() { upstream_->Close(); }
+  void close() { Upstream->close(); }
 
 private:
-  Upstream *const upstream_;
-  ReduceFunction reduce_function_;
+  UpstreamType *const Upstream;
+  ReduceFunctionType ReduceFunction;
 };
 
-template <typename Upstream, typename ReduceFunction>
-auto MakeReduceOperator(Upstream *const upstream,
-                        ReduceFunction reduce_function) {
-  return ReduceOperator<Upstream, ReduceFunction>(upstream,
-                                                  std::move(reduce_function));
+template <typename UpstreamType, typename ReduceFunctionType>
+auto MakeReduceOperator(UpstreamType *const Upstream,
+                        ReduceFunctionType ReduceFunction) {
+  return ReduceOperator<UpstreamType, ReduceFunctionType>(
+      Upstream, std::move(ReduceFunction));
 }
 
 #endif // OPERATORS_REDUCE_H

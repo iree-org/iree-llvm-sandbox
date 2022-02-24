@@ -5,62 +5,62 @@
 #include "operators/column_scan.h"
 
 TEST(ColumnScanTest, SingleColumn) {
-  std::vector<int32_t> numbers = {1, 2, 3, 4};
-  auto scan = MakeColumnScanOperator(numbers);
-  scan.Open();
+  std::vector<int32_t> Numbers = {1, 2, 3, 4};
+  auto Scan = MakeColumnScanOperator(Numbers);
+  Scan.open();
 
-  decltype(scan)::ReturnType tuple;
+  decltype(Scan)::ReturnType Tuple;
 
   // Consume the four values
-  tuple = scan.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 1);
+  Tuple = Scan.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 1);
 
-  tuple = scan.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 2);
+  Tuple = Scan.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 2);
 
-  tuple = scan.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 3);
+  Tuple = Scan.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 3);
 
-  tuple = scan.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 4);
+  Tuple = Scan.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 4);
 
   // Check that we have reached the end
-  tuple = scan.ComputeNext();
-  EXPECT_FALSE(tuple);
+  Tuple = Scan.computeNext();
+  EXPECT_FALSE(Tuple);
 
   // Check that we can test for the end again
-  tuple = scan.ComputeNext();
-  EXPECT_FALSE(tuple);
+  Tuple = Scan.computeNext();
+  EXPECT_FALSE(Tuple);
 
-  scan.Close();
+  Scan.close();
 }
 
 TEST(ColumnScanTest, MultipleColumn) {
   std::vector<int32_t> column1 = {1, 2};
   std::vector<int32_t> column2 = {3, 4};
-  auto scan = MakeColumnScanOperator(column1, column2);
-  scan.Open();
+  auto Scan = MakeColumnScanOperator(column1, column2);
+  Scan.open();
 
-  decltype(scan)::ReturnType tuple;
+  decltype(Scan)::ReturnType Tuple;
 
   // Consume the two values
-  tuple = scan.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 1);
-  EXPECT_EQ(std::get<1>(tuple.value()), 3);
+  Tuple = Scan.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 1);
+  EXPECT_EQ(std::get<1>(Tuple.value()), 3);
 
-  tuple = scan.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 2);
-  EXPECT_EQ(std::get<1>(tuple.value()), 4);
+  Tuple = Scan.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 2);
+  EXPECT_EQ(std::get<1>(Tuple.value()), 4);
 
   // Check that we have reached the end
-  tuple = scan.ComputeNext();
-  EXPECT_FALSE(tuple);
+  Tuple = Scan.computeNext();
+  EXPECT_FALSE(Tuple);
 
   Scan.close();
 }

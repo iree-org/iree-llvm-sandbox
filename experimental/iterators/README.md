@@ -26,18 +26,18 @@ parametrized with the exact type of its children (and potential other
 parameters):
 
 ```cpp
-template <typename Upstream, typename ReduceFunction>
+template <typename UpstreamType, typename ReduceFunctionType>
 class ReduceOperator {
- public:
-  using OutputTuple = typename Upstream::OutputTuple;
+public:
+  using OutputTuple = typename UpstreamType::OutputTuple;
   // ...
-  ReturnType ComputeNext() {
+  ReturnType computeNext() {
     // ...
-    upstream_->ComputeNext();  // Specialization is known, can be inlined
+    Upstream->computeNext();  // Specialization is known, can be inlined
     // ...
 ```
 
-Each operators returns `std::tuple`s in its `ComputeNext` function; the field
+Each operators returns `std::tuple`s in its `computeNext` function; the field
 types depend on the query and are computed from the tuple types returned by the children (and potentially other things) using templates.
 
 Each operator has a `Make*Operator` factory function that derives the template
@@ -45,9 +45,9 @@ parameters for the to-be-instatiated class such that assembling query plans is
 concise:
 
 ```cpp
-std::vector<int32_t> numbers = {1, 2, 3, 4};
-auto scan = MakeColumnScanOperator(numbers);
-auto reduce = MakeReduceOperator(&scan, [](auto t1, auto t2) {
-  return std::make_tuple(std::get<0>(t1) + std::get<0>(t2));
+std::vector<int32_t> Numbers = {1, 2, 3, 4};
+auto Scan = MakeColumnScanOperator(Numbers);
+auto Reduce = MakeReduceOperator(&Scan, [](auto T1, auto T2) {
+  return std::make_tuple(std::get<0>(T1) + std::get<0>(T2));
 });
 ```

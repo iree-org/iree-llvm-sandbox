@@ -6,51 +6,51 @@
 #include "operators/reduce.h"
 
 TEST(ReduceTest, SingleColumnSum) {
-  std::vector<int32_t> numbers = {1, 2, 3, 4};
-  auto scan = MakeColumnScanOperator(numbers);
-  auto reduce = MakeReduceOperator(&scan, [](auto t1, auto t2) {
-    return std::make_tuple(std::get<0>(t1) + std::get<0>(t2));
+  std::vector<int32_t> Numbers = {1, 2, 3, 4};
+  auto Scan = MakeColumnScanOperator(Numbers);
+  auto Reduce = MakeReduceOperator(&Scan, [](auto T1, auto T2) {
+    return std::make_tuple(std::get<0>(T1) + std::get<0>(T2));
   });
-  reduce.Open();
+  Reduce.open();
 
-  decltype(scan)::ReturnType tuple;
+  decltype(Scan)::ReturnType Tuple;
 
   // Consume one value
-  tuple = reduce.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 10);
+  Tuple = Reduce.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 10);
 
   // Check that we have reached the end
-  tuple = scan.ComputeNext();
-  EXPECT_FALSE(tuple);
+  Tuple = Scan.computeNext();
+  EXPECT_FALSE(Tuple);
 
   // Check that we can test for the end again
-  tuple = scan.ComputeNext();
-  EXPECT_FALSE(tuple);
+  Tuple = Scan.computeNext();
+  EXPECT_FALSE(Tuple);
 
-  scan.Close();
+  Scan.close();
 }
 
 TEST(ReduceTest, MulticolumnMinMax) {
-  std::vector<int32_t> numbers = {1, 2, 3, 4};
-  auto scan = MakeColumnScanOperator(numbers, numbers);
-  auto reduce = MakeReduceOperator(&scan, [](auto t1, auto t2) {
-    return std::make_tuple(std::min(std::get<0>(t1), std::get<0>(t2)),
-                           std::max(std::get<1>(t1), std::get<1>(t2)));
+  std::vector<int32_t> Numbers = {1, 2, 3, 4};
+  auto Scan = MakeColumnScanOperator(Numbers, Numbers);
+  auto Reduce = MakeReduceOperator(&Scan, [](auto T1, auto T2) {
+    return std::make_tuple(std::min(std::get<0>(T1), std::get<0>(T2)),
+                           std::max(std::get<1>(T1), std::get<1>(T2)));
   });
-  reduce.Open();
+  Reduce.open();
 
-  decltype(scan)::ReturnType tuple;
+  decltype(Scan)::ReturnType Tuple;
 
   // Consume one value
-  tuple = reduce.ComputeNext();
-  EXPECT_TRUE(tuple);
-  EXPECT_EQ(std::get<0>(tuple.value()), 1);
-  EXPECT_EQ(std::get<1>(tuple.value()), 4);
+  Tuple = Reduce.computeNext();
+  EXPECT_TRUE(Tuple);
+  EXPECT_EQ(std::get<0>(Tuple.value()), 1);
+  EXPECT_EQ(std::get<1>(Tuple.value()), 4);
 
   // Check that we have reached the end
-  tuple = scan.ComputeNext();
-  EXPECT_FALSE(tuple);
+  Tuple = Scan.computeNext();
+  EXPECT_FALSE(Tuple);
 
-  scan.Close();
+  Scan.close();
 }
