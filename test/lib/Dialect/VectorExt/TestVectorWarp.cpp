@@ -59,25 +59,25 @@ struct TestVectorWarp
         if (hoistUniform) {
           moveScalarUniformCode(warpOp);
         }
-        if (distributeTransferWriteOps) {
-          auto distributionFn = [](vector::TransferWriteOp writeOp) {
-            // Create a map (d0, d1) -> (d1) to distribute along the inner
-            // dimension. Once we support n-d distribution we can add more
-            // complex cases.
-            int64_t vecRank = writeOp.getVectorType().getRank();
-            OpBuilder builder(writeOp.getContext());
-            auto map = AffineMap::get(vecRank, 0,
-                                      builder.getAffineDimExpr(vecRank - 1));
-            return map;
-          };
-
-          OpBuilder builder(op->getContext());
-          distributeTransferWrite(builder, warpOp, distributionFn);
-        }
         WalkResult::interrupt();
       }
     });
     MLIRContext *ctx = &getContext();
+    if (distributeTransferWriteOps) {
+      auto distributionFn = [](vector::TransferWriteOp writeOp) {
+        // Create a map (d0, d1) -> (d1) to distribute along the inner
+        // dimension. Once we support n-d distribution we can add more
+        // complex cases.
+        int64_t vecRank = writeOp.getVectorType().getRank();
+        OpBuilder builder(writeOp.getContext());
+        auto map = AffineMap::get(vecRank, 0,
+                                  builder.getAffineDimExpr(vecRank - 1));
+        return map;
+      };
+      RewritePatternSet patterns(ctx);
+      populateDistributeTransferWriteOpPatterns(patterns, distributionFn);
+      (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
+    }
     if (propagateDistribution) {
       RewritePatternSet patterns(ctx);
       vector_ext::populatePropagateVectorDistributionPatterns(patterns);

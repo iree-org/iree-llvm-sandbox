@@ -1,10 +1,10 @@
-// RUN: mlir-proto-opt %s -split-input-file -test-vector-warp-distribute="hoist-uniform" | FileCheck --check-prefixes=CHECK-HOIST %s
-// RUN: mlir-proto-opt %s -split-input-file -test-vector-warp-distribute="hoist-uniform distribute-transfer-write" | FileCheck --check-prefixes=CHECK-D %s
-// RUN: mlir-proto-opt %s -split-input-file -test-vector-warp-distribute="hoist-uniform distribute-transfer-write propagate-distribution" | FileCheck --check-prefixes=CHECK-ALL %s
+// RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute="hoist-uniform" | FileCheck --check-prefixes=CHECK-HOIST %s
+// RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute="hoist-uniform distribute-transfer-write" | FileCheck --check-prefixes=CHECK-D %s
+// RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute="hoist-uniform distribute-transfer-write propagate-distribution" | FileCheck --check-prefixes=CHECK-ALL %s
 
 #map0 =  affine_map<(d0)[s0] -> (d0 + s0)>
 func @warp(%laneid: index, %arg1: memref<1024xf32>, %arg2: memref<1024xf32>,
-                  %arg3: memref<1024xf32>, %gid : index) {
+           %arg3: memref<1024xf32>, %gid : index) {
   vector_ext.warp_execute_on_lane_0(%laneid) {
     %sa = memref.subview %arg1[%gid] [128] [1] : memref<1024xf32> to memref<128xf32, #map0>
     %sb = memref.subview %arg2[%gid] [128] [1] : memref<1024xf32> to memref<128xf32, #map0>
@@ -24,10 +24,9 @@ func @warp(%laneid: index, %arg1: memref<1024xf32>, %arg2: memref<1024xf32>,
   return
 }
 
-// CHECK-D-DAG: #[[MAP0:.*]] = affine_map<()[s0] -> (s0)>
 // CHECK-D-DAG: #[[MAP1:.*]] = affine_map<()[s0] -> (s0 * 2 + 32)>
 
-// CHECK-LABEL: func @warp( 
+// CHECK-LABEL: func @warp(
 // CHECK-HOIST: memref.subview
 // CHECK-HOIST: memref.subview
 // CHECK-HOIST: memref.subview
@@ -37,10 +36,9 @@ func @warp(%laneid: index, %arg1: memref<1024xf32>, %arg2: memref<1024xf32>,
 //     CHECK-D:   arith.addf {{.*}} : vector<32xf32>
 //     CHECK-D:   arith.addf {{.*}} : vector<64xf32>
 //     CHECK-D:   vector_ext.yield %{{.*}}, %{{.*}} : vector<64xf32>, vector<32xf32>
-// CHECK-D-DAG: %[[ID0:.*]] = affine.apply #[[MAP0]]()[%{{.*}}]
-// CHECK-D-DAG: vector.transfer_write %[[R]]#1, %{{.*}}[%[[ID0]]] : vector<1xf32>, memref<128xf32
+// CHECK-D-DAG: vector.transfer_write %[[R]]#1, %{{.*}}[%{{.*}}] {in_bounds = [true]} : vector<1xf32>, memref<128xf32
 // CHECK-D-DAG: %[[ID1:.*]] = affine.apply #[[MAP1]]()[%{{.*}}]
-// CHECK-D-DAG: vector.transfer_write %[[R]]#0, %2[%[[ID1]]] : vector<2xf32>, memref<128xf32
+// CHECK-D-DAG: vector.transfer_write %[[R]]#0, %2[%[[ID1]]] {in_bounds = [true]} : vector<2xf32>, memref<128xf32
 
 // CHECK-ALL-NOT: vector_ext.warp_execute_on_lane_0
 // CHECK-ALL: vector.transfer_read {{.*}} vector<1xf32>
@@ -51,3 +49,19 @@ func @warp(%laneid: index, %arg1: memref<1024xf32>, %arg2: memref<1024xf32>,
 // CHECK-ALL: arith.addf {{.*}} : vector<2xf32>
 // CHECK-ALL: vector.transfer_write {{.*}} : vector<1xf32>
 // CHECK-ALL: vector.transfer_write {{.*}} : vector<2xf32>
+
+// -----
+
+// Just make sure that this does not crash. Lowering will be added later.
+
+#map2 =  affine_map<(d0)[s0] -> (d0 + s0)>
+
+func @warp(%laneid: index, %arg1: memref<1024xf32>, %gid : index) {
+  vector_ext.warp_execute_on_lane_0(%laneid) {
+    %sa = memref.subview %arg1[%gid] [128] [1] : memref<1024xf32> to memref<128xf32, #map2>
+    %c0 = arith.constant 0 : index
+    %v = "test.dummy_op"() : () -> (vector<1xf32>)
+    vector.transfer_write %v, %sa[%c0] : vector<1xf32>, memref<128xf32, #map2>
+  }
+  return
+}

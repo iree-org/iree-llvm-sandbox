@@ -374,26 +374,29 @@ static bool hasSideEffect(Operation &op) {
 // TODO: Move to the op.
 static unsigned distributionRatio = 32;
 
-void mlir::vector_ext::distributeTransferWrite(
-    OpBuilder &builder, WarpSingleLaneOp op,
-    std::function<AffineMap(vector::TransferWriteOp)> distributionMapFn) {
-  vector::TransferWriteOp writeOp;
-  while (1) {
-    // Find the first transfer_write from the end of the block.
-    for (Operation &elementOp : llvm::reverse(op.getBody()->getOperations())) {
-      writeOp = dyn_cast<vector::TransferWriteOp>(elementOp);
-      if (writeOp)
-        break;
-      if (hasSideEffect(elementOp))
-        return;
-    }
-    if (!writeOp)
-      return;
+struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
+  WarpOpTransferWrite(MLIRContext *ctx, DistributionMapFn fn,
+                      PatternBenefit b = 1)
+      : OpRewritePattern<vector::TransferWriteOp>(ctx, b),
+        distributionMapFn(fn) {}
+
+  LogicalResult matchAndRewrite(vector::TransferWriteOp writeOp,
+                                PatternRewriter &rewriter) const override {
+    auto warpOp = dyn_cast<WarpSingleLaneOp>(writeOp->getParentOp());
+    if (!warpOp)
+      return failure();
+
+    // There must be no op with a side effect after writeOp.
+    Operation *nextOp = writeOp.getOperation();
+    while ((nextOp = nextOp->getNextNode()))
+      if (hasSideEffect(*nextOp))
+        return failure();
+
     if (!llvm::all_of(writeOp->getOperands(), [&](Value value) {
           return writeOp.vector() == value ||
-                 op.isDefinedOutsideOfRegion(value);
+                 warpOp.isDefinedOutsideOfRegion(value);
         }))
-      return;
+      return failure();
     AffineMap map = distributionMapFn(writeOp);
     SmallVector<int64_t> targetShape(writeOp.getVectorType().getShape().begin(),
                                      writeOp.getVectorType().getShape().end());
@@ -401,6 +404,8 @@ void mlir::vector_ext::distributeTransferWrite(
            "multi-dim distribution not implemented yet");
     for (unsigned i = 0, e = map.getNumResults(); i < e; i++) {
       unsigned position = map.getDimPosition(i);
+      if (targetShape[position] % distributionRatio != 0)
+        return failure();
       targetShape[position] = targetShape[position] / distributionRatio;
     }
     VectorType targetType =
@@ -408,39 +413,52 @@ void mlir::vector_ext::distributeTransferWrite(
     SmallVector<Value> yieldValues = {writeOp.vector()};
     SmallVector<Type> retTypes = {targetType};
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
-        builder, op, yieldValues, retTypes);
-    writeOp->moveAfter(newWarpOp);
-    OpBuilder::InsertionGuard g(builder);
-    builder.setInsertionPoint(writeOp);
+        rewriter, warpOp, yieldValues, retTypes);
 
-    AffineMap indexMap = map.compose(writeOp.permutation_map());
-    Location loc = writeOp.getLoc();
-    SmallVector<Value> indices(writeOp.indices().begin(),
-                               writeOp.indices().end());
+    // Move op outside of region: Insert clone at the insertion point and delete
+    // the old op.
+    rewriter.setInsertionPointAfter(newWarpOp);
+    auto newWriteOp = cast<vector::TransferWriteOp>(
+        rewriter.clone(*writeOp.getOperation()));
+    rewriter.eraseOp(writeOp);
+
+    rewriter.setInsertionPoint(newWriteOp);
+    AffineMap indexMap = map.compose(newWriteOp.permutation_map());
+    Location loc = newWriteOp.getLoc();
+    SmallVector<Value> indices(newWriteOp.indices().begin(),
+                               newWriteOp.indices().end());
     for (auto it : llvm::zip(indexMap.getResults(), map.getResults())) {
       AffineExpr d0, d1;
-      bindDims(op.getContext(), d0, d1);
+      bindDims(newWarpOp.getContext(), d0, d1);
       auto indexExpr = std::get<0>(it).dyn_cast<AffineDimExpr>();
       if (!indexExpr)
         continue;
       unsigned indexPos = indexExpr.getPosition();
       unsigned vectorPos = std::get<1>(it).cast<AffineDimExpr>().getPosition();
       auto scale =
-          getAffineConstantExpr(targetShape[vectorPos], op.getContext());
+          getAffineConstantExpr(targetShape[vectorPos], newWarpOp.getContext());
       indices[indexPos] = makeComposedAffineApply(
-          builder, loc, d0 + scale * d1, {indices[indexPos], op.laneid()});
+          rewriter, loc, d0 + scale * d1, {indices[indexPos], newWarpOp.laneid()});
     }
-    writeOp.vectorMutable().assign(newWarpOp.getResults().back());
-    writeOp.indicesMutable().assign(indices);
-    op->erase();
-    op = newWarpOp;
+    newWriteOp.vectorMutable().assign(newWarpOp.getResults().back());
+    newWriteOp.indicesMutable().assign(indices);
+
+    return success();
   }
-}
+
+ private:
+  DistributionMapFn distributionMapFn;
+};
 
 void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
               WarpOpReduction>(pattern.getContext());
+}
+
+void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
+    RewritePatternSet &patterns, DistributionMapFn distributionMapFn) {
+  patterns.add<WarpOpTransferWrite>(patterns.getContext(), distributionMapFn);
 }
 
 static LogicalResult rewriteWarpOpToScfFor(

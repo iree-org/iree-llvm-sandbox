@@ -24,7 +24,9 @@ void populatePropagateVectorDistributionPatterns(RewritePatternSet &pattern);
 
 void populateWarpSingleLaneOpToScfForPattern(RewritePatternSet &patterns);
 
-/// Distribute transfer_write ops based on the affine map returs by
+using DistributionMapFn = std::function<AffineMap(vector::TransferWriteOp)>;
+
+/// Distribute transfer_write ops based on the affine map returned by
 /// `distributionMapFn`.
 /// Example:
 /// ```
@@ -41,9 +43,8 @@ void populateWarpSingleLaneOpToScfForPattern(RewritePatternSet &patterns);
 ///   vector_ext.yield %v : vector<32xf32>
 /// }
 /// vector.transfer_write %v, %A[%id] : vector<1xf32>, memref<128xf32>
-void distributeTransferWrite(
-    OpBuilder &builder, WarpSingleLaneOp op,
-    std::function<AffineMap(vector::TransferWriteOp)> distributionMapFn);
+void populateDistributeTransferWriteOpPatterns(
+    RewritePatternSet &patterns, DistributionMapFn distributionMapFn);
 
 /// Move scalar operations with no dependency on warp op outside of the region.
 void moveScalarUniformCode(WarpSingleLaneOp op);
