@@ -1,3 +1,10 @@
+//===-- operators/column_scan.h - ColumnScanOperator definition -*- C++ -*-===//
+///
+/// \file
+/// This file contains the definition of the `ColumnScanOperator class` as well
+/// as related helpers.
+///
+//===----------------------------------------------------------------------===//
 #ifndef OPERATORS_COLUMN_SCAN_H
 #define OPERATORS_COLUMN_SCAN_H
 
@@ -5,16 +12,29 @@
 #include <tuple>
 #include <vector>
 
+/// Co-iterates over a set of vectors representing the columns of a table.
+///
+/// This operator takes as an input a set of vectors that represent the columns
+/// of a table, i.e., a "struct of arrays". It co-iterates those vectors by
+/// returning one row at the time, each consisting of the various values in the
+/// vectors at the same index. This operator is thus a "source" operator.
 template <typename... InputTypes>
 class ColumnScanOperator {
 public:
   using OutputTuple = std::tuple<InputTypes...>;
   using ReturnType = std::optional<OutputTuple>;
 
+  /// Copies the given vectors into its internal state. All provided vectors
+  /// have to have the same length.
   explicit ColumnScanOperator(std::vector<InputTypes>... Inputs)
       : Inputs(std::make_tuple(std::move(Inputs)...)), CurrentPos(0) {}
 
+  /// Does nothing.
   void open() {}
+
+  /// Returns a tuple consisting of the values in the vectors at the current
+  /// index and increments that index if it is not past the end, or returns
+  /// 'end of stream' otherwise.
   ReturnType computeNext() {
     // Signal end-of-stream if we are at the end of the input
     if (CurrentPos >= std::get<0>(Inputs).size()) {
@@ -28,6 +48,8 @@ public:
     CurrentPos++;
     return Ret;
   }
+
+  /// Does nothing.
   void close() {}
 
 private:
@@ -41,6 +63,8 @@ private:
   int64_t CurrentPos;
 };
 
+/// Creates a new `ColumnScanOperator` deriving its template parameters from
+/// the provided arguments.
 template <typename... InputTypes>
 auto MakeColumnScanOperator(std::vector<InputTypes>... Inputs) {
   return ColumnScanOperator<InputTypes...>(Inputs...);

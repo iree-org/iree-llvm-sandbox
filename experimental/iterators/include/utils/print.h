@@ -12,6 +12,7 @@ void PrintTupleTail(std::ostream &ostream, const TupleType &tuple,
 }
 } // namespace impl
 
+/// Prints the given tuple to the given stream using the format `"(a, b, c)"`.
 template <typename... Types>
 void PrintTuple(std::ostream &ostream, const std::tuple<Types...> &tuple) {
   // Print first element
@@ -25,6 +26,7 @@ void PrintTuple(std::ostream &ostream, const std::tuple<Types...> &tuple) {
   ostream << ")";
 }
 
+/// Prints the given tuple to `std::cout` using the other overload.
 template <typename... Types>
 void PrintTuple(const std::tuple<Types...> &tuple) {
   PrintTuple(std::cout, tuple);

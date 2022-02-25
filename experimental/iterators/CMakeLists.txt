@@ -3,6 +3,8 @@ project(iterators VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 
+add_subdirectory(docs)
+
 # Set up GoogleTest dependency
 include(FetchContent)
 FetchContent_Declare(

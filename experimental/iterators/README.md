@@ -30,6 +30,7 @@ template <typename UpstreamType, typename ReduceFunctionType>
 class ReduceOperator {
 public:
   using OutputTuple = typename UpstreamType::OutputTuple;
+  using ReturnType = std::optional<OutputTuple>;
   // ...
   ReturnType computeNext() {
     // ...
@@ -38,7 +39,10 @@ public:
 ```
 
 Each operators returns `std::tuple`s in its `computeNext` function; the field
-types depend on the query and are computed from the tuple types returned by the children (and potentially other things) using templates.
+types depend on the query and are computed from the tuple types returned by the
+children (and potentially other things) using templates. `computeNext` returns
+an `std::optional`, where an empty optional indicates that the end of the
+stream has been reached, i.e., no further tuples can be returned.
 
 Each operator has a `Make*Operator` factory function that derives the template
 parameters for the to-be-instatiated class such that assembling query plans is
