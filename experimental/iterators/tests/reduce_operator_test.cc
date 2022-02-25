@@ -13,7 +13,7 @@ TEST(ReduceTest, SingleColumnSum) {
   });
   Reduce.open();
 
-  decltype(Scan)::ReturnType Tuple;
+  decltype(Reduce)::ReturnType Tuple;
 
   // Consume one value
   Tuple = Reduce.computeNext();
@@ -21,14 +21,14 @@ TEST(ReduceTest, SingleColumnSum) {
   EXPECT_EQ(std::get<0>(Tuple.value()), 10);
 
   // Check that we have reached the end
-  Tuple = Scan.computeNext();
+  Tuple = Reduce.computeNext();
   EXPECT_FALSE(Tuple);
 
   // Check that we can test for the end again
-  Tuple = Scan.computeNext();
+  Tuple = Reduce.computeNext();
   EXPECT_FALSE(Tuple);
 
-  Scan.close();
+  Reduce.close();
 }
 
 TEST(ReduceTest, MulticolumnMinMax) {
@@ -40,7 +40,7 @@ TEST(ReduceTest, MulticolumnMinMax) {
   });
   Reduce.open();
 
-  decltype(Scan)::ReturnType Tuple;
+  decltype(Reduce)::ReturnType Tuple;
 
   // Consume one value
   Tuple = Reduce.computeNext();
@@ -49,8 +49,8 @@ TEST(ReduceTest, MulticolumnMinMax) {
   EXPECT_EQ(std::get<1>(Tuple.value()), 4);
 
   // Check that we have reached the end
-  Tuple = Scan.computeNext();
+  Tuple = Reduce.computeNext();
   EXPECT_FALSE(Tuple);
 
-  Scan.close();
+  Reduce.close();
 }
