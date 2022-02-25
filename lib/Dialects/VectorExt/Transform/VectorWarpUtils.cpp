@@ -509,11 +509,105 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
   DistributionMapFn distributionMapFn;
 };
 
+/// Sink scf.for region out of WarpSingleOp. This can be done only if the
+/// scf.ForOp is the last operation in the region so that it doesn't change the
+/// order of execution. This creates a new scf.for region after the
+/// WarpSingleOp. The new scf.for region will contain a new WarpSingleLaneOp
+/// region. Example:
+/// ```
+/// %w = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<4xf32>) {
+///   ...
+///   %v1 = scf.for %arg3 = %c0 to %c128 step %c1 iter_args(%arg4 = %v)
+///   -> (vector<128xf32>) {
+///     ...
+///     scf.yield %r : vector<128xf32>
+///   }
+///   vector_ext.yield %v1 : vector<128xf32>
+/// }
+/// ```
+/// To:
+/// %w0 = vector_ext.warp_execute_on_lane_0(%arg0) -> (vector<4xf32>) {
+///   ...
+///   vector_ext.yield %v : vector<128xf32>
+/// }
+/// %w = scf.for %arg3 = %c0 to %c128 step %c1 iter_args(%varg = %q0)
+///   -> (vector<4xf32>) {
+///     %iw = vector_ext.warp_execute_on_lane_0(%laneid)
+///     args(%varg : vector<4xf32>) -> (vector<4xf32>) {
+///     ^bb0(%arg: vector<128xf32>):
+///       ...
+///       vector_ext.yield %ir : vector<128xf32>
+///     }
+///     scf.yield %iw : vector<4xf32>
+///  }
+/// ```
+struct WarpOpScfForOp : public OpRewritePattern<WarpSingleLaneOp> {
+  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+                                PatternRewriter &rewriter) const override {
+    auto yield = cast<vector_ext::YieldOp>(
+        warpOp.getBodyRegion().getBlocks().begin()->getTerminator());
+    // Only pick up forOp if it is the last op in the region.
+    Operation *lastNode = yield->getPrevNode();
+    auto forOp = dyn_cast_or_null<scf::ForOp>(lastNode);
+    if (!forOp)
+      return failure();
+    SmallVector<Value> newOperands;
+    SmallVector<unsigned> resultIdx;
+    // Collect all the outputs coming from the forOp.
+    for (OpOperand &yieldOperand : yield->getOpOperands()) {
+      if (yieldOperand.get().getDefiningOp() != forOp.getOperation())
+        continue;
+      auto forResult = yieldOperand.get().cast<OpResult>();
+      newOperands.push_back(warpOp.getResult(yieldOperand.getOperandNumber()));
+      yieldOperand.set(forOp.getIterOperands()[forResult.getResultNumber()]);
+      resultIdx.push_back(yieldOperand.getOperandNumber());
+    }
+    OpBuilder::InsertionGuard g(rewriter);
+    rewriter.setInsertionPointAfter(warpOp);
+    // Create a new for op outside the region with a WarpSingleOp region inside.
+    auto newForOp = rewriter.create<scf::ForOp>(
+        forOp.getLoc(), forOp.getLowerBound(), forOp.getUpperBound(),
+        forOp.getStep(), newOperands);
+    rewriter.setInsertionPoint(newForOp.getBody(), newForOp.getBody()->begin());
+    auto innerWarp = rewriter.create<WarpSingleLaneOp>(
+        warpOp.getLoc(), newForOp.getResultTypes(), warpOp.laneid(),
+        newForOp.getRegionIterArgs(), forOp.getResultTypes());
+    // Move the loop region within the new WarpSingleLaneOp region.
+    BlockAndValueMapping mapping;
+    mapping.map(forOp.getInductionVar(), newForOp.getInductionVar());
+    for (auto args : llvm::zip(forOp.getRegionIterArgs(),
+                               innerWarp.getBody()->getArguments())) {
+      mapping.map(std::get<0>(args), std::get<1>(args));
+    }
+    rewriter.setInsertionPoint(innerWarp.getBody(),
+                               innerWarp.getBody()->begin());
+    for (Operation &innerOp : forOp.getBody()->without_terminator())
+      rewriter.clone(innerOp, mapping);
+    SmallVector<Value> yieldOperands;
+    for (Value operand : forOp.getBody()->getTerminator()->getOperands())
+      yieldOperands.push_back(mapping.lookup(operand));
+    rewriter.create<vector_ext::YieldOp>(innerWarp.getLoc(), yieldOperands);
+    rewriter.setInsertionPointAfter(innerWarp);
+    rewriter.create<scf::YieldOp>(forOp.getLoc(), innerWarp.getResults());
+    // remove the old forOp.
+    forOp.getBody()->dropAllDefinedValueUses();
+    rewriter.eraseOp(forOp);
+    // Replace the warpOp result coming from the original ForOp.
+    for (auto res : llvm::enumerate(resultIdx)) {
+      warpOp.getResult(res.value())
+          .replaceAllUsesWith(newForOp.getResult(res.index()));
+      newForOp->setOperand(res.index() + 3, warpOp.getResult(res.value()));
+    }
+    return success();
+  }
+};
+
 void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
-              WarpOpReduction, WarpOpBroadcast, WarpOpForwardOperand>(
-      pattern.getContext());
+              WarpOpReduction, WarpOpBroadcast, WarpOpForwardOperand,
+              WarpOpScfForOp>(pattern.getContext());
 }
 
 void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
