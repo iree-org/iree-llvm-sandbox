@@ -380,23 +380,11 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
       : OpRewritePattern<vector::TransferWriteOp>(ctx, b),
         distributionMapFn(fn) {}
 
-  LogicalResult matchAndRewrite(vector::TransferWriteOp writeOp,
-                                PatternRewriter &rewriter) const override {
-    auto warpOp = dyn_cast<WarpSingleLaneOp>(writeOp->getParentOp());
-    if (!warpOp)
-      return failure();
-
-    // There must be no op with a side effect after writeOp.
-    Operation *nextOp = writeOp.getOperation();
-    while ((nextOp = nextOp->getNextNode()))
-      if (hasSideEffect(*nextOp))
-        return failure();
-
-    if (!llvm::all_of(writeOp->getOperands(), [&](Value value) {
-          return writeOp.vector() == value ||
-                 warpOp.isDefinedOutsideOfRegion(value);
-        }))
-      return failure();
+  /// Distribute the TransferWriteOp. Only 1D distributions and vector dims that
+  /// are multiples of the distribution ratio are supported at the moment.
+  LogicalResult tryDistributeOp(RewriterBase &rewriter,
+                                vector::TransferWriteOp writeOp,
+                                WarpSingleLaneOp warpOp) const {
     AffineMap map = distributionMapFn(writeOp);
     SmallVector<int64_t> targetShape(writeOp.getVectorType().getShape().begin(),
                                      writeOp.getVectorType().getShape().end());
@@ -410,14 +398,15 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     }
     VectorType targetType =
         VectorType::get(targetShape, writeOp.getVectorType().getElementType());
+
     SmallVector<Value> yieldValues = {writeOp.vector()};
     SmallVector<Type> retTypes = {targetType};
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
+    rewriter.setInsertionPointAfter(newWarpOp);
 
     // Move op outside of region: Insert clone at the insertion point and delete
     // the old op.
-    rewriter.setInsertionPointAfter(newWarpOp);
     auto newWriteOp = cast<vector::TransferWriteOp>(
         rewriter.clone(*writeOp.getOperation()));
     rewriter.eraseOp(writeOp);
@@ -444,6 +433,74 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     newWriteOp.indicesMutable().assign(indices);
 
     return success();
+  }
+
+  /// Extract TransferWriteOps of vector<1x> into a separate warp op.
+  LogicalResult tryExtractOp(RewriterBase &rewriter,
+                             vector::TransferWriteOp writeOp,
+                             WarpSingleLaneOp warpOp) const {
+    Location loc = writeOp.getLoc();
+    VectorType vecType = writeOp.getVectorType();
+
+    // Only vector<1x> is supported at the moment.
+    if (vecType.getShape().size() != 1 || vecType.getShape()[0] != 1)
+      return failure();
+
+    // Do not process warp ops that contain only TransferWriteOps.
+    if (llvm::all_of(warpOp.getOps(), [](Operation &op) {
+          return isa<vector::TransferWriteOp, vector_ext::YieldOp>(&op);
+        }))
+      return failure();
+
+    SmallVector<Value> yieldValues = {writeOp.vector()};
+    SmallVector<Type> retTypes = {vecType};
+    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+        rewriter, warpOp, yieldValues, retTypes);
+    rewriter.setInsertionPointAfter(newWarpOp);
+
+    // Create a second warp op that contains only writeOp.
+    auto secondWarpOp = rewriter.create<WarpSingleLaneOp>(
+        loc, TypeRange(), newWarpOp.laneid());
+    Block &body = secondWarpOp.getBodyRegion().front();
+    rewriter.setInsertionPointToStart(&body);
+    auto newWriteOp =
+        cast<vector::TransferWriteOp>(rewriter.clone(*writeOp.getOperation()));
+    newWriteOp.vectorMutable().assign(
+        newWarpOp.getResult(newWarpOp.getNumResults() - 1));
+    rewriter.eraseOp(writeOp);
+    rewriter.create<vector_ext::YieldOp>(newWarpOp.getLoc());
+    return success();
+  }
+
+  LogicalResult matchAndRewrite(vector::TransferWriteOp writeOp,
+                                PatternRewriter &rewriter) const override {
+    // Ops with mask not supported yet.
+    if (writeOp.mask())
+      return failure();
+
+    auto warpOp = dyn_cast<WarpSingleLaneOp>(writeOp->getParentOp());
+    if (!warpOp)
+      return failure();
+
+    // There must be no op with a side effect after writeOp.
+    Operation *nextOp = writeOp.getOperation();
+    while ((nextOp = nextOp->getNextNode()))
+      if (hasSideEffect(*nextOp))
+        return failure();
+
+    if (!llvm::all_of(writeOp->getOperands(), [&](Value value) {
+          return writeOp.vector() == value ||
+                 warpOp.isDefinedOutsideOfRegion(value);
+        }))
+      return failure();
+
+    if (succeeded(tryDistributeOp(rewriter, writeOp, warpOp)))
+      return success();
+
+    if (succeeded(tryExtractOp(rewriter, writeOp, warpOp)))
+      return success();
+
+    return failure();
   }
 
  private:
