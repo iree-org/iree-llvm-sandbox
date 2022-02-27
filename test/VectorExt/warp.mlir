@@ -211,6 +211,39 @@ func @fold_vector_broadcast(%laneid: index) {
 
 // -----
 
+// Note: This does currently not lower any further because there is no pattern
+// vector.broadcast yet.
+
+// CHECK-LABEL: func @large_vector_reduction(
+//       CHECK:   vector_ext.warp_execute_on_lane_0{{.*}} -> (vector<1xf32>) {
+//       CHECK:     %[[some_def:.*]] = "some_def"
+//       CHECK:     %[[slice1:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [0], sizes = [32], strides = [1]} : vector<128xf32> to vector<32xf32>
+//       CHECK:     %[[red1:.*]] = vector.reduction <add>, %[[slice1]] : vector<32xf32> into f32
+//       CHECK:     %[[slice2:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [32], sizes = [32], strides = [1]} : vector<128xf32> to vector<32xf32>
+//       CHECK:     %[[red2:.*]] = vector.reduction <add>, %[[slice2]] : vector<32xf32> into f32
+//       CHECK:     %[[add2:.*]] = arith.addf %[[red1]], %[[red2]]
+//       CHECK:     %[[slice3:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [64], sizes = [32], strides = [1]} : vector<128xf32> to vector<32xf32>
+//       CHECK:     %[[red3:.*]] = vector.reduction <add>, %[[slice3]] : vector<32xf32> into f32
+//       CHECK:     %[[add3:.*]] = arith.addf %[[add2]], %[[red3]]
+//       CHECK:     %[[slice4:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [96], sizes = [32], strides = [1]} : vector<128xf32> to vector<32xf32>
+//       CHECK:     %[[red4:.*]] = vector.reduction <add>, %[[slice4]] : vector<32xf32> into f32
+//       CHECK:     %[[add4:.*]] = arith.addf %[[add3]], %[[red4]]
+//       CHECK:     %[[broadcast:.*]] = vector.broadcast %[[add4]] : f32 to vector<1xf32>
+//       CHECK:     vector_ext.yield %[[broadcast]]
+//       CHECK:   }
+func @large_vector_reduction(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<1xf32>) {
+    %0 = "some_def"() : () -> (vector<128xf32>)
+    %1 = vector.reduction <add>, %0 : vector<128xf32> into f32
+    %2 = vector.broadcast %1 : f32 to vector<1xf32>
+    vector_ext.yield %2 : vector<1xf32>
+  }
+  vector.print %r : vector<1xf32>
+  return
+}
+
+// -----
+
 // CHECK-LABEL: func @extract_vector_broadcast(
 //       CHECK:   %[[r:.*]] = vector_ext.warp_execute_on_lane_0{{.*}} -> (vector<1xf32>)
 //       CHECK:     %[[some_def:.*]] = "some_def"

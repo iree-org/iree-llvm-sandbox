@@ -154,6 +154,8 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
     SmallVector<Value> yieldValues;
     SmallVector<Type> retTypes;
     for (OpOperand &operand : elementWise->getOpOperands()) {
+      if (!distributedVal.getType().isa<VectorType>())
+        return failure();
       auto targetType = VectorType::get(
           distributedVal.getType().cast<VectorType>().getShape(),
           operand.get().getType().cast<VectorType>().getElementType());
@@ -262,6 +264,48 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
         yieldLoc, laneVal, /*offset=*/0, /*width=*/kWarpSize,
         /*mode=*/gpu::ShuffleMode::IDX);
     newWarpOp.getResult(operandIndex).replaceAllUsesWith(shuffleOp.result());
+    return success();
+  }
+};
+
+struct SplitVectorReduction : public OpRewritePattern<vector::ReductionOp> {
+  using OpRewritePattern<vector::ReductionOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::ReductionOp reductionOp,
+                                PatternRewriter &rewriter) const override {
+    // Process only ReduceOps inside of WarpSingleLaneOps.
+    if (!isa<WarpSingleLaneOp>(reductionOp->getParentOp()))
+      return failure();
+    auto vectorType = reductionOp.vector().getType().cast<VectorType>();
+    // Only rank 1 vectors supported.
+    if (vectorType.getRank() != 1)
+      return failure();
+    // Only vectors that are larger than kWarpSize can be split.
+    int64_t vecSize = vectorType.getShape()[0];
+    if (vecSize <= kWarpSize)
+      return failure();
+
+    Location loc = reductionOp.getLoc();
+    int64_t offset = 0;
+    Value accumulator;
+    while (offset < vecSize) {
+      int64_t size = std::min<int64_t>(kWarpSize,  vecSize - offset);
+      Value vecSlice = rewriter.create<vector::ExtractStridedSliceOp>(
+          loc, reductionOp.vector(), std::initializer_list<int64_t>({offset}),
+          std::initializer_list<int64_t>({size}),
+          std::initializer_list<int64_t>({1}));
+      Value warpReduction = rewriter.create<vector::ReductionOp>(
+          loc, reductionOp.kind(), vecSlice);
+      offset += size;
+
+      if (!accumulator)
+        accumulator = warpReduction;
+      else
+        accumulator = vector::makeArithReduction(
+            rewriter, loc, reductionOp.kind(), accumulator, warpReduction);
+    }
+
+    rewriter.replaceOp(reductionOp, accumulator);
     return success();
   }
 };
@@ -664,7 +708,7 @@ void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
               WarpOpReduction, WarpOpBroadcast, WarpOpForwardOperand,
-              WarpOpScfForOp>(pattern.getContext());
+              WarpOpScfForOp, SplitVectorReduction>(pattern.getContext());
 }
 
 void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
