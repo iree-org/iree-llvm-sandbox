@@ -1,0 +1,117 @@
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <vector>
+
+#include "operators/column_scan.h"
+#include "operators/hash_join.h"
+
+TEST(HashJoinTest, SingleColumnKey) {
+  std::vector<int32_t> leftKeys = {1, 2, 1, 2, 5};
+  std::vector<int32_t> leftValues = {1, 1, 2, 2, 5};
+  std::vector<int32_t> rightKeys = {6, 1, 2, 1, 2};
+  std::vector<int32_t> rightValues = {6, 3, 3, 4, 4};
+
+  auto leftScan = makeColumnScanOperator(leftKeys, leftValues);
+  auto rightScan = makeColumnScanOperator(rightKeys, rightValues);
+  auto hashJoin = MakeHashJoinOperator<1>(&leftScan, &rightScan);
+
+  using ResultTuple = decltype(hashJoin)::OutputTuple;
+
+  // Consume result of hashJoin
+  hashJoin.open();
+  std::vector<ResultTuple> result;
+  while (const auto tuple = hashJoin.computeNext())
+    result.emplace_back(tuple.value());
+
+  // Compare with correct result
+  std::vector<ResultTuple> referenceResult = {
+      {1, 1, 3}, {1, 1, 4}, {1, 2, 3}, {1, 2, 4}, //
+      {2, 1, 3}, {2, 1, 4}, {2, 2, 3}, {2, 2, 4}};
+  std::sort(result.begin(), result.end());
+  std::sort(referenceResult.begin(), referenceResult.end());
+  EXPECT_EQ(result, referenceResult);
+
+  // Check that we can test for the end again
+  EXPECT_FALSE(hashJoin.computeNext());
+
+  hashJoin.close();
+}
+
+TEST(HashJoinTest, TwoColumnKey) {
+  std::vector<int32_t> leftKeys1 = {1, 1};
+  std::vector<int32_t> leftKeys2 = {2, 2};
+  std::vector<int32_t> leftValues = {3, 4};
+  std::vector<int32_t> rightKeys1 = {1};
+  std::vector<int32_t> rightKeys2 = {2};
+  std::vector<int32_t> rightValues = {5};
+
+  auto leftScan = makeColumnScanOperator(leftKeys1, leftKeys2, leftValues);
+  auto rightScan = makeColumnScanOperator(rightKeys1, rightKeys2, rightValues);
+  auto hashJoin = MakeHashJoinOperator<2>(&leftScan, &rightScan);
+
+  using ResultTuple = decltype(hashJoin)::OutputTuple;
+
+  // Consume result of hashJoin
+  hashJoin.open();
+  std::vector<ResultTuple> result;
+  while (const auto tuple = hashJoin.computeNext())
+    result.emplace_back(tuple.value());
+  hashJoin.close();
+
+  // Compare with correct result
+  std::vector<ResultTuple> referenceResult = {{1, 2, 3, 5}, {1, 2, 4, 5}};
+  std::sort(result.begin(), result.end());
+  std::sort(referenceResult.begin(), referenceResult.end());
+  EXPECT_EQ(result, referenceResult);
+}
+
+TEST(HashJoinTest, NoValueLeft) {
+  std::vector<int32_t> leftKeys = {1, 1};
+  std::vector<int32_t> rightKeys = {1};
+  std::vector<int32_t> rightValues = {2};
+
+  auto leftScan = makeColumnScanOperator(leftKeys);
+  auto rightScan = makeColumnScanOperator(rightKeys, rightValues);
+  auto hashJoin = MakeHashJoinOperator<1>(&leftScan, &rightScan);
+
+  using ResultTuple = decltype(hashJoin)::OutputTuple;
+
+  // Consume result of hashJoin
+  hashJoin.open();
+  std::vector<ResultTuple> result;
+  while (const auto tuple = hashJoin.computeNext())
+    result.emplace_back(tuple.value());
+  hashJoin.close();
+
+  // Compare with correct result
+  std::vector<ResultTuple> referenceResult = {{1, 2}, {1, 2}};
+  std::sort(result.begin(), result.end());
+  std::sort(referenceResult.begin(), referenceResult.end());
+  EXPECT_EQ(result, referenceResult);
+}
+
+TEST(HashJoinTest, NoValueRight) {
+  std::vector<int32_t> leftKeys = {1, 1};
+  std::vector<int32_t> LeftValues = {2, 2};
+  std::vector<int32_t> rightKeys = {1};
+
+  auto leftScan = makeColumnScanOperator(leftKeys, LeftValues);
+  auto rightScan = makeColumnScanOperator(rightKeys);
+  auto hashJoin = MakeHashJoinOperator<1>(&leftScan, &rightScan);
+
+  using ResultTuple = decltype(hashJoin)::OutputTuple;
+
+  // Consume result of hashJoin
+  hashJoin.open();
+  std::vector<ResultTuple> result;
+  while (const auto tuple = hashJoin.computeNext())
+    result.emplace_back(tuple.value());
+  hashJoin.close();
+
+  // Compare with correct result
+  std::vector<ResultTuple> referenceResult = {{1, 2}, {1, 2}};
+  std::sort(result.begin(), result.end());
+  std::sort(referenceResult.begin(), referenceResult.end());
+  EXPECT_EQ(result, referenceResult);
+}
