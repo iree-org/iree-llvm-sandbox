@@ -7,8 +7,8 @@
 
 TEST(ReduceTest, SingleColumnSum) {
   std::vector<int32_t> Numbers = {1, 2, 3, 4};
-  auto Scan = MakeColumnScanOperator(Numbers);
-  auto Reduce = MakeReduceOperator(&Scan, [](auto T1, auto T2) {
+  auto Scan = makeColumnScanOperator(Numbers);
+  auto Reduce = makeReduceOperator(&Scan, [](auto T1, auto T2) {
     return std::make_tuple(std::get<0>(T1) + std::get<0>(T2));
   });
   Reduce.open();
@@ -33,8 +33,8 @@ TEST(ReduceTest, SingleColumnSum) {
 
 TEST(ReduceTest, MulticolumnMinMax) {
   std::vector<int32_t> Numbers = {1, 2, 3, 4};
-  auto Scan = MakeColumnScanOperator(Numbers, Numbers);
-  auto Reduce = MakeReduceOperator(&Scan, [](auto T1, auto T2) {
+  auto Scan = makeColumnScanOperator(Numbers, Numbers);
+  auto Reduce = makeReduceOperator(&Scan, [](auto T1, auto T2) {
     return std::make_tuple(std::min(std::get<0>(T1), std::get<0>(T2)),
                            std::max(std::get<1>(T1), std::get<1>(T2)));
   });

@@ -65,7 +65,7 @@ private:
 /// Creates a new `ReduceOperator` deriving its template parameters from the
 /// provided arguments.
 template <typename UpstreamType, typename ReduceFunctionType>
-auto MakeReduceOperator(UpstreamType *const Upstream,
+auto makeReduceOperator(UpstreamType *const Upstream,
                         ReduceFunctionType ReduceFunction) {
   return ReduceOperator<UpstreamType, ReduceFunctionType>(
       Upstream, std::move(ReduceFunction));

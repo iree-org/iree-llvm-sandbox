@@ -6,7 +6,7 @@
 
 TEST(ColumnScanTest, SingleColumn) {
   std::vector<int32_t> Numbers = {1, 2, 3, 4};
-  auto Scan = MakeColumnScanOperator(Numbers);
+  auto Scan = makeColumnScanOperator(Numbers);
   Scan.open();
 
   decltype(Scan)::ReturnType Tuple;
@@ -42,7 +42,7 @@ TEST(ColumnScanTest, SingleColumn) {
 TEST(ColumnScanTest, MultipleColumn) {
   std::vector<int32_t> column1 = {1, 2};
   std::vector<int32_t> column2 = {3, 4};
-  auto Scan = MakeColumnScanOperator(column1, column2);
+  auto Scan = makeColumnScanOperator(column1, column2);
   Scan.open();
 
   decltype(Scan)::ReturnType Tuple;

@@ -44,7 +44,7 @@ public:
     // Return current tuple and advance
     using IndexSequence =
         std::make_index_sequence<std::tuple_size_v<OutputTuple>>;
-    auto const Ret = ExtractCurrentTuple(IndexSequence{});
+    auto const Ret = extractCurrentTuple(IndexSequence{});
     CurrentPos++;
     return Ret;
   }
@@ -54,7 +54,7 @@ public:
 
 private:
   template <std::size_t... kIndices>
-  std::optional<OutputTuple> ExtractCurrentTuple(
+  std::optional<OutputTuple> extractCurrentTuple(
       const std::index_sequence<kIndices...> & /*unused*/) const {
     return std::make_tuple(std::get<kIndices>(Inputs).at(CurrentPos)...);
   }
@@ -66,7 +66,7 @@ private:
 /// Creates a new `ColumnScanOperator` deriving its template parameters from
 /// the provided arguments.
 template <typename... InputTypes>
-auto MakeColumnScanOperator(std::vector<InputTypes>... Inputs) {
+auto makeColumnScanOperator(std::vector<InputTypes>... Inputs) {
   return ColumnScanOperator<InputTypes...>(Inputs...);
 }
 
