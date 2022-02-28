@@ -213,18 +213,23 @@ void WarpSingleLaneOp::getSuccessorRegions(
 }
 
 void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
-                             Value laneId) {
-  build(builder, result, /*resultTypes=*/llvm::None, laneId);
+                             TypeRange resultTypes, Value laneId) {
+  build(builder, result, resultTypes, laneId,
+        /*operands=*/llvm::None, /*argTypes=*/llvm::None);
 }
 
 void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
-                             TypeRange resultTypes, Value laneId) {
+                             TypeRange resultTypes, Value laneId,
+                             ValueRange args, TypeRange blockArgTypes) {
   result.addOperands(laneId);
   result.addTypes(resultTypes);
-
+  result.addOperands(args);
+  assert(args.size() == blockArgTypes.size());
   OpBuilder::InsertionGuard guard(builder);
   Region *warpRegion = result.addRegion();
-  builder.createBlock(warpRegion);
+  Block *block = builder.createBlock(warpRegion);
+  for (auto it : llvm::zip(blockArgTypes, args))
+    block->addArgument(std::get<0>(it), std::get<1>(it).getLoc());
 }
 
 #define GET_OP_CLASSES

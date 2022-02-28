@@ -148,8 +148,12 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
   let skipDefaultBuilders = 1;
   let builders = [
     OpBuilder<(ins "Value":$laneid)>,
-    // TODO: Add arguments support in the builder.
-    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid)>
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid)>,
+    // `blockArgTypes` are different than `args` types as they are they
+    // represent all the `args` instances visibile to lane 0. Therefore we need
+    // to explicit pass the type.
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid,
+                   "ValueRange":$args, "TypeRange":$blockArgTypes)>
   ];
 
   let extraClassDeclaration = [{

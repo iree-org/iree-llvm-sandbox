@@ -18,6 +18,21 @@ func @warp_dead_result(%laneid: index) -> (vector<1xf32>) {
 
 // -----
 
+// CHECK-LABEL:   func @warp_propagate_operand(
+//  CHECK-SAME:   %[[ID:.*]]: index, %[[V:.*]]: vector<4xf32>)
+func @warp_propagate_operand(%laneid: index, %v0: vector<4xf32>)
+  -> (vector<4xf32>) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)
+     args(%v0 : vector<4xf32>) -> (vector<4xf32>) {
+     ^bb0(%arg0 : vector<128xf32>) :
+    vector_ext.yield %arg0 : vector<128xf32>
+  }
+  // CHECK: return %[[V]] : vector<4xf32>
+  return %r : vector<4xf32>
+}
+
+// -----
+
 #map0 = affine_map<()[s0] -> (s0 * 2)>
 
 // CHECK-LABEL:   func @warp_propagate_elementwise(

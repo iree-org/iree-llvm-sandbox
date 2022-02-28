@@ -43,8 +43,9 @@ moveRegionToNewWarpOpAndReplaceReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
   // Create a new op before the existing one, with the extra operands.
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(warpOp);
-  auto newWarpOp = b.create<WarpSingleLaneOp>(warpOp.getLoc(), newReturnTypes,
-                                              warpOp.laneid());
+  auto newWarpOp = b.create<WarpSingleLaneOp>(
+      warpOp.getLoc(), newReturnTypes, warpOp.laneid(), warpOp.args(),
+      warpOp.getBody()->getArgumentTypes());
 
   Region &opBody = warpOp.getBodyRegion();
   Region &newOpBody = newWarpOp.getBodyRegion();
@@ -354,6 +355,37 @@ struct WarpOpDeadResult : public OpRewritePattern<WarpSingleLaneOp> {
   }
 };
 
+// If an operand is directly yielded out of the region we can forward it
+// directly and it doesn't need to go through the region.
+struct WarpOpForwardOperand : public OpRewritePattern<WarpSingleLaneOp> {
+  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+                                PatternRewriter &rewriter) const override {
+    SmallVector<Type> resultTypes;
+    SmallVector<Value> yieldValues;
+    auto yield = cast<vector_ext::YieldOp>(
+        warpOp.getBodyRegion().getBlocks().begin()->getTerminator());
+    Value valForwarded;
+    unsigned resultIndex;
+    for (OpOperand &operand : yield->getOpOperands()) {
+      auto arg = operand.get().dyn_cast<BlockArgument>();
+      if (!arg || arg.getOwner()->getParentOp() != warpOp.getOperation())
+        continue;
+      Value result = warpOp.getResult(operand.getOperandNumber());
+      Value warpOperand = warpOp.args()[arg.getArgNumber()];
+      if (result.use_empty() || result.getType() != warpOperand.getType())
+        continue;
+      valForwarded = warpOperand;
+      resultIndex = operand.getOperandNumber();
+      break;
+    }
+    if (!valForwarded)
+      return failure();
+    warpOp.getResult(resultIndex).replaceAllUsesWith(valForwarded);
+    return success();
+  }
+};
+
 } // namespace
 
 /// Helper to figure out if an op has side effects or recursive side-effects.
@@ -453,7 +485,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
 void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
-              WarpOpReduction>(pattern.getContext());
+              WarpOpReduction, WarpOpForwardOperand>(pattern.getContext());
 }
 
 void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
