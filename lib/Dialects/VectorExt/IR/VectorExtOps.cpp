@@ -220,15 +220,15 @@ void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
 
 void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
                              TypeRange resultTypes, Value laneId,
-                             ValueRange operands, TypeRange argTypes) {
+                             ValueRange args, TypeRange blockArgTypes) {
   result.addOperands(laneId);
   result.addTypes(resultTypes);
-  result.addOperands(operands);
-  assert(operands.size() == argTypes.size());
+  result.addOperands(args);
+  assert(args.size() == blockArgTypes.size());
   OpBuilder::InsertionGuard guard(builder);
   Region *warpRegion = result.addRegion();
   Block *block = builder.createBlock(warpRegion);
-  for (auto it : llvm::zip(argTypes, operands))
+  for (auto it : llvm::zip(blockArgTypes, args))
     block->addArgument(std::get<0>(it), std::get<1>(it).getLoc());
 }
 
