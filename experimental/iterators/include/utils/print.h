@@ -1,5 +1,5 @@
-#ifndef UTILS_PRINT_H_
-#define UTILS_PRINT_H_
+#ifndef UTILS_PRINT_H
+#define UTILS_PRINT_H
 
 #include <iostream>
 #include <tuple>
@@ -32,4 +32,4 @@ void printTuple(const std::tuple<Types...> &tuple) {
   printTuple(std::cout, tuple);
 }
 
-#endif // UTILS_PRINT_H_
+#endif // UTILS_PRINT_H

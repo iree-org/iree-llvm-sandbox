@@ -26,8 +26,8 @@ public:
 
   /// Copies the given vectors into its internal state. All provided vectors
   /// have to have the same length.
-  explicit ColumnScanOperator(std::vector<InputTypes>... Inputs)
-      : Inputs(std::make_tuple(std::move(Inputs)...)), CurrentPos(0) {}
+  explicit ColumnScanOperator(std::vector<InputTypes>... inputs)
+      : inputs(std::make_tuple(std::move(inputs)...)), currentPos(0) {}
 
   /// Does nothing.
   void open() {}
@@ -37,16 +37,16 @@ public:
   /// 'end of stream' otherwise.
   ReturnType computeNext() {
     // Signal end-of-stream if we are at the end of the input
-    if (CurrentPos >= std::get<0>(Inputs).size()) {
+    if (currentPos >= std::get<0>(inputs).size()) {
       return {};
     }
 
     // Return current tuple and advance
     using IndexSequence =
         std::make_index_sequence<std::tuple_size_v<OutputTuple>>;
-    auto const Ret = extractCurrentTuple(IndexSequence{});
-    CurrentPos++;
-    return Ret;
+    auto const ret = extractCurrentTuple(IndexSequence{});
+    currentPos++;
+    return ret;
   }
 
   /// Does nothing.
@@ -56,18 +56,18 @@ private:
   template <std::size_t... kIndices>
   std::optional<OutputTuple> extractCurrentTuple(
       const std::index_sequence<kIndices...> & /*unused*/) const {
-    return std::make_tuple(std::get<kIndices>(Inputs).at(CurrentPos)...);
+    return std::make_tuple(std::get<kIndices>(inputs).at(currentPos)...);
   }
 
-  std::tuple<std::vector<InputTypes>...> Inputs;
-  int64_t CurrentPos;
+  std::tuple<std::vector<InputTypes>...> inputs;
+  int64_t currentPos;
 };
 
 /// Creates a new `ColumnScanOperator` deriving its template parameters from
 /// the provided arguments.
 template <typename... InputTypes>
-auto makeColumnScanOperator(std::vector<InputTypes>... Inputs) {
-  return ColumnScanOperator<InputTypes...>(Inputs...);
+auto makeColumnScanOperator(std::vector<InputTypes>... inputs) {
+  return ColumnScanOperator<InputTypes...>(inputs...);
 }
 
 #endif // OPERATORS_COLUMN_SCAN_H

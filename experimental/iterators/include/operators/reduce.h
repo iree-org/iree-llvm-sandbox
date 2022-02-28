@@ -26,13 +26,13 @@ public:
   using ReturnType = std::optional<OutputTuple>;
 
   /// Constructs a new `ReduceOperator` that holds a reference on its upstream
-  /// operator and a copy of the provided `ReduceFunction`.
-  explicit ReduceOperator(UpstreamType *const Upstream,
-                          ReduceFunctionType ReduceFunction)
-      : Upstream(Upstream), ReduceFunction(std::move(ReduceFunction)) {}
+  /// operator and a copy of the provided `reduceFunction`.
+  explicit ReduceOperator(UpstreamType *const upstream,
+                          ReduceFunctionType reduceFunction)
+      : upstream(upstream), reduceFunction(std::move(reduceFunction)) {}
 
   /// Opens the upstream operator.
-  void open() { Upstream->open(); }
+  void open() { upstream->open(); }
 
   /// Consumes the tuples produced by the upstream operator and combines each
   /// with its internal aggregate to produce the new aggregate. Returns the
@@ -40,35 +40,35 @@ public:
   /// output; returns "end-of-stream" otherwise.
   ReturnType computeNext() {
     // Consume and handle first tuple
-    const auto FirstTuple = Upstream->computeNext();
-    if (!FirstTuple) {
+    const auto firstTuple = upstream->computeNext();
+    if (!firstTuple) {
       return {};
     }
 
     // Aggregate remaining tuples
-    OutputTuple Aggregate = FirstTuple.value();
-    while (auto const Tuple = Upstream->computeNext()) {
-      Aggregate = ReduceFunction(Aggregate, Tuple.value());
+    OutputTuple aggregate = firstTuple.value();
+    while (auto const tuple = upstream->computeNext()) {
+      aggregate = reduceFunction(aggregate, tuple.value());
     }
 
-    return Aggregate;
+    return aggregate;
   }
 
   /// Closes the upstream operator.
-  void close() { Upstream->close(); }
+  void close() { upstream->close(); }
 
 private:
-  UpstreamType *const Upstream;
-  ReduceFunctionType ReduceFunction;
+  UpstreamType *const upstream;
+  ReduceFunctionType reduceFunction;
 };
 
 /// Creates a new `ReduceOperator` deriving its template parameters from the
 /// provided arguments.
 template <typename UpstreamType, typename ReduceFunctionType>
-auto makeReduceOperator(UpstreamType *const Upstream,
-                        ReduceFunctionType ReduceFunction) {
+auto makeReduceOperator(UpstreamType *const upstream,
+                        ReduceFunctionType reduceFunction) {
   return ReduceOperator<UpstreamType, ReduceFunctionType>(
-      Upstream, std::move(ReduceFunction));
+      upstream, std::move(reduceFunction));
 }
 
 #endif // OPERATORS_REDUCE_H

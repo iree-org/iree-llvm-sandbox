@@ -34,7 +34,7 @@ public:
   // ...
   ReturnType computeNext() {
     // ...
-    Upstream->computeNext();  // Specialization is known, can be inlined
+    upstream->computeNext();  // Specialization is known, can be inlined
     // ...
 ```
 
@@ -49,9 +49,9 @@ parameters for the to-be-instatiated class such that assembling query plans is
 concise:
 
 ```cpp
-std::vector<int32_t> Numbers = {1, 2, 3, 4};
-auto Scan = MakeColumnScanOperator(Numbers);
-auto Reduce = MakeReduceOperator(&Scan, [](auto T1, auto T2) {
-  return std::make_tuple(std::get<0>(T1) + std::get<0>(T2));
+std::vector<int32_t> numbers = {1, 2, 3, 4};
+auto scan = MakeColumnScanOperator(numbers);
+auto reduce = MakeReduceOperator(&scan, [](auto t1, auto t2) {
+  return std::make_tuple(std::get<0>(t1) + std::get<0>(t2));
 });
 ```

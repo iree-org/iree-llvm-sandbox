@@ -5,13 +5,13 @@
 #include "utils/print.h"
 
 int main(int /*unused*/, char ** /*unused*/) {
-  std::vector<int32_t> Numbers = {1, 2, 3, 4};
-  auto Scan = makeColumnScanOperator(Numbers, Numbers, Numbers);
-  Scan.open();
-  decltype(Scan)::ReturnType Tuple;
-  while ((Tuple = Scan.computeNext())) {
-    printTuple(Tuple.value());
+  std::vector<int32_t> numbers = {1, 2, 3, 4};
+  auto scan = makeColumnScanOperator(numbers, numbers, numbers);
+  scan.open();
+  decltype(scan)::ReturnType tuple;
+  while ((tuple = scan.computeNext())) {
+    printTuple(tuple.value());
     std::cout << '\n';
   }
-  Scan.close();
+  scan.close();
 }
