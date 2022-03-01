@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(iterators VERSION 0.1.0)
 
+# TODO: Atm LLVM is still in C++14 land.
 set(CMAKE_CXX_STANDARD 17)
+
+include_directories(include)
+add_subdirectory(lib)
+
+
+
 
 add_subdirectory(docs)
 
@@ -23,6 +30,8 @@ target_include_directories(iterators PUBLIC include)
 include(CTest)
 enable_testing()
 
+# TODO: move these to the tests director.
+# TODO: split tests into C++ and MLIR
 add_executable(iterator_tests
         tests/column_scan_operator_test.cc
         tests/reduce_operator_test.cc
