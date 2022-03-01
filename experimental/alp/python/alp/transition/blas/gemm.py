@@ -59,7 +59,7 @@ def matmul_TN(
 
   domain(D.m, D.n, D.k)
   implements(ContractionOpInterface)
-  C[D.m, D.n] += TypeFn.cast(U, A[D.k, D.m]) * TypeFn.cast(U, B[D.k, D.n])
+  C[D.m, D.n] += TypeFn.cast_signed(U, A[D.k, D.m]) * TypeFn.cast_signed(U, B[D.k, D.n])
 
 
 # C = A*B
@@ -72,7 +72,7 @@ def matmul_NN(
 
   domain(D.m, D.n, D.k)
   implements(ContractionOpInterface)
-  C[D.m, D.n] += TypeFn.cast(U, A[D.m, D.k]) * TypeFn.cast(U, B[D.k, D.n])
+  C[D.m, D.n] += TypeFn.cast_signed(U, A[D.m, D.k]) * TypeFn.cast_signed(U, B[D.k, D.n])
 
 
 class GEMM(ProblemDefinition):

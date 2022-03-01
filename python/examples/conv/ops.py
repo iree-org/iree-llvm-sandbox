@@ -14,8 +14,8 @@ def conv_1d_ncw_cfw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.c, D.kw)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kw]))
 
 
 @linalg_structured_op
@@ -28,8 +28,8 @@ def conv_1d_ncw_cwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.c, D.kw)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.c, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -42,8 +42,8 @@ def conv_1d_ncw_fcw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.c, D.kw)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -56,8 +56,8 @@ def conv_1d_ncw_fwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.kw, D.c)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.f, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -70,8 +70,8 @@ def conv_1d_ncw_wcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.kw, D.c)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -84,8 +84,8 @@ def conv_1d_ncw_wfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.kw, D.c)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -98,8 +98,8 @@ def conv_1d_nwc_cfw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.c, D.kw)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kw]))
 
 
 @linalg_structured_op
@@ -112,8 +112,8 @@ def conv_1d_nwc_cwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.c, D.kw)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.c, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+      TypeFn.cast_signed(U, K[D.c, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -126,8 +126,8 @@ def conv_1d_nwc_fcw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.c, D.kw)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -140,8 +140,8 @@ def conv_1d_nwc_fwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.kw, D.c)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.f, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+      TypeFn.cast_signed(U, K[D.f, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -154,8 +154,8 @@ def conv_1d_nwc_wcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.kw, D.c)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+      TypeFn.cast_signed(U, K[D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -168,8 +168,8 @@ def conv_1d_nwc_wfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.kw, D.c)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+      TypeFn.cast_signed(U, K[D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -182,8 +182,8 @@ def conv_1d_cnw_cfw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.c, D.kw)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kw]))
 
 
 @linalg_structured_op
@@ -196,8 +196,8 @@ def conv_1d_cnw_cwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.c, D.kw)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.c, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -210,8 +210,8 @@ def conv_1d_cnw_fcw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.c, D.kw)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -224,8 +224,8 @@ def conv_1d_cnw_fwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.ow, D.kw, D.c)
   O[D.n, D.f, D.ow] += (
-      TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.f, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -238,8 +238,8 @@ def conv_1d_cnw_wcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.kw, D.c)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -252,8 +252,8 @@ def conv_1d_cnw_wfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.f, D.kw, D.c)
   O[D.n, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+      TypeFn.cast_signed(U, K[D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -266,8 +266,8 @@ def conv_1d_cwn_cfw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.c, D.kw)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kw]))
 
 
 @linalg_structured_op
@@ -280,8 +280,8 @@ def conv_1d_cwn_cwf(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.c, D.kw)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.c, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+      TypeFn.cast_signed(U, K[D.c, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -294,8 +294,8 @@ def conv_1d_cwn_fcw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.c, D.kw)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -308,8 +308,8 @@ def conv_1d_cwn_fwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.kw, D.c)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.f, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+      TypeFn.cast_signed(U, K[D.f, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -322,8 +322,8 @@ def conv_1d_cwn_wcf(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.kw, D.c)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+      TypeFn.cast_signed(U, K[D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -336,8 +336,8 @@ def conv_1d_cwn_wfc(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.kw, D.c)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+      TypeFn.cast_signed(U, K[D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -350,8 +350,8 @@ def conv_1d_wnc_cfw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.c, D.kw)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kw]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kw]))
 
 
 @linalg_structured_op
@@ -364,8 +364,8 @@ def conv_1d_wnc_cwf(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.c, D.kw)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.c, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+      TypeFn.cast_signed(U, K[D.c, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -378,8 +378,8 @@ def conv_1d_wnc_fcw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.c, D.kw)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kw]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -392,8 +392,8 @@ def conv_1d_wnc_fwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.kw, D.c)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.f, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+      TypeFn.cast_signed(U, K[D.f, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -406,8 +406,8 @@ def conv_1d_wnc_wcf(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.kw, D.c)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+      TypeFn.cast_signed(U, K[D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -420,8 +420,8 @@ def conv_1d_wnc_wfc(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.kw, D.c)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+      TypeFn.cast_signed(U, K[D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -434,8 +434,8 @@ def conv_1d_wcn_cfw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.c, D.kw)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kw]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kw]))
 
 
 @linalg_structured_op
@@ -448,8 +448,8 @@ def conv_1d_wcn_cwf(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.c, D.kw)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.c, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+      TypeFn.cast_signed(U, K[D.c, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -462,8 +462,8 @@ def conv_1d_wcn_fcw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.c, D.kw)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kw]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -476,8 +476,8 @@ def conv_1d_wcn_fwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.ow, D.n, D.kw, D.c)
   O[D.f, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.f, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+      TypeFn.cast_signed(U, K[D.f, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -490,8 +490,8 @@ def conv_1d_wcn_wcf(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.kw, D.c)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+      TypeFn.cast_signed(U, K[D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -504,8 +504,8 @@ def conv_1d_wcn_wfc(
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.f, D.kw, D.c)
   O[D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+      TypeFn.cast_signed(U, K[D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -519,8 +519,8 @@ def conv_2d_nchw_cfhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.c, D.kh, D.kw)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.c, D.f, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.c, D.f, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -534,8 +534,8 @@ def conv_2d_nchw_chwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.c, D.kh, D.kw)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.c, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.c, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -549,8 +549,8 @@ def conv_2d_nchw_fchw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.c, D.kh, D.kw)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.f, D.c, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.f, D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -564,8 +564,8 @@ def conv_2d_nchw_fhwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.kh, D.kw, D.c)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.f, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.f, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -579,8 +579,8 @@ def conv_2d_nchw_hwcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.kh, D.kw, D.c)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -594,8 +594,8 @@ def conv_2d_nchw_hwfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.kh, D.kw, D.c)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -609,8 +609,8 @@ def conv_2d_nhwc_cfhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.c, D.kh, D.kw)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
-      * TypeFn.cast(U, K[D.c, D.f, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
+      * TypeFn.cast_signed(U, K[D.c, D.f, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -624,8 +624,8 @@ def conv_2d_nhwc_chwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.c, D.kh, D.kw)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
-      * TypeFn.cast(U, K[D.c, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
+      * TypeFn.cast_signed(U, K[D.c, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -639,8 +639,8 @@ def conv_2d_nhwc_fchw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.c, D.kh, D.kw)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
-      * TypeFn.cast(U, K[D.f, D.c, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
+      * TypeFn.cast_signed(U, K[D.f, D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -654,8 +654,8 @@ def conv_2d_nhwc_fhwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.kh, D.kw, D.c)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
-      * TypeFn.cast(U, K[D.f, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
+      * TypeFn.cast_signed(U, K[D.f, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -669,8 +669,8 @@ def conv_2d_nhwc_hwcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.kh, D.kw, D.c)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -684,8 +684,8 @@ def conv_2d_nhwc_hwfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.kh, D.kw, D.c)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -699,8 +699,8 @@ def conv_2d_cnhw_cfhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.c, D.kh, D.kw)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.c, D.f, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.c, D.f, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -714,8 +714,8 @@ def conv_2d_cnhw_chwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.c, D.kh, D.kw)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.c, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.c, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -729,8 +729,8 @@ def conv_2d_cnhw_fchw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.c, D.kh, D.kw)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.f, D.c, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.f, D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -744,8 +744,8 @@ def conv_2d_cnhw_fhwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.oh, D.ow, D.kh, D.kw, D.c)
   O[D.n, D.f, D.oh, D.ow] += (
-      TypeFn.cast(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.f, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.f, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -759,8 +759,8 @@ def conv_2d_cnhw_hwcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.kh, D.kw, D.c)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -774,8 +774,8 @@ def conv_2d_cnhw_hwfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.f, D.kh, D.kw, D.c)
   O[D.n, D.oh, D.ow, D.f] += (
-      TypeFn.cast(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -789,8 +789,8 @@ def conv_2d_chwn_cfhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.c, D.kh, D.kw)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
-      * TypeFn.cast(U, K[D.c, D.f, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
+      * TypeFn.cast_signed(U, K[D.c, D.f, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -804,8 +804,8 @@ def conv_2d_chwn_chwf(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.c, D.kh, D.kw)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
-      * TypeFn.cast(U, K[D.c, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
+      * TypeFn.cast_signed(U, K[D.c, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -819,8 +819,8 @@ def conv_2d_chwn_fchw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.c, D.kh, D.kw)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
-      * TypeFn.cast(U, K[D.f, D.c, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
+      * TypeFn.cast_signed(U, K[D.f, D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -834,8 +834,8 @@ def conv_2d_chwn_fhwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.kh, D.kw, D.c)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
-      * TypeFn.cast(U, K[D.f, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
+      * TypeFn.cast_signed(U, K[D.f, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -849,8 +849,8 @@ def conv_2d_chwn_hwcf(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.kh, D.kw, D.c)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -864,8 +864,8 @@ def conv_2d_chwn_hwfc(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.kh, D.kw, D.c)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -879,8 +879,8 @@ def conv_2d_hwnc_cfhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.c, D.kh, D.kw)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
-      * TypeFn.cast(U, K[D.c, D.f, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
+      * TypeFn.cast_signed(U, K[D.c, D.f, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -894,8 +894,8 @@ def conv_2d_hwnc_chwf(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.c, D.kh, D.kw)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
-      * TypeFn.cast(U, K[D.c, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
+      * TypeFn.cast_signed(U, K[D.c, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -909,8 +909,8 @@ def conv_2d_hwnc_fchw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.c, D.kh, D.kw)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
-      * TypeFn.cast(U, K[D.f, D.c, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
+      * TypeFn.cast_signed(U, K[D.f, D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -924,8 +924,8 @@ def conv_2d_hwnc_fhwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.kh, D.kw, D.c)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
-      * TypeFn.cast(U, K[D.f, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
+      * TypeFn.cast_signed(U, K[D.f, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -939,8 +939,8 @@ def conv_2d_hwnc_hwcf(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.kh, D.kw, D.c)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -954,8 +954,8 @@ def conv_2d_hwnc_hwfc(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.kh, D.kw, D.c)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -969,8 +969,8 @@ def conv_2d_hwcn_cfhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.c, D.kh, D.kw)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
-      * TypeFn.cast(U, K[D.c, D.f, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
+      * TypeFn.cast_signed(U, K[D.c, D.f, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -984,8 +984,8 @@ def conv_2d_hwcn_chwf(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.c, D.kh, D.kw)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
-      * TypeFn.cast(U, K[D.c, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
+      * TypeFn.cast_signed(U, K[D.c, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -999,8 +999,8 @@ def conv_2d_hwcn_fchw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.c, D.kh, D.kw)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
-      * TypeFn.cast(U, K[D.f, D.c, D.kh, D.kw]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
+      * TypeFn.cast_signed(U, K[D.f, D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1014,8 +1014,8 @@ def conv_2d_hwcn_fhwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.oh, D.ow, D.n, D.kh, D.kw, D.c)
   O[D.f, D.oh, D.ow, D.n] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
-      * TypeFn.cast(U, K[D.f, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
+      * TypeFn.cast_signed(U, K[D.f, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1029,8 +1029,8 @@ def conv_2d_hwcn_hwcf(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.kh, D.kw, D.c)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1044,8 +1044,8 @@ def conv_2d_hwcn_hwfc(
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.f, D.kh, D.kw, D.c)
   O[D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
-      * TypeFn.cast(U, K[D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n])
+      * TypeFn.cast_signed(U, K[D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -1059,10 +1059,10 @@ def conv_3d_ncdhw_cfdhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1076,10 +1076,10 @@ def conv_3d_ncdhw_cdhwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -1093,10 +1093,10 @@ def conv_3d_ncdhw_fcdhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1110,10 +1110,10 @@ def conv_3d_ncdhw_fdhwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1127,10 +1127,10 @@ def conv_3d_ncdhw_dhwcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1144,10 +1144,10 @@ def conv_3d_ncdhw_dhwfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -1161,10 +1161,10 @@ def conv_3d_ndhwc_cfdhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1178,10 +1178,10 @@ def conv_3d_ndhwc_cdhwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -1195,10 +1195,10 @@ def conv_3d_ndhwc_fcdhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1212,10 +1212,10 @@ def conv_3d_ndhwc_fdhwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1229,10 +1229,10 @@ def conv_3d_ndhwc_dhwcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1246,10 +1246,10 @@ def conv_3d_ndhwc_dhwfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -1263,10 +1263,10 @@ def conv_3d_cndhw_cfdhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1280,10 +1280,10 @@ def conv_3d_cndhw_cdhwf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -1297,10 +1297,10 @@ def conv_3d_cndhw_fcdhw(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.c, D.kd, D.kh, D.kw)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1314,10 +1314,10 @@ def conv_3d_cndhw_fdhwc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.f, D.od, D.oh, D.ow, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.f, D.od, D.oh, D.ow] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1331,10 +1331,10 @@ def conv_3d_cndhw_dhwcf(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1348,10 +1348,10 @@ def conv_3d_cndhw_dhwfc(
   implements(ConvolutionOpInterface)
   domain(D.n, D.od, D.oh, D.ow, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.n, D.od, D.oh, D.ow, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.n, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -1365,10 +1365,10 @@ def conv_3d_cdhwn_cfdhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.c, D.kd, D.kh, D.kw)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1382,10 +1382,10 @@ def conv_3d_cdhwn_cdhwf(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.c, D.kd, D.kh, D.kw)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -1399,10 +1399,10 @@ def conv_3d_cdhwn_fcdhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.c, D.kd, D.kh, D.kw)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1416,10 +1416,10 @@ def conv_3d_cdhwn_fdhwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.kd, D.kh, D.kw, D.c)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1433,10 +1433,10 @@ def conv_3d_cdhwn_dhwcf(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1450,10 +1450,10 @@ def conv_3d_cdhwn_dhwfc(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.c, D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -1467,10 +1467,10 @@ def conv_3d_dhwnc_cfdhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.c, D.kd, D.kh, D.kw)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1484,10 +1484,10 @@ def conv_3d_dhwnc_cdhwf(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.c, D.kd, D.kh, D.kw)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -1501,10 +1501,10 @@ def conv_3d_dhwnc_fcdhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.c, D.kd, D.kh, D.kw)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1518,10 +1518,10 @@ def conv_3d_dhwnc_fdhwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.kd, D.kh, D.kw, D.c)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1535,10 +1535,10 @@ def conv_3d_dhwnc_dhwcf(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1552,10 +1552,10 @@ def conv_3d_dhwnc_dhwfc(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
 
 
 @linalg_structured_op
@@ -1569,10 +1569,10 @@ def conv_3d_dhwcn_cfdhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.c, D.kd, D.kh, D.kw)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.c, D.f, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1586,10 +1586,10 @@ def conv_3d_dhwcn_cdhwf(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.c, D.kd, D.kh, D.kw)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
+      TypeFn.cast_signed(U, K[D.c, D.kd, D.kh, D.kw, D.f]))
 
 
 @linalg_structured_op
@@ -1603,10 +1603,10 @@ def conv_3d_dhwcn_fcdhw(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.c, D.kd, D.kh, D.kw)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
+      TypeFn.cast_signed(U, K[D.f, D.c, D.kd, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -1620,10 +1620,10 @@ def conv_3d_dhwcn_fdhwc(
   implements(ConvolutionOpInterface)
   domain(D.f, D.od, D.oh, D.ow, D.n, D.kd, D.kh, D.kw, D.c)
   O[D.f, D.od, D.oh, D.ow, D.n] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
+      TypeFn.cast_signed(U, K[D.f, D.kd, D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -1637,10 +1637,10 @@ def conv_3d_dhwcn_dhwcf(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.c, D.f]))
 
 
 @linalg_structured_op
@@ -1654,7 +1654,7 @@ def conv_3d_dhwcn_dhwfc(
   implements(ConvolutionOpInterface)
   domain(D.od, D.oh, D.ow, D.n, D.f, D.kd, D.kh, D.kw, D.c)
   O[D.od, D.oh, D.ow, D.n, D.f] += (
-      TypeFn.cast(
+      TypeFn.cast_signed(
           U, I[D.od * S.SD + D.kd * S.DD, D.oh * S.SH + D.kh * S.DH,
                D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-      TypeFn.cast(U, K[D.kd, D.kh, D.kw, D.f, D.c]))
+      TypeFn.cast_signed(U, K[D.kd, D.kh, D.kw, D.f, D.c]))

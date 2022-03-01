@@ -1,9 +1,6 @@
 
 add_mlir_library(IREELinalgTensorSandboxTransforms
-  ConvertToAsyncDialect.cpp
-  ConvertToGPUDialect.cpp
   FuseFillIntoReduction.cpp
-  LinalgTileAndFuse.cpp
   Listener.cpp
   ListenerCSE.cpp
   ListenerGreedyPatternRewriteDriver.cpp

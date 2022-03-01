@@ -139,14 +139,14 @@ def make_einsum(specification: EinsumSpecification):
       def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                     O=TensorDef(U, *symbols(output_dims), output=True)):
         domain(*dims(domain_dims))
-        O[dims(output_dims)] += TypeFn.cast(U, LHS[dims(lhs_dims)])
+        O[dims(output_dims)] += TypeFn.cast_signed(U, LHS[dims(lhs_dims)])
       return einsum_op
     else:
       @linalg_structured_op(op_name="einsum_transpose_" + op_dims)
       def einsum_op(LHS=TensorDef(U, *symbols(lhs_dims)),
                     O=TensorDef(U, *symbols(output_dims), output=True)):
         domain(*dims(domain_dims))
-        O[dims(output_dims)] = TypeFn.cast(U, LHS[dims(lhs_dims)])
+        O[dims(output_dims)] = TypeFn.cast_signed(U, LHS[dims(lhs_dims)])
       return einsum_op
 
   # Create and return a two-operand non-contraction operation.
@@ -159,8 +159,8 @@ def make_einsum(specification: EinsumSpecification):
                   O=TensorDef(U, *symbols(output_dims), output=True)):
       domain(*dims(domain_dims))
       implements(ContractionOpInterface)
-      O[dims(output_dims)] += TypeFn.cast(U,
-          LHS[dims(lhs_dims)]) * TypeFn.cast(U, RHS[dims(rhs_dims)])
+      O[dims(output_dims)] += TypeFn.cast_signed(U,
+          LHS[dims(lhs_dims)]) * TypeFn.cast_signed(U, RHS[dims(rhs_dims)])
     return einsum_op
   else:
     @linalg_structured_op(op_name="einsum_transpose_" + op_dims)
@@ -168,6 +168,6 @@ def make_einsum(specification: EinsumSpecification):
                   RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
                   O=TensorDef(U, *symbols(output_dims), output=True)):
       domain(*dims(domain_dims))
-      O[dims(output_dims)] = TypeFn.cast(U,
-          LHS[dims(lhs_dims)]) * TypeFn.cast(U, RHS[dims(rhs_dims)])
+      O[dims(output_dims)] = TypeFn.cast_signed(U,
+          LHS[dims(lhs_dims)]) * TypeFn.cast_signed(U, RHS[dims(rhs_dims)])
     return einsum_op

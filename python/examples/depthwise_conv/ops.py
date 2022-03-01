@@ -13,8 +13,8 @@ def depthwise_conv_1d_ncw_cw(I=TensorDef(TV.T1, S.N, S.C,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.c, D.ow, D.kw)
-  O[D.n, D.c, D.ow] += (TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-                        TypeFn.cast(U, K[D.c, D.kw]))
+  O[D.n, D.c, D.ow] += (TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+                        TypeFn.cast_signed(U, K[D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -26,8 +26,8 @@ def depthwise_conv_1d_ncw_wc(I=TensorDef(TV.T1, S.N, S.C,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.c, D.ow, D.kw)
-  O[D.n, D.c, D.ow] += (TypeFn.cast(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
-                        TypeFn.cast(U, K[D.kw, D.c]))
+  O[D.n, D.c, D.ow] += (TypeFn.cast_signed(U, I[D.n, D.c, D.ow * S.SW + D.kw * S.DW]) *
+                        TypeFn.cast_signed(U, K[D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -39,8 +39,8 @@ def depthwise_conv_1d_nwc_cw(I=TensorDef(TV.T1, S.N, S.OW * S.SW + S.KW * S.DW,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.c, D.kw)
-  O[D.n, D.ow, D.c] += (TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-                        TypeFn.cast(U, K[D.c, D.kw]))
+  O[D.n, D.ow, D.c] += (TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+                        TypeFn.cast_signed(U, K[D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -52,8 +52,8 @@ def depthwise_conv_1d_nwc_wc(I=TensorDef(TV.T1, S.N, S.OW * S.SW + S.KW * S.DW,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.ow, D.c, D.kw)
-  O[D.n, D.ow, D.c] += (TypeFn.cast(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
-                        TypeFn.cast(U, K[D.kw, D.c]))
+  O[D.n, D.ow, D.c] += (TypeFn.cast_signed(U, I[D.n, D.ow * S.SW + D.kw * S.DW, D.c]) *
+                        TypeFn.cast_signed(U, K[D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -65,8 +65,8 @@ def depthwise_conv_1d_cnw_cw(I=TensorDef(TV.T1, S.C, S.N,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.n, D.ow, D.kw)
-  O[D.c, D.n, D.ow] += (TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-                        TypeFn.cast(U, K[D.c, D.kw]))
+  O[D.c, D.n, D.ow] += (TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+                        TypeFn.cast_signed(U, K[D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -78,8 +78,8 @@ def depthwise_conv_1d_cnw_wc(I=TensorDef(TV.T1, S.C, S.N,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.n, D.ow, D.kw)
-  O[D.c, D.n, D.ow] += (TypeFn.cast(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
-                        TypeFn.cast(U, K[D.kw, D.c]))
+  O[D.c, D.n, D.ow] += (TypeFn.cast_signed(U, I[D.c, D.n, D.ow * S.SW + D.kw * S.DW]) *
+                        TypeFn.cast_signed(U, K[D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -91,8 +91,8 @@ def depthwise_conv_1d_cwn_cw(I=TensorDef(TV.T1, S.C, S.OW * S.SW + S.KW * S.DW,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.ow, D.n, D.kw)
-  O[D.c, D.ow, D.n] += (TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-                        TypeFn.cast(U, K[D.c, D.kw]))
+  O[D.c, D.ow, D.n] += (TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+                        TypeFn.cast_signed(U, K[D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -104,8 +104,8 @@ def depthwise_conv_1d_cwn_wc(I=TensorDef(TV.T1, S.C, S.OW * S.SW + S.KW * S.DW,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.ow, D.n, D.kw)
-  O[D.c, D.ow, D.n] += (TypeFn.cast(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
-                        TypeFn.cast(U, K[D.kw, D.c]))
+  O[D.c, D.ow, D.n] += (TypeFn.cast_signed(U, I[D.c, D.ow * S.SW + D.kw * S.DW, D.n]) *
+                        TypeFn.cast_signed(U, K[D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -117,8 +117,8 @@ def depthwise_conv_1d_wnc_cw(I=TensorDef(TV.T1, S.OW * S.SW + S.KW * S.DW, S.N,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.c, D.kw)
-  O[D.ow, D.n, D.c] += (TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-                        TypeFn.cast(U, K[D.c, D.kw]))
+  O[D.ow, D.n, D.c] += (TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+                        TypeFn.cast_signed(U, K[D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -130,8 +130,8 @@ def depthwise_conv_1d_wnc_wc(I=TensorDef(TV.T1, S.OW * S.SW + S.KW * S.DW, S.N,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.ow, D.n, D.c, D.kw)
-  O[D.ow, D.n, D.c] += (TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-                        TypeFn.cast(U, K[D.kw, D.c]))
+  O[D.ow, D.n, D.c] += (TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
+                        TypeFn.cast_signed(U, K[D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -143,8 +143,8 @@ def depthwise_conv_1d_wcn_cw(I=TensorDef(TV.T1, S.OW * S.SW + S.KW * S.DW, S.C,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.ow, D.c, D.n, D.kw)
-  O[D.ow, D.c, D.n] += (TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-                        TypeFn.cast(U, K[D.c, D.kw]))
+  O[D.ow, D.c, D.n] += (TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+                        TypeFn.cast_signed(U, K[D.c, D.kw]))
 
 
 @linalg_structured_op
@@ -156,8 +156,8 @@ def depthwise_conv_1d_wcn_wc(I=TensorDef(TV.T1, S.OW * S.SW + S.KW * S.DW, S.C,
                              dilations=IndexAttrDef(S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.ow, D.c, D.n, D.kw)
-  O[D.ow, D.c, D.n] += (TypeFn.cast(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-                        TypeFn.cast(U, K[D.kw, D.c]))
+  O[D.ow, D.c, D.n] += (TypeFn.cast_signed(U, I[D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
+                        TypeFn.cast_signed(U, K[D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -171,9 +171,9 @@ def depthwise_conv_2d_nchw_chw(I=TensorDef(TV.T1, S.N, S.C,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.c, D.oh, D.ow, D.kh, D.kw)
-  O[D.n, D.c, D.oh, D.ow] += (TypeFn.cast(
+  O[D.n, D.c, D.oh, D.ow] += (TypeFn.cast_signed(
       U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW]) *
-                              TypeFn.cast(U, K[D.c, D.kh, D.kw]))
+                              TypeFn.cast_signed(U, K[D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -187,9 +187,9 @@ def depthwise_conv_2d_nchw_hwc(I=TensorDef(TV.T1, S.N, S.C,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.c, D.oh, D.ow, D.kh, D.kw)
-  O[D.n, D.c, D.oh, D.ow] += (TypeFn.cast(
+  O[D.n, D.c, D.oh, D.ow] += (TypeFn.cast_signed(
       U, I[D.n, D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW]) *
-                              TypeFn.cast(U, K[D.kh, D.kw, D.c]))
+                              TypeFn.cast_signed(U, K[D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -203,9 +203,9 @@ def depthwise_conv_2d_nhwc_chw(I=TensorDef(TV.T1, S.N,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.c, D.kh, D.kw)
-  O[D.n, D.oh, D.ow, D.c] += (TypeFn.cast(
+  O[D.n, D.oh, D.ow, D.c] += (TypeFn.cast_signed(
       U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c]) *
-                              TypeFn.cast(U, K[D.c, D.kh, D.kw]))
+                              TypeFn.cast_signed(U, K[D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -219,9 +219,9 @@ def depthwise_conv_2d_nhwc_hwc(I=TensorDef(TV.T1, S.N,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.n, D.oh, D.ow, D.c, D.kh, D.kw)
-  O[D.n, D.oh, D.ow, D.c] += (TypeFn.cast(
+  O[D.n, D.oh, D.ow, D.c] += (TypeFn.cast_signed(
       U, I[D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c]) *
-                              TypeFn.cast(U, K[D.kh, D.kw, D.c]))
+                              TypeFn.cast_signed(U, K[D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -235,9 +235,9 @@ def depthwise_conv_2d_cnhw_chw(I=TensorDef(TV.T1, S.C, S.N,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.n, D.oh, D.ow, D.kh, D.kw)
-  O[D.c, D.n, D.oh, D.ow] += (TypeFn.cast(
+  O[D.c, D.n, D.oh, D.ow] += (TypeFn.cast_signed(
       U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW]) *
-                              TypeFn.cast(U, K[D.c, D.kh, D.kw]))
+                              TypeFn.cast_signed(U, K[D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -251,9 +251,9 @@ def depthwise_conv_2d_cnhw_hwc(I=TensorDef(TV.T1, S.C, S.N,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.n, D.oh, D.ow, D.kh, D.kw)
-  O[D.c, D.n, D.oh, D.ow] += (TypeFn.cast(
+  O[D.c, D.n, D.oh, D.ow] += (TypeFn.cast_signed(
       U, I[D.c, D.n, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW]) *
-                              TypeFn.cast(U, K[D.kh, D.kw, D.c]))
+                              TypeFn.cast_signed(U, K[D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -267,9 +267,9 @@ def depthwise_conv_2d_chwn_chw(I=TensorDef(TV.T1, S.C,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.oh, D.ow, D.n, D.kh, D.kw)
-  O[D.c, D.oh, D.ow, D.n] += (TypeFn.cast(
+  O[D.c, D.oh, D.ow, D.n] += (TypeFn.cast_signed(
       U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n]) *
-                              TypeFn.cast(U, K[D.c, D.kh, D.kw]))
+                              TypeFn.cast_signed(U, K[D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -283,9 +283,9 @@ def depthwise_conv_2d_chwn_hwc(I=TensorDef(TV.T1, S.C,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.c, D.oh, D.ow, D.n, D.kh, D.kw)
-  O[D.c, D.oh, D.ow, D.n] += (TypeFn.cast(
+  O[D.c, D.oh, D.ow, D.n] += (TypeFn.cast_signed(
       U, I[D.c, D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n]) *
-                              TypeFn.cast(U, K[D.kh, D.kw, D.c]))
+                              TypeFn.cast_signed(U, K[D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -298,9 +298,9 @@ def depthwise_conv_2d_hwnc_chw(I=TensorDef(TV.T1, S.OH * S.SH + S.KH * S.DH,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.c, D.kh, D.kw)
-  O[D.oh, D.ow, D.n, D.c] += (TypeFn.cast(
+  O[D.oh, D.ow, D.n, D.c] += (TypeFn.cast_signed(
       U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-                              TypeFn.cast(U, K[D.c, D.kh, D.kw]))
+                              TypeFn.cast_signed(U, K[D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -313,9 +313,9 @@ def depthwise_conv_2d_hwnc_hwc(I=TensorDef(TV.T1, S.OH * S.SH + S.KH * S.DH,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.n, D.c, D.kh, D.kw)
-  O[D.oh, D.ow, D.n, D.c] += (TypeFn.cast(
+  O[D.oh, D.ow, D.n, D.c] += (TypeFn.cast_signed(
       U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.n, D.c]) *
-                              TypeFn.cast(U, K[D.kh, D.kw, D.c]))
+                              TypeFn.cast_signed(U, K[D.kh, D.kw, D.c]))
 
 
 @linalg_structured_op
@@ -328,9 +328,9 @@ def depthwise_conv_2d_hwcn_chw(I=TensorDef(TV.T1, S.OH * S.SH + S.KH * S.DH,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.c, D.n, D.kh, D.kw)
-  O[D.oh, D.ow, D.c, D.n] += (TypeFn.cast(
+  O[D.oh, D.ow, D.c, D.n] += (TypeFn.cast_signed(
       U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-                              TypeFn.cast(U, K[D.c, D.kh, D.kw]))
+                              TypeFn.cast_signed(U, K[D.c, D.kh, D.kw]))
 
 
 @linalg_structured_op
@@ -343,6 +343,6 @@ def depthwise_conv_2d_hwcn_hwc(I=TensorDef(TV.T1, S.OH * S.SH + S.KH * S.DH,
                                dilations=IndexAttrDef(S.DH, S.DW)):
   implements(ConvolutionOpInterface)
   domain(D.oh, D.ow, D.c, D.n, D.kh, D.kw)
-  O[D.oh, D.ow, D.c, D.n] += (TypeFn.cast(
+  O[D.oh, D.ow, D.c, D.n] += (TypeFn.cast_signed(
       U, I[D.oh * S.SH + D.kh * S.DH, D.ow * S.SW + D.kw * S.DW, D.c, D.n]) *
-                              TypeFn.cast(U, K[D.kh, D.kw, D.c]))
+                              TypeFn.cast_signed(U, K[D.kh, D.kw, D.c]))

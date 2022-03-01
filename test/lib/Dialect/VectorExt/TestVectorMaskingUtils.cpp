@@ -51,17 +51,6 @@ struct TestVectorMaskingUtils
     // transformation for that particular function.
     bool predicationSucceeded = false;
 
-    // Test tiled loop body predication.
-    if (!predicationSucceeded) {
-      getOperation().walk([&](TiledLoopOp loopOp) {
-        predicationSucceeded = true;
-        OpBuilder builder(loopOp);
-        if (failed(predicateTiledLoop(builder, loopOp,
-                                      /*incomingMask=*/llvm::None)))
-          loopOp.emitError("Predication of tiled loop failed");
-      });
-    }
-
     // Test function body predication.
     if (!predicationSucceeded) {
       FuncOp funcOp = getOperation();

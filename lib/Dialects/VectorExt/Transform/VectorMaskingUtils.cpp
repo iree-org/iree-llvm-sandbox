@@ -127,56 +127,6 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
   return vecPredOp;
 }
 
-/// Utility that predicates the body a tiled loop with a vector.predicate
-/// operation. The vectorization factor used for predication is assumed to be
-/// the step of the tiled loop.
-LogicalResult
-mlir::vector_ext::predicateTiledLoop(OpBuilder &builder, TiledLoopOp loopOp,
-                                     Optional<Value> maybeIncomingMask) {
-  if (loopOp.lowerBound().size() > 1)
-    // TODO: Support multi-dim tiled loops.
-    return failure();
-
-  // Retrieve vectorization factor from the step of the tiled loop.
-  Value step = loopOp.step()[0];
-  auto maybeVecFactor = getConstantIntValue(step);
-  if (!maybeVecFactor)
-    return failure();
-
-  Location loc = loopOp.getLoc();
-  int64_t vecFactor = *maybeVecFactor;
-  auto maskType = VectorType::get({vecFactor}, builder.getI1Type());
-
-  auto createPredicateMask = [&](OpBuilder &builder) -> Value {
-    // Generate the predicate to be used by the vector.predicate operation:
-    //   %min = affine.min affine_map<(d0)[s0] -> (vecFactor, -d0 +
-    //   s0)>(%iv)[%ub] %vec_pred = vector.create_mask %min : vector<8xi1>
-    // TODO: This is probably not the most efficient way to generate the vector
-    // predicate. Consider using the vector IV.
-    AffineExpr i, j;
-    bindDims(loopOp.getContext(), i, j);
-    SmallVector<AffineMap, 4> maps = AffineMap::inferFromExprList(
-        ExprList{{builder.getAffineConstantExpr(vecFactor), i - j}});
-
-    auto minOp = builder.create<AffineMinOp>(
-        loc, loopOp.step()[0].getType(), maps[0],
-        ValueRange{loopOp.upperBound()[0], loopOp.getInductionVars()[0]});
-
-    return builder.create<CreateMaskOp>(loc, maskType, ValueRange{minOp});
-  };
-
-  auto maybePredicate =
-      predicateOp(builder, loopOp, &loopOp.getLoopBody(), createPredicateMask,
-                  loopOp.getInductionVars(), maybeIncomingMask);
-  if (!maybePredicate)
-    return failure();
-
-  // TODO: Canonicalize affine.min ops feeding extract/insert slices guarded by
-  // vector.predicate.
-
-  return success();
-}
-
 /// Materialize masking on a vector.predicate op by generating the masks to
 /// apply to its enclosing operations and erasing the vector.predicate op after
 /// inlining its enclosing operations into its parent region.
