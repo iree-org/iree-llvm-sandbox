@@ -34,6 +34,16 @@ def assert_runtime_sizes_compatible_with_compile_time_sizes(
 
 
 ################################################################################
+# General utils.
+################################################################################
+
+
+def get_divisors_of(value_to_divide: int):
+  return list(
+      filter(lambda n: value_to_divide % n == 0, range(1, value_to_divide + 1)))
+
+
+################################################################################
 # Compilation strategy utils.
 ################################################################################
 

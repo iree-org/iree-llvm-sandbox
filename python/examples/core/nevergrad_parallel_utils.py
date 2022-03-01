@@ -17,6 +17,7 @@ from ..core.nevergrad_tuner_utils import NGSchedulerInterface
 from ..core.problem_definition import ProblemDefinition
 from ..core.utils import compute_quantiles
 
+
 class SearchJobResult():
   """The result of a search job."""
 
@@ -24,22 +25,20 @@ class SearchJobResult():
     self.proposal = proposal
     self.throughputs = throughputs
 
+
 class ProcessState():
   """State that is shared among all jobs that are scheduled to run on a pool
   process.
   """
 
-  def __init__(self,
-               available_cpus_queue,
-               parsed_args,
-               results_queue,
-               rw_locks,
+  def __init__(self, available_cpus_queue, parsed_args, results_queue, rw_locks,
                shutdown_event):
     self.available_cpus_queue = available_cpus_queue
     self.parsed_args = parsed_args
     self.results_queue = results_queue
     self.rw_locks = rw_locks
     self.shutdown_event = shutdown_event
+
 
 def cpu_count():
   """Return the number of CPUs on which processes can be scheduled."""
@@ -88,6 +87,9 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
   assert benchmark_cpu_min <= compilation_cpu and compilation_cpu < benchmark_cpu_max, \
     f'compilation_cpu: {compilation_cpu} is not in range [{benchmark_cpu_min}, {benchmark_cpu_max})'
 
+  entry_point_name = 'main'
+  fun_to_benchmark_name = 'fun_to_benchmark'
+
   # Function called in the compilation thread.
   def compile():
     # Construct the schedule and save the module in case we need to replay later.
@@ -96,8 +98,8 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       # TODO: save and report on error.
 
     problem.compile_with_schedule_builder( \
-      entry_point_name=scheduler.entry_point_name,
-      fun_to_benchmark_name=scheduler.fun_to_benchmark_name,
+      entry_point_name=entry_point_name,
+      fun_to_benchmark_name=fun_to_benchmark_name,
       compile_time_problem_sizes_dict=scheduler.
       build_compile_time_problem_sizes(),
       schedule_builder=schedule_and_save)
@@ -109,7 +111,7 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
     throughputs_placeholder.append(
         problem.run(
             n_iters=process_state.parsed_args.n_iters,
-            entry_point_name=scheduler.entry_point_name,
+            entry_point_name=entry_point_name,
             runtime_problem_sizes_dict=problem.compile_time_problem_sizes_dict))
 
   # Function called when compilation or benchmark times out.
@@ -175,12 +177,14 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
     # TODO: save to replay errors.
     print(e)
 
-def tell_optimizer(optimizer,
-                   result,
-                   # TODO: extract info from final recommendation instead
-                   # of an auxiliary `throughputs` list.
-                   throughputs: tp.Sequence[float],
-                   parsed_args):
+
+def tell_optimizer(
+    optimizer,
+    result,
+    # TODO: extract info from final recommendation instead
+    # of an auxiliary `throughputs` list.
+    throughputs: tp.Sequence[float],
+    parsed_args):
   """Tell the result for the proposal."""
 
   if not result.throughputs:
@@ -280,6 +284,7 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
     def signal_handler(sig, frame):
       process_state.shutdown_event.set()
       exit(1)
+
     signal.signal(signal.SIGINT, signal_handler)
 
     # Pin this process to a single CPU (for compilation).
@@ -305,9 +310,8 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
     problem_instance = ProblemInstance(problem_definition, problem_types)
 
     # Enqueue the job that compiles and runs.
-    process_pool.apply_async(
-        func=compile_and_run_checked_mp,
-        args=(problem_instance, proposal, scheduler))
+    process_pool.apply_async(func=compile_and_run_checked_mp,
+                             args=(problem_instance, proposal, scheduler))
 
   # TODO: extract info from final recommendation instead of an auxiliary
   # `throughputs` list.
