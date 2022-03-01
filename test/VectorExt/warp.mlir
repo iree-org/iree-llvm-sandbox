@@ -4,7 +4,7 @@
 // CHECK-LABEL:   func @warp_dead_result(
 func @warp_dead_result(%laneid: index) -> (vector<1xf32>) {
   // CHECK: %[[R:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>)
-    %r:3 = vector_ext.warp_execute_on_lane_0(%laneid) -> 
+    %r:3 = vector_ext.warp_execute_on_lane_0(%laneid) ->
     (vector<1xf32>, vector<1xf32>, vector<1xf32>) {
     %2 = "some_def"() : () -> (vector<32xf32>)
     %3 = "some_def"() : () -> (vector<32xf32>)
@@ -41,7 +41,7 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
   %c32 = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
   // CHECK: %[[R:.*]]:4 = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>, vector<1xf32>, vector<2xf32>, vector<2xf32>)
-  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid) -> 
+  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid) ->
     (vector<1xf32>, vector<2xf32>) {
     // CHECK: %[[V0:.*]] = "some_def"() : () -> vector<32xf32>
     // CHECK: %[[V1:.*]] = "some_def"() : () -> vector<32xf32>
@@ -58,7 +58,7 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
   }
   // CHECK: %[[A0:.*]] = arith.addf %[[R]]#2, %[[R]]#3 : vector<2xf32>
   // CHECK: %[[A1:.*]] = arith.addf %[[R]]#0, %[[R]]#1 : vector<1xf32>
-  %id2 = affine.apply #map0()[%laneid] 
+  %id2 = affine.apply #map0()[%laneid]
   // CHECK: vector.transfer_write %[[A1]], {{.*}} : vector<1xf32>, memref<1024xf32>
   // CHECK: vector.transfer_write %[[A0]], {{.*}} : vector<2xf32>, memref<1024xf32>
   vector.transfer_write %r#0, %dest[%laneid] : vector<1xf32>, memref<1024xf32>
@@ -89,7 +89,7 @@ func @warp_propagate_read(%laneid: index, %src: memref<1024xf32>, %dest: memref<
     %3 = vector.transfer_read %src[%c32], %cst : memref<1024xf32>, vector<64xf32>
     vector_ext.yield %2, %3 : vector<32xf32>, vector<64xf32>
   }
-  %id2 = affine.apply #map0()[%laneid] 
+  %id2 = affine.apply #map0()[%laneid]
   vector.transfer_write %r#0, %dest[%laneid] : vector<1xf32>, memref<1024xf32>
   vector.transfer_write %r#1, %dest[%id2] : vector<2xf32>, memref<1024xf32>
   return
@@ -189,5 +189,40 @@ func @vector_reduction(%laneid: index) {
     vector_ext.yield %1 : f32
   }
   vector.print %r : f32
+  return
+}
+
+// -----
+
+// CHECK-LABEL: func @fold_vector_broadcast(
+//       CHECK:   %[[r:.*]] = vector_ext.warp_execute_on_lane_0{{.*}} -> (vector<1xf32>)
+//       CHECK:     %[[some_def:.*]] = "some_def"
+//       CHECK:     vector_ext.yield %[[some_def]] : vector<1xf32>
+//       CHECK:   vector.print %[[r]] : vector<1xf32>
+func @fold_vector_broadcast(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<1xf32>) {
+    %0 = "some_def"() : () -> (vector<1xf32>)
+    %1 = vector.broadcast %0 : vector<1xf32> to vector<32xf32>
+    vector_ext.yield %1 : vector<32xf32>
+  }
+  vector.print %r : vector<1xf32>
+  return
+}
+
+// -----
+
+// CHECK-LABEL: func @extract_vector_broadcast(
+//       CHECK:   %[[r:.*]] = vector_ext.warp_execute_on_lane_0{{.*}} -> (vector<1xf32>)
+//       CHECK:     %[[some_def:.*]] = "some_def"
+//       CHECK:     vector_ext.yield %[[some_def]] : vector<1xf32>
+//       CHECK:   %[[broadcasted:.*]] = vector.broadcast %[[r]] : vector<1xf32> to vector<2xf32>
+//       CHECK:   vector.print %[[broadcasted]] : vector<2xf32>
+func @extract_vector_broadcast(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<2xf32>) {
+    %0 = "some_def"() : () -> (vector<1xf32>)
+    %1 = vector.broadcast %0 : vector<1xf32> to vector<64xf32>
+    vector_ext.yield %1 : vector<64xf32>
+  }
+  vector.print %r : vector<2xf32>
   return
 }

@@ -386,6 +386,33 @@ struct WarpOpForwardOperand : public OpRewritePattern<WarpSingleLaneOp> {
   }
 };
 
+struct WarpOpBroadcast : public OpRewritePattern<WarpSingleLaneOp> {
+  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+                                PatternRewriter &rewriter) const override {
+    OpOperand *operand = getWarpResult(
+        warpOp, [](Operation *op) { return isa<vector::BroadcastOp>(op); });
+    if (!operand)
+      return failure();
+    unsigned int operandNumber = operand->getOperandNumber();
+    auto broadcastOp = operand->get().getDefiningOp<vector::BroadcastOp>();
+    // TODO: Only broadcasts of vectors are supported at the moment.
+    if (!broadcastOp.source().getType().isa<VectorType>())
+      return failure();
+
+    auto destVecType =
+        warpOp->getResultTypes()[operandNumber].cast<VectorType>();
+    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+        rewriter, warpOp, {broadcastOp.source()},
+        {broadcastOp.source().getType()});
+    Value broadcasted = rewriter.create<vector::BroadcastOp>(
+        broadcastOp.getLoc(), destVecType,
+        newWarpOp->getResult(newWarpOp->getNumResults() - 1));
+    newWarpOp->getResult(operandNumber).replaceAllUsesWith(broadcasted);
+
+    return success();
+  }
+};
 } // namespace
 
 /// Helper to figure out if an op has side effects or recursive side-effects.
@@ -485,7 +512,8 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
 void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
     RewritePatternSet &pattern) {
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
-              WarpOpReduction, WarpOpForwardOperand>(pattern.getContext());
+              WarpOpReduction, WarpOpBroadcast, WarpOpForwardOperand>(
+      pattern.getContext());
 }
 
 void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
