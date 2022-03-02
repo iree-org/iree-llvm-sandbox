@@ -154,9 +154,18 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
     SmallVector<Value> yieldValues;
     SmallVector<Type> retTypes;
     for (OpOperand &operand : elementWise->getOpOperands()) {
-      auto targetType = VectorType::get(
-          distributedVal.getType().cast<VectorType>().getShape(),
-          operand.get().getType().cast<VectorType>().getElementType());
+      Type targetType;
+      if (auto vecType = distributedVal.getType().dyn_cast<VectorType>()) {
+        // If the result type is a vector, the operands must also be vectors.
+        auto operandType = operand.get().getType().cast<VectorType>();
+        targetType =
+            VectorType::get(vecType.getShape(), operandType.getElementType());
+      } else {
+        auto operandType = operand.get().getType();
+        assert(!operandType.isa<VectorType>() &&
+               "unexpected yield of vector from op with scalar result type");
+        targetType = operandType;
+      }
       retTypes.push_back(targetType);
       yieldValues.push_back(operand.get());
     }
