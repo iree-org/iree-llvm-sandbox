@@ -79,12 +79,13 @@ transform::TransformState::applyTransform(TransformOpInterface transform) {
   if (failed(transform.apply(results, *this)))
     return failure();
 
+  for (Value target : transform->getOperands())
+    removePayloadOps(target);
+
   for (auto en : llvm::enumerate(transform->getResults()))
     if (failed(setPayloadOps(en.value(), results.get(en.index()))))
       return failure();
 
-  for (Value target : transform->getOperands())
-    removePayloadOps(target);
   return success();
 }
 
