@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <tuple>
 #include <vector>
 
 #include "operators/column_scan.h"
