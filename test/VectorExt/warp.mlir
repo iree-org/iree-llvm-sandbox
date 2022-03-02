@@ -1,5 +1,5 @@
 // RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute=propagate-distribution -canonicalize | FileCheck %s
-// RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute=rewrite-warp-ops-to-scf-if -canonicalize | FileCheck %s --check-prefix=CHECK-SCF-IF
+// RaUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute=rewrite-warp-ops-to-scf-if -canonicalize | FileCheck %s --check-prefix=CHECK-SCF-IF
 
 // CHECK-LABEL:   func @warp_dead_result(
 func @warp_dead_result(%laneid: index) -> (vector<1xf32>) {
@@ -221,6 +221,24 @@ func @extract_vector_broadcast(%laneid: index) {
   %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<2xf32>) {
     %0 = "some_def"() : () -> (vector<1xf32>)
     %1 = vector.broadcast %0 : vector<1xf32> to vector<64xf32>
+    vector_ext.yield %1 : vector<64xf32>
+  }
+  vector.print %r : vector<2xf32>
+  return
+}
+
+// -----
+
+// CHECK-LABEL: func @extract_scalar_vector_broadcast(
+//       CHECK:   %[[r:.*]] = vector_ext.warp_execute_on_lane_0{{.*}} -> (f32)
+//       CHECK:     %[[some_def:.*]] = "some_def"
+//       CHECK:     vector_ext.yield %[[some_def]] : f32
+//       CHECK:   %[[broadcasted:.*]] = vector.broadcast %[[r]] : f32 to vector<2xf32>
+//       CHECK:   vector.print %[[broadcasted]] : vector<2xf32>
+func @extract_scalar_vector_broadcast(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<2xf32>) {
+    %0 = "some_def"() : () -> (f32)
+    %1 = vector.broadcast %0 : f32 to vector<64xf32>
     vector_ext.yield %1 : vector<64xf32>
   }
   vector.print %r : vector<2xf32>

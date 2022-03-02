@@ -396,9 +396,6 @@ struct WarpOpBroadcast : public OpRewritePattern<WarpSingleLaneOp> {
       return failure();
     unsigned int operandNumber = operand->getOperandNumber();
     auto broadcastOp = operand->get().getDefiningOp<vector::BroadcastOp>();
-    // TODO: Only broadcasts of vectors are supported at the moment.
-    if (!broadcastOp.source().getType().isa<VectorType>())
-      return failure();
 
     auto destVecType =
         warpOp->getResultTypes()[operandNumber].cast<VectorType>();
