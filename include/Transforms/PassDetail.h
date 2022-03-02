@@ -18,7 +18,9 @@ namespace mlir {
 template <typename ConcreteDialect>
 void registerDialect(DialectRegistry &registry);
 
-class StandardOpsDialect;
+namespace func {
+  class FuncDialect;
+}  // end namespace func
 
 namespace linalg {
 class LinalgDialect;

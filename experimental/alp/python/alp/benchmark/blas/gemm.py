@@ -9,7 +9,7 @@ import numpy as np
 import argparse
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, std, memref
+from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 from ...transition.blas.gemm import GEMM
@@ -68,26 +68,26 @@ def emit_benchmarking_function(trA, sizes, niter,
 
     A = linalg.FillOp(output=A0.results[0], value=elem)
     B = linalg.FillOp(output=B0.results[0], value=elem)
-    std.CallOp(print_pid, [])
+    func.CallOp(print_pid, [])
 
-    call = std.CallOp(func, [A.results[0], B.results[0], C.results[0]])
+    call = func.CallOp(func, [A.results[0], B.results[0], C.results[0]])
 
     n_iterations = arith.ConstantOp.create_index(niter)
-    start = std.CallOp(rtclock, [])
+    start = func.CallOp(rtclock, [])
     loop = scf.ForOp(zero, n_iterations, one, [])
     with InsertionPoint(loop.body):
-      call = std.CallOp(func, [A.results[0], B.results[0], C.results[0]])
+      call = func.CallOp(func, [A.results[0], B.results[0], C.results[0]])
       scf.YieldOp([])
-    end = std.CallOp(rtclock, [])
+    end = func.CallOp(rtclock, [])
     treps = arith.SubFOp(end, start)
     n_iterations_f = arith.ConstantOp(F64Type.get(), float(niter))
     t = arith.DivFOp(treps, n_iterations_f)
     flops = arith.DivFOp(nops, t)
-    std.CallOp(print_time, [t.results[0]])
-    std.CallOp(print_flops, [flops.results[0]])
+    func.CallOp(print_time, [t.results[0]])
+    func.CallOp(print_flops, [flops.results[0]])
 
     ret = arith.ConstantOp(IntegerType.get_signless(32), 0)
-    std.ReturnOp(ret)
+    func.ReturnOp(ret)
 
   return wrapper
 

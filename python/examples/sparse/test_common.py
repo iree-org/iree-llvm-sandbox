@@ -33,7 +33,7 @@ from mlir import execution_engine as ee
 from mlir import ir
 from mlir import runtime
 from mlir.dialects import builtin
-from mlir.dialects import std
+from mlir.dialects import func
 from mlir.dialects import sparse_tensor as st
 from mlir.dialects.linalg.opdsl import lang as dsl
 
@@ -397,9 +397,9 @@ class TestDesc:
                                     encoding), argument)
         converted_tensors.append(conversion.dest)
 
-      call = std.CallOp(output_types, ir.FlatSymbolRefAttr.get(callee_name),
+      call = func.CallOp(output_types, ir.FlatSymbolRefAttr.get(callee_name),
                         converted_tensors + [main_func.arguments[-1]])
-      std.ReturnOp(call.results)
+      func.ReturnOp(call.results)
 
   def _build_module_and_engine(
       self, compiler: CompilerType, type: TDType,

@@ -21,6 +21,7 @@
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Arithmetic/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
@@ -188,7 +189,7 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<arith::ArithmeticDialect, AffineDialect,
-                    linalg::LinalgDialect, scf::SCFDialect, StandardOpsDialect,
+                    linalg::LinalgDialect, scf::SCFDialect, func::FuncDialect,
                     tensor::TensorDialect, vector::VectorDialect,
                     LLVM::LLVMDialect, bufferization::BufferizationDialect,
                     pdl_interp::PDLInterpDialect>();

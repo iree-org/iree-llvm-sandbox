@@ -5,7 +5,7 @@ from typing import Any, List, NewType, Optional, Sequence, Type
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, memref, scf, std, vector
+from mlir.dialects import arith, builtin, linalg, memref, scf, func, vector
 from mlir.execution_engine import *
 from mlir.runtime import *
 
@@ -18,19 +18,19 @@ from ..core.compilation import compile_to_execution_engine
 def emit_func(name: str, operand_types: Sequence[Type],
               result_types: Sequence[Type]):
   # Actual benchmarked function called under entry_point_name.
-  func = builtin.FuncOp(name, (operand_types, result_types))
+  bench = builtin.FuncOp(name, (operand_types, result_types))
 
   vec_type = VectorType(operand_types[0].element_type)
   scal_type = vec_type.element_type
   add = arith.AddIOp if IntegerType.isinstance(scal_type) else arith.AddFOp
-  with InsertionPoint(func.add_entry_block()):
-    A, B, C = func.arguments
+  with InsertionPoint(bench.add_entry_block()):
+    A, B, C = bench.arguments
     va, vb = memref.LoadOp(A, []), memref.LoadOp(B, [])
     vc = add(va, vb)
     memref.StoreOp(vc, C, [])
-    std.ReturnOp([])
+    func.ReturnOp([])
 
-  return func
+  return bench
 
 
 def create_vector_add(module, name: str, sizes: List[int], element_type):

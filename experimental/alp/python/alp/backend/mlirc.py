@@ -25,7 +25,7 @@ from examples.core.transform import (
 
 # Standalone
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, std, memref
+from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 Tiling = Tile.then(Tile).then(Vectorize).then(Bufferize)
