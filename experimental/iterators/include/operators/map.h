@@ -37,9 +37,8 @@ public:
   ReturnType computeNext() {
     const auto tuple = upstream->computeNext();
 
-    if (!tuple) {
+    if (!tuple)
       return {};
-    }
 
     return mapFunction(tuple.value());
   }

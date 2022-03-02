@@ -25,6 +25,7 @@ enable_testing()
 
 add_executable(iterator_tests
         tests/column_scan_operator_test.cc
+        tests/filter_operator_test.cc
         tests/hash_join_operator_test.cc
         tests/map_operator_test.cc
         tests/reduce_by_key_operator_test.cc
