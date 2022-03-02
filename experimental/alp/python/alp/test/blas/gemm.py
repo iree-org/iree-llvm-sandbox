@@ -7,7 +7,7 @@ import argparse
 
 # MLIR imports
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, std, memref
+from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 # Sandbox imports
@@ -76,7 +76,7 @@ def emit_test_function(trA, sizes, func: builtin.FuncOp) -> builtin.FuncOp:
     # B = linalg.FillOp(output=B0.results[0], value=elem)
 
     # Evaluate actual function and the reference
-    std.CallOp(func, [A, B, C.results[0]])
+    func.CallOp(func, [A, B, C.results[0]])
     if trA:
       D1 = matmul_TN(A, B, outs=[D])
     else:
@@ -93,13 +93,13 @@ def emit_test_function(trA, sizes, func: builtin.FuncOp) -> builtin.FuncOp:
         res2 = tensor.ExtractOp(F32Type.get(), D1, [x, y])
         diff = arith.SubFOp(res1, res2)
         # TODO Add support for scf.If op to verify directly from here
-        std.CallOp(printF32, [diff.results[0]])
-        std.CallOp(printNewline, [])
+        func.CallOp(printF32, [diff.results[0]])
+        func.CallOp(printNewline, [])
         scf.YieldOp([])
       scf.YieldOp([])
 
     ret = arith.ConstantOp(IntegerType.get_signless(32), 0)
-    std.ReturnOp(ret)
+    func.ReturnOp(ret)
 
   return wrapper
 

@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional, Sequence
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, scf, std, tensor
+from mlir.dialects import arith, builtin, linalg, scf, func, tensor
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *
@@ -165,14 +165,14 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types[:-1], [types[-2]]))
-    # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=[False, False, True])
+    bench = builtin.FuncOp(name, (types[:-1], [types[-2]]))
+    # TODO: need something much more flexible to add function argument attributes.
+    attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
     attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        bench, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
 
-    output_element_type = types[-2].element_type
+    output_element_ctype = types[-2].element_type
 
     index_type = IndexType.get()
     i64_type = IntegerType.get_signless(64)
@@ -180,15 +180,15 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     wpadl_attr = IntegerAttr.get(i64_type, self.WpadL)
     wpadr_attr = IntegerAttr.get(i64_type, self.WpadR)
 
-    with InsertionPoint(func.add_entry_block()):
-      tensor_zero = func.arguments[-1]
+    with InsertionPoint(bench.add_entry_block()):
+      tensor_zero = bench.arguments[-1]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(output_element_type, 0.0)
         tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
 
       padded_input = tensor.PadOp(
           result=types[-1],
-          source=func.arguments[0],
+          source=bench.arguments[0],
           low=[],
           high=[],
           static_low=ArrayAttr.get([zero_attr, wpadl_attr, zero_attr]),
@@ -200,12 +200,12 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
         tensor.YieldOp(zero)
 
       conv = linalg.conv_1d_nwc_wcf(padded_input,
-                                    func.arguments[1],
+                                    bench.arguments[1],
                                     outs=[tensor_zero],
                                     strides=[self.stride],
                                     dilations=[self.dilation])
       # linalg.Conv1DNwcWcfOp returns a Value instead of OpView, so we have to
       # manually wrap it in a list here.
-      std.ReturnOp([conv])
+      func.ReturnOp([conv])
 
-    return func
+    return bench

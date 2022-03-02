@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional, Sequence
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, std
+from mlir.dialects import arith, builtin, linalg, tensor, scf, func
 from mlir.dialects.linalg.opdsl.lang import *
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
@@ -114,27 +114,27 @@ class MatmulProblem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [types[-1]]))
-    # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=[False, False, True])
+    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    # TODO: need something much more flexible to add function argument attributes.
+    attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
     attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        bench, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
 
     acc_type = types[-1].element_type
-    with InsertionPoint(func.add_entry_block()):
-      tensor_zero = func.arguments[2]
+    with InsertionPoint(bench.add_entry_block()):
+      tensor_zero = bench.arguments[2]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, 0.0)
         tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
-      matmul = linalg.matmul(func.arguments[0],
-                             func.arguments[1],
+      matmul = linalg.matmul(bench.arguments[0],
+                             bench.arguments[1],
                              outs=[tensor_zero])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
-      std.ReturnOp([matmul])
+      func.ReturnOp([matmul])
 
-    return func
+    return bench
 
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
@@ -240,27 +240,27 @@ class MatmulBiasAddProblem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [types[-1]]))
-    # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=[False, False, False, True])
+    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    # TODO: need something much more flexible to add function argument attributes.
+    attach_inplaceable_attributes(bench, inplaceable=[False, False, False, True])
     attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        bench, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
 
     acc_type = types[-2].element_type
-    with InsertionPoint(func.add_entry_block()):
-      tensor_zero = func.arguments[3]
+    with InsertionPoint(bench.add_entry_block()):
+      tensor_zero = bench.arguments[3]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, 0.0)
         tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
-      matmul = linalg.matmul(func.arguments[0],
-                             func.arguments[1],
+      matmul = linalg.matmul(bench.arguments[0],
+                             bench.arguments[1],
                              outs=[tensor_zero])
       bias_add = add_bias_to_2d(matmul,
-                                func.arguments[2],
-                                outs=[func.arguments[3]])
+                                bench.arguments[2],
+                                outs=[bench.arguments[3]])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
-      std.ReturnOp([bias_add])
+      func.ReturnOp([bias_add])
 
-    return func
+    return bench

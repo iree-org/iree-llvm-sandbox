@@ -9,7 +9,7 @@ import numpy as np
 import argparse
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, std, memref
+from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 from examples.core.problem_definition import *
@@ -114,22 +114,22 @@ class GEMM(ProblemDefinition):
       self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
 
     # Actual benchmarked function called under entry_point_name.
-    func = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = builtin.FuncOp(name, (types, [types[-1]]))
 
-    attach_inplaceable_attributes(func, inplaceable=[False, False, True])
+    attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
 
-    with InsertionPoint(func.add_entry_block()):
+    with InsertionPoint(bench.add_entry_block()):
       if self.trA:
-        matmul = matmul_TN(func.arguments[0],
-                           func.arguments[1],
-                           outs=[func.arguments[2]])
+        matmul = matmul_TN(bench.arguments[0],
+                           bench.arguments[1],
+                           outs=[bench.arguments[2]])
       else:
-        matmul = matmul_NN(func.arguments[0],
-                           func.arguments[1],
-                           outs=[func.arguments[2]])
-      std.ReturnOp([matmul])
+        matmul = matmul_NN(bench.arguments[0],
+                           bench.arguments[1],
+                           outs=[bench.arguments[2]])
+      func.ReturnOp([matmul])
 
-    return func
+    return bench
 
 
 def generate_mlir(func_name, trA, size, dest):

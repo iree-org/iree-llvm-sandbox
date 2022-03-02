@@ -12,7 +12,7 @@ from typing import Sequence, Optional
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, memref, scf, std
+from mlir.dialects import arith, builtin, linalg, memref, scf, func
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.execution_engine import *
 from mlir.runtime import *
@@ -107,10 +107,10 @@ def attach_passthrough(func: builtin.FuncOp,
 
 
 def emit_benchmarking_function(name: str,
-                               func: builtin.FuncOp) -> builtin.FuncOp:
+                               bench: builtin.FuncOp) -> builtin.FuncOp:
   """Produces the benchmarking function.
 
-  This function calls the given function `func` as many times as requested by
+  This function calls the given function `bench` as many times as requested by
   its last argument.
   """
   i64_type = IntegerType.get_signless(64)
@@ -122,12 +122,12 @@ def emit_benchmarking_function(name: str,
   wrapper = builtin.FuncOp(
       # Same signature and an extra buffer of indices to save timings.
       name,
-      (func.arguments.types + [memref_of_i64_type], func.type.results),
+      (bench.arguments.types + [memref_of_i64_type], bench.type.results),
       visibility="public")
   wrapper.attributes["llvm.emit_c_interface"] = UnitAttr.get()
-  wrapper.arg_attrs = func.arg_attrs + [DictAttr.get()]
+  wrapper.arg_attrs = bench.arg_attrs + [DictAttr.get()]
 
-  num_results = len(func.type.results)
+  num_results = len(bench.type.results)
   with InsertionPoint(wrapper.add_entry_block()):
     timer_buffer = wrapper.arguments[-1]
     zero = arith.ConstantOp.create_index(0)
@@ -136,15 +136,15 @@ def emit_benchmarking_function(name: str,
     iter_args = list(wrapper.arguments[-num_results - 1:-1])
     loop = scf.ForOp(zero, n_iterations, one, iter_args)
     with InsertionPoint(loop.body):
-      start = std.CallOp(nano_time, [])
+      start = func.CallOp(nano_time, [])
       args = list(wrapper.arguments[:-num_results - 1])
       args.extend(loop.inner_iter_args)
-      call = std.CallOp(func, args)
-      end = std.CallOp(nano_time, [])
+      call = func.CallOp(bench, args)
+      end = func.CallOp(nano_time, [])
       time = arith.SubIOp(end, start)
       memref.StoreOp(time, timer_buffer, [loop.induction_variable])
       scf.YieldOp(list(call.results))
-    std.ReturnOp(loop)
+    func.ReturnOp(loop)
 
   return wrapper
 

@@ -4,7 +4,7 @@ import numpy as np
 from typing import Any, List, Mapping, Sequence, Tuple, Union
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, std
+from mlir.dialects import arith, builtin, linalg, func
 
 from .einsum import EinsumSpecification, make_einsum
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
@@ -125,23 +125,23 @@ class EinsumProblem(ProblemDefinition):
     """
     global avx512
 
-    func = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = builtin.FuncOp(name, (types, [types[-1]]))
     inplaceable_attributes = [False] * len(types)
     inplaceable_attributes[-1] = True
-    # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=inplaceable_attributes)
+    # TODO: need something much more flexible to add function argument attributes.
+    attach_inplaceable_attributes(bench, inplaceable=inplaceable_attributes)
     attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        bench, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
 
-    with InsertionPoint(func.add_entry_block()):
-      output_tensor = func.arguments[-1]
+    with InsertionPoint(bench.add_entry_block()):
+      output_tensor = bench.arguments[-1]
       if self.specification.reduction_dims and zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, -0.0)
-        output_tensor = linalg.FillOp(output=func.arguments[-1], value=zero)
+        output_tensor = linalg.FillOp(output=bench.arguments[-1], value=zero)
       print('Einsum spec: ', str(self.specification))
-      einsum_op = make_einsum(self.specification)(*func.arguments[:-1],
+      einsum_op = make_einsum(self.specification)(*bench.arguments[:-1],
                                                   outs=[output_tensor])
-      std.ReturnOp([einsum_op])
+      func.ReturnOp([einsum_op])
 
-    return func
+    return bench

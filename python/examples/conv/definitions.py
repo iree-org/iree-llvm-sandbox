@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, scf, std, tensor
+from mlir.dialects import arith, builtin, linalg, scf, func, tensor
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *
@@ -234,9 +234,9 @@ class ConvolutionProblem(ProblemDefinition):
 
   def gflop_count_builder(self, sizes: Mapping[str, Any]) -> float:
     """Returns the GFLOp count given problem parameters.
-    
+
     Note: the problem parameters are always "output and kernel parameters", so
-    we do not need special handling to account for strides and dilations: 
+    we do not need special handling to account for strides and dilations:
     every output point is obtained by reducing across the kernel dimensions
     """
     return 2.0 * np.prod([
@@ -388,23 +388,23 @@ class ConvolutionProblem(ProblemDefinition):
     global avx512
 
     output_type = mlir_types[-1]
-    func = builtin.FuncOp(name, (mlir_types, [output_type]))
-    # TODO: need something much more flexible to add func argument attributes.
-    attach_inplaceable_attributes(func, inplaceable=[False, False, True])
+    bench = builtin.FuncOp(name, (mlir_types, [output_type]))
+    # TODO: need something much more flexible to add function argument attributes.
+    attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
     attach_passthrough(
-        func, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
+        bench, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
 
-    with InsertionPoint(func.add_entry_block()):
-      tensor_zero = func.arguments[-1]
+    with InsertionPoint(bench.add_entry_block()):
+      tensor_zero = bench.arguments[-1]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(output_type.element_type, 0.0)
         tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
-      conv = self.__op_builder(func.arguments[0],
-                               func.arguments[1],
+      conv = self.__op_builder(bench.arguments[0],
+                               bench.arguments[1],
                                outs=[tensor_zero],
                                strides=self.__strides,
                                dilations=self.__dilations)
-      std.ReturnOp([conv])
+      func.ReturnOp([conv])
 
-    return func
+    return bench
