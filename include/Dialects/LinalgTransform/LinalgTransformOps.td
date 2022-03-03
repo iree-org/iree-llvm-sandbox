@@ -136,6 +136,40 @@ def TileOp : Linalg_Transform_Operation<"tile",
   }];
 }
 
+def GeneralizeOp : Linalg_Transform_Operation<"generalize",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+  let description = [{Indicates that ops of a specific kind in the given
+  function should be transformed to generic operations.}];
+
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::linalg::LinalgOp> applyToOne(
+        ::mlir::linalg::LinalgOp target);
+  }];
+}
+
+def InterchangeOp : Linalg_Transform_Operation<"interchange",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+  let description = [{Indicates that ops of a specific kind in the given
+  function should be interchanged with the options provided as attributes.}];
+
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$iterator_interchange);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::linalg::LinalgOp> applyToOne(
+        ::mlir::linalg::LinalgOp target);
+  }];
+}
+
 def BufferizeOp : Transform_Op<"bufferize"> {
   let description = [{Indicates that the entire module should be bufferized.}];
   let assemblyFormat = "attr-dict";
@@ -210,7 +244,7 @@ def UnrollLoopOp : Linalg_Transform_Operation<"unroll_loop", [
 
   let arguments = (ins PDL_Operation:$target,
                    Confined<I64Attr, [IntPositive]>:$factor);
-  
+
   let assemblyFormat = "$target attr-dict";
 
   let extraClassDeclaration = [{

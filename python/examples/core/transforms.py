@@ -390,6 +390,8 @@ class Generalize(Transform):
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self.fun_name = fun_name
+    self.op_name = op_name
     self._parse_variables_in_kwargs(kwargs)
     interchange_str = _get_size_list_as_str(name='iterator-interchange',
                                             sizes=self.iterator_interchange)
@@ -399,6 +401,11 @@ class Generalize(Transform):
                 f'     anchor-op={op_name} '
                 f'     generalize}}')
     self.pipeline = (f'builtin.func({pipeline})')
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    tx.GeneralizeOp(target)
 
 
 class Interchange(Transform):
@@ -415,6 +422,7 @@ class Interchange(Transform):
   }
 
   def __init__(self, fun_name: str, **kwargs):
+    self.fun_name = fun_name
     self._parse_variables_in_kwargs(kwargs)
     interchange_str = _get_size_list_as_str(name='iterator-interchange',
                                             sizes=self.iterator_interchange)
@@ -424,6 +432,10 @@ class Interchange(Transform):
                 f'     anchor-op="linalg.generic" '
                 f'     {interchange_str}}}')
     self.pipeline = (f'builtin.func({pipeline})')
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name, 'generic'))
+    tx.InterchangeOp(target, iterator_interchange=self.iterator_interchange)
 
 
 class DecomposeToLowerDimensionalNamedOp(Transform):

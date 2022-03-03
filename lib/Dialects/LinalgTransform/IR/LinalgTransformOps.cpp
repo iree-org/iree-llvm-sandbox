@@ -268,6 +268,54 @@ LogicalResult transform::TileOp::verify() {
 }
 
 //===---------------------------------------------------------------------===//
+// GeneralizeOp
+//===---------------------------------------------------------------------===//
+
+FailureOr<LinalgOp> transform::GeneralizeOp::applyToOne(LinalgOp target) {
+  // Avoid failure if the operation is already a GenericOp.
+  if (isa<GenericOp>(target))
+    return target;
+  auto generalizeSeq =
+      functional::SequenceBuilder()
+          .begin(callLinalgPattern<LinalgGeneralizationPattern>(getContext()));
+  return functional::applyAt(target, generalizeSeq);
+}
+
+//===---------------------------------------------------------------------===//
+// InterchangeOp
+//===---------------------------------------------------------------------===//
+
+static FunctionalLinalgTransform buildInterchangeFromInterchangeOpPattern(
+    transform::InterchangeOp interchangeOp) {
+  SmallVector<unsigned> iterator_interchange =
+      extractUIntArray(interchangeOp.iterator_interchange());
+  if (iterator_interchange.empty())
+    return forwardOp;
+  return callLinalgPattern<GenericOpInterchangePattern>(
+      interchangeOp.getContext(), iterator_interchange);
+}
+
+FailureOr<LinalgOp> transform::InterchangeOp::applyToOne(LinalgOp target) {
+  auto generalizeSeq =
+      functional::SequenceBuilder()
+          .begin(buildInterchangeFromInterchangeOpPattern(*this));
+
+  return functional::applyAt(target, generalizeSeq);
+}
+
+LogicalResult transform::InterchangeOp::verify() {
+  SmallVector<unsigned> permutation = extractUIntArray(iterator_interchange());
+  auto sequence = llvm::seq<unsigned>(0, permutation.size());
+  if (!std::is_permutation(sequence.begin(), sequence.end(),
+                           permutation.begin(), permutation.end())) {
+    return emitOpError()
+           << "expects iterator_interchange to be a permutation, found "
+           << iterator_interchange();
+  }
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
 // DecomposeOp
 //===---------------------------------------------------------------------===//
 
