@@ -269,6 +269,37 @@ LogicalResult transform::TileOp::verify() {
 }
 
 //===---------------------------------------------------------------------===//
+// FuseOp
+//===---------------------------------------------------------------------===//
+
+FailureOr<LinalgOp> transform::FuseOp::applyToOne(LinalgOp target) {
+  LinalgTilingAndFusionOptions fusionOptions;
+  fusionOptions.tileSizes = extractI64Array(tile_sizes());
+  fusionOptions.tileInterchange = extractI64Array(tile_interchange());
+
+  LinalgTileAndFuseTensorOpsPattern pattern(getContext(), fusionOptions);
+  auto functionalFuse = [&](LinalgOp op,
+                            PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+    auto tileLoopNest = pattern.returningMatchAndRewrite(op, rewriter);
+    if (failed(tileLoopNest))
+      return failure();
+    return tileLoopNest->getRootOp();
+  };
+  return functional::applyAt(target, functionalFuse);
+}
+
+LogicalResult transform::FuseOp::verify() {
+  SmallVector<int64_t> permutation = extractI64Array(tile_interchange());
+  auto sequence = llvm::seq<int64_t>(0, permutation.size());
+  if (!std::is_permutation(sequence.begin(), sequence.end(),
+                           permutation.begin(), permutation.end())) {
+    return emitOpError() << "expects interchange to be a permutation, found "
+                         << tile_interchange();
+  }
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
 // GeneralizeOp
 //===---------------------------------------------------------------------===//
 
