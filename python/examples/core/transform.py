@@ -114,7 +114,8 @@ class Transform:
     return self.then(other)
 
   def build_transform_ir(self):
-    raise NotImplementedError(self.__class__.__name__ + " does not implement build_transform_ir")
+    raise NotImplementedError(self.__class__.__name__ +
+                              " does not implement build_transform_ir")
 
 
 class PrintIR(Transform):

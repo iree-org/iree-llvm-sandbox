@@ -32,7 +32,7 @@ def all_experts(problem_sizes: List[int]):
            op_name=op_name,
            tile_sizes=[512],
            peel=[0])
-      .then(Vectorize(fun_name, op_name))
+      .then(Vectorize(fun_name, ''))
       .then(LoweringOnlyExpert(fun_name,
                                 op_name,
                                 multi_reduction_lowering='innerreduction')),

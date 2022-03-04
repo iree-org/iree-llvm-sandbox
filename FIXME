@@ -1,2 +1,13 @@
-python -m python.examples.fusion.test is currently deactivated until fusion has a transform dialect impl.
-python -m python.examples.reduction.reduction_1d_bench fails in certain cases.
+python -m python.examples.fusion.test
+  * FusionOp does not implement build_transform_ir 
+  
+python -m python.examples.matmul.test
+  * FusionOp does not implement build_transform_ir 
+  * UnrollOneVectorOp does not implement build_transform_ir
+  * SingleTilingExpert fails to vectorize if things don't divide and this is reported as a full failure.
+  * could not find replacement for tracked op (failed to apply: %7 = linalg_transform.outline_loop %6 {func_name = "foo"})
+
+python -m python.examples.matvec.test
+  * FusionOp does not implement build_transform_ir 
+  * SingleTilingExpert fails to vectorize if things don't divide and this is reported as a full failure.
+
