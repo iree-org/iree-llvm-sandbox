@@ -3,8 +3,8 @@
 #include <tuple>
 #include <vector>
 
-#include "operators/column_scan.h"
-#include "operators/map.h"
+#include "Operators/ColumnScanOperator.h"
+#include "Operators/MapOperator.h"
 
 TEST(MapTest, SingleColumnMap) {
   std::vector<int32_t> numbers = {1, 2};

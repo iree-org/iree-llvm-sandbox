@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <vector>
 
-#include "operators/column_scan.h"
-#include "operators/hash_join.h"
+#include "Operators/ColumnScanOperator.h"
+#include "Operators/HashJoinOperator.h"
 
 TEST(HashJoinTest, SingleColumnKey) {
   std::vector<int32_t> leftKeys = {1, 2, 1, 2, 5};

@@ -3,8 +3,8 @@
 #include <tuple>
 #include <vector>
 
-#include "operators/column_scan.h"
-#include "operators/filter.h"
+#include "Operators/ColumnScanOperator.h"
+#include "Operators/FilterOperator.h"
 
 TEST(FilterTest, SingleColumn) {
   std::vector<int32_t> numbers = {1, 2, 3, 4, 5, 6};
