@@ -3,7 +3,7 @@
 #include <tuple>
 #include <vector>
 
-#include "Operators/ColumnScanOperator.h"
+#include "iterators/Operators/ColumnScanOperator.h"
 
 TEST(ColumnScanTest, SingleColumn) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};

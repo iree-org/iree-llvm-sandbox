@@ -1,8 +1,8 @@
 #include <iostream>
 #include <vector>
 
-#include "Operators/ColumnScanOperator.h"
-#include "Utils/Tuple.h"
+#include "iterators/Operators/ColumnScanOperator.h"
+#include "iterators/Utils/Tuple.h"
 
 int main(int /*unused*/, char ** /*unused*/) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};

@@ -4,8 +4,8 @@
 #include <tuple>
 #include <vector>
 
-#include "Operators/ColumnScanOperator.h"
-#include "Operators/ReduceByKeyOperator.h"
+#include "iterators/Operators/ColumnScanOperator.h"
+#include "iterators/Operators/ReduceByKeyOperator.h"
 
 TEST(ReduceByKeyTest, SingleColumnKey) {
   std::vector<int32_t> keys = {1, 2, 1, 2};
