@@ -206,12 +206,14 @@ def compiled_function_element_types_mlir_builder(
   return [np_type_to_mlir_type(t) for t in np_types]
 
 
-def emit_schedule_dialect(module: ModuleOp, transformations: TransformationList):
+def emit_schedule_dialect(module: ModuleOp,
+                          transformations: TransformationList):
   with InsertionPoint(module.body):
     sequence = tx.SequenceOp()
     with InsertionPoint(sequence.body.blocks[0]):
       for t in transformations.transforms:
         t.build_transform_ir()
+
 
 class ProblemInstance:
   problem_definition: ProblemDefinition
@@ -298,36 +300,6 @@ class ProblemInstance:
       return self._compile_to_execution_engine(self.mlir_module,
                                                ApplySchedule(),
                                                dump_ir_to_file=dump_ir_to_file)
-
-  def compile(
-      self,
-      entry_point_name: str,
-      fun_to_benchmark_name: str,
-      compile_time_problem_sizes_dict: dict,
-      # TODO: Better type than Callable.
-      transform: Callable,
-      dump_ir_to_file: str = '',
-      zero_at_each_iteration: bool = False):
-    assert self.compile_time_problem_sizes_dict is None, \
-        f'Problem already compiled, please instantiate a new problem'
-    self.__assert_matching_mapping_keys(compile_time_problem_sizes_dict)
-
-    self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict
-
-    with Context() as ctx, Location.unknown() as loc:
-      self.mlir_context = ctx
-      self.mlir_module = Module.create()
-      self.build_problem_under_context_manager(entry_point_name,
-                                               fun_to_benchmark_name,
-                                               self.mlir_module,
-                                               zero_at_each_iteration)
-
-      def apply_transform_to_entry_point_name(module):
-        return transform(entry_point_name, module)
-
-      self._compile_to_execution_engine(self.mlir_module,
-                                        apply_transform_to_entry_point_name,
-                                        dump_ir_to_file)
 
   def run(self,
           n_iters: int,
@@ -581,8 +553,6 @@ def test_harness(problem_factory: Callable[
     argument is provided, it will be called `n_iters` times for the purpose of
     measuring baseline performance.
   plot_path: A path to an existing directory to dump the performance plots.
-  backends: List of backends (containing 'strategy' or 'dialect', or both) to
-    use for compilation.
 
   Returns: A dictionary of all collected benchmark results.
   """
@@ -591,10 +561,6 @@ def test_harness(problem_factory: Callable[
     experts = {str(value): value for value in experts}
 
   measurements = Measurements()
-
-  backends = kwargs.get("backends", ['strategy'])
-  for b in backends:
-    assert b in ('strategy', 'dialect'), "Unknown backend: " + str(b)
 
   for np_types in np_types_list:
     for problem_sizes_dict in problem_sizes_list:
@@ -637,33 +603,18 @@ def test_harness(problem_factory: Callable[
       for expert_name, expert in experts.items():
         print(f'\nCompilation expert {expert_name}')
 
-        if 'dialect' in backends:
-          print("xxxxxxxxxx: Dialect:")
-          problem_tx = ProblemInstance(problem_definition, np_types)
-          start = time.time()
-          problem_tx.compile_with_schedule_builder(
+        print("xxxxxxxxxx: Dialect:")
+        problem_tx = ProblemInstance(problem_definition, np_types)
+        start = time.time()
+        problem_tx.compile_with_schedule_builder(
             entry_point_name='main',
             fun_to_benchmark_name=function_name,
             compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
             schedule_builder=lambda m: emit_schedule_dialect(m, expert),
             dump_ir_to_file=kwargs.get('dump_tx_ir_to_file', ''),
             zero_at_each_iteration=kwargs.get('zero_at_each_iteration', False))
-          print(f'Compile time {time.time() - start}')
-          run_problem_instance(problem_tx, expert_name + '_dialect')
-
-        if 'strategy' in backends:
-          print("xxxxxxxxxx: Strategy:")
-          problem = ProblemInstance(problem_definition, np_types)
-          start = time.time()
-          problem.compile(
-              entry_point_name='main',
-              fun_to_benchmark_name=function_name,
-              compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
-              transform=expert,
-              dump_ir_to_file=kwargs.get('dump_ir_to_file', ''),
-              zero_at_each_iteration=kwargs.get('zero_at_each_iteration', False))
-          print(f'Compile time {time.time() - start}')
-          run_problem_instance(problem, expert_name + "_strategy")
+        print(f'Compile time {time.time() - start}')
+        run_problem_instance(problem_tx, expert_name + '_dialect')
 
       if 'numpy_benchmark' in kwargs and os.environ.get('BENCHMARK_NUMPY'):
         print('\nNumPy reference\n')

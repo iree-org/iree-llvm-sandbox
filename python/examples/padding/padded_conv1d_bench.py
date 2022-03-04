@@ -15,9 +15,7 @@ op_name = 'linalg.conv_1d_nwc_wcf'
 ### Compilation strategies.
 ################################################################################
 
-all_names = [
-  "Conv1DExpert"
-]
+all_names = ["Conv1DExpert"]
 all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,

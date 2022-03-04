@@ -69,8 +69,7 @@ def main():
                  [[np.float32] * 2],
                  test_sizes(keys, [problem[0]]), [problem[2]],
                  n_iters=n_iters,
-                 function_name=fun_name,
-                 backends=['dialect'])
+                 function_name=fun_name)
 
 
 if __name__ == '__main__':

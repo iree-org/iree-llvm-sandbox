@@ -46,7 +46,7 @@ def all_experts(problem_sizes: List[int]):
           # Avoid tiling small dimensions and otherwise tile by ts[0].
           tile_sizes=[ts[0], ts[1]] if problem_sizes[1] > ts[1] else [ts[0]],
           peel=[0, 1] if problem_sizes[1] > ts[1] else [0])
-        .then(Vectorize(fun_name, op_name))
+        .then(Vectorize(fun_name, ''))
         .then(LoweringOnlyExpert(fun_name,
                                  op_name,
                                  multi_reduction_lowering='innerreduction')),
