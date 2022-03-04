@@ -650,6 +650,7 @@ class OutlineOneParentLoop(Transform):
     self._parse_variables_in_kwargs(kwargs)
     self.fun_name = fun_name
     self.op_name = op_name
+    self.result_func_name = result_func_name
 
     pipeline = (f'outline-one-parent-loop{{'
                 f'     anchor-func={fun_name} '
@@ -682,22 +683,3 @@ class ApplySchedule(Transform):
       op_name = op.operation.name
       if op_name == 'pdl.pattern' or op_name == 'linalg_transform.sequence':
         op.operation.erase()
-
-
-class Sparsify(Transform):
-
-  def __init__(self, options: str):
-    pipeline = (
-        f'sparsification{{{options}}},'
-        f'sparse-tensor-conversion,'
-        f'builtin.func(convert-linalg-to-loops,convert-vector-to-scf),'
-        f'convert-scf-to-cf,'
-        f'func-bufferize,'
-        f'tensor-constant-bufferize,'
-        f'builtin.func(tensor-bufferize,std-bufferize,finalizing-bufferize),'
-        f'convert-vector-to-llvm{{reassociate-fp-reductions=1 enable-index-optimizations=1}},'
-        f'lower-affine,'
-        f'convert-memref-to-llvm,'
-        f'convert-std-to-llvm,'
-        f'reconcile-unrealized-casts')
-    self.pipeline = pipeline

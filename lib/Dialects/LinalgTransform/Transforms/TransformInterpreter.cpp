@@ -162,8 +162,13 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
   }
 
   for (Operation &transform : sequence.body().front()) {
-    if (failed(executeTransform(&transform, state)))
-      return transform.emitError() << "failed to apply";
+    if (failed(executeTransform(&transform, state))) {
+      std::string str;
+      llvm::raw_string_ostream ss(str);
+      ss << "failed to apply: " << transform << "\nto module\n" << module;
+      ss.flush();
+      return transform.emitError() << str;
+    }
 
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
