@@ -41,15 +41,13 @@ public:
   ReturnType computeNext() {
     // Consume and handle first tuple
     const auto firstTuple = upstream->computeNext();
-    if (!firstTuple) {
+    if (!firstTuple)
       return {};
-    }
 
     // Aggregate remaining tuples
     OutputTuple aggregate = firstTuple.value();
-    while (auto const tuple = upstream->computeNext()) {
+    while (auto const tuple = upstream->computeNext())
       aggregate = reduceFunction(aggregate, tuple.value());
-    }
 
     return aggregate;
   }

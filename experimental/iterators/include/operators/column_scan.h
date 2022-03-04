@@ -37,9 +37,8 @@ public:
   /// 'end of stream' otherwise.
   ReturnType computeNext() {
     // Signal end-of-stream if we are at the end of the input
-    if (currentPos >= std::get<0>(inputs).size()) {
+    if (currentPos >= std::get<0>(inputs).size())
       return {};
-    }
 
     // Return current tuple and advance
     using IndexSequence =
