@@ -269,6 +269,45 @@ LogicalResult transform::TileOp::verify() {
 }
 
 //===---------------------------------------------------------------------===//
+// GeneralizeOp
+//===---------------------------------------------------------------------===//
+
+FailureOr<LinalgOp> transform::GeneralizeOp::applyToOne(LinalgOp target) {
+  // Exit early if no transformation is needed.
+  if (isa<GenericOp>(target))
+    return target;
+  return functional::applyAt(
+      target, callLinalgPattern<LinalgGeneralizationPattern>(getContext()));
+}
+
+//===---------------------------------------------------------------------===//
+// InterchangeOp
+//===---------------------------------------------------------------------===//
+
+FailureOr<LinalgOp> transform::InterchangeOp::applyToOne(LinalgOp target) {
+  SmallVector<unsigned> interchangeVector =
+      extractUIntArray(iterator_interchange());
+  // Exit early if no transformation is needed.
+  if (interchangeVector.empty())
+    return target;
+  return functional::applyAt(target,
+                             callLinalgPattern<GenericOpInterchangePattern>(
+                                 getContext(), interchangeVector));
+}
+
+LogicalResult transform::InterchangeOp::verify() {
+  SmallVector<unsigned> permutation = extractUIntArray(iterator_interchange());
+  auto sequence = llvm::seq<unsigned>(0, permutation.size());
+  if (!std::is_permutation(sequence.begin(), sequence.end(),
+                           permutation.begin(), permutation.end())) {
+    return emitOpError()
+           << "expects iterator_interchange to be a permutation, found "
+           << iterator_interchange();
+  }
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
 // DecomposeOp
 //===---------------------------------------------------------------------===//
 

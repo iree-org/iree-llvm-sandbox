@@ -151,6 +151,43 @@ class TileOp:
         ip=ip)
 
 
+class GeneralizeOp:
+  """Specialization for the GeneralizeOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               loc=None,
+               ip=None):
+    operation_type = pdl.OperationType.get()
+
+    super().__init__(
+        operation_type,
+        target,
+        loc=loc,
+        ip=ip)
+
+
+class InterchangeOp:
+  """Specialization for the InterchangeOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               iterator_interchange: IntListArg = None,
+               loc=None,
+               ip=None):
+    iterator_interchange = _ensure_array_attr(iterator_interchange, [])
+    operation_type = pdl.OperationType.get()
+
+    super().__init__(
+        operation_type,
+        target,
+        iterator_interchange,
+        loc=loc,
+        ip=ip)
+
+
 class VectorizeOp:
 
   def __init__(self,
