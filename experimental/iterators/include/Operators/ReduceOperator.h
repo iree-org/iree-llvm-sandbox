@@ -41,15 +41,13 @@ public:
   ReturnType computeNext() {
     // Consume and handle first tuple
     const auto firstTuple = upstream->computeNext();
-    if (!firstTuple) {
+    if (!firstTuple)
       return {};
-    }
 
     // Aggregate remaining tuples
     OutputTuple aggregate = firstTuple.value();
-    while (auto const tuple = upstream->computeNext()) {
+    while (auto const tuple = upstream->computeNext())
       aggregate = reduceFunction(aggregate, tuple.value());
-    }
 
     return aggregate;
   }
@@ -58,7 +56,10 @@ public:
   void close() { upstream->close(); }
 
 private:
+  /// Reference to the upstream operator.
   UpstreamType *const upstream;
+  /// Function with which upstream tuples are combined pairwise in order to
+  /// produce the final result.
   ReduceFunctionType reduceFunction;
 };
 

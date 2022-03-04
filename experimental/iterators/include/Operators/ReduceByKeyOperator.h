@@ -12,7 +12,7 @@
 #include <tuple>
 #include <unordered_map>
 
-#include "utils/tuple.h"
+#include "Utils/Tuple.h"
 
 /// Groups the input tuples by key and reduces the tuples within each group.
 ///

@@ -22,7 +22,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(iterators
-        src/main.cc
+        src/Main.cpp
     )
 target_include_directories(iterators PUBLIC include)
 
@@ -33,13 +33,13 @@ enable_testing()
 # TODO: move these to the tests director.
 # TODO: split tests into C++ and MLIR
 add_executable(iterator_tests
-        tests/column_scan_operator_test.cc
-        tests/filter_operator_test.cc
-        tests/hash_join_operator_test.cc
-        tests/map_operator_test.cc
-        tests/reduce_by_key_operator_test.cc
-        tests/reduce_operator_test.cc
-        tests/utils_test.cc
+        tests/ColumnScanOperatorTest.cpp
+        tests/FilterOperatorTest.cpp
+        tests/HashJoinOperatorTest.cpp
+        tests/MapOperatorTest.cpp
+        tests/ReduceByKeyOperatorTest.cpp
+        tests/ReduceOperatorTest.cpp
+        tests/UtilsTest.cpp
     )
 target_include_directories(iterator_tests
     PUBLIC

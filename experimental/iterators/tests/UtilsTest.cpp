@@ -3,7 +3,7 @@
 #include <sstream>
 #include <tuple>
 
-#include "utils/tuple.h"
+#include "Utils/Tuple.h"
 
 TEST(ExtractHeadTest, Head0) {
   std::tuple<int16_t, int32_t> tuple = {1, 2};

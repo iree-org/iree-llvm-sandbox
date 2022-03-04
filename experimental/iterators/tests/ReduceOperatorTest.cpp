@@ -3,8 +3,8 @@
 #include <tuple>
 #include <vector>
 
-#include "operators/column_scan.h"
-#include "operators/reduce.h"
+#include "Operators/ColumnScanOperator.h"
+#include "Operators/ReduceOperator.h"
 
 TEST(ReduceTest, SingleColumnSum) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};
