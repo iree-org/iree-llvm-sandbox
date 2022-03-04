@@ -138,8 +138,7 @@ def TileOp : Linalg_Transform_Operation<"tile",
 
 def GeneralizeOp : Linalg_Transform_Operation<"generalize",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
-  let description = [{Indicates that ops of a specific kind in the given
-  function should be transformed to generic operations.}];
+  let description = [{Generalizes the op pointed to by the target handle.}];
 
   let arguments = (ins PDL_Operation:$target);
   let results = (outs PDL_Operation:$transformed);
@@ -154,8 +153,8 @@ def GeneralizeOp : Linalg_Transform_Operation<"generalize",
 
 def InterchangeOp : Linalg_Transform_Operation<"interchange",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
-  let description = [{Indicates that ops of a specific kind in the given
-  function should be interchanged with the options provided as attributes.}];
+  let description = [{Interchanges the iterators of the op pointed to by the
+  target handle using the iterator interchange attribute.}];
 
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$iterator_interchange);

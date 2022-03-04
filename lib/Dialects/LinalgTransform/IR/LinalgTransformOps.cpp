@@ -272,35 +272,26 @@ LogicalResult transform::TileOp::verify() {
 //===---------------------------------------------------------------------===//
 
 FailureOr<LinalgOp> transform::GeneralizeOp::applyToOne(LinalgOp target) {
-  // Avoid failure if the operation is already a GenericOp.
+  // Exit early if no transformation is needed.
   if (isa<GenericOp>(target))
     return target;
-  auto generalizeSeq =
-      functional::SequenceBuilder()
-          .begin(callLinalgPattern<LinalgGeneralizationPattern>(getContext()));
-  return functional::applyAt(target, generalizeSeq);
+  return functional::applyAt(
+      target, callLinalgPattern<LinalgGeneralizationPattern>(getContext()));
 }
 
 //===---------------------------------------------------------------------===//
 // InterchangeOp
 //===---------------------------------------------------------------------===//
 
-static FunctionalLinalgTransform buildInterchangeFromInterchangeOpPattern(
-    transform::InterchangeOp interchangeOp) {
-  SmallVector<unsigned> iterator_interchange =
-      extractUIntArray(interchangeOp.iterator_interchange());
-  if (iterator_interchange.empty())
-    return forwardOp;
-  return callLinalgPattern<GenericOpInterchangePattern>(
-      interchangeOp.getContext(), iterator_interchange);
-}
-
 FailureOr<LinalgOp> transform::InterchangeOp::applyToOne(LinalgOp target) {
-  auto generalizeSeq =
-      functional::SequenceBuilder()
-          .begin(buildInterchangeFromInterchangeOpPattern(*this));
-
-  return functional::applyAt(target, generalizeSeq);
+  SmallVector<unsigned> interchangeVector =
+      extractUIntArray(iterator_interchange());
+  // Exit early if no transformation is needed.
+  if (interchangeVector.empty())
+    return target;
+  return functional::applyAt(target,
+                             callLinalgPattern<GenericOpInterchangePattern>(
+                                 getContext(), interchangeVector));
 }
 
 LogicalResult transform::InterchangeOp::verify() {
