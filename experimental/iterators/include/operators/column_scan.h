@@ -58,7 +58,10 @@ private:
     return std::make_tuple(std::get<kIndices>(inputs).at(currentPos)...);
   }
 
+  /// Copy of the input data that this operator scans.
   std::tuple<std::vector<InputTypes>...> inputs;
+  /// Position of the tuple values that are returned in the next call to
+  /// `computeNext`.
   int64_t currentPos;
 };
 

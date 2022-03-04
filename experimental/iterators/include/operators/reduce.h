@@ -56,7 +56,10 @@ public:
   void close() { upstream->close(); }
 
 private:
+  /// Reference to the upstream operator.
   UpstreamType *const upstream;
+  /// Function with which upstream tuples are combined pairwise in order to
+  /// produce the final result.
   ReduceFunctionType reduceFunction;
 };
 
