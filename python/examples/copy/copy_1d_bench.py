@@ -33,7 +33,7 @@ all_experts = [
             tile_sizes=[16],
             peel=[0])
       .then(Bufferize())
-      .then(Vectorize(fun_name=fun_name, op_name=op_name))
+      .then(Vectorize(fun_name=fun_name, op_name=''))
       .then(LowerVectors())
       .then(LowerToLLVM())
     ]
@@ -78,7 +78,7 @@ def main():
 
   for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
     for spec in args.spec_list:
-      test_harness(
+      test_harness(\
           lambda s, t: EinsumProblem('n->n', 'n', 0),
           [[np.float32] * 2],
           test_sizes(keys, args.problem_sizes_list),
@@ -90,7 +90,7 @@ def main():
           dump_ir_to_file='/tmp/abc.mlir',
           dump_obj_to_file='/tmp/abc.o',
           dump_data_to_file=args.dump_data,
-      )
+          backends=['dialect'])
 
 
 if __name__ == '__main__':

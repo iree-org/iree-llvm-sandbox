@@ -149,7 +149,8 @@ def main():
                  dump_obj_to_file='/tmp/abcd.o',
                  numpy_benchmark=numpy_kernel,
                  pytorch_benchmark=pytorch_kernel,
-                 dump_data_to_file=args.dump_data)
+                 dump_data_to_file=args.dump_data,
+                 backends=['dialect'])
 
 
 if __name__ == '__main__':

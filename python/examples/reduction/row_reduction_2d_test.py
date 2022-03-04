@@ -36,7 +36,8 @@ def main():
                all_experts,
                n_iters=n_iters,
                function_name='row_reduction_2d',
-               zero_at_each_iteration=True)
+               zero_at_each_iteration=True,
+               backends=['dialect'])
 
 
 if __name__ == '__main__':

@@ -15,15 +15,13 @@ op_name = 'linalg.conv_1d_nwc_wcf'
 ### Compilation strategies.
 ################################################################################
 
-all_names = [
-  "Conv1DExpert"
-]
+all_names = ["Conv1DExpert"]
 all_experts = [
     SingleTilingExpert(
         fun_name=fun_name,
         op_name=op_name,
         #           N  W   C  KW  F
-        tile_sizes=[1, 8, 32, 1, 8]).print_ir(at_begin=True, after_all=False)
+        tile_sizes=[1, 8, 32, 1, 8]).print_ir(at_begin=False, after_all=False)
 ]
 
 ################################################################################
@@ -56,7 +54,8 @@ def main():
                test_experts(all_experts, all_names, args.expert_list),
                n_iters=args.n_iters,
                function_name=fun_name,
-               dump_data_to_file=args.dump_data)
+               dump_data_to_file=args.dump_data,
+               backends=['dialect'])
 
 
 if __name__ == '__main__':

@@ -165,8 +165,8 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     if (failed(executeTransform(&transform, state)))
       return transform.emitError() << "failed to apply";
 
-    LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
-                      << "\n");
+    LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform << "\n"
+                      << module << "\n");
 
     // Run CSE, enabling transformations and canonicalization. This is similar
     // to running the respective pass, but (a) keeps tracking the value/op
@@ -185,6 +185,8 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
       return failure();
     }
 
+    LLVM_DEBUG(DBGS() << "successfully applied CSE\n" << module << "\n");
+
     // TODO: this runs CSE internally, mostly redundant with the above.
     if (failed(checkedListenerTransform(
             [&](TrackingListener &listener) {
@@ -194,6 +196,8 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
       LLVM_DEBUG(DBGS() << "enabler transformations failed\n");
       return failure();
     }
+    LLVM_DEBUG(DBGS() << "successfully applied enabler transformations\n"
+                      << module << "\n");
 
     if (failed(checkedListenerTransform(
             [&](TrackingListener &listener) {
@@ -204,6 +208,8 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
       LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
       return failure();
     }
+    LLVM_DEBUG(DBGS() << "successfully applied canonicalization patterns\n"
+                      << module << "\n");
   }
 
   return success();

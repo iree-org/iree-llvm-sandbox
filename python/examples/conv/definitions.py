@@ -223,7 +223,7 @@ class ConvolutionProblem(ProblemDefinition):
       # half of the input points along dim.
       # TODO: this should actually be a layout optimization in the compiler.
       elif stride == 2:
-        if dilation % 2 is 0:
+        if dilation % 2 == 0:
           # This also holds when kernel size is 1
           scaler.append(2)
         else:

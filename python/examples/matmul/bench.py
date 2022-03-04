@@ -161,7 +161,7 @@ def main():
                    dump_data_to_file=args.dump_data,
                    numpy_benchmark=numpy_kernel,
                    pytorch_benchmark=pytorch_kernel,
-                   backends=['strategy', 'dialect'])
+                   backends=['dialect'])
 
 
 if __name__ == '__main__':

@@ -1,0 +1,2 @@
+python -m python.examples.fusion.test is currently deactivated until fusion has a transform dialect impl.
+python -m python.examples.reduction.reduction_1d_bench fails in certain cases.

@@ -194,7 +194,8 @@ def main():
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
-               function_name='matmul')
+               function_name='matmul',
+               backends=['dialect'])
 
 
 if __name__ == '__main__':

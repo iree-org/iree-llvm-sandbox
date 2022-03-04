@@ -111,7 +111,8 @@ def main():
                               args.expert_list),
                  n_iters=args.n_iters,
                  function_name=fun_name,
-                 dump_data_to_file=args.dump_data)
+                 dump_data_to_file=args.dump_data,
+                 backends=['dialect'])
 
 
 if __name__ == '__main__':

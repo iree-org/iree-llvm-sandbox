@@ -195,29 +195,6 @@ class Tile(Transform):
     self._parse_variables_in_kwargs(kwargs)
     self.fun_name = fun_name
     self.op_name = op_name
-    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
-    interchange_str = _get_size_list_as_str(name="tile-interchange",
-                                            sizes=self.tile_interchange)
-    pad_str = _get_pad_str(self)
-    peeled_loops_str = ''
-    scalarize_dyn_dims_str = ''
-    if self.peel:
-      loop_indices = [str(l) for l in self.peel]
-      peeled_loops_str = f'peeled-loops={",".join(loop_indices)}'
-    if self.scalarize_dyn_dims:
-      scalarize_dyn_dims_str = 'scalarize-dynamic-dims'
-
-    pipeline = (f'linalg-single-tiling-expert-driver{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     {tile_str} '
-                f'     {interchange_str} '
-                f'     {peeled_loops_str} '
-                f'     {scalarize_dyn_dims_str} '
-                f'     {pad_str}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
 
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,

@@ -86,13 +86,15 @@ copy_2D_perf_relevant_sizes = [
 def main():
   n_iters = 100
   for problem_sizes in copy_2D_perf_search_list:
-    test_harness(lambda s, t: EinsumProblem('mn->mn', 0), [[np.float32] * 2],
+    test_harness(lambda s, t: EinsumProblem('mn->mn', 'mn', 0),
+                 [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  all_experts(fun_name, problem_sizes),
                  n_iters=n_iters,
                  function_name=fun_name,
                  dump_ir_to_file='/tmp/abc.mlir',
-                 dump_obj_to_file='/tmp/abc.o')
+                 dump_obj_to_file='/tmp/abc.o',
+                 backends=['dialect'])
 
 
 if __name__ == '__main__':

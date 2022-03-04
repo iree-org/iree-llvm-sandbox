@@ -35,7 +35,8 @@ def main():
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
-               function_name='reduction_1d')
+               function_name='reduction_1d',
+               backends=['dialect'])
 
 
 if __name__ == '__main__':
