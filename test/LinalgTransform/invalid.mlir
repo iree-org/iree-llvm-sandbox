@@ -33,3 +33,11 @@ linalg_transform.sequence {
   // expected-error@below {{expects iterator_interchange to be a permutation, found [1, 1]}}
   interchange %0 {iterator_interchange = [1, 1]}
 }
+
+// -----
+
+linalg_transform.sequence {
+  %0 = match @match
+  // expected-error@below {{expects interchange to be a permutation, found [1, 1]}}
+  tile_and_fuse %0 {tile_sizes=[0, 1], tile_interchange = [1, 1]}
+}

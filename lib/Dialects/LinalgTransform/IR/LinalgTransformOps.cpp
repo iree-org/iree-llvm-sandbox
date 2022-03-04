@@ -40,6 +40,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Debug.h"
@@ -264,6 +265,52 @@ LogicalResult transform::TileOp::verify() {
              << "expects transpose paddings to be a permutation, found "
              << attr;
     }
+  }
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
+// TileAndFuseOp
+//===---------------------------------------------------------------------===//
+
+FailureOr<LinalgOp> transform::TileAndFuseOp::applyToOne(LinalgOp target) {
+  LinalgTilingAndFusionOptions options;
+  SmallVector<int64_t> tileSizes = extractI64Array(this->tile_sizes());
+  SmallVector<int64_t> tileInterchange =
+      extractI64Array(this->tile_interchange());
+
+  auto functionalFuse = [&](LinalgOp op,
+                            PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
+    // TODO: Update and reuse the core tile and fuse pattern.
+    if (tileSizes.size() != op.getNumLoops())
+      return rewriter.notifyMatchFailure(op, "expect #tile sizes == #loops");
+
+    if (!tileInterchange.empty() && tileInterchange.size() != tileSizes.size())
+      return rewriter.notifyMatchFailure(
+          op, "expect the number of tile sizes and interchange dims to match");
+
+    if (llvm::count(tileSizes, 0) == static_cast<long>(tileSizes.size()))
+      return rewriter.notifyMatchFailure(
+          op, "expect at least one non-zero tile size");
+
+    FailureOr<TileLoopNest> tileLoopNest = tileConsumerAndFuseProducers(
+        rewriter, op, tileSizes, tileInterchange, llvm::None);
+    if (failed(tileLoopNest))
+      return failure();
+
+    rewriter.replaceOp(op, tileLoopNest->getRootOpReplacementResults());
+    return tileLoopNest->getRootOp();
+  };
+  return functional::applyAt(target, functionalFuse);
+}
+
+LogicalResult transform::TileAndFuseOp::verify() {
+  SmallVector<int64_t> permutation = extractI64Array(tile_interchange());
+  auto sequence = llvm::seq<int64_t>(0, permutation.size());
+  if (!std::is_permutation(sequence.begin(), sequence.end(),
+                           permutation.begin(), permutation.end())) {
+    return emitOpError() << "expects interchange to be a permutation, found "
+                         << tile_interchange();
   }
   return success();
 }
