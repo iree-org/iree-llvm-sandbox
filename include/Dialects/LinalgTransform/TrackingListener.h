@@ -9,7 +9,7 @@
 #ifndef IREE_LLVM_SANDBOX_DIALECTS_LINALGTRANSFORM_TRANSFORMS_TRACKINGLISTENER_H
 #define IREE_LLVM_SANDBOX_DIALECTS_LINALGTRANSFORM_TRANSFORMS_TRACKINGLISTENER_H
 
-#include "Dialects/LinalgTransform/TransformOpMapping.h"
+#include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "Transforms/Listener.h"
 
 namespace mlir {
@@ -17,11 +17,13 @@ namespace linalg {
 /// A tracking listener using to perform CSE and canonicalization passes while
 /// tracking certain linalg operation handles live in a linalg transform
 /// interpreter.
-class TrackingListener : public RewriteListener {
+class TrackingListener : public RewriteListener,
+                         public transform::TransformState::Extension {
 public:
-  TrackingListener(TransformOpMapping &trackedOperations);
+  TrackingListener(transform::TransformState &state);
   TrackingListener(TrackingListener &&other)
-      : trackedOperations(other.trackedOperations),
+      : transform::TransformState::Extension(
+            std::forward<transform::TransformState::Extension>(other)),
         trackedOperationKeys(std::move(other.trackedOperationKeys)),
         hadErrors(other.hadErrors) {
 #ifndef NDEBUG
@@ -45,6 +47,11 @@ public:
   /// tracked operation list.
   void notifyOperationRemoved(Operation *op) override;
 
+  void notifySetPayload(Value handle,
+                        ArrayRef<Operation *> operations) override;
+  void notifyRemovePayload(Value handle,
+                           ArrayRef<Operation *> operations) override;
+
   /// Emits an error pointing at the given operation. Use this instead of
   /// directly emitting an error on the operation to set the listener into the
   /// error state and thus communicate with its user.
@@ -60,8 +67,6 @@ public:
   }
 
 private:
-  /// A reference to the tracked operations in the interpreter.
-  TransformOpMapping &trackedOperations;
   /// A map from a tracked operation (LinalgOp cannot be used as a key) to its
   /// key in the map.
   DenseMap<Operation *, Value> trackedOperationKeys;

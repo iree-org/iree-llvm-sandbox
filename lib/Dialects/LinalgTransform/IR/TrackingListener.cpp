@@ -87,9 +87,9 @@ static Operation *findSingleDefiningOp(Operation *replacedOp,
       .Default([](Operation *) -> Operation * { return nullptr; });
 }
 
-TrackingListener::TrackingListener(TransformOpMapping &trackedOperations)
-    : trackedOperations(trackedOperations) {
-  for (auto &pair : trackedOperations)
+TrackingListener::TrackingListener(transform::TransformState &state)
+    : transform::TransformState::Extension(state) {
+  for (auto &pair : getMapping())
     for (Operation *op : pair.second)
       trackedOperationKeys.try_emplace(op, pair.first);
 }
@@ -114,10 +114,9 @@ void TrackingListener::notifyOperationReplaced(Operation *op,
 
   LLVM_DEBUG(DBGS() << "replacing tracked " << *op << " with " << *replacement
                     << " for " << key << "\n");
-  auto iter = llvm::find(trackedOperations[key], op);
-  assert(iter != trackedOperations[key].end() &&
-         "expected to find the tracked operation list by key");
-  *iter = replacement;
+  updatePayloadOps(key, [op, replacement](Operation *tracked) {
+    return tracked == op ? replacement : tracked;
+  });
 
   // Update the backwards map. The replacement operation must not be already
   // associated with another key as that would break the bidirectional mapping
@@ -153,12 +152,24 @@ void TrackingListener::notifyOperationRemoved(Operation *op) {
   // If a tracked operation is CSE'd, then any further transformations are
   // redundant. Just remove it.
   trackedOperationKeys.erase(op);
-  auto listIt = trackedOperations.find(key);
-  assert(listIt != trackedOperations.end() && "malformed operation map");
-  auto &list = listIt->second;
-  auto opIt = llvm::find(list, op);
-  assert(opIt != list.end() && "malformed operation map");
-  list.erase(opIt);
+  updatePayloadOps(key, [op](Operation *tracked) {
+    return tracked != op ? tracked : nullptr;
+  });
+}
+
+void TrackingListener::notifySetPayload(Value handle,
+                                        ArrayRef<Operation *> operations) {
+  for (Operation *op : operations) {
+    assert(trackedOperationKeys.lookup(op) == Value() &&
+           "payload op already associated with another key");
+    trackedOperationKeys[op] = handle;
+  }
+}
+
+void TrackingListener::notifyRemovePayload(Value handle,
+                                           ArrayRef<Operation *> operations) {
+  for (Operation *op : operations)
+    trackedOperationKeys.erase(op);
 }
 
 InFlightDiagnostic TrackingListener::emitError(Operation *op,
