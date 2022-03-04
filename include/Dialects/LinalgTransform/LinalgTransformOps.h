@@ -9,7 +9,9 @@
 #ifndef MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 #define MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 
+#include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Dialects/LinalgTransform/TransformOpInterface.h"
+#include "TrackingListener.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -25,5 +27,17 @@ class ForOp;
 
 #define GET_OP_CLASSES
 #include "Dialects/LinalgTransform/LinalgTransformOps.h.inc"
+
+namespace mlir {
+namespace linalg {
+
+class TrackingState : public transform::TransformState::Extension,
+                      public TrackingListener {
+public:
+  explicit TrackingState(transform::TransformState &state)
+      : TrackingListener(getMapping(state)) {}
+};
+} // namespace linalg
+} // namespace mlir
 
 #endif // MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H

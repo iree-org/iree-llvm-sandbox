@@ -41,6 +41,7 @@
 #include "mlir/Transforms/InliningUtils.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Debug.h"
 #include <algorithm>
 
@@ -358,8 +359,13 @@ transform::VectorizeOp::apply(transform::TransformResults &results,
   RewritePatternSet patterns(ctx);
   patterns.add<LinalgVectorizationPattern>(ctx);
   configureVectorizationPatterns(*this, patterns);
-  return applyPatternsTrackAndFoldGreedily(
-      state.getTopLevel(), state.getMapping(), std::move(patterns));
+  TrackingListener &listener = state.addExtension<TrackingState>(state);
+  auto raii =
+      llvm::make_scope_exit([&]() { state.removeExtension<TrackingState>(); });
+  LogicalResult applicationResult = applyPatternsTrackAndFoldGreedily(
+      state.getTopLevel(), listener, std::move(patterns));
+  LogicalResult listenerResult = listener.checkErrorState();
+  return failure(failed(applicationResult) || failed(listenerResult));
 }
 
 ParseResult transform::VectorizeOp::parse(OpAsmParser &parser,
@@ -694,7 +700,7 @@ static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
 static FailureOr<FuncOp> outlineLoop(scf::ForOp loop, StringRef funcName,
                                      transform::TransformState &state) {
   PatternRewriterListener rewriter(loop->getContext());
-  TrackingListener listener(state.getMapping());
+  TrackingListener &listener = state.addExtension<TrackingState>(state);
   rewriter.addListener(&listener);
   Location loc = loop.getLoc();
   scf::ExecuteRegionOp exec = outlineInExecuteRegion(rewriter, loop);

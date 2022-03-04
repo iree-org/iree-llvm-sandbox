@@ -39,6 +39,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #define DEBUG_TYPE "transform-interpreter"
@@ -54,13 +55,14 @@ using namespace mlir::linalg;
 /// Run enabling transformations (LICM and its variants, single-iteration loop
 /// removal, CSE) on the given function.
 static LogicalResult performEnablerTransformations(
-    FuncOp func, TransformOpMapping &operations,
+    FuncOp func, RewriteListener &listener,
     linalg::LinalgEnablingOptions options = linalg::LinalgEnablingOptions()) {
   MLIRContext *ctx = func->getContext();
   RewritePatternSet patterns(ctx);
   linalg::populateLinalgTilingCanonicalizationPatterns(patterns);
   scf::populateSCFForLoopCanonicalizationPatterns(patterns);
-  if (failed(applyPatternsTrackAndFoldGreedily(func, operations, std::move(patterns))))
+  if (failed(applyPatternsTrackAndFoldGreedily(func, listener,
+                                               std::move(patterns))))
     return failure();
 
   // This assumes LICM never removes operations so we don't need tracking.
@@ -85,16 +87,16 @@ static LogicalResult performEnablerTransformations(
   if (options.hoistRedundantVectorTransfersOnTensor)
     hoistRedundantVectorTransfersOnTensor(func);
 
-  return eliminateCommonSubexpressionsWithTrackedOps(func, operations);
+  return eliminateCommonSubexpressionsWithTrackedOps(func, listener);
 }
 
 /// Run enabling transformations on the given model while preserving the
 /// operation tracking information.
 static LogicalResult performEnablerTransformations(
-    ModuleOp module, TransformOpMapping &operations,
+    ModuleOp module, RewriteListener &listener,
     linalg::LinalgEnablingOptions options = linalg::LinalgEnablingOptions()) {
   for (auto func : module.getOps<FuncOp>()) {
-    if (failed(performEnablerTransformations(func, operations, options)))
+    if (failed(performEnablerTransformations(func, listener, options)))
       return failure();
   }
   return success();
@@ -107,6 +109,18 @@ static LogicalResult executeTransform(Operation *operation,
     return operation->emitError() << "unknown transformation operation";
 
   return state.applyTransform(iface);
+}
+
+/// Perform the transformation specified by the callback and unconditionally
+/// check the error state of the listener. Return failure if either failed.
+static LogicalResult checkedListenerTransform(
+    function_ref<LogicalResult(TrackingListener &)> transform,
+    TrackingListener &listener) {
+  // Make sure we check the listener error state regardless of the transform
+  // result.
+  LogicalResult transformResult = transform(listener);
+  LogicalResult listenerResult = listener.checkErrorState();
+  return failure(failed(transformResult) || failed(listenerResult));
 }
 
 /// Applies the transformations listed in the `sequence` to operations starting
@@ -125,17 +139,31 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
 
   transform::TransformState state(module);
 
-  // Run the canonicalizations upfront so we don't match and transform
-  // operations only to drop them later.
-  if (failed(eliminateCommonSubexpressionsWithTrackedOps(module,
-                                                         state.getMapping()))) {
-    LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
-    return failure();
-  }
-  if (failed(applyPatternsTrackAndFoldGreedily(module, state.getMapping(),
-                                               patterns))) {
-    LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
-    return failure();
+  {
+    TrackingListener &listener = state.addExtension<TrackingState>(state);
+    auto raii = llvm::make_scope_exit(
+        [&]() { state.removeExtension<TrackingState>(); });
+
+    // Run the canonicalizations upfront so we don't match and transform
+    // operations only to drop them later.
+    if (failed(checkedListenerTransform(
+            [&](TrackingListener &listener) {
+              return eliminateCommonSubexpressionsWithTrackedOps(module,
+                                                                 listener);
+            },
+            listener))) {
+      LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
+      return failure();
+    }
+    if (failed(checkedListenerTransform(
+            [&](TrackingListener &listener) {
+              return applyPatternsTrackAndFoldGreedily(module, listener,
+                                                       patterns);
+            },
+            listener))) {
+      LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
+      return failure();
+    }
   }
 
   for (Operation &transform : sequence.body().front()) {
@@ -145,6 +173,10 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     LLVM_DEBUG(DBGS() << "successfully applied transform: " << transform
                       << "\n");
 
+    TrackingListener &listener = state.addExtension<TrackingState>(state);
+    auto raii = llvm::make_scope_exit(
+        [&]() { state.removeExtension<TrackingState>(); });
+
     // Run CSE, enabling transformations and canonicalization. This is similar
     // to running the respective pass, but (a) keeps tracking the value/op
     // mapping and (b) avoids constructing the pattern set + pass pipeline on
@@ -152,20 +184,32 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
     // TODO: consider better targeting than module-level transformations here:
     // e.g., the enabler internals can apply to one function only. Furthermore,
     // we don't need all of enabler transformations after/before all passes.
-    if (failed(eliminateCommonSubexpressionsWithTrackedOps(
-            module, state.getMapping()))) {
+    if (failed(checkedListenerTransform(
+            [&](TrackingListener &listener) {
+              return eliminateCommonSubexpressionsWithTrackedOps(module,
+                                                                 listener);
+            },
+            listener))) {
       LLVM_DEBUG(DBGS() << "failed to perform CSE\n");
       return failure();
     }
 
     // TODO: this runs CSE internally, mostly redundant with the above.
-    if (failed(performEnablerTransformations(module, state.getMapping()))) {
+    if (failed(checkedListenerTransform(
+            [&](TrackingListener &listener) {
+              return performEnablerTransformations(module, listener);
+            },
+            listener))) {
       LLVM_DEBUG(DBGS() << "enabler transformations failed\n");
       return failure();
     }
 
-    if (failed(applyPatternsTrackAndFoldGreedily(module, state.getMapping(),
-                                                 patterns))) {
+    if (failed(checkedListenerTransform(
+            [&](TrackingListener &listener) {
+              return applyPatternsTrackAndFoldGreedily(module, listener,
+                                                       patterns);
+            },
+            listener))) {
       LLVM_DEBUG(DBGS() << "failed to apply canonicalization patterns\n");
       return failure();
     }

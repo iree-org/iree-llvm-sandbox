@@ -46,9 +46,58 @@ public:
   /// the state accordingly.
   LogicalResult applyTransform(TransformOpInterface transform);
 
-  // FIXME: we shouldn't be exposing this as it allows for modification of the
-  // internal mapping state.
-  TransformOpMapping &getMapping() { return operations; }
+  /// The extension mechanism for TransformState. Extensions are expected to
+  /// derive this class and may use its methods to access the state. Extensions
+  /// are identified by their type and a state can only have one extension of
+  /// a particular type.
+  class Extension {
+  public:
+    // Out-of-line implementation to ensure vtable and metadata are emitted in
+    // a single .o file.
+    virtual ~Extension();
+
+  protected:
+    // FIXME: this provides direct write access to the state internals, replace
+    // with more transactional methods.
+    TransformOpMapping &getMapping(TransformState &state) {
+      return state.operations;
+    }
+  };
+
+  /// Adds a new extension of the type specifeid as template parameter,
+  /// constructing it with the arguments provided. The extension is owned by the
+  /// TransformState. It is expected that the state does not already have an
+  /// extension of the same type.
+  template <typename Ty, typename... Args>
+  Ty &addExtension(Args &&...args) {
+    static_assert(
+        std::is_base_of<Extension, Ty>::value,
+        "only an class derived from TransformState::Extension is allowed here");
+    auto ptr = std::make_unique<Ty>(std::forward<Args>(args)...);
+    auto result = extensions.try_emplace(TypeID::get<Ty>(), std::move(ptr));
+    assert(result.second && "extension already added");
+    return *static_cast<Ty *>(result.first->second.get());
+  }
+
+  /// Returns the extension of the specified type.
+  template <typename Ty>
+  Ty &getExtension() {
+    static_assert(
+        std::is_base_of<Extension, Ty>::value,
+        "only an class derived from TransformState::Extension is allowed here");
+    auto iter = extensions.find(TypeID::get<Ty>());
+    assert(iter != extensions.end() && "extension not found");
+    return *static_cast<Ty *>(iter->second.get());
+  }
+
+  /// Removes the extension of the specified type.
+  template <typename Ty>
+  void removeExtension() {
+    static_assert(
+        std::is_base_of<Extension, Ty>::value,
+        "only an class derived from TransformState::Extension is allowed here");
+    extensions.erase(TypeID::get<Ty>());
+  }
 
 private:
   /// Identifier for storing top-level value in the `operations` mapping.
@@ -64,6 +113,10 @@ private:
 
   /// The mapping between payload IR values and transform IR ops.
   TransformOpMapping operations;
+
+  /// Extensions attached to the TransformState, identified by the TypeID of
+  /// their type. Only one extension of any given type is allowed.
+  DenseMap<TypeID, std::unique_ptr<Extension>> extensions;
 };
 
 /// Local mapping between values defined by a specific op implementing the
