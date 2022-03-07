@@ -1,4 +1,5 @@
 from contextlib import redirect_stdout, redirect_stderr
+from enum import Enum
 import io
 import math
 import multiprocessing as mp
@@ -18,12 +19,18 @@ from ..core.problem_definition import ProblemDefinition
 from ..core.utils import compute_quantiles
 
 
+class SearchJobResultStatus(Enum):
+  SUCCESS = 0
+  TIMEOUT = 1
+  FAILURE = 2
+
 class SearchJobResult():
   """The result of a search job."""
 
-  def __init__(self, proposal, throughputs):
+  def __init__(self, status, proposal, throughputs):
     self.proposal = proposal
     self.throughputs = throughputs
+    self.status = status
 
 
 class ProcessState():
@@ -119,8 +126,9 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
     # Put the compilation CPU back into the queue, so that a newly spawned
     # process can pin itself to that CPU. (After this process was terminated.)
     process_state.available_cpus_queue.put(compilation_cpu)
-    process_state.results_queue.put(SearchJobResult(proposal, None))
-    exit(1)
+    process_state.results_queue.put(
+        SearchJobResult(SearchJobResultStatus.TIMEOUT, proposal, None))
+    os.kill(os.getpid(), signal.SIGKILL)
 
   try:
     f = io.StringIO()
@@ -158,7 +166,7 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       t.join(process_state.parsed_args.timeout_per_benchmark)
       lock.release()
       if t.is_alive():
-        kill_process
+        kill_process()
 
       # Pin this process back to the compilation CPU.
       os.sched_setaffinity(0, {compilation_cpu})
@@ -166,10 +174,12 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
     # TODO: redirect to a file if we want this information.
     f.flush()
     if len(throughputs_placeholder) == 0:
-      process_state.results_queue.put(SearchJobResult(proposal, None))
+      process_state.results_queue.put(
+          SearchJobResult(SearchJobResultStatus.FAILURE, proposal, None))
     else:
       process_state.results_queue.put(
-          SearchJobResult(proposal, throughputs_placeholder[0]))
+          SearchJobResult(SearchJobResultStatus.SUCCESS, proposal,
+                          throughputs_placeholder[0]))
 
   except Exception as e:
     traceback.print_exc()
@@ -187,7 +197,7 @@ def tell_optimizer(
     parsed_args):
   """Tell the result for the proposal."""
 
-  if not result.throughputs:
+  if result.status != SearchJobResultStatus.SUCCESS:
     optimizer.tell(result.proposal, 1)
     return 0
 
@@ -345,6 +355,7 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
   # Wait for the `search_budget` many results.
   best = 0
   num_failed = 0
+  num_timeout = 0
   for i in range(parsed_args.search_budget):
     if i % 10 == 1:
       if shutdown_event.is_set():
@@ -354,13 +365,16 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
                        f'{parsed_args.search_strategy} optimization iter ' +
                        f'{i} / {parsed_args.search_budget}, ' +
                        f'best so far: {int(best)} GUnits/s, ' +
-                       f'#failed: {num_failed}\r')
+                       f'#failed: {num_failed}, ' +
+                       f'#timeout: {num_timeout}\r')
       sys.stdout.flush()
 
     # Retrieve a result from the queue.
     result = results_queue.get()
-    if not result.throughputs:
+    if result.status == SearchJobResultStatus.FAILURE:
       num_failed += 1
+    if result.status == SearchJobResultStatus.TIMEOUT:
+      num_timeout += 1
     throughput = tell_optimizer(optimizer, result, throughputs, parsed_args)
     best = throughput if throughput > best else best
 
