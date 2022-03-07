@@ -339,6 +339,71 @@ LogicalResult transform::InterchangeOp::verify() {
 }
 
 //===---------------------------------------------------------------------===//
+// PadOp
+//===---------------------------------------------------------------------===//
+
+FailureOr<LinalgOp> transform::PadOp::applyToOne(LinalgOp target) {
+  // Copy the stack allocated options since the lambdas have a longer lifetime.
+  SmallVector<int64_t> packPaddings = extractI64Array(this->pack_paddings());
+  auto packFunc = [=](OpOperand &opOperand) {
+    return opOperand.getOperandNumber() < packPaddings.size()
+               ? packPaddings[opOperand.getOperandNumber()] != 0
+               : false;
+  };
+  SmallVector<int64_t> hoistPaddings = extractI64Array(this->hoist_paddings());
+  auto hoistingFunc = [=](OpOperand &opOperand) {
+    return opOperand.getOperandNumber() < hoistPaddings.size()
+               ? hoistPaddings[opOperand.getOperandNumber()]
+               : 0;
+  };
+  ArrayAttr transposePaddings = this->transpose_paddings().cast<ArrayAttr>();
+  auto transposeFunc = [=](OpOperand &opOperand) {
+    if (opOperand.getOperandNumber() >= transposePaddings.size())
+      return SmallVector<int64_t>();
+    return extractI64Array(
+        transposePaddings[opOperand.getOperandNumber()].cast<ArrayAttr>());
+  };
+  LinalgPaddingOptions paddingOptions;
+  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
+  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
+  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
+  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
+
+  return functional::applyAt(target, callLinalgPattern<LinalgPaddingPattern>(
+                                         getContext(), paddingOptions));
+}
+
+LogicalResult transform::PadOp::verify() {
+  SmallVector<int64_t> packPaddings = extractI64Array(pack_paddings());
+  if (any_of(packPaddings, [](int64_t packPadding) {
+        return packPadding != 0 && packPadding != 1;
+      })) {
+    return emitOpError()
+           << "expects pack_paddings to contain booleans (0/1), found "
+           << pack_paddings();
+  }
+  SmallVector<int64_t> hoistPaddings = extractI64Array(hoist_paddings());
+  if (any_of(hoistPaddings,
+             [](int64_t hoistPadding) { return hoistPadding < 0; })) {
+    return emitOpError()
+           << "expects hoist_paddings to contain positive integers, found "
+           << hoist_paddings();
+  }
+  ArrayAttr transposes = transpose_paddings();
+  for (Attribute attr : transposes) {
+    SmallVector<int64_t> transpose = extractFromI64ArrayAttr(attr);
+    auto sequence = llvm::seq<int64_t>(0, transpose.size());
+    if (!std::is_permutation(sequence.begin(), sequence.end(),
+                             transpose.begin(), transpose.end())) {
+      return emitOpError()
+             << "expects transpose_paddings to be a permutation, found "
+             << attr;
+    }
+  }
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
 // DecomposeOp
 //===---------------------------------------------------------------------===//
 
