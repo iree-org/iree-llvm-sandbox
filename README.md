@@ -215,3 +215,19 @@ export MLIR_RUNNER_EXTRA_LIBS=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_async_r
 PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package cset proc -s sandbox_parallel \
 -e ${PATH_TO_VENV}/.venv/mlirdev/bin/python -- -m python.examples.linalg_ext.in_par_bench
 ```
+
+# Hashes of interest
+
+Repro for experimental results described in [arxiv paper](https://arxiv.org/abs/2202.03293):
+
+```
+git checkout 680c8160edb7aa13b621b28c221288624ebc37e4
+echo Please update LLVM to $(cat pinned-llvm-version)
+```
+
+Hash before transitioning to schedule dialect only:
+
+```
+git checkout ea0e5ec37a4d73808e16926c0335cc21fde0286c
+echo Please update LLVM to $(cat pinned-llvm-version)
+```
