@@ -41,3 +41,27 @@ linalg_transform.sequence {
   // expected-error@below {{expects interchange to be a permutation, found [1, 1]}}
   tile_and_fuse %0 {tile_sizes=[0, 1], tile_interchange = [1, 1]}
 }
+
+// -----
+
+linalg_transform.sequence {
+  %0 = match @match
+  // expected-error@below {{expects pack_paddings to contain booleans (0/1), found [1, 7]}}
+  pad %0 {pack_paddings=[1, 7]}
+}
+
+// -----
+
+linalg_transform.sequence {
+  %0 = match @match
+  // expected-error@below {{expects hoist_paddings to contain positive integers, found [1, -7]}}
+  pad %0 {hoist_paddings=[1, -7]}
+}
+
+// -----
+
+linalg_transform.sequence {
+  %0 = match @match
+  // expected-error@below {{expects transpose_paddings to be a permutation, found [1, 1]}}
+  pad %0 {transpose_paddings=[[1, 1]]}
+}
