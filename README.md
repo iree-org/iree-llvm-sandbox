@@ -132,6 +132,18 @@ python ./run_tests.py
 
 The lit configuration file `test/lit.cfg.py` contains a list of excluded tests.
 
+## Running a simple search with Nevergrad
+
+The following command runs a simple search of 1000 iterations distributed across
+all processors of the machine, for a matmul of fixed size `40x50x60`:
+
+```
+iree-llvm-sandbox# python -m python.examples.tuning.test_nevergrad_small_matmul \
+--search-budget 1000 --n_iters 100 --num-parallel-tasks $(nproc --all) \
+--num-cpus-per-benchmark 1 --timeout-per-compilation 1 --timeout-per-benchmark 1 \
+--problem_sizes_list 40,50,60 --search-strategy NGOpt
+```
+
 # Benchmark commands
 
 Adaptation of recommended benchmark instructions found [here](https://llvm.org/docs/Benchmarking.html).
