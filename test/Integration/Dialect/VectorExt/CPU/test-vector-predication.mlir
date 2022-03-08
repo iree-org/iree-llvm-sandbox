@@ -1,5 +1,5 @@
 // RUN: mlir-proto-opt %s -test-vector-masking-utils=predication -test-vector-masking-utils=masking \
-// RUN:   -convert-scf-to-cf -convert-vector-to-llvm -convert-memref-to-llvm -convert-std-to-llvm \
+// RUN:   -convert-scf-to-cf -convert-vector-to-llvm -convert-memref-to-llvm -convert-func-to-llvm \
 // RUN:   -reconcile-unrealized-casts | \
 // RUN: mlir-cpu-runner -e entry -entry-point-result=void \
 // RUN:   -shared-libs=%mlir_runner_utils_dir/libmlir_c_runner_utils%shlibext | \

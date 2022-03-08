@@ -174,7 +174,7 @@ void LLVMLoweringPass::runOnOperation() {
   dynamicPM.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
   dynamicPM.addPass(createMemRefToLLVMPass());
   dynamicPM.addPass(createConvertAsyncToLLVMPass());
-  dynamicPM.addPass(createLowerToLLVMPass());
+  dynamicPM.addPass(createConvertFuncToLLVMPass());
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
   if (failed(runPipeline(dynamicPM, getOperation())))

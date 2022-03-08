@@ -13,13 +13,13 @@
 #include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "Transforms/Listener.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
@@ -596,7 +596,7 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
   // clang-format on
   pm.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
   pm.addPass(createMemRefToLLVMPass());
-  pm.addPass(createLowerToLLVMPass());
+  pm.addPass(createConvertFuncToLLVMPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
   if (failed(pm.run(state.getTopLevel())))
     return failure();

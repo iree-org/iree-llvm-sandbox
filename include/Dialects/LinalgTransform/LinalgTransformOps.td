@@ -53,8 +53,6 @@ def ScopeOp : Linalg_Transform_Operation<"util.scope",
   let results = (outs Variadic<AnyType>:$outs);
   let assemblyFormat = [{ `(` operands `)` attr-dict-with-keyword $body
                           `:` functional-type(operands, results) }];
-
-  let verifier = [{ return RegionBranchOpInterface::verifyTypes(*this); }];
 }
 
 def ForwardOp : Linalg_Transform_Operation<"util.forward",

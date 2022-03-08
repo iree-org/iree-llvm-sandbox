@@ -139,6 +139,9 @@ void PredicateOp::getSuccessorRegions(
 // WarpSingleLaneOp
 //===----------------------------------------------------------------------===//
 
+// TODO: Implement me.
+bool WarpSingleLaneOp::areTypesCompatible(Type lhs, Type rhs) { return true; }
+
 void mlir::vector_ext::WarpSingleLaneOp::print(OpAsmPrinter &p) {
   p << "(" << laneid() << ")";
   if (!args().empty())
