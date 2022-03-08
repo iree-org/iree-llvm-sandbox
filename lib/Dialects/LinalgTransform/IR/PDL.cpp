@@ -149,7 +149,7 @@ static LogicalResult isEquivalentToOpImpl(LinalgOp linalgOp,
 ///   3. other cases TBD (e.g. vector.generic when available).
 static LogicalResult isEquivalentToOp(PDLValue value, ArrayAttr constantParams,
                                       PatternRewriter &rewriter) {
-  auto maybeOp = value.dyn_cast<Operation *>();
+  auto *maybeOp = value.dyn_cast<Operation *>();
   if (!maybeOp)
     return failure(); // TODO: notifyMatchFailure needs an Operation* handle.
   Operation *op = maybeOp;

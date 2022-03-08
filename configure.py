@@ -68,6 +68,13 @@ def parse_arguments():
       action="store_true",
   )
   parser.add_argument(
+      "--build-compilation-database",
+      help="Build compilation database",
+      dest="build_compilation_database",
+      default=False,
+      action="store_true"
+  )
+  parser.add_argument(
       "--cuda-runner",
       help="Build cuda runner library",
       dest="cuda_runner",
@@ -168,7 +175,7 @@ def main(args):
     else:
       print("WARNING: LLD (ld.lld) not found on path. Configure may fail.")
 
-  # Optionally enable Alp
+  # Optionally enable ALP.
   if args.enable_alp:
     llvm_configure_args.append("-DSANDBOX_ENABLE_ALP=ON")
 
@@ -180,8 +187,14 @@ def main(args):
       llvm_configure_args.append("-DLLVM_CCACHE_BUILD=ON")
     else:
       print("WARNING: Project developers use ccache which is not installed")
+  # Build compilation database.
+  if args.build_compilation_database:
+    llvm_configure_args.append("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON") 
+
+# Build CUDA runner.
   if args.cuda_runner:
     llvm_configure_args.append("-DMLIR_ENABLE_CUDA_RUNNER=ON")
+
   # CMake configure.
   build_dir = os.path.abspath(args.build_dir)
   build_mode = args.build_mode
