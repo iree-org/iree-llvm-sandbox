@@ -108,7 +108,7 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
 
   assert(defsWithUsesOutside.size() == vecPredOp.getNumResults() &&
          "Expected same size");
-  for (auto &en : llvm::enumerate(defsWithUsesOutside))
+  for (const auto &en : llvm::enumerate(defsWithUsesOutside))
     en.value().replaceAllUsesWith(vecPredOp.getResult(en.index()));
 
   Operation *truePredTerminator =
