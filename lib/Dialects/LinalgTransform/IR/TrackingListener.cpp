@@ -89,7 +89,7 @@ static Operation *findSingleDefiningOp(Operation *replacedOp,
 
 TrackingListener::TrackingListener(transform::TransformState &state)
     : transform::TransformState::Extension(state) {
-  for (auto &pair : getMapping())
+  for (const auto &pair : getMapping())
     for (Operation *op : pair.second)
       trackedOperationKeys.try_emplace(op, pair.first);
 }

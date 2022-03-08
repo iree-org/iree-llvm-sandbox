@@ -789,7 +789,7 @@ struct WarpOpToScfForPattern : public OpRewritePattern<WarpSingleLaneOp> {
   }
 };
 
-}
+} // namespace
 
 void mlir::vector_ext::populateWarpSingleLaneOpToScfForPattern(
     RewritePatternSet &patterns) {
