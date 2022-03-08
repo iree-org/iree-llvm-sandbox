@@ -18,26 +18,6 @@ def _get_size_list_as_str(name: str, sizes: tp.List[int]) -> str:
   return f'{name}={",".join([str(ts) for ts in sizes])}'
 
 
-def _get_pad_str(transform: Transform) -> str:
-  """Compute the textual padding flags for the given `transform`."""
-  if not transform.pad:
-    return ''
-  pad_str = f'pad'
-  pack_paddings = [str(pp) for pp in transform.pack_paddings]
-  hoist_paddings = [str(hd) for hd in transform.hoist_paddings]
-  transpose_paddings = [
-      ':'.join([str(dim) for dim in ip]) for ip in transform.transpose_paddings
-  ]
-
-  if pack_paddings:
-    pad_str = pad_str + f' pack-paddings={",".join(pack_paddings)}'
-  if hoist_paddings:
-    pad_str = pad_str + f' hoist-paddings={",".join(hoist_paddings)}'
-  if transpose_paddings:
-    pad_str = pad_str + f' transpose-paddings={",".join(transpose_paddings)}'
-  return pad_str
-
-
 def make_pattern_name(fun_name: str, op_name: str):
   return "match_" + op_name.replace('.', '_') + "_in_" + fun_name
 
@@ -88,54 +68,24 @@ class Fuse(Transform):
   This transform can be configured as follows:
   * `tile_sizes`: Tile sizes used for tiling.
   * `tile_interchange`: Interchange used for tiling.
-  * `pad`: Pad the operands.
-  * `pack_paddings`: Pack the padded operand if the packing flag is set. `pad`
-     must also be specified.
-  * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
-     `pad` must also be specified.
-  * `transpose_paddings`: Transpose the padded operands by the specified
-    interchange vectors:
-    transpose_paddings=[[1, 0, 2], [0, 1], [0, 1]]
-    It defines the interchange [1, 0, 2] for operand one and the
-    interchange [0, 1] (no transpose) for the remaining operands.
-    An interchange vector has to be a permutation matching the
-    operand rank. `pad` must also be specified.
-  * `vectorize`: Vectorize the fused operations.
-  * `vectorize_padding`: Vectorize the pad tensor operations.
   """
 
   variables = {
       'tile_sizes': (TilingSizesVariable, []),
       'tile_interchange': (InterchangeVariable, []),
-      'pad': (BoolVariable, False),
-      'pack_paddings': (PackPaddingVariable, []),
-      'hoist_paddings': (HoistPaddingVariable, []),
-      'transpose_paddings': (TransposePaddingVariable, []),
-      'vectorize': (BoolVariable, False),
-      'vectorize_paddings': (BoolVariable, False),
   }
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
-    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
-    interchange_str = _get_size_list_as_str(name="tile-interchange",
-                                            sizes=self.tile_interchange)
-    pad_str = _get_pad_str(self)
-    vectorize_str = ''
-    if self.vectorize:
-      vectorize_str = f'vectorize'
-      if self.vectorize_paddings:
-        vectorize_str = vectorize_str + f' vectorize-padding'
-    pipeline = (f'linalg-fuse{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     {tile_str} '
-                f'     {interchange_str} '
-                f'     {pad_str} '
-                f'     {vectorize_str}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
+    self.fun_name = fun_name
+    self.op_name = op_name
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    tx.FuseOp(target,
+              tile_sizes=self.tile_sizes,
+              tile_interchange=self.tile_interchange)
 
 
 class Tile(Transform):
@@ -199,6 +149,41 @@ class Tile(Transform):
                 pack_paddings=self.pack_paddings,
                 hoist_paddings=self.hoist_paddings,
                 transpose_paddings=self.transpose_paddings)
+
+
+class Pad(Transform):
+  """Pad a linalg op.
+
+  This transform can be configured as follows:
+  * `pack_paddings`: Pack the padded operand if the packing flag is set.
+  * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
+  * `transpose_paddings`: Transpose the padded operands by the specified
+    interchange vectors:
+    transpose_paddings=[[1, 0, 2], [0, 1], [0, 1]]
+    It defines the interchange [1, 0, 2] for operand one and the
+    interchange [0, 1] (no transpose) for the remaining operands.
+    An interchange vector has to be a permutation matching the
+    operand rank.
+  """
+
+  variables = {
+      'pack_paddings': (PackPaddingVariable, []),
+      'hoist_paddings': (HoistPaddingVariable, []),
+      'transpose_paddings': (TransposePaddingVariable, []),
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+    self.fun_name = fun_name
+    self.op_name = op_name
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    tx.PadOp(target,
+             pack_paddings=self.pack_paddings,
+             hoist_paddings=self.hoist_paddings,
+             transpose_paddings=self.transpose_paddings)
 
 
 class Vectorize(Transform):

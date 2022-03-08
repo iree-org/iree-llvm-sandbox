@@ -17,11 +17,11 @@ from .definitions import *
 def fill_matmul_fusion():
   fun_name = 'matmul'
   op_name = 'linalg.matmul'
-  # FIXME: FusionOp does not implement build_transform_ir
-  # Fuse(fun_name, op_name, tile_sizes=[8, 16, 0], tile_interchange=[])
-  expert = Tile(fun_name, 'linalg.fill', pad=True,)                \
-    .then(Tile(fun_name, op_name, tile_sizes=[0, 0, 24], pad=True, \
-               pack_paddings=[1, 1, 0],))                          \
+  expert = Fuse(fun_name, op_name, tile_sizes=[8, 16, 0],          \
+                tile_interchange=[0, 1, 2])                        \
+    .then(Pad(fun_name, 'linalg.fill'))                            \
+    .then(Tile(fun_name, op_name, tile_sizes=[0, 0, 24]))          \
+    .then(Pad(fun_name, op_name, pack_paddings=[1, 1, 0]))         \
     .then(Vectorize(fun_name, '', vectorize_paddings=True))        \
     .then(Bufferize())                                             \
     .then(LowerVectors())                                          \
@@ -39,14 +39,13 @@ def fill_matmul_fusion():
 
 def fill_matmul_bias_add_fusion():
   fun_name = 'matmul_bias_add'
-  op_name = 'linalg.matmul'
-  # FIXME: FusionOp does not implement build_transform_ir
-  # Fuse(fun_name, 'linalg.generic', tile_sizes=[8, 16, 0])
-  expert = Tile(fun_name, 'linalg.fill', pad=True,)                \
-      .then(Tile(fun_name, 'linalg.generic', pad=True,))           \
+  op_name = 'linalg.generic'
+  # FIXME: Cannot pad and vectorize a generic consuming a for loop output.
+  expert = Fuse(fun_name, op_name, tile_sizes=[8, 16],    \
+                tile_interchange=[0, 1])                           \
+      .then(Pad(fun_name, 'linalg.fill'))                          \
       .then(Tile(fun_name, 'linalg.matmul', tile_sizes=[0, 0, 24], \
                  pad=True, pack_paddings=[1, 1, 0],))              \
-      .then(Vectorize(fun_name, '', vectorize_paddings=True))      \
       .then(Bufferize())                                           \
       .then(LowerVectors())                                        \
       .then(LowerToLLVM())

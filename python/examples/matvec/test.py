@@ -119,24 +119,22 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(LoweringOnlyExpert('', ''))
 
 # Fuse, then tile.
-# FIXME: FusionOp does not implement build_transform_ir
-# Fuse('matvec', 'linalg.generic', tile_sizes=[8, 16]),
-# Fuse('matvec', 'linalg.generic', tile_sizes=[4, 4]),
 expert_fuse_2_tile_1 = \
-    Tile('matvec', 'linalg.generic', tile_sizes=[2, 3])\
+    Fuse('matvec', 'linalg.generic', tile_sizes=[8, 16])       \
+    .then(Fuse('matvec', 'linalg.generic', tile_sizes=[4, 4])) \
+    .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 3])) \
     .then(Vectorize('matvec', ''))    \
     .then(Bufferize())                \
     .then(LoweringOnlyExpert('', ''))
 
-# FIXME: FusionOp does not implement build_transform_ir
-# Fuse('matvec', 'linalg.generic', tile_sizes=[16, 16]),
 expert_fuse_and_pad = \
-    Tile('matvec',
-         'linalg.generic',
-         tile_sizes=[8, 12],
-         pad=True,
-         pack_paddings=[1, 1, 1],
-         hoist_paddings=[3, 3, 3]) \
+    Fuse('matvec', 'linalg.generic', tile_sizes=[16, 16]) \
+    .then(Tile('matvec',
+               'linalg.generic',
+               tile_sizes=[8, 12],
+               pad=True,
+               pack_paddings=[1, 1, 1],
+               hoist_paddings=[3, 3, 3])) \
     .then(Vectorize('matvec', 'linalg.generic')) \
     .then(Tile('matvec', 'linalg.fill', tile_sizes=[8, 8]))\
     .then(Vectorize('matvec', ''))    \
