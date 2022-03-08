@@ -34,6 +34,9 @@ struct TestListenerCanonicalizePass : public PassWrapper<TestListenerCanonicaliz
 
   StringRef getArgument() const final { return "test-listener-canonicalize"; }
   StringRef getDescription() const final { return "Test canonicalize pass."; }
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
+  }
 
   void runOnOperation() override {
     TestListener listener;
@@ -64,6 +67,9 @@ struct TestListenerCSEPass : public PassWrapper<TestListenerCSEPass, Pass> {
 
   StringRef getArgument() const final { return "test-listener-cse"; }
   StringRef getDescription() const final { return "Test CSE pass."; }
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
+  }
 
   void runOnOperation() override {
     TestListener listener;

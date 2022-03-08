@@ -56,6 +56,7 @@ struct ExpertExpansion : public PassWrapper<ExpertExpansion, Pass> {
       : PassWrapper<ExpertExpansion, Pass>() {
     strategyModuleName = name.str();
   }
+
   ExpertExpansion(const ExpertExpansion &other)
       : PassWrapper<ExpertExpansion, Pass>(other) {
     strategyModuleName = other.strategyModuleName.getValue();
@@ -64,8 +65,13 @@ struct ExpertExpansion : public PassWrapper<ExpertExpansion, Pass> {
   StringRef getArgument() const final {
     return "linalg-transform-expert-expansion";
   }
+
   StringRef getDescription() const final {
     return "Expands transformation experts into individual transformations";
+  }
+
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
   }
 
   void runOnOperation() override {

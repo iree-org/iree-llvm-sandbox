@@ -19,6 +19,9 @@ struct TestWrapScopePass : public PassWrapper<TestWrapScopePass, Pass> {
 
   StringRef getArgument() const final { return "test-wrap-scope"; }
   StringRef getDescription() const final { return "Test wrap scope pass."; }
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
+  }
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<linalg::transform::LinalgTransformDialect>();
@@ -39,6 +42,9 @@ struct TestWrapScopePass : public PassWrapper<TestWrapScopePass, Pass> {
 struct TestUnwrapScopePass : public PassWrapper<TestUnwrapScopePass, Pass> {
   StringRef getArgument() const final { return "test-unwrap-scope"; }
   StringRef getDescription() const final { return "Test unwrap scope pass."; }
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
+  }
 
   void runOnOperation() override {
     getOperation()->walk(

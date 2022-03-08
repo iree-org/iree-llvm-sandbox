@@ -223,8 +223,13 @@ namespace {
 /// linalg_transform.apply operation on the same module.
 struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
   StringRef getArgument() const final { return "linalg-interp-transforms"; }
+
   StringRef getDescription() const final {
     return "Executes transformations specified in Linalg Transform dialect";
+  }
+
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
   }
 
   void getDependentDialects(DialectRegistry &registry) const override {

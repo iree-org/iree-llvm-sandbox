@@ -60,7 +60,7 @@ def VectorExt_YieldOp : VectorExt_Op<"yield", [
 }
 
 def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
-      [DeclareOpInterfaceMethods<RegionBranchOpInterface>,
+      [DeclareOpInterfaceMethods<RegionBranchOpInterface, ["areTypesCompatible"]>,
        SingleBlockImplicitTerminator<"vector_ext::YieldOp">,
        RecursiveSideEffects]> {
   let summary = "vector.warp_execute_on_lane_0 operation";

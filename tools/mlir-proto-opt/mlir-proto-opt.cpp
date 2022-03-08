@@ -12,9 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "Registration.h"
-#include "mlir/InitAllPasses.h"
 #include "mlir/IR/Dialect.h"
-#include "mlir/Support/MlirOptMain.h"
+#include "mlir/InitAllPasses.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
