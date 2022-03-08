@@ -89,16 +89,12 @@ func @warp_propagate_scalar_arith(%laneid: index) {
 // -----
 
 // CHECK-LABEL: func @warp_propagate_cast(
-//       CHECK:   %[[cst:.*]] = arith.constant 5 : i32
-//       CHECK:   %[[r:.*]] = vector_ext.warp_execute_on_lane_0{{.*}} -> (i32) {
-//       CHECK:     vector_ext.yield %[[cst]] : i32
-//       CHECK:   }
-//       CHECK:   %[[result:.*]] = arith.sitofp %[[r]] : i32 to f32
+//   CHECK-NOT:   vector_ext.warp_execute_on_lane_0
+//       CHECK:   %[[result:.*]] = arith.sitofp %{{.*}} : i32 to f32
 //       CHECK:   return %[[result]]
-func @warp_propagate_cast(%laneid : index) -> (f32) {
-  %cst = arith.constant 5 : i32
+func @warp_propagate_cast(%laneid : index, %i : i32) -> (f32) {
   %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
-    %casted = arith.sitofp %cst : i32 to f32
+    %casted = arith.sitofp %i : i32 to f32
     vector_ext.yield %casted : f32
   }
   return %r : f32
