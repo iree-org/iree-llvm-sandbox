@@ -8,3 +8,8 @@ void registerLinalgTransformExpertExpansionPass();
 } // namespace transform
 } // namespace linalg
 } // namespace mlir
+
+namespace mlir {
+class Pass;
+std::unique_ptr<Pass> createLinalgTransformInterpreterPass();
+} // namespace mlir
