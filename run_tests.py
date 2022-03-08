@@ -1,9 +1,21 @@
 #!/usr/bin/env python
 # Script to run tests and benchmarks.
+import argparse
 import glob
 import os
 import subprocess
 import sys
+
+def parse_arguments():
+  parser = argparse.ArgumentParser(description="Select tests to run")
+  parser.add_argument(
+      "--gpu-integration-tests",
+      help="Run GPU integration tests - requires a GPU with CUDA installation.",
+      dest="gpu_integration_tests",
+      default=False,
+      action=argparse.BooleanOptionalAction,
+  )
+  return parser.parse_args()
 
 
 def _convert_path_to_module(test_script: str) -> str:
@@ -68,7 +80,7 @@ def _run_test(test_script: str) -> bool:
   return True
 
 
-def main():
+def main(args):
   results = []
   for f in glob.glob("./python/**/*test.py", recursive=True):
     results.append(_run_test(f))
@@ -77,7 +89,10 @@ def main():
     print(f"-> {errors} tests failed!")
   # Additionally run the lit tests.
   print(f"- running lit tests:")
-  returncode = subprocess.call(["lit", "-v", "test"], env=_configure_env())
+  lit_args = ["lit", "-v", "test"]
+  if not args.gpu_integration_tests:
+    lit_args.append("--filter-out=Integration/Dialect/VectorExt/GPU")
+  returncode = subprocess.call(lit_args, env=_configure_env())
   if returncode != 0:
     print(f"-> lit tests failed!")
   if returncode != 0 or errors:
@@ -85,4 +100,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  main(parse_arguments())
