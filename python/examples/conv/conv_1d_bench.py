@@ -35,7 +35,7 @@ def all_experts(fun_name):
              #           N  W   C  KW  F
              tile_sizes=[1, 8, 32, 1, 8],
              peel=[0, 1, 2, 3, 4])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
@@ -46,7 +46,7 @@ def all_experts(fun_name):
              pad=True,
              pack_paddings=[1, 1, 0],
              hoist_paddings=[3, 0, 0])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
@@ -56,7 +56,7 @@ def all_experts(fun_name):
                    tile_sizes1=[1,  32, 128, 3,  32],
                    tile_sizes2=[1,   8,  32, 1,   8],
                    peel2=[0, 1, 2, 3, 4])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
@@ -68,7 +68,7 @@ def all_experts(fun_name):
                    pad2=True,
                    pack_paddings2=[1, 1, 0],
                    hoist_paddings2=[3, 0, 0])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(Bufferize())
           .then(LowerVectors())
           .then(LowerToLLVM()),
