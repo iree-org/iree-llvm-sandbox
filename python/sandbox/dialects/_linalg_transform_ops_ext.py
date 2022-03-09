@@ -107,6 +107,29 @@ class LowerVectorsOp:
                      ip=ip)
 
 
+class FuseOp:
+  """Specialization for the FuseOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               tile_sizes: IntListArg = None,
+               tile_interchange: IntListArg = None,
+               loc=None,
+               ip=None):
+    tile_sizes = _ensure_array_attr(tile_sizes, [])
+    tile_interchange = _ensure_array_attr(tile_interchange, [])
+    operation_type = pdl.OperationType.get()
+
+    super().__init__(
+        operation_type,
+        target,
+        tile_sizes,
+        tile_interchange,
+        loc=loc,
+        ip=ip)
+
+
 class TileOp:
   """Specialization for the TileOp class."""
 

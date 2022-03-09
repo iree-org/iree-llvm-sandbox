@@ -134,9 +134,30 @@ def TileOp : Linalg_Transform_Operation<"tile",
   }];
 }
 
+def FuseOp : Linalg_Transform_Operation<"fuse",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+  let description = [{Tiles the operations pointed to by the target handle and
+  fuses their producers greedily using the options provided as attributes.}];
+
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$tile_sizes,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$tile_interchange
+                  );
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::linalg::LinalgOp> applyToOne(
+        ::mlir::linalg::LinalgOp target);
+  }];
+}
+
 def GeneralizeOp : Linalg_Transform_Operation<"generalize",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
-  let description = [{Generalizes the op pointed to by the target handle.}];
+  let description = [{Generalizes the operations pointed to
+  by the target handle.}];
 
   let arguments = (ins PDL_Operation:$target);
   let results = (outs PDL_Operation:$transformed);
@@ -151,8 +172,8 @@ def GeneralizeOp : Linalg_Transform_Operation<"generalize",
 
 def InterchangeOp : Linalg_Transform_Operation<"interchange",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
-  let description = [{Interchanges the iterators of the op pointed to by the
-  target handle using the iterator interchange attribute.}];
+  let description = [{Interchanges the iterators of the operations pointed to
+  by the target handle using the iterator interchange attribute.}];
 
   let arguments = (ins PDL_Operation:$target,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$iterator_interchange);
