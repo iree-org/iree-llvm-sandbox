@@ -162,23 +162,13 @@ class TileOp:
                sizes: IntListArg = None,
                interchange: IntListArg = None,
                peel: IntListArg = None,
-               pad: BoolArg = None,
-               pack_paddings: IntListArg = None,
-               hoist_paddings: IntListArg = None,
-               transpose_paddings: IntListListArg = None,
                scalarize_dyn_dims: BoolArg = None,
-               generalize: BoolArg = None,
                loc=None,
                ip=None):
     sizes = _ensure_array_attr(sizes, [])
     interchange = _ensure_array_attr(interchange, [])
     peel = _ensure_array_attr(peel, [])
-    pad = _ensure_bool_attr(pad, False)
-    pack_paddings = _ensure_array_attr(pack_paddings, [])
-    hoist_paddings = _ensure_array_attr(hoist_paddings, [])
-    transpose_paddings = _ensure_array_of_array_attr(transpose_paddings, [])
     scalarize_dyn_dims = _ensure_bool_attr(scalarize_dyn_dims, False)
-    generalize = _ensure_bool_attr(generalize, False)
     operation_type = pdl.OperationType.get()
 
     super().__init__(operation_type,
@@ -186,12 +176,7 @@ class TileOp:
                      sizes,
                      interchange,
                      peel,
-                     pad,
-                     pack_paddings,
-                     hoist_paddings,
-                     transpose_paddings,
                      scalarize_dyn_dims,
-                     generalize,
                      loc=loc,
                      ip=ip)
 

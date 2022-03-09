@@ -70,12 +70,6 @@ void transform::LinalgTransformDialect::initialize() {
 using FunctionalLinalgTransform =
     std::function<FailureOr<LinalgOp>(LinalgOp, PatternRewriter &)>;
 
-/// Fallback "pattern" for simply forwarding a result when an interpreter op is
-/// a no-op.
-static FailureOr<LinalgOp> forwardOp(LinalgOp op, PatternRewriter &rewriter) {
-  return op;
-}
-
 /// Extracts a vector of int64_t from an array attribute. Asserts if the
 /// attribute contains values other than integers.
 static SmallVector<int64_t> extractI64Array(ArrayAttr attr) {
@@ -151,73 +145,6 @@ LogicalResult transform::MatchOp::apply(TransformResults &results,
 // TileOp
 //===---------------------------------------------------------------------===//
 
-/// Returns the neutral value for a Linalg operation that produces the given
-/// operand, construct using the provided builder. Currently assumes the
-/// reduction in the Linalg operation is an addition and, therefore, the neutral
-/// value is zero.
-static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
-  auto t = getElementTypeOrSelf(op.get().getType());
-  return b.create<arith::ConstantOp>(op.getOwner()->getLoc(), t,
-                                     b.getZeroAttr(t));
-}
-
-/// Applies the pad pattern to the given target operation as indicated by the
-/// tile op that subsumes padding. Populates `nextTargets` with transformable
-/// operations for further transformations (currently, the single padded op).
-static FunctionalLinalgTransform
-buildPadFromTileOpPattern(transform::TileOp tileOp) {
-  if (!tileOp.pad())
-    return forwardOp;
-
-  // Capture `tileOp` by-copy because it lives on the stack of the current
-  // function but lambdas outlive it. They are marked as mutable because op
-  // accessors are non-const.
-  auto packFunc = [tileOp](OpOperand &opOperand) mutable {
-    return opOperand.getOperandNumber() < tileOp.pack_paddings().size()
-               ? !tileOp.pack_paddings()[opOperand.getOperandNumber()]
-                      .cast<IntegerAttr>()
-                      .getValue()
-                      .isZero()
-               : false;
-  };
-  auto hoistingFunc = [tileOp](OpOperand &opOperand) mutable {
-    return opOperand.getOperandNumber() < tileOp.hoist_paddings().size()
-               ? tileOp.hoist_paddings()[opOperand.getOperandNumber()]
-                     .cast<IntegerAttr>()
-                     .getValue()
-                     .getSExtValue()
-               : 0;
-  };
-  auto transposeFunc = [tileOp](OpOperand &opOperand) mutable {
-    if (opOperand.getOperandNumber() >= tileOp.transpose_paddings().size())
-      return SmallVector<int64_t>();
-
-    auto transposePaddings =
-        tileOp.transpose_paddings()[opOperand.getOperandNumber()]
-            .cast<ArrayAttr>();
-    return extractI64Array(transposePaddings);
-  };
-  LinalgPaddingOptions paddingOptions;
-  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
-  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
-  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
-  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
-
-  return callLinalgPattern<LinalgPaddingPattern>(tileOp.getContext(),
-                                                 paddingOptions);
-}
-
-/// Applies the generalization pattern to the given target operation as
-/// indicated by the tile op that subsumes padding. Populates `nextTargets` with
-/// transformable operations for further transformations (currently, the single
-/// generalized op).
-static FunctionalLinalgTransform
-buildGeneralizeFromTileOpPattern(transform::TileOp tileOp) {
-  if (!tileOp.generalize())
-    return forwardOp;
-  return callLinalgPattern<LinalgGeneralizationPattern>(tileOp.getContext());
-}
-
 FailureOr<LinalgOp> transform::TileOp::applyToOne(LinalgOp target) {
   LinalgTilingOptions tilingOptions;
   SmallVector<int64_t> tileSizes = extractI64Array(sizes());
@@ -238,13 +165,7 @@ FailureOr<LinalgOp> transform::TileOp::applyToOne(LinalgOp target) {
       return failure();
     return result->op;
   };
-
-  auto tileSeq = functional::SequenceBuilder()
-                     .begin(std::move(functionalTile))
-                     .then(buildPadFromTileOpPattern(*this))
-                     .then(buildGeneralizeFromTileOpPattern(*this));
-
-  return functional::applyAt(target, tileSeq);
+  return functional::applyAt(target, functionalTile);
 }
 
 LogicalResult transform::TileOp::verify() {
@@ -252,18 +173,6 @@ LogicalResult transform::TileOp::verify() {
     return emitOpError() << sizesAttrName() << " and "
                          << scalarize_dyn_dimsAttrName()
                          << " attributes are mutually exclusive";
-  }
-
-  ArrayAttr transposes = transpose_paddings();
-  for (Attribute attr : transposes) {
-    SmallVector<int64_t> transpose = extractFromI64ArrayAttr(attr);
-    auto sequence = llvm::seq<int64_t>(0, transpose.size());
-    if (!std::is_permutation(sequence.begin(), sequence.end(),
-                             transpose.begin(), transpose.end())) {
-      return emitOpError()
-             << "expects transpose paddings to be a permutation, found "
-             << attr;
-    }
   }
   return success();
 }
@@ -341,6 +250,16 @@ LogicalResult transform::InterchangeOp::verify() {
 //===---------------------------------------------------------------------===//
 // PadOp
 //===---------------------------------------------------------------------===//
+
+/// Returns the neutral value for a Linalg operation that produces the given
+/// operand, construct using the provided builder. Currently assumes the
+/// reduction in the Linalg operation is an addition and, therefore, the neutral
+/// value is zero.
+static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
+  auto t = getElementTypeOrSelf(op.get().getType());
+  return b.create<arith::ConstantOp>(op.getOwner()->getLoc(), t,
+                                     b.getZeroAttr(t));
+}
 
 FailureOr<LinalgOp> transform::PadOp::applyToOne(LinalgOp target) {
   // Copy the stack allocated options since the lambdas have a longer lifetime.
