@@ -6,12 +6,20 @@ import os
 import subprocess
 import sys
 
+
 def parse_arguments():
   parser = argparse.ArgumentParser(description="Select tests to run")
   parser.add_argument(
       "--gpu-integration-tests",
       help="Run GPU integration tests - requires a GPU with CUDA installation.",
       dest="gpu_integration_tests",
+      default=False,
+      action=argparse.BooleanOptionalAction,
+  )
+  parser.add_argument(
+      "--iterators-tests",
+      help="Run Iterators tests.",
+      dest="iterators_tests",
       default=False,
       action=argparse.BooleanOptionalAction,
   )
@@ -89,10 +97,15 @@ def main(args):
     print(f"-> {errors} tests failed!")
   # Additionally run the lit tests.
   print(f"- running lit tests:")
-  lit_args = ["lit", "-v", "test"]
+  lit_args = ["lit", "-v"]
   if not args.gpu_integration_tests:
     lit_args.append("--filter-out=Integration/Dialect/VectorExt/GPU")
-  returncode = subprocess.call(lit_args, env=_configure_env())
+  test_dirs = ["test"]
+  if args.iterators_tests:
+    test_dirs += [
+        "experimental/iterators/unittests", "experimental/iterators/test"
+    ]
+  returncode = subprocess.call(lit_args + test_dirs, env=_configure_env())
   if returncode != 0:
     print(f"-> lit tests failed!")
   if returncode != 0 or errors:

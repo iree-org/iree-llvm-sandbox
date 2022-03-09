@@ -57,13 +57,13 @@ jobs:
     - name: Build
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
-        python configure.py --llvm-path=../llvm-project
+        python configure.py --llvm-path=../llvm-project --iterators
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
 
     - name: Test
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
-        python run_tests.py
+        python run_tests.py --iterators-tests
 
     # TODO: Add a build for IREE but it will get stale as soon as we update core + sandbox
