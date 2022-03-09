@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
+#include "Dialects/LinalgExt/Transforms/Transforms.h"
 #include "Dialects/LinalgTransform/ScopedTransform.h"
 #include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
@@ -777,6 +778,31 @@ transform::OutlineLoopOp::apply(transform::TransformResults &results,
     return failure();
   results.set(getResult().cast<OpResult>(), resultVector);
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// LinalgExt specific transforms
+//===----------------------------------------------------------------------===//
+
+FailureOr<Operation *>
+transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
+  LinalgTilingOptions tilingOptions;
+  SmallVector<int64_t> tileSizes = extractI64Array(sizes());
+  if (!tileSizes.empty())
+    tilingOptions.setTileSizes(tileSizes);
+
+  linalg_ext::LinalgExtTilingPattern pattern(this->getContext(), tilingOptions);
+  auto functionalTile =
+      [&](TilingInterface op,
+          PatternRewriter &rewriter) -> FailureOr<Operation *> {
+    auto result = pattern.returningMatchAndRewrite(op, rewriter);
+    if (failed(result))
+      return failure();
+    return result;
+  };
+
+  auto tileSeq = functional::SequenceBuilder().begin(std::move(functionalTile));
+  return functional::applyAt(target, tileSeq);
 }
 
 #define GET_OP_CLASSES

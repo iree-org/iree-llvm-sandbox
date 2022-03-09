@@ -321,6 +321,34 @@ def OutlineLoopOp : Linalg_Transform_Operation<"outline_loop", [
 }
 
 //===----------------------------------------------------------------------===//
+// LinalgExt specific transforms
+//===----------------------------------------------------------------------===//
+
+def TileToLinalgExtTileOp : Linalg_Transform_Operation<"tile_to_linalg_ext_tile_op",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+  let description = [{Tile a linalg op with linalg_ext.tile op along a single 
+  dimension.}];
+  
+  let summary = [{
+    0 should be used as a tile size to skip tiling a particular dimension.
+    This is a commonly used convention in Linalg.
+    For the purpose of this transformation, a single non-zero positive tile 
+    size is allowed.
+    }];
+
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<Operation *> applyToOne(
+        ::mlir::TilingInterface target);
+  }];
+}
+
+//===----------------------------------------------------------------------===//
 
 def ExpertOp : Linalg_Transform_Operation<"expert"> {
   let description = [{A "transformation expert" that can be lowered to a
