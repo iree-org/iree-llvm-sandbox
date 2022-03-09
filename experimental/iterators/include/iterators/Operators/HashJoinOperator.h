@@ -12,7 +12,7 @@
 #include <tuple>
 #include <unordered_map>
 
-#include "Utils/Tuple.h"
+#include "iterators/Utils/Tuple.h"
 
 /// Returns tuples from its two upstream operators that have matching keys.
 ///

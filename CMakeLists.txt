@@ -39,6 +39,10 @@ if (SANDBOX_ENABLE_ALP)
   include_directories(${CMAKE_BINARY_DIR}/tools/sandbox/experimental/alp/include)
 endif()
 
+if (SANDBOX_ENABLE_ITERATORS)
+  add_subdirectory(experimental/iterators)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${MLIR_MAIN_SRC_DIR}/cmake/modules)
 list(APPEND CMAKE_MODULE_PATH ${LLVM_MAIN_SRC_DIR}/cmake)
 set(MLIR_TABLEGEN_EXE mlir-tblgen)

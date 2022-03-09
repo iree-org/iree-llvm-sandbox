@@ -53,6 +53,13 @@ def parse_arguments():
       action="store_true",
   )
   parser.add_argument(
+      "--iterators",
+      help="Build with SANDBOX_ENABLE_ITERATORS=ON (optional)",
+      dest="enable_iterators",
+      default=False,
+      action="store_true",
+  )
+  parser.add_argument(
       "--ccache",
       help="Enable ccache (if available)",
       dest="enable_ccache",
@@ -178,6 +185,10 @@ def main(args):
   # Optionally enable ALP.
   if args.enable_alp:
     llvm_configure_args.append("-DSANDBOX_ENABLE_ALP=ON")
+
+  # Optionally enable Iterators
+  if args.enable_iterators:
+    llvm_configure_args.append("-DSANDBOX_ENABLE_ITERATORS=ON")
 
   # Detect ccache.
   if args.enable_ccache:
