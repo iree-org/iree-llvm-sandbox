@@ -8,12 +8,12 @@ from ..core.harness import *
 from ..core.transforms import *
 from ..core.utils import *
 
-from ..contraction.definitions import EinsumProblem
+from .definitions import CopyProblem
 
 from typing import List
 
 fun_name = 'copy_2d'
-op_name = 'linalg.generic'
+op_name = 'linalg.copy'
 
 ################################################################################
 ### Compilation strategies.
@@ -52,13 +52,13 @@ def all_experts(problem_sizes: List[int]):
     results.append(
       # Note: `\` char at the end of next line prevents formatter reflows, keep it.
       Tile(fun_name=fun_name,                                          \
-            op_name=op_name,
-            tile_sizes=tile_sizes,
-            peel=[0, 1])
+           op_name=op_name,
+           tile_sizes=tile_sizes,
+           peel=[0, 1])
         # Bufferize first
         .then(Bufferize())
         # Then vectorize and lower.
-        .then(Vectorize(fun_name=fun_name, op_name=op_name))
+        .then(Vectorize(fun_name=fun_name, op_name=''))
         .then(LowerVectors())
         .then(LowerToLLVM())
     )
@@ -93,8 +93,7 @@ def main():
     default_spec_list=[])
 
   for problem_sizes in args.problem_sizes_list:
-    test_harness(lambda s, t: EinsumProblem('mn->mn', 'mn', 0),
-                 [[np.float32] * 2],
+    test_harness(lambda s, t: CopyProblem(dims=keys), [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  test_experts(all_experts(problem_sizes), all_names,
                               args.expert_list),

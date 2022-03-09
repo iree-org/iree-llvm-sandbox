@@ -8,23 +8,17 @@ from ..core.harness import *
 from ..core.transforms import *
 from ..core.utils import *
 
-from ..contraction.definitions import EinsumProblem
+from .definitions import CopyProblem
 
 from typing import List
 
 fun_name = 'copy_1d'
-op_name = 'linalg.generic'
+op_name = 'linalg.copy'
 
 ################################################################################
 ### Compilation strategies.
 ################################################################################
 
-# Before bufferization, the IR only has a tensor.extract_slice /
-#   tensor.insert_slice pair.
-# Bufferization then properly introduces copy ops (implemented with
-# linalg.generic)
-# We want to make more these copies more efficient.
-# In the case of a single copy benchmark it is the one true thing to optimize.
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
@@ -33,7 +27,7 @@ all_experts = [
             tile_sizes=[16],
             peel=[0])
       .then(Bufferize())
-      .then(Vectorize(fun_name=fun_name, op_name=op_name))
+      .then(Vectorize(fun_name=fun_name, op_name=''))
       .then(LowerVectors())
       .then(LowerToLLVM())
     ]
@@ -43,7 +37,7 @@ all_experts = [
 ### Problem instantiations.
 ################################################################################
 
-keys = ['n']
+keys = ['m']
 
 
 # CHECK-NOT: FAILURE
@@ -78,19 +72,16 @@ def main():
 
   for dynamic_at_compile_time in args.dynamic_at_compile_time_list:
     for spec in args.spec_list:
-      test_harness(
-          lambda s, t: EinsumProblem('n->n', 'n', 0),
-          [[np.float32] * 2],
-          test_sizes(keys, args.problem_sizes_list),
-          test_experts(all_experts, ["Default"], args.expert_list),
-          n_iters=args.n_iters,
-          dynamic_at_compile_time_sizes=set(
-              dynamic_at_compile_time).intersection(keys),
-          function_name=fun_name,
-          dump_ir_to_file='/tmp/abc.mlir',
-          dump_obj_to_file='/tmp/abc.o',
-          dump_data_to_file=args.dump_data,
-      )
+      test_harness(lambda s, t: CopyProblem(dims=keys), [[np.float32] * 2],
+                   test_sizes(keys, args.problem_sizes_list),
+                   test_experts(all_experts, ["Default"], args.expert_list),
+                   n_iters=args.n_iters,
+                   dynamic_at_compile_time_sizes=set(
+                       dynamic_at_compile_time).intersection(keys),
+                   function_name=fun_name,
+                   dump_ir_to_file='/tmp/abc.mlir',
+                   dump_obj_to_file='/tmp/abc.o',
+                   dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':
