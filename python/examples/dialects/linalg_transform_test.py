@@ -26,7 +26,8 @@ def tile_once():
   with ir.InsertionPoint(sequence.body.blocks[0]):
     target = transform.MatchOp("foo")
     tiled = transform.TileOp(target, sizes=[32, 16])
-    transform.VectorizeOp(tiled, vectorize_padding=True)
+    padded = transform.PadOp(tiled)
+    transform.VectorizeOp(padded, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")
     transform.LowerToLLVMOp()
@@ -35,6 +36,7 @@ def tile_once():
   assert "match @foo" in code
   assert "tile %" in code
   assert "sizes = [32, 16]" in code
+  assert "pad %" in code
   assert "vectorize" in code
   assert "vectorize_padding = true" in code
 
@@ -47,7 +49,8 @@ def tile_twice():
     target = transform.MatchOp("foo")
     tiled1 = transform.TileOp(target, sizes=[128, 32])
     tiled2 = transform.TileOp(tiled1, sizes=[32, 16])
-    transform.VectorizeOp(tiled2, vectorize_padding=True)
+    padded = transform.PadOp(tiled2)
+    transform.VectorizeOp(padded, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")
     transform.LowerToLLVMOp()
@@ -57,4 +60,5 @@ def tile_twice():
   assert "tile %" in code
   assert "sizes = [128, 32]" in code
   assert "sizes = [32, 16]" in code
+  assert "pad %" in code
   assert "vectorize" in code
