@@ -34,8 +34,9 @@ def all_experts(problem_sizes: List[int]):
            peel=[0])
       .then(Vectorize(fun_name, ''))
       .then(LoweringOnlyExpert(fun_name,
-                                op_name,
-                                multi_reduction_lowering='innerreduction')),
+                               op_name,
+                               multi_reduction_lowering='innerreduction',
+                               reassociate_fp_reductions=True)),
     ]
   ]
 

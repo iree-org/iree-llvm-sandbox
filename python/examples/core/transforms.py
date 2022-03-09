@@ -340,11 +340,25 @@ class LowerToLLVM(Transform):
   """Trigger lowering to LLVM on the whole module.
   """
 
+  variables = {
+      'reassociate_fp_reductions': (BoolVariable, False),
+      'enable_index_optimizations': (BoolVariable, False),
+      'enable_arm_neon': (BoolVariable, False),
+      'enable_arm_sve': (BoolVariable, False),
+      'enable_amx': (BoolVariable, False),
+      'enable_x86vector': (BoolVariable, False),
+  }
+
   def __init__(self, **kwargs):
-    pass
+    self._parse_variables_in_kwargs(kwargs)
 
   def build_transform_ir(self):
-    tx.LowerToLLVMOp()
+    tx.LowerToLLVMOp(reassociate_fp_reductions=self.reassociate_fp_reductions,
+                     enable_index_optimizations=self.enable_index_optimizations,
+                     enable_arm_neon=self.enable_arm_neon,
+                     enable_arm_sve=self.enable_arm_sve,
+                     enable_amx=self.enable_amx,
+                     enable_x86vector=self.enable_x86vector)
 
 
 class UnrollOneParentLoop(Transform):

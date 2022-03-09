@@ -258,6 +258,15 @@ def LowerToLLVMOp : Transform_Op<"lower_to_llvm"> {
   let description = [{Indicates that the entire module should be converted
   to the LLVM dialect. This is expected to be the last transformation in
   a sequence.}];
+  
+  let arguments =
+    (ins DefaultValuedAttr<BoolAttr, "false">:$reassociate_fp_reductions,
+     DefaultValuedAttr<BoolAttr, "false">:$enable_index_optimizations,
+     DefaultValuedAttr<BoolAttr, "false">:$enable_arm_neon,
+     DefaultValuedAttr<BoolAttr, "false">:$enable_arm_sve,
+     DefaultValuedAttr<BoolAttr, "false">:$enable_amx,
+     DefaultValuedAttr<BoolAttr, "false">:$enable_x86vector
+    );
 
   let assemblyFormat = "attr-dict";
 }

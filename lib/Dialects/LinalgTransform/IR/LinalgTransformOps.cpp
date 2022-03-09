@@ -683,12 +683,12 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
   pm.addPass(createConvertVectorToLLVMPass(
       // clang-format off
       LowerVectorToLLVMOptions()
-        .enableReassociateFPReductions(false)
-        .enableIndexOptimizations(false)
-        .enableArmNeon(false)
-        .enableArmSVE(false)
-        .enableAMX(false)
-        .enableX86Vector(false)));
+        .enableReassociateFPReductions(reassociate_fp_reductions())
+        .enableIndexOptimizations(enable_index_optimizations())
+        .enableArmNeon(enable_arm_neon())
+        .enableArmSVE(enable_arm_sve())
+        .enableAMX(enable_amx())
+        .enableX86Vector(enable_x86vector())));
   // clang-format on
   pm.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
   pm.addPass(createMemRefToLLVMPass());
