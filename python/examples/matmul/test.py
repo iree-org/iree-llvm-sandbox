@@ -124,18 +124,15 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(Bufferize())                                       \
     .then(LoweringOnlyExpert('', ''))
 
-# FIXME: FusionOp does not implement build_transform_ir
 # Fuse, then tile.
-# Fuse('matmul', 'linalg.generic', tile_sizes=[8, 16, 0]), \
-# Fuse('matmul', 'linalg.generic', tile_sizes=[4, 4, 0]),  \
 expert_fuse_2_tile_1 = \
-    Tile('matmul', 'linalg.generic', tile_sizes=[0, 0, 24])    \
-    .then(Vectorize('matmul', ''))               \
-    .then(Bufferize())                                         \
+    Fuse('matmul', 'linalg.generic', tile_sizes=[8, 16, 0])        \
+    .then(Fuse('matmul', 'linalg.generic', tile_sizes=[4, 4, 0]))  \
+    .then(Tile('matmul', 'linalg.generic', tile_sizes=[0, 0, 24])) \
+    .then(Vectorize('matmul', ''))                                 \
+    .then(Bufferize())                                             \
     .then(LoweringOnlyExpert('', ''))
 
-# FIXME: FusionOp does not implement build_transform_ir
-# Fuse('matmul', 'linalg.generic', tile_sizes=[16, 16, 0]),
 # FIXME: could not find replacement for tracked op (failed to apply:
 #       %7 = linalg_transform.outline_loop %6 {func_name = "foo"})
 # .then(OutlineOneParentLoop('matmul',
@@ -143,17 +140,18 @@ expert_fuse_2_tile_1 = \
 #                            'foo',
 #                            parent_loop_num=2))         \
 expert_fuse_and_pad = \
-    Tile('matmul',
+    Fuse('matmul', 'linalg.generic', tile_sizes=[16, 16, 0]) \
+    .then(Tile('matmul',
          'linalg.generic',
          tile_sizes=[8, 8, 32],
          pad=True,
          pack_paddings=[1, 1, 1],
-         hoist_paddings=[3, 3, 3])                         \
-    .then(Vectorize('matmul', 'linalg.generic'))           \
-    .then(Tile('matmul', 'linalg.fill', tile_sizes=[8, 8]))\
-    .then(Vectorize('matmul', 'linalg.fill'))              \
-    .then(Vectorize('matmul', 'linalg.generic'))           \
-    .then(Bufferize())                                     \
+         hoist_paddings=[3, 3, 3]))                          \
+    .then(Vectorize('matmul', 'linalg.generic'))             \
+    .then(Tile('matmul', 'linalg.fill', tile_sizes=[8, 8]))  \
+    .then(Vectorize('matmul', 'linalg.fill'))                \
+    .then(Vectorize('matmul', 'linalg.generic'))             \
+    .then(Bufferize())                                       \
     .then(LoweringOnlyExpert('', ''))
 
 expert_fuse_and_pad_and_pipeline = \
