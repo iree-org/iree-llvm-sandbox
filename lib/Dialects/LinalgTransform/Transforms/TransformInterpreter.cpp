@@ -28,6 +28,7 @@
 #include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/SCF/Transforms.h"
@@ -265,16 +266,52 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
       signalPassFailure();
   }
 };
+
+struct DropScheduleFromModulePass
+    : public PassWrapper<DropScheduleFromModulePass, Pass> {
+  StringRef getArgument() const final {
+    return "linalg-drop-schedule-from-module";
+  }
+
+  StringRef getDescription() const final {
+    return "Drop the schedule from the module";
+  }
+
+  bool canScheduleOn(RegisteredOperationName opName) const override {
+    return true;
+  }
+
+  void runOnOperation() override {
+    auto module = dyn_cast<ModuleOp>(getOperation());
+    if (!module)
+      return signalPassFailure();
+
+    module.walk([&](Operation *nestedOp) {
+      if (isa<linalg::transform::SequenceOp>(nestedOp) ||
+          isa<pdl::PatternOp>(nestedOp))
+        nestedOp->erase();
+    });
+  }
+};
 } // namespace
 
 namespace mlir {
-/// Creates a Linalg Transform interpreter pass.
+/// Create a Linalg Transform interpreter pass.
 std::unique_ptr<Pass> createLinalgTransformInterpreterPass() {
   return std::make_unique<InterpreterPass>();
+}
+/// Create a Linalg pass to drop the schedule from the module.
+std::unique_ptr<Pass> createDropScheduleFromModulePass() {
+  return std::make_unique<DropScheduleFromModulePass>();
 }
 } // namespace mlir
 
 /// Registration hook for the Linalg Transform interpreter pass.
 void mlir::linalg::transform::registerLinalgTransformInterpreterPass() {
   PassRegistration<InterpreterPass>();
+}
+
+/// Registration hook for the Linalg drop schedule from module pass.
+void mlir::linalg::transform::registerDropScheduleFromModulePass() {
+  PassRegistration<DropScheduleFromModulePass>();
 }

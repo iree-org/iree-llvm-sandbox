@@ -91,6 +91,7 @@ void mlir::registerOutsideOfDialectRegistry() {
   registerExperimentalPasses();
   registerTestPasses();
   transform::registerLinalgTransformInterpreterPass();
+  transform::registerDropScheduleFromModulePass();
   transform::registerLinalgTransformExpertExpansionPass();
 }
 
