@@ -67,22 +67,6 @@ def emit_pattern_if_not_present(fun_name: str, op_name: str):
   return pattern_name
 
 
-class ExperimentalFuseFillIntoTiledReductionOutput(Transform):
-  """Tile and fuse FillOp into the output of reduction.
-
-  This transform can be configured as follows:
-  * `tile_sizes`: Tile sizes used for tiling.
-  """
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    pipeline = (f'linalg-fuse-fill-into-reduction{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
-
-
 class Inject(Transform):
   """Inject intermediate IR.
 
@@ -195,29 +179,6 @@ class Tile(Transform):
     self._parse_variables_in_kwargs(kwargs)
     self.fun_name = fun_name
     self.op_name = op_name
-    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
-    interchange_str = _get_size_list_as_str(name="tile-interchange",
-                                            sizes=self.tile_interchange)
-    pad_str = _get_pad_str(self)
-    peeled_loops_str = ''
-    scalarize_dyn_dims_str = ''
-    if self.peel:
-      loop_indices = [str(l) for l in self.peel]
-      peeled_loops_str = f'peeled-loops={",".join(loop_indices)}'
-    if self.scalarize_dyn_dims:
-      scalarize_dyn_dims_str = 'scalarize-dynamic-dims'
-
-    pipeline = (f'linalg-single-tiling-expert-driver{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     {tile_str} '
-                f'     {interchange_str} '
-                f'     {peeled_loops_str} '
-                f'     {scalarize_dyn_dims_str} '
-                f'     {pad_str}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
 
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
@@ -238,97 +199,6 @@ class Tile(Transform):
                 pack_paddings=self.pack_paddings,
                 hoist_paddings=self.hoist_paddings,
                 transpose_paddings=self.transpose_paddings)
-
-
-class LinalgExtTile(Transform):
-  """Tile a linalg op with using the linalg_ext.tile op and a single
-  entry tile_sizes.
-
-  This transform can be configured as follows:
-  * `tile_sizes`: The 1-D tile size used for tiling.
-  """
-
-  variables = {
-      'tile_sizes': (TilingSizesVariable, []),
-  }
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-    count_non_zero = 0
-    for ts in self.tile_sizes:
-      if ts != 0:
-        count_non_zero = count_non_zero + 1
-    assert count_non_zero, 'only a single element may have count non zero'
-    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
-    pipeline = (
-        f'linalg-ext-tiling-to-tile-op{{'
-        #f'     anchor-func={fun_name} '
-        #f'     anchor-op={op_name} '
-        f'     {tile_str}}}'
-        #f'canonicalize,'
-        #f'cse'
-    )
-    self.pipeline = (f'builtin.func({pipeline})')
-
-
-class LinalgExtTileToSequentialFor(Transform):
-  """Rewrite linalg_ext.tile op to scf.for.
-  """
-
-  variables = {}
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-
-    pipeline = (f'linalg-tile-to-sequential-for,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
-
-
-class LinalgExtTileToInParallel(Transform):
-  """Rewrite linalg_ext.tile op to linalg_ext.in_parallel.
-  """
-
-  variables = {}
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-
-    pipeline = (f'linalg-tile-to-in-parallel,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
-
-
-class LinalgExtInParallelToSequentialFor(Transform):
-  """Rewrite linalg_ext.in_parallel op to scf.for.
-  """
-
-  variables = {}
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-
-    pipeline = (f'linalg-in-parallel-to-sequential-for,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
-
-
-class LinalgExtInParallelToAsync(Transform):
-  """Rewrite linalg_ext.in_parallel op to async.
-  """
-
-  variables = {}
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-
-    pipeline = (f'linalg-in-parallel-to-async,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class Vectorize(Transform):
@@ -683,3 +553,97 @@ class ApplySchedule(Transform):
       op_name = op.operation.name
       if op_name == 'pdl.pattern' or op_name == 'linalg_transform.sequence':
         op.operation.erase()
+
+
+###############################################################################
+# TODO: Port to the transform dialect
+###############################################################################
+class LinalgExtTile(Transform):
+  """Tile a linalg op with using the linalg_ext.tile op and a single
+  entry tile_sizes.
+
+  This transform can be configured as follows:
+  * `tile_sizes`: The 1-D tile size used for tiling.
+  """
+
+  variables = {
+      'tile_sizes': (TilingSizesVariable, []),
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+    count_non_zero = 0
+    for ts in self.tile_sizes:
+      if ts != 0:
+        count_non_zero = count_non_zero + 1
+    assert count_non_zero, 'only a single element may have count non zero'
+    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
+    pipeline = (
+        f'linalg-ext-tiling-to-tile-op{{'
+        #f'     anchor-func={fun_name} '
+        #f'     anchor-op={op_name} '
+        f'     {tile_str}}}'
+        #f'canonicalize,'
+        #f'cse'
+    )
+    self.pipeline = (f'builtin.func({pipeline})')
+
+
+class LinalgExtTileToSequentialFor(Transform):
+  """Rewrite linalg_ext.tile op to scf.for.
+  """
+
+  variables = {}
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-tile-to-sequential-for,'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+
+class LinalgExtTileToInParallel(Transform):
+  """Rewrite linalg_ext.tile op to linalg_ext.in_parallel.
+  """
+
+  variables = {}
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-tile-to-in-parallel,'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+
+class LinalgExtInParallelToSequentialFor(Transform):
+  """Rewrite linalg_ext.in_parallel op to scf.for.
+  """
+
+  variables = {}
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-in-parallel-to-sequential-for,'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')
+
+
+class LinalgExtInParallelToAsync(Transform):
+  """Rewrite linalg_ext.in_parallel op to async.
+  """
+
+  variables = {}
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
+
+    pipeline = (f'linalg-in-parallel-to-async,'
+                f'canonicalize,'
+                f'cse')
+    self.pipeline = (f'builtin.func({pipeline})')

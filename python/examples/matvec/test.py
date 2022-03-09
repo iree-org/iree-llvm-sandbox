@@ -174,8 +174,7 @@ def main():
                test_sizes(keys, problem_size_list),
                all_experts,
                n_iters=n_iters,
-               function_name='matvec',
-               backends=['dialect'])
+               function_name='matvec')
 
 
 if __name__ == '__main__':

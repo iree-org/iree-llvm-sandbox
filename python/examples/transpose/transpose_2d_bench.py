@@ -32,7 +32,7 @@ all_experts = [
              #           M  N
              tile_sizes=[8, 8],
              peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_avx2_lowering=True)),
@@ -41,7 +41,7 @@ all_experts = [
              #           M  N
              tile_sizes=[4, 8],
              peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_lowering='shuffle')),
@@ -50,7 +50,7 @@ all_experts = [
              #           M  N
              tile_sizes=[8, 8],
              peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_lowering='shuffle')),
@@ -59,7 +59,7 @@ all_experts = [
              #           M  N
              tile_sizes=[16, 16],
              peel=[0, 1])
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_lowering='shuffle')),
@@ -73,7 +73,7 @@ all_experts = [
                    tile_sizes3=[4, 8],
                    tile_interchange3=[1, 0],
                    peel3=[0, 1],)
-          .then(Vectorize(fun_name, op_name))
+          .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_lowering='shuffle')),
@@ -117,8 +117,7 @@ def main():
                   function_name=fun_name,
                   dump_ir_to_file='/tmp/abcd.mlir',
                   dump_obj_to_file='/tmp/abcd.o',
-                  dump_data_to_file=args.dump_data,
-                  backends=['dialect'])
+                  dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':

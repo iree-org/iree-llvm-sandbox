@@ -143,8 +143,7 @@ def main():
                  function_name=fun_name,
                  dump_ir_to_file='/tmp/abc.mlir',
                  dump_obj_to_file='/tmp/abc.o',
-                 dump_data_to_file=args.dump_data,
-                 backends=['dialect'])
+                 dump_data_to_file=args.dump_data)
 
 
 if __name__ == '__main__':
