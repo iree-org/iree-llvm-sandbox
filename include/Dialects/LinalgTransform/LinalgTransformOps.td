@@ -188,6 +188,29 @@ def InterchangeOp : Linalg_Transform_Operation<"interchange",
   }];
 }
 
+def PadOp : Linalg_Transform_Operation<"pad",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+  let description = [{Pads the operations pointed to by the target handle
+  using the options provides as operation attributes.}];
+
+  let arguments = (ins PDL_Operation:$target,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$pack_paddings,
+                   DefaultValuedAttr<I64ArrayAttr, "{}">:$hoist_paddings,
+                   DefaultValuedAttr<
+                      TypedArrayAttrBase<I64ArrayAttr,
+                                         "array of arrays of i64">,
+                      "{}">:$transpose_paddings);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::linalg::LinalgOp> applyToOne(
+        ::mlir::linalg::LinalgOp target);
+  }];
+}
+
 def BufferizeOp : Transform_Op<"bufferize"> {
   let description = [{Indicates that the entire module should be bufferized.}];
   let assemblyFormat = "attr-dict";

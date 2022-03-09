@@ -174,6 +174,32 @@ class TileOp:
         ip=ip)
 
 
+class PadOp:
+  """Specialization for the PadOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               pack_paddings: IntListArg = None,
+               hoist_paddings: IntListArg = None,
+               transpose_paddings: IntListListArg = None,
+               loc=None,
+               ip=None):
+    pack_paddings = _ensure_array_attr(pack_paddings, [])
+    hoist_paddings = _ensure_array_attr(hoist_paddings, [])
+    transpose_paddings = _ensure_array_of_array_attr(transpose_paddings, [])
+    operation_type = pdl.OperationType.get()
+
+    super().__init__(
+        operation_type,
+        target,
+        pack_paddings,
+        hoist_paddings,
+        transpose_paddings,
+        loc=loc,
+        ip=ip)
+
+
 class GeneralizeOp:
   """Specialization for the GeneralizeOp class."""
 
