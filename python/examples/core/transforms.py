@@ -218,22 +218,6 @@ class Vectorize(Transform):
     self._parse_variables_in_kwargs(kwargs)
     self.fun_name = fun_name
     self.op_name = op_name
-    vectorize_paddings_str = ''
-    if self.vectorize_paddings:
-      vectorize_paddings_str = 'vectorize-padding'
-    vectorize_only_tiled_str = ''
-    if self.vectorize_only_tiled:
-      vectorize_only_tiled_str = 'vectorize-only-tiled'
-    pipeline = (f'linalg-single-tiling-expert-driver{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     vectorize '
-                f'     {vectorize_paddings_str} '
-                f'     {vectorize_only_tiled_str}}},'
-                f'canonicalize,'
-                f'cse')
-    self._parse_variables_in_kwargs(kwargs)
-    self.pipeline = (f'builtin.func({pipeline})')
 
   def build_transform_ir(self):
     # Emit the untargeted version if requested.
@@ -262,15 +246,6 @@ class Generalize(Transform):
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self.fun_name = fun_name
     self.op_name = op_name
-    self._parse_variables_in_kwargs(kwargs)
-    interchange_str = _get_size_list_as_str(name='iterator-interchange',
-                                            sizes=self.iterator_interchange)
-
-    pipeline = (f'linalg-single-tiling-expert-driver{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     generalize}}')
-    self.pipeline = (f'builtin.func({pipeline})')
 
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
@@ -292,16 +267,8 @@ class Interchange(Transform):
   }
 
   def __init__(self, fun_name: str, **kwargs):
-    self.fun_name = fun_name
     self._parse_variables_in_kwargs(kwargs)
-    interchange_str = _get_size_list_as_str(name='iterator-interchange',
-                                            sizes=self.iterator_interchange)
-
-    pipeline = (f'linalg-single-tiling-expert-driver{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op="linalg.generic" '
-                f'     {interchange_str}}}')
-    self.pipeline = (f'builtin.func({pipeline})')
+    self.fun_name = fun_name
 
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name, 'generic'))
@@ -312,27 +279,22 @@ class DecomposeToLowerDimensionalNamedOp(Transform):
   """Rewrite all known named ops to a lower-dimensional form suitable for
   vectorization.
 
-  TODO: atm this is applied to all supported ops. If/when we need finer
-  control this should be exposed with an opName + filter and a proper
-  pattern.
+  TODO: atm this is applied to all supported ops, add finer-grained control.
   """
 
   def __init__(self, **kwargs):
-    pipeline = (f'linalg-single-tiling-expert-driver{{'
-                f'     decompose-to-lower-dim }}')
-    self.pipeline = (f'builtin.func({pipeline})')
+    pass
 
   def build_transform_ir(self):
     tx.DecomposeOp()
 
 
 class Bufferize(Transform):
+  """Trigger one-shot bufferization on the whole module.
+  """
 
   def __init__(self, **kwargs):
-    pipeline = (f'linalg-bufferization-driver,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = pipeline
+    pass
 
   def build_transform_ir(self):
     tx.BufferizeOp()
@@ -367,33 +329,11 @@ class LowerVectors(Transform):
   def __init__(self,
                stages: tp.Union[int, tp.Sequence[int]] = range(7),
                **kwargs):
+    self._parse_variables_in_kwargs(kwargs)
     if isinstance(stages, int):
       stages = [stages]
 
-    self._parse_variables_in_kwargs(kwargs)
     self.stages = stages
-
-    pipelines = [
-        (f'linalg-vector-lowering{{'
-         f'    lower-vector-stage={stage}'
-         f'    max-transfer-rank={self.max_transfer_rank} '
-         f'    split-transfers={self.split_transfers} '
-         f'    lower-vector-transpose-to={self.transpose_lowering} '
-         f'    lower-vector-transpose-to-avx2={self.transpose_avx2_lowering} '
-         f'    lower-vector-multi-reduction-to={self.multi_reduction_lowering} '
-         f'    lower-vector-contraction-to={self.contraction_lowering} '
-         f'    unroll-vector-transfers={self.unroll_vector_transfers}}},'
-         f'canonicalize,'
-         f'cse') for stage in stages
-    ]
-    self.pipelines = [f'builtin.func({pipeline})' for pipeline in pipelines]
-
-  def __call__(self, module: Module, fun_name: str):
-    for pipeline in self.pipelines:
-      PassManager.parse(pipeline).run(module)
-      if self.print_after_all:
-        print(module)
-    return module
 
   def build_transform_ir(self):
     for name in ('max_transfer_rank', 'print_after_all'):
@@ -412,41 +352,14 @@ class LowerVectors(Transform):
 
 
 class LowerToLLVM(Transform):
+  """Trigger lowering to LLVM on the whole module.
+  """
 
   def __init__(self, **kwargs):
-    pipeline = (f'llvm-lowering,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = pipeline
+    pass
 
   def build_transform_ir(self):
     tx.LowerToLLVMOp()
-
-
-class UnrollOneVectorOp(Transform):
-
-  variables = {
-      # Vector unrolling is similar to tiling but using unrolling instead of
-      # loops. Use TilingSizesVariable as a searchable type.
-      'source_shape': (TilingSizesVariable, []),
-      'target_shape': (TilingSizesVariable, []),
-  }
-
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
-    source_shape_str = _get_size_list_as_str(name='source-shape',
-                                             sizes=self.source_shape)
-    target_shape_str = _get_size_list_as_str(name='target-shape',
-                                             sizes=self.target_shape)
-
-    pipeline = (f'unroll-one-vector-op{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     {source_shape_str} '
-                f'     {target_shape_str}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
 
 
 class UnrollOneParentLoop(Transform):
@@ -460,15 +373,6 @@ class UnrollOneParentLoop(Transform):
     self._parse_variables_in_kwargs(kwargs)
     self.fun_name = fun_name
     self.op_name = op_name
-
-    pipeline = (f'unroll-one-parent-loop{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     parent-loop-num={self.parent_loop_num}'
-                f'     unroll-factor={self.unroll_factor}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
 
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
@@ -490,16 +394,6 @@ class PipelineOneParentLoop(Transform):
     self.fun_name = fun_name
     self.op_name = op_name
 
-    pipeline = (f'pipeline-one-parent-loop{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     parent-loop-num={self.parent_loop_num}'
-                f'     II={self.II}'
-                f'     read-latency={self.read_latency}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
-
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
                                                     self.op_name))
@@ -517,19 +411,8 @@ class OutlineOneParentLoop(Transform):
 
   def __init__(self, fun_name: str, op_name: str, result_func_name: str,
                **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
     self.fun_name = fun_name
     self.op_name = op_name
-    self.result_func_name = result_func_name
-
-    pipeline = (f'outline-one-parent-loop{{'
-                f'     anchor-func={fun_name} '
-                f'     anchor-op={op_name} '
-                f'     parent-loop-num={self.parent_loop_num}'
-                f'     result-func-name={result_func_name}}},'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
 
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
@@ -647,3 +530,16 @@ class LinalgExtInParallelToAsync(Transform):
                 f'canonicalize,'
                 f'cse')
     self.pipeline = (f'builtin.func({pipeline})')
+
+
+class UnrollOneVectorOp(Transform):
+
+  variables = {
+      # Vector unrolling is similar to tiling but using unrolling instead of
+      # loops. Use TilingSizesVariable as a searchable type.
+      'source_shape': (TilingSizesVariable, []),
+      'target_shape': (TilingSizesVariable, []),
+  }
+
+  def __init__(self, fun_name: str, op_name: str, **kwargs):
+    pass
