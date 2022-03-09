@@ -62,7 +62,7 @@ private:
   std::tuple<std::vector<InputTypes>...> inputs;
   /// Position of the tuple values that are returned in the next call to
   /// `computeNext`.
-  int64_t currentPos;
+  size_t currentPos;
 };
 
 /// Creates a new `ColumnScanOperator` deriving its template parameters from

@@ -57,7 +57,6 @@ std::size_t hashTuple(const TupleType &tuple,
 /// `std::hash` of the individual fields using XOR.
 template <typename... Types>
 std::size_t hashTuple(const std::tuple<Types...> &tuple) {
-  using TupleType = std::tuple<Types...>;
   using IndexSequence = std::index_sequence_for<Types...>;
   return impl::hashTuple(tuple, IndexSequence{});
 }

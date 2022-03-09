@@ -19,7 +19,7 @@ TEST(ReduceByKeyTest, SingleColumnKey) {
   reduceByKey.open();
   std::map<int32_t, int32_t> result;
   while (const auto tuple = reduceByKey.computeNext()) {
-    EXPECT_EQ(result.count(std::get<0>(tuple.value())), 0);
+    EXPECT_EQ(result.count(std::get<0>(tuple.value())), 0U);
     result.emplace(std::get<0>(tuple.value()), std::get<1>(tuple.value()));
   }
 
@@ -50,7 +50,7 @@ TEST(ReduceByKeyTest, TwoColumnKey) {
   while (const auto tuple = reduceByKey.computeNext()) {
     auto const key = takeFront<2>(tuple.value());
     auto const value = dropFront<2>(tuple.value());
-    EXPECT_EQ(result.count(key), 0);
+    EXPECT_EQ(result.count(key), 0U);
     result.emplace(key, value);
   }
 
