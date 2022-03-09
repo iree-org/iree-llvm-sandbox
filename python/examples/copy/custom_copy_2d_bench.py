@@ -8,12 +8,12 @@ from ..core.harness import *
 from ..core.transforms import *
 from ..core.utils import *
 
-from ..contraction.definitions import EinsumProblem
+from .definitions import CopyProblem
 
 from typing import List
 
 fun_name = 'copy_1d'
-op_name = 'linalg.generic'
+op_name = 'linalg.copy'
 
 ################################################################################
 ### Compilation strategies.
@@ -42,7 +42,7 @@ def all_experts(fun_name: str, problem_sizes: List[int]):
             op_name=op_name,
             tile_sizes=sizes2)
       .then(Bufferize())
-      .then(Vectorize(fun_name=fun_name, op_name=op_name))
+      .then(Vectorize(fun_name=fun_name, op_name=''))
       .then(LowerVectors())
       .then(LowerToLLVM())
     ]
@@ -86,7 +86,7 @@ copy_2D_perf_relevant_sizes = [
 def main():
   n_iters = 100
   for problem_sizes in copy_2D_perf_search_list:
-    test_harness(lambda s, t: EinsumProblem('mn->mn', 0), [[np.float32] * 2],
+    test_harness(lambda s, t: CopyProblem(dims=keys), [[np.float32] * 2],
                  test_sizes(keys, [problem_sizes]),
                  all_experts(fun_name, problem_sizes),
                  n_iters=n_iters,
