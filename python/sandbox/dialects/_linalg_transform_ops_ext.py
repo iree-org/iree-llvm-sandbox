@@ -12,7 +12,8 @@ except ImportError as e:
 BoolArg = Optional[Union[bool, ir.BoolAttr]]
 IntArg = Optional[Union[int, ir.IntegerAttr]]
 IntListArg = Optional[Union[Sequence[int], ir.ArrayAttr]]
-IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]], ir.ArrayAttr]]
+IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]],
+                                ir.ArrayAttr]]
 StringArg = Optional[Union[str, ir.StringAttr]]
 
 
@@ -107,6 +108,29 @@ class LowerVectorsOp:
                      ip=ip)
 
 
+class LowerToLLVMOp:
+  """Specialization for the LowerToLLVMOp class."""
+
+  def __init__(self,
+               *,
+               reassociate_fp_reductions: BoolArg = None,
+               enable_index_optimizations: BoolArg = None,
+               enable_arm_neon: BoolArg = None,
+               enable_arm_sve: BoolArg = None,
+               enable_amx: BoolArg = None,
+               enable_x86vector: BoolArg = None,
+               loc=None,
+               ip=None):
+    super().__init__(_ensure_bool_attr(reassociate_fp_reductions, False),
+                     _ensure_bool_attr(enable_index_optimizations, False),
+                     _ensure_bool_attr(enable_arm_neon, False),
+                     _ensure_bool_attr(enable_arm_sve, False),
+                     _ensure_bool_attr(enable_amx, False),
+                     _ensure_bool_attr(enable_x86vector, False),
+                     loc=loc,
+                     ip=ip)
+
+
 class FuseOp:
   """Specialization for the FuseOp class."""
 
@@ -121,13 +145,12 @@ class FuseOp:
     tile_interchange = _ensure_array_attr(tile_interchange, [])
     operation_type = pdl.OperationType.get()
 
-    super().__init__(
-        operation_type,
-        target,
-        tile_sizes,
-        tile_interchange,
-        loc=loc,
-        ip=ip)
+    super().__init__(operation_type,
+                     target,
+                     tile_sizes,
+                     tile_interchange,
+                     loc=loc,
+                     ip=ip)
 
 
 class TileOp:
@@ -158,20 +181,19 @@ class TileOp:
     generalize = _ensure_bool_attr(generalize, False)
     operation_type = pdl.OperationType.get()
 
-    super().__init__(
-        operation_type,
-        target,
-        sizes,
-        interchange,
-        peel,
-        pad,
-        pack_paddings,
-        hoist_paddings,
-        transpose_paddings,
-        scalarize_dyn_dims,
-        generalize,
-        loc=loc,
-        ip=ip)
+    super().__init__(operation_type,
+                     target,
+                     sizes,
+                     interchange,
+                     peel,
+                     pad,
+                     pack_paddings,
+                     hoist_paddings,
+                     transpose_paddings,
+                     scalarize_dyn_dims,
+                     generalize,
+                     loc=loc,
+                     ip=ip)
 
 
 class PadOp:
@@ -190,14 +212,13 @@ class PadOp:
     transpose_paddings = _ensure_array_of_array_attr(transpose_paddings, [])
     operation_type = pdl.OperationType.get()
 
-    super().__init__(
-        operation_type,
-        target,
-        pack_paddings,
-        hoist_paddings,
-        transpose_paddings,
-        loc=loc,
-        ip=ip)
+    super().__init__(operation_type,
+                     target,
+                     pack_paddings,
+                     hoist_paddings,
+                     transpose_paddings,
+                     loc=loc,
+                     ip=ip)
 
 
 class GeneralizeOp:
@@ -210,11 +231,7 @@ class GeneralizeOp:
                ip=None):
     operation_type = pdl.OperationType.get()
 
-    super().__init__(
-        operation_type,
-        target,
-        loc=loc,
-        ip=ip)
+    super().__init__(operation_type, target, loc=loc, ip=ip)
 
 
 class InterchangeOp:
@@ -229,30 +246,29 @@ class InterchangeOp:
     iterator_interchange = _ensure_array_attr(iterator_interchange, [])
     operation_type = pdl.OperationType.get()
 
-    super().__init__(
-        operation_type,
-        target,
-        iterator_interchange,
-        loc=loc,
-        ip=ip)
+    super().__init__(operation_type,
+                     target,
+                     iterator_interchange,
+                     loc=loc,
+                     ip=ip)
 
 
 class VectorizeOp:
 
   def __init__(self,
-               target: Optional[Union[ir.Value, ir.Operation, ir.OpView]] = None,
+               target: Optional[Union[ir.Value, ir.Operation,
+                                      ir.OpView]] = None,
                *,
                vectorize_padding: BoolArg = None,
                loc=None,
                ip=None):
     operation_type = pdl.OperationType.get()
 
-    super().__init__(
-        operation_type if target is not None else None,
-        target,
-        _ensure_bool_attr(vectorize_padding, False),
-        loc=loc,
-        ip=ip)
+    super().__init__(operation_type if target is not None else None,
+                     target,
+                     _ensure_bool_attr(vectorize_padding, False),
+                     loc=loc,
+                     ip=ip)
 
 
 class GetParentLoopOp:
@@ -293,7 +309,12 @@ class PipelineLoopOp:
     iteration_interval = _ensure_int_attr(iteration_interval, 1)
     read_latency = _ensure_int_attr(read_latency, 10)
     operation_type = pdl.OperationType.get()
-    super().__init__(operation_type, target, iteration_interval, read_latency, loc=loc, ip=ip)
+    super().__init__(operation_type,
+                     target,
+                     iteration_interval,
+                     read_latency,
+                     loc=loc,
+                     ip=ip)
 
 
 class OutlineLoopOp:
