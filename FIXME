@@ -7,3 +7,5 @@ python -m python.examples.matvec.test
   * SingleTilingExpert fails to vectorize if things don't divide and this is reported as a full failure.
 
 Port LinalgExt transformations to transform dialect
+
+Enable the double-tiling and tile-interchange.mlir after landing D121369.
