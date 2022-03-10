@@ -81,6 +81,21 @@ struct InParallelOpToAsyncRewriter
   }
 };
 
+/// Pattern to rewrite a linalg_ext::InParallelOp to an scf::ForOp.
+struct InParallelOpToScfForRewriter
+    : public OpRewritePattern<linalg_ext::InParallelOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  FailureOr<scf::ForOp>
+  returningMatchAndRewrite(linalg_ext::InParallelOp inParallelOp,
+                           PatternRewriter &rewriter) const;
+
+  LogicalResult matchAndRewrite(linalg_ext::InParallelOp inParallelOp,
+                                PatternRewriter &rewriter) const override {
+    return returningMatchAndRewrite(inParallelOp, rewriter);
+  }
+};
+
 } // namespace linalg_ext
 } // namespace mlir
 
