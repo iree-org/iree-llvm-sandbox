@@ -41,13 +41,13 @@ def fill_matmul_bias_add_fusion():
   fun_name = 'matmul_bias_add'
   op_name = 'linalg.generic'
   # FIXME: Cannot pad and vectorize a generic consuming a for loop output.
-  expert = Fuse(fun_name, op_name, tile_sizes=[8, 16],    \
-                tile_interchange=[0, 1])                           \
-      .then(Pad(fun_name, 'linalg.fill'))                          \
-      .then(Tile(fun_name, 'linalg.matmul', tile_sizes=[0, 0, 24], \
-                 pad=True, pack_paddings=[1, 1, 0],))              \
-      .then(Bufferize())                                           \
-      .then(LowerVectors())                                        \
+  expert = Fuse(fun_name, op_name, tile_sizes=[8, 16],               \
+                tile_interchange=[0, 1])                             \
+      .then(Pad(fun_name, 'linalg.fill'))                            \
+      .then(Tile(fun_name, 'linalg.matmul', tile_sizes=[0, 0, 24]))  \
+      .then(Pad(fun_name, 'linalg.matmul', pack_paddings=[1, 1, 0])) \
+      .then(Bufferize())                                             \
+      .then(LowerVectors())                                          \
       .then(LowerToLLVM())
 
   keys = ['M', 'N', 'K']

@@ -70,7 +70,7 @@ pdl.pattern @pdl_target_attrC : benefit(1) {
 
 linalg_transform.sequence {
   %0 = match @pdl_target_attrA
-  tile %0 {sizes = [4, 4, 4], pad = false}
+  tile %0 {sizes = [4, 4, 4]}
   %1 = match @pdl_target_attrC
   vectorize %1
 }

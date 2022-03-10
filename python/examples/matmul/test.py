@@ -48,45 +48,48 @@ expert_tile_1_peel_scalarize = \
 
 # 1 level of tiling, with padding.
 expert_tile_1_pad = \
-    Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24], \
-         pad=True, pack_paddings=[1, 1, 1])                 \
-    .then(Vectorize('matmul', 'linalg.generic'))            \
+    Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24])         \
+    .then(Pad('matmul', 'linalg.generic', pack_paddings=[1, 1, 1])) \
+    .then(Vectorize('matmul', 'linalg.generic'))                    \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling, with padding hoisted and transposed.
 expert_tile_1_pad_hoist = \
     Tile('matmul',
          'linalg.generic',
-         tile_sizes=[8, 8, 64],
-         pad=True,
-         pack_paddings=[1, 1, 1],
-         hoist_paddings=[3, 3, 3],
-         transpose_paddings=[[1, 0], [0, 1], [0, 1]])      \
-    .then(Vectorize('matmul', 'linalg.generic'))           \
-    .then(Bufferize())                                     \
+         tile_sizes=[8, 8, 64]) \
+    .then(Pad('matmul',
+              'linalg.generic',
+              pack_paddings=[1, 1, 1],
+              hoist_paddings=[3, 3, 3],
+              transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
+    .then(Vectorize('matmul', 'linalg.generic'))            \
+    .then(Bufferize())                                      \
     .then(LoweringOnlyExpert('', ''))
 # 2 levels of tiling, with padding hoisted and transposed.
 expert_tile_2_pad_hoist = \
-    Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24])   \
+    Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24]) \
     .then(Tile('matmul',
                 'linalg.generic',
-                tile_sizes=[4, 4, 12],
-                pad=True,
-                pack_paddings=[1, 1, 1],
-                hoist_paddings=[6, 6, 6],
-                transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
-    .then(Vectorize('matmul', 'linalg.generic'))              \
-    .then(Bufferize())                                        \
+                tile_sizes=[4, 4, 12])) \
+    .then(Pad('matmul',
+              'linalg.generic',
+              pack_paddings=[1, 1, 1],
+              hoist_paddings=[6, 6, 6],
+              transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
+    .then(Vectorize('matmul', 'linalg.generic'))            \
+    .then(Bufferize())                                      \
     .then(LoweringOnlyExpert('', ''))
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
 expert_tile_3_pad_hoist_peel = \
     Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24]) \
     .then(Tile('matmul',
                 'linalg.generic',
-                tile_sizes=[4, 4, 12],
-                pad=True,
-                pack_paddings=[1, 1, 1],
-                hoist_paddings=[6, 6, 6]))                 \
+                tile_sizes=[4, 4, 12])) \
+    .then(Pad('matmul',
+              'linalg.generic',
+              pack_paddings=[1, 1, 1],
+              hoist_paddings=[6, 6, 6]))                 \
     .then(Tile('matmul',
                'linalg.generic',
                tile_sizes=[2, 3, 7],
@@ -110,10 +113,11 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24]) \
     .then(Tile('matmul',
                 'linalg.generic',
-                tile_sizes=[4, 4, 12],
-                pad=True,
-                pack_paddings=[1, 1, 1],
-                hoist_paddings=[6, 6, 6]))                   \
+                tile_sizes=[4, 4, 12])) \
+    .then(Pad('matmul',
+              'linalg.generic',
+              pack_paddings=[1, 1, 1],
+              hoist_paddings=[6, 6, 6])) \
     .then(Tile('matmul',
                 'linalg.generic',
                 tile_sizes=[2, 3, 7],
@@ -143,10 +147,11 @@ expert_fuse_and_pad = \
     Fuse('matmul', 'linalg.generic', tile_sizes=[16, 16, 0]) \
     .then(Tile('matmul',
          'linalg.generic',
-         tile_sizes=[8, 8, 32],
-         pad=True,
-         pack_paddings=[1, 1, 1],
-         hoist_paddings=[3, 3, 3]))                          \
+         tile_sizes=[8, 8, 32])) \
+    .then(Pad('matmul',
+              'linalg.generic',
+              pack_paddings=[1, 1, 1],
+              hoist_paddings=[3, 3, 3]))                     \
     .then(Vectorize('matmul', 'linalg.generic'))             \
     .then(Tile('matmul', 'linalg.fill', tile_sizes=[8, 8]))  \
     .then(Vectorize('matmul', 'linalg.fill'))                \

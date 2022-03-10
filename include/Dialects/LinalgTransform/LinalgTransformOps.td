@@ -113,16 +113,7 @@ def TileOp : Linalg_Transform_Operation<"tile",
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$sizes,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$interchange,
                    DefaultValuedAttr<I64ArrayAttr, "{}">:$peel,
-                   DefaultValuedAttr<BoolAttr, "false">:$pad,
-                   DefaultValuedAttr<I64ArrayAttr, "{}">:$pack_paddings,
-                   DefaultValuedAttr<I64ArrayAttr, "{}">:$hoist_paddings,
-                   DefaultValuedAttr<
-                      TypedArrayAttrBase<I64ArrayAttr,
-                                         "array of arrays of i64">,
-                      "{}">:$transpose_paddings,
-                   DefaultValuedAttr<BoolAttr, "false">:$scalarize_dyn_dims,
-                   DefaultValuedAttr<BoolAttr, "false">:$generalize
-                  );
+                   DefaultValuedAttr<BoolAttr, "false">:$scalarize_dyn_dims);
   let results = (outs PDL_Operation:$transformed);
 
   let assemblyFormat = "$target attr-dict";

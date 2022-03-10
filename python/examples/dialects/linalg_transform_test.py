@@ -25,8 +25,9 @@ def tile_once():
   sequence = transform.SequenceOp()
   with ir.InsertionPoint(sequence.body.blocks[0]):
     target = transform.MatchOp("foo")
-    tiled = transform.TileOp(target, sizes=[32, 16], pad=True)
-    transform.VectorizeOp(tiled, vectorize_padding=True)
+    tiled = transform.TileOp(target, sizes=[32, 16])
+    padded = transform.PadOp(tiled)
+    transform.VectorizeOp(padded, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")
     transform.LowerToLLVMOp()
@@ -35,8 +36,9 @@ def tile_once():
   assert "match @foo" in code
   assert "tile %" in code
   assert "sizes = [32, 16]" in code
-  assert "pad = true" in code
+  assert "pad %" in code
   assert "vectorize" in code
+  assert "vectorize_padding = true" in code
 
 
 # CHECK-LABEL: TEST: tile_twice
@@ -45,9 +47,10 @@ def tile_twice():
   sequence = transform.SequenceOp()
   with ir.InsertionPoint(sequence.body.blocks[0]):
     target = transform.MatchOp("foo")
-    tiled1 = transform.TileOp(target, sizes=[128, 32], pad=True)
-    tiled2 = transform.TileOp(tiled1, sizes=[32, 16], pad=True)
-    transform.VectorizeOp(tiled2, vectorize_padding=True)
+    tiled1 = transform.TileOp(target, sizes=[128, 32])
+    tiled2 = transform.TileOp(tiled1, sizes=[32, 16])
+    padded = transform.PadOp(tiled2)
+    transform.VectorizeOp(padded, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")
     transform.LowerToLLVMOp()
@@ -57,5 +60,5 @@ def tile_twice():
   assert "tile %" in code
   assert "sizes = [128, 32]" in code
   assert "sizes = [32, 16]" in code
-  assert "pad = true" in code
+  assert "pad %" in code
   assert "vectorize" in code
