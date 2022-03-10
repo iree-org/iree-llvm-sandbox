@@ -1,8 +1,10 @@
-#ifndef UTILS_PRINT_H
-#define UTILS_PRINT_H
+#ifndef ITERATORS_UTILS_TUPLE_H
+#define ITERATORS_UTILS_TUPLE_H
 
 #include <iostream>
 #include <tuple>
+
+namespace mlir::iterators::utils {
 
 namespace impl {
 template <typename TupleType, std::size_t... kIndices>
@@ -17,7 +19,7 @@ auto extractElements(const TupleType &tuple,
 
 template <std::size_t kFrontSize, typename TupleType, std::size_t... kIndices>
 auto dropFront(const TupleType &tuple,
-                 const std::index_sequence<kIndices...> & /*unused*/) {
+               const std::index_sequence<kIndices...> & /*unused*/) {
   using IndexSequence =
       std::integer_sequence<std::size_t, kIndices + kFrontSize...>;
   return extractElements(tuple, IndexSequence{});
@@ -97,4 +99,6 @@ void printTuple(const std::tuple<Types...> &tuple) {
   printTuple(std::cout, tuple);
 }
 
-#endif // UTILS_PRINT_H
+} // namespace mlir::iterators::utils
+
+#endif // ITERATORS_UTILS_TUPLE_H

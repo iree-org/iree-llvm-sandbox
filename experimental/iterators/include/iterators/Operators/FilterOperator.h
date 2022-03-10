@@ -5,11 +5,13 @@
 /// related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_FILTER_H
-#define OPERATORS_FILTER_H
+#ifndef ITERATORS_OPERATORS_FILTEROPERATOR_H
+#define ITERATORS_OPERATORS_FILTEROPERATOR_H
 
 #include <optional>
 #include <tuple>
+
+namespace mlir::iterators::operators {
 
 /// Produces all tuples from upstream that pass the given filter.
 ///
@@ -62,4 +64,6 @@ auto makeFilterOperator(UpstreamType *const upstream,
       upstream, std::move(filterFunction));
 }
 
-#endif // OPERATORS_FILTER_H
+} // namespace mlir::iterators::operators
+
+#endif // ITERATORS_OPERATORS_FILTEROPERATOR_H

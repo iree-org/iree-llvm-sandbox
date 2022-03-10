@@ -5,14 +5,16 @@
 /// as related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_HASH_JOIN_H
-#define OPERATORS_HASH_JOIN_H
+#ifndef ITERATORS_OPERATORS_HASHJOINOPERATOR_H
+#define ITERATORS_OPERATORS_HASHJOINOPERATOR_H
 
 #include <optional>
 #include <tuple>
 #include <unordered_map>
 
 #include "iterators/Utils/Tuple.h"
+
+namespace mlir::iterators::operators {
 
 /// Returns tuples from its two upstream operators that have matching keys.
 ///
@@ -31,11 +33,11 @@ class HashJoinOperator {
   using BuildSideInputTuple = typename BuildUpstreamType::OutputTuple;
   using ProbeSideInputTuple = typename ProbeUpstreamType::OutputTuple;
 
-  using KeyTuple = decltype(takeFront<kNumKeyAttributes>(
+  using KeyTuple = decltype(utils::takeFront<kNumKeyAttributes>(
       std::declval<BuildSideInputTuple>()));
-  using BuildSideValueTuple = decltype(dropFront<kNumKeyAttributes>(
+  using BuildSideValueTuple = decltype(utils::dropFront<kNumKeyAttributes>(
       std::declval<BuildSideInputTuple>()));
-  using ProbeSideValueTuple = decltype(dropFront<kNumKeyAttributes>(
+  using ProbeSideValueTuple = decltype(utils::dropFront<kNumKeyAttributes>(
       std::declval<ProbeSideInputTuple>()));
   using ValueTuple =
       decltype(std::tuple_cat(std::declval<BuildSideValueTuple>(),
@@ -59,8 +61,8 @@ public:
   void open() {
     buildUpstream->open();
     while (auto const tuple = buildUpstream->computeNext()) {
-      auto const key = takeFront<kNumKeyAttributes>(tuple.value());
-      auto const value = dropFront<kNumKeyAttributes>(tuple.value());
+      auto const key = utils::takeFront<kNumKeyAttributes>(tuple.value());
+      auto const value = utils::dropFront<kNumKeyAttributes>(tuple.value());
       buildTable.emplace(key, value);
     }
     buildUpstream->close();
@@ -87,9 +89,9 @@ public:
 
       // Look up key of current tuple from the probe-side in the build table.
       auto const key =
-          takeFront<kNumKeyAttributes>(currentProbeTuple.value());
+          utils::takeFront<kNumKeyAttributes>(currentProbeTuple.value());
       currentProbeSideValue =
-          dropFront<kNumKeyAttributes>(currentProbeTuple.value());
+          utils::dropFront<kNumKeyAttributes>(currentProbeTuple.value());
       std::tie(currentBuildSideMatchesIt, currentBuildSideMatchesEnd) =
           buildTable.equal_range(key);
     }
@@ -113,7 +115,8 @@ private:
   ProbeUpstreamType *const probeUpstream;
   /// Hash table containing all tuples from the build side (after `open` has
   /// been called).
-  std::unordered_multimap<KeyTuple, BuildSideValueTuple, TupleHasher<KeyTuple>>
+  std::unordered_multimap<KeyTuple, BuildSideValueTuple,
+                          utils::TupleHasher<KeyTuple>>
       buildTable;
   /// Value (i.e., tuple of non-key attributes) from the last probe-side tuple
   /// that will be part of the tuples returned for matching build-side tuples.
@@ -130,10 +133,12 @@ private:
 /// provided arguments.
 template <std::size_t kNumKeyAttributes, typename BuildUpstreamType,
           typename ProbeUpstreamType>
-auto MakeHashJoinOperator(BuildUpstreamType *const buildUpstream,
+auto makeHashJoinOperator(BuildUpstreamType *const buildUpstream,
                           ProbeUpstreamType *const probeUpstream) {
   return HashJoinOperator<BuildUpstreamType, ProbeUpstreamType,
                           kNumKeyAttributes>(buildUpstream, probeUpstream);
 }
 
-#endif // OPERATORS_HASH_JOIN_H
+} // namespace mlir::iterators::operators
+
+#endif // ITERATORS_OPERATORS_HASHJOINOPERATOR_H

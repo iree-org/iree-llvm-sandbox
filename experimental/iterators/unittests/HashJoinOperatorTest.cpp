@@ -6,6 +6,8 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/HashJoinOperator.h"
 
+using namespace mlir::iterators::operators;
+
 TEST(HashJoinTest, SingleColumnKey) {
   std::vector<int32_t> leftKeys = {1, 2, 1, 2, 5};
   std::vector<int32_t> leftValues = {1, 1, 2, 2, 5};
@@ -14,7 +16,7 @@ TEST(HashJoinTest, SingleColumnKey) {
 
   auto leftScan = makeColumnScanOperator(leftKeys, leftValues);
   auto rightScan = makeColumnScanOperator(rightKeys, rightValues);
-  auto hashJoin = MakeHashJoinOperator<1>(&leftScan, &rightScan);
+  auto hashJoin = makeHashJoinOperator<1>(&leftScan, &rightScan);
 
   using ResultTuple = decltype(hashJoin)::OutputTuple;
 
@@ -48,7 +50,7 @@ TEST(HashJoinTest, TwoColumnKey) {
 
   auto leftScan = makeColumnScanOperator(leftKeys1, leftKeys2, leftValues);
   auto rightScan = makeColumnScanOperator(rightKeys1, rightKeys2, rightValues);
-  auto hashJoin = MakeHashJoinOperator<2>(&leftScan, &rightScan);
+  auto hashJoin = makeHashJoinOperator<2>(&leftScan, &rightScan);
 
   using ResultTuple = decltype(hashJoin)::OutputTuple;
 
@@ -73,7 +75,7 @@ TEST(HashJoinTest, NoValueLeft) {
 
   auto leftScan = makeColumnScanOperator(leftKeys);
   auto rightScan = makeColumnScanOperator(rightKeys, rightValues);
-  auto hashJoin = MakeHashJoinOperator<1>(&leftScan, &rightScan);
+  auto hashJoin = makeHashJoinOperator<1>(&leftScan, &rightScan);
 
   using ResultTuple = decltype(hashJoin)::OutputTuple;
 
@@ -98,7 +100,7 @@ TEST(HashJoinTest, NoValueRight) {
 
   auto leftScan = makeColumnScanOperator(leftKeys, LeftValues);
   auto rightScan = makeColumnScanOperator(rightKeys);
-  auto hashJoin = MakeHashJoinOperator<1>(&leftScan, &rightScan);
+  auto hashJoin = makeHashJoinOperator<1>(&leftScan, &rightScan);
 
   using ResultTuple = decltype(hashJoin)::OutputTuple;
 

@@ -5,11 +5,13 @@
 /// related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_REDUCE_H
-#define OPERATORS_REDUCE_H
+#ifndef ITERATORS_OPERATORS_REDUCEOPERATOR_H
+#define ITERATORS_OPERATORS_REDUCEOPERATOR_H
 
 #include <optional>
 #include <tuple>
+
+namespace mlir::iterators::operators {
 
 /// Reduces (or "folds") all input tuples into one given a reduce function.
 ///
@@ -72,4 +74,6 @@ auto makeReduceOperator(UpstreamType *const upstream,
       upstream, std::move(reduceFunction));
 }
 
-#endif // OPERATORS_REDUCE_H
+} // namespace mlir::iterators::operators
+
+#endif // ITERATORS_OPERATORS_REDUCEOPERATOR_H

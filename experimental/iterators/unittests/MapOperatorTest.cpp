@@ -6,6 +6,8 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/MapOperator.h"
 
+using namespace mlir::iterators::operators;
+
 TEST(MapTest, SingleColumnMap) {
   std::vector<int32_t> numbers = {1, 2};
   auto scan = makeColumnScanOperator(numbers);

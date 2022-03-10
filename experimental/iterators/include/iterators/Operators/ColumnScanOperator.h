@@ -5,12 +5,14 @@
 /// as related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_COLUMN_SCAN_H
-#define OPERATORS_COLUMN_SCAN_H
+#ifndef ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H
+#define ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H
 
 #include <optional>
 #include <tuple>
 #include <vector>
+
+namespace mlir::iterators::operators {
 
 /// Co-iterates over a set of vectors representing the columns of a table.
 ///
@@ -27,7 +29,7 @@ public:
   /// Copies the given vectors into its internal state. All provided vectors
   /// have to have the same length.
   explicit ColumnScanOperator(std::vector<InputTypes>... inputs)
-      : inputs(std::make_tuple(std::move(inputs)...)), currentPos(0) {}
+      : inputs(std::make_tuple(std::move(inputs)...)) {}
 
   /// Does nothing.
   void open() {}
@@ -62,7 +64,7 @@ private:
   std::tuple<std::vector<InputTypes>...> inputs;
   /// Position of the tuple values that are returned in the next call to
   /// `computeNext`.
-  size_t currentPos;
+  size_t currentPos{0};
 };
 
 /// Creates a new `ColumnScanOperator` deriving its template parameters from
@@ -72,4 +74,6 @@ auto makeColumnScanOperator(std::vector<InputTypes>... inputs) {
   return ColumnScanOperator<InputTypes...>(inputs...);
 }
 
-#endif // OPERATORS_COLUMN_SCAN_H
+} // namespace mlir::iterators::operators
+
+#endif // ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H

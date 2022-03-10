@@ -5,6 +5,8 @@
 
 #include "iterators/Operators/ColumnScanOperator.h"
 
+using namespace mlir::iterators::operators;
+
 TEST(ColumnScanTest, SingleColumn) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};
   auto scan = makeColumnScanOperator(numbers);

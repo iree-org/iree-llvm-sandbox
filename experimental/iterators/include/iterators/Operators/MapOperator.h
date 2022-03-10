@@ -5,11 +5,13 @@
 /// related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_MAP_H
-#define OPERATORS_MAP_H
+#ifndef ITERATORS_OPERATORS_MAPOPERATOR_H
+#define ITERATORS_OPERATORS_MAPOPERATOR_H
 
 #include <optional>
 #include <tuple>
+
+namespace mlir::iterators::operators {
 
 /// Maps (or "transforms") all input tuples to a new one using a map function.
 ///
@@ -62,4 +64,6 @@ auto makeMapOperator(UpstreamType *const upstream,
                                                     std::move(mapFunction));
 }
 
-#endif // OPERATORS_MAP_H
+} // namespace mlir::iterators::operators
+
+#endif // ITERATORS_OPERATORS_MAPOPERATOR_H
