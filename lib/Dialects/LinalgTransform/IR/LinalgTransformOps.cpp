@@ -15,6 +15,7 @@
 #include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "Transforms/Listener.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
 #include "mlir/Conversion/LinalgToStandard/LinalgToStandard.h"
@@ -23,6 +24,7 @@
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/Async/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
@@ -597,6 +599,11 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
 
   pm.addNestedPass<FuncOp>(createConvertVectorToSCFPass());
   pm.addNestedPass<FuncOp>(createConvertLinalgToLoopsPass());
+  if (enable_async()) {
+    pm.addPass(createAsyncToAsyncRuntimePass());
+    pm.addPass(createAsyncRuntimeRefCountingPass());
+    pm.addPass(createAsyncRuntimeRefCountingOptPass());
+  }
   pm.addPass(createCanonicalizerPass());
   pm.addPass(createLowerAffinePass());
   pm.addPass(createConvertSCFToCFPass());
@@ -613,6 +620,8 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
   // clang-format on
   pm.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
   pm.addPass(createMemRefToLLVMPass());
+  if (enable_async())
+    pm.addPass(createConvertAsyncToLLVMPass());
   pm.addPass(createConvertFuncToLLVMPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
   if (failed(pm.run(state.getTopLevel())))

@@ -115,6 +115,7 @@ class Tile(Transform):
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
                                                     self.op_name))
+    # TODO: handles are currently bugfed when using peeling.
     tile_only = tx.TileOp(target,
                           sizes=self.tile_sizes,
                           interchange=self.tile_interchange,
@@ -318,6 +319,7 @@ class LowerToLLVM(Transform):
       'enable_arm_sve': (BoolVariable, False),
       'enable_amx': (BoolVariable, False),
       'enable_x86vector': (BoolVariable, False),
+      'enable_async': (BoolVariable, False),
   }
 
   def __init__(self, **kwargs):
@@ -329,7 +331,8 @@ class LowerToLLVM(Transform):
                      enable_arm_neon=self.enable_arm_neon,
                      enable_arm_sve=self.enable_arm_sve,
                      enable_amx=self.enable_amx,
-                     enable_x86vector=self.enable_x86vector)
+                     enable_x86vector=self.enable_x86vector,
+                     enable_async=self.enable_async)
 
 
 class UnrollOneParentLoop(Transform):
@@ -401,9 +404,12 @@ class ApplySchedule(Transform):
     PassManager.parse('linalg-drop-schedule-from-module').run(module)
     return module
 
-###############################################################################
-# TODO: Port to the transform dialect
-###############################################################################
+
+##===----------------------------------------------------------------------===##
+## LinalgExt specific transforms
+##===----------------------------------------------------------------------===##
+
+
 class LinalgExtTile(Transform):
   """Tile a linalg op with using the linalg_ext.tile op and a single
   entry tile_sizes.
@@ -418,36 +424,28 @@ class LinalgExtTile(Transform):
 
   def __init__(self, fun_name: str, op_name: str, **kwargs):
     self._parse_variables_in_kwargs(kwargs)
-    count_non_zero = 0
-    for ts in self.tile_sizes:
-      if ts != 0:
-        count_non_zero = count_non_zero + 1
-    assert count_non_zero, 'only a single element may have count non zero'
-    tile_str = _get_size_list_as_str(name="tile-sizes", sizes=self.tile_sizes)
-    pipeline = (
-        f'linalg-ext-tiling-to-tile-op{{'
-        #f'     anchor-func={fun_name} '
-        #f'     anchor-op={op_name} '
-        f'     {tile_str}}}'
-        #f'canonicalize,'
-        #f'cse'
-    )
-    self.pipeline = (f'builtin.func({pipeline})')
+    self.fun_name = fun_name
+    self.op_name = op_name
+
+  def build_transform_ir(self):
+    target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
+                                                    self.op_name))
+    tx.TileToLinalgExtTileOp(target, sizes=self.tile_sizes)
 
 
-class LinalgExtTileToSequentialFor(Transform):
+class LinalgExtTileToScfFor(Transform):
   """Rewrite linalg_ext.tile op to scf.for.
   """
 
   variables = {}
 
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
+  def __init__(self, fun_name: str, **kwargs):
+    self.fun_name = fun_name
 
-    pipeline = (f'linalg-tile-to-sequential-for,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
+  def build_transform_ir(self):
+    target = tx.MatchOp(
+        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.tile'))
+    tx.RewriteLinalgExtTileToScfForOp(target)
 
 
 class LinalgExtTileToInParallel(Transform):
@@ -456,28 +454,28 @@ class LinalgExtTileToInParallel(Transform):
 
   variables = {}
 
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
+  def __init__(self, fun_name: str, **kwargs):
+    self.fun_name = fun_name
 
-    pipeline = (f'linalg-tile-to-in-parallel,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
+  def build_transform_ir(self):
+    target = tx.MatchOp(
+        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.tile'))
+    tx.RewriteLinalgExtTileToInParallelOp(target)
 
 
-class LinalgExtInParallelToSequentialFor(Transform):
+class LinalgExtInParallelToScfFor(Transform):
   """Rewrite linalg_ext.in_parallel op to scf.for.
   """
 
   variables = {}
 
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
+  def __init__(self, fun_name: str, **kwargs):
+    self.fun_name = fun_name
 
-    pipeline = (f'linalg-in-parallel-to-sequential-for,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
+  def build_transform_ir(self):
+    target = tx.MatchOp(
+        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.in_parallel'))
+    tx.RewriteLinalgExtInParallelToScfForOp(target)
 
 
 class LinalgExtInParallelToAsync(Transform):
@@ -486,15 +484,18 @@ class LinalgExtInParallelToAsync(Transform):
 
   variables = {}
 
-  def __init__(self, fun_name: str, op_name: str, **kwargs):
-    self._parse_variables_in_kwargs(kwargs)
+  def __init__(self, fun_name: str, **kwargs):
+    self.fun_name = fun_name
 
-    pipeline = (f'linalg-in-parallel-to-async,'
-                f'canonicalize,'
-                f'cse')
-    self.pipeline = (f'builtin.func({pipeline})')
+  def build_transform_ir(self):
+    target = tx.MatchOp(
+        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.in_parallel'))
+    tx.RewriteLinalgExtInParallelToAsyncOp(target)
 
 
+###############################################################################
+# TODO: Port to the transform dialect
+###############################################################################
 class UnrollOneVectorOp(Transform):
 
   variables = {

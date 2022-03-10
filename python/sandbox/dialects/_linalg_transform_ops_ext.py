@@ -119,6 +119,7 @@ class LowerToLLVMOp:
                enable_arm_sve: BoolArg = None,
                enable_amx: BoolArg = None,
                enable_x86vector: BoolArg = None,
+               enable_async: BoolArg = None,
                loc=None,
                ip=None):
     super().__init__(_ensure_bool_attr(reassociate_fp_reductions, False),
@@ -127,6 +128,7 @@ class LowerToLLVMOp:
                      _ensure_bool_attr(enable_arm_sve, False),
                      _ensure_bool_attr(enable_amx, False),
                      _ensure_bool_attr(enable_x86vector, False),
+                     _ensure_bool_attr(enable_async, False),
                      loc=loc,
                      ip=ip)
 
@@ -321,3 +323,70 @@ class SequenceOp:
   def __init__(self, *, loc=None, ip=None):
     super().__init__(loc=loc, ip=ip)
     self.body.blocks.append()
+
+
+##===----------------------------------------------------------------------===##
+## LinalgExt specific transforms
+##===----------------------------------------------------------------------===##
+
+
+class TileToLinalgExtTileOp:
+  """Specialization for the TileToLinalgExtTileOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               sizes: IntListArg = None,
+               loc=None,
+               ip=None):
+    sizes = _ensure_array_attr(sizes, [])
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, sizes, loc=loc, ip=ip)
+
+
+class RewriteLinalgExtTileToScfForOp:
+  """Specialization for the RewriteLinalgExtTileToScfForOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               loc=None,
+               ip=None):
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, loc=loc, ip=ip)
+
+
+class RewriteLinalgExtTileToInParallelOp:
+  """Specialization for the RewriteLinalgExtTileToInParallelOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               loc=None,
+               ip=None):
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, loc=loc, ip=ip)
+
+
+class RewriteLinalgExtInParallelToScfForOp:
+  """Specialization for the RewriteLinalgExtInParallelToScfForOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               loc=None,
+               ip=None):
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, loc=loc, ip=ip)
+
+
+class RewriteLinalgExtInParallelToAsyncOp:
+  """Specialization for the RewriteLinalgExtInParallelToAsyncOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               loc=None,
+               ip=None):
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, target, loc=loc, ip=ip)

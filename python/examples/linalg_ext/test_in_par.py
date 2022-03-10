@@ -21,35 +21,41 @@ all_experts = [
     e.print_pipeline(before_all=False) for e in [                             \
         e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [    \
             LinalgExtTile(fun_name, op_name, tile_sizes=[4])
-              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(LinalgExtTileToInParallel(fun_name))
               .then(Bufferize())
-              .then(LinalgExtInParallelToSequentialFor(fun_name, op_name))
+              .then(LinalgExtInParallelToScfFor(fun_name))
               .then(LowerToLLVM()),
             LinalgExtTile(fun_name, op_name, tile_sizes=[4])
-              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(LinalgExtTileToInParallel(fun_name))
               .then(Bufferize())
-              .then(LinalgExtInParallelToAsync(fun_name, op_name))
-              .then(LowerToLLVM()),
+              .then(LinalgExtInParallelToAsync(fun_name))
+              .then(LowerToLLVM(enable_async=True)),
             LinalgExtTile(fun_name, op_name, tile_sizes=[16])
-              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(LinalgExtTileToInParallel(fun_name))
               .then(Tile(fun_name,
                          op_name,
-                         tile_sizes=[12, 32, 16],
-                         pad=True,
-                         pack_paddings=[1, 1, 0],
-                         hoist_paddings=[2, 3, 0]))
+                         tile_sizes=[12, 32, 16]))
+              .then(Pad(fun_name,
+                        op_name,
+                        pack_paddings=[1, 1, 0],
+                        hoist_paddings=[2, 3, 0]))
               .then(Vectorize(fun_name, ''))
-              .then(LoweringOnlyExpert(fun_name, op_name)),
+              .then(Bufferize())
+              .then(LinalgExtInParallelToScfFor(fun_name))
+              .then(LowerToLLVM(enable_async=True)),
             LinalgExtTile(fun_name, op_name, tile_sizes=[0, 16])
-              .then(LinalgExtTileToInParallel(fun_name, op_name))
+              .then(LinalgExtTileToInParallel(fun_name))
               .then(Tile(fun_name,
                          op_name,
-                         tile_sizes=[12, 32, 16],
-                         pad=True,
-                         pack_paddings=[1, 1, 0],
-                         hoist_paddings=[2, 3, 0]))
+                         tile_sizes=[12, 32, 16]))
+              .then(Pad(fun_name,
+                        op_name,
+                        pack_paddings=[1, 1, 0],
+                        hoist_paddings=[2, 3, 0]))
               .then(Vectorize(fun_name, ''))
-              .then(LoweringOnlyExpert(fun_name, op_name)),
+              .then(Bufferize())
+              .then(LinalgExtInParallelToScfFor(fun_name))
+              .then(LowerToLLVM(enable_async=True)),
         ]
     ]
 ]
