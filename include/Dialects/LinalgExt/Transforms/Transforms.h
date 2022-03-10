@@ -51,6 +51,21 @@ struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
   }
 };
 
+/// Pattern to rewrite a linalg_ext::TileOp to a linalg_ext::InParallelOp.
+struct TileOpToInParallelRewriter
+    : public OpRewritePattern<linalg_ext::TileOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  FailureOr<linalg_ext::InParallelOp>
+  returningMatchAndRewrite(linalg_ext::TileOp tileOp,
+                           PatternRewriter &rewriter) const;
+
+  LogicalResult matchAndRewrite(linalg_ext::TileOp tileOp,
+                                PatternRewriter &rewriter) const override {
+    return returningMatchAndRewrite(tileOp, rewriter);
+  }
+};
+
 } // namespace linalg_ext
 } // namespace mlir
 

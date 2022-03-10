@@ -820,5 +820,20 @@ FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
   return functional::applyAt(target, functionalRewrite);
 }
 
+FailureOr<linalg_ext::InParallelOp>
+transform::RewriteLinalgExtTileToInParallelOp::applyToOne(
+    linalg_ext::TileOp target) {
+  linalg_ext::TileOpToInParallelRewriter pattern(this->getContext());
+  auto functionalRewrite =
+      [&](linalg_ext::TileOp op,
+          PatternRewriter &rewriter) -> FailureOr<linalg_ext::InParallelOp> {
+    auto result = pattern.returningMatchAndRewrite(op, rewriter);
+    if (failed(result))
+      return failure();
+    return result;
+  };
+  return functional::applyAt(target, functionalRewrite);
+}
+
 #define GET_OP_CLASSES
 #include "Dialects/LinalgTransform/LinalgTransformOps.cpp.inc"

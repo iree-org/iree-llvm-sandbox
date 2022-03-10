@@ -364,6 +364,22 @@ def RewriteLinalgExtTileToScfForOp :
   }];
 }
 
+def RewriteLinalgExtTileToInParallelOp :
+  Linalg_Transform_Operation<"rewrite_linalg_ext_tile_to_in_parallel",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+
+  let description = [{Rewrite linalg_ext.tile op to linalg_ext.in_parallel.}];
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::linalg_ext::InParallelOp> applyToOne(
+        ::mlir::linalg_ext::TileOp target);
+  }];
+}
+
 //===----------------------------------------------------------------------===//
 
 def ExpertOp : Linalg_Transform_Operation<"expert"> {

@@ -21,7 +21,6 @@ createLinalgExtTilingPass(ArrayRef<int64_t> tileSizes = {});
 
 std::unique_ptr<OperationPass<FuncOp>> createInParallelToAsyncPass();
 std::unique_ptr<OperationPass<FuncOp>> createInParallelToSequentialForPass();
-std::unique_ptr<OperationPass<FuncOp>> createTileToInParallelPass();
 
 void registerTilingInterfaceExternalModels(DialectRegistry &registry);
 
