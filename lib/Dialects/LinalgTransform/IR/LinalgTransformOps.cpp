@@ -817,9 +817,7 @@ FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
       return failure();
     return result;
   };
-  auto rewriteSeq =
-      functional::SequenceBuilder().begin(std::move(functionalRewrite));
-  return functional::applyAt(target, rewriteSeq);
+  return functional::applyAt(target, functionalRewrite);
 }
 
 #define GET_OP_CLASSES
