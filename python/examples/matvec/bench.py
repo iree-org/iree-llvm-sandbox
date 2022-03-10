@@ -25,22 +25,28 @@ all_names = [     \
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False) for e in [ \
-        SingleTilingExpert(fun_name,
-                           op_name,
-                           tile_sizes=[12, 32],
-                           tile_interchange=[0, 1],
-                           pad=True,
-                           pack_paddings=[1, 1, 0],
-                           hoist_paddings=[2, 3, 0]),
-        DoubleTilingExpert(fun_name,
-                           op_name,
-                           tile_sizes1=[128, 128],
-                           tile_interchange1=[0, 1],
-                           tile_sizes2=[12, 32],
-                           tile_interchange2=[0, 1],
-                           pad2=True,
-                           pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[4, 3, 0])
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[12, 32],
+             tile_interchange=[0, 1])
+          .then(Pad(fun_name,
+                    op_name,
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[2, 3, 0]))
+          .then(LoweringOnlyExpert(fun_name, op_name,)),
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[128, 128],
+             tile_interchange=[0, 1])
+          .then(Tile(fun_name,
+                     op_name,
+                     tile_sizes=[12, 32],
+                     tile_interchange=[0, 1]))
+          .then(Pad(fun_name,
+                    op_name,
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[4, 3, 0]))
+          .then(LoweringOnlyExpert(fun_name, op_name,)),
     ]
 ]
 

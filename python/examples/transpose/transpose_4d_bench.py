@@ -13,11 +13,10 @@ op_name = 'linalg.generic'
 
 
 def tiling_shuffle_lowering(**kwargs):
-  return TileAndDecompose(**kwargs)                                           \
+  return Tile(**kwargs)                                                       \
+    .then(DecomposeToLowerDimensionalNamedOp())                               \
     .then(Vectorize(fun_name, op_name))                                       \
-    .then(Bufferize())                                                        \
-    .then(LowerVectors(transpose_lowering='shuffle'))                         \
-    .then(LowerToLLVM())
+    .then(LoweringOnlyExpert('', '', transpose_lowering='shuffle'))
 
 
 expert_transpose_4d_0213 = tiling_shuffle_lowering(                           \

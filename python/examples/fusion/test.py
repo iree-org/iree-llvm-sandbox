@@ -13,6 +13,7 @@ from .definitions import *
 ### Expert for running the fusion tests.
 ################################################################################
 
+
 # 1 linalg.fill -> linalg.matmul fusion.
 def fill_matmul_fusion():
   fun_name = 'matmul'
@@ -23,9 +24,7 @@ def fill_matmul_fusion():
     .then(Tile(fun_name, op_name, tile_sizes=[0, 0, 24]))          \
     .then(Pad(fun_name, op_name, pack_paddings=[1, 1, 0]))         \
     .then(Vectorize(fun_name, '', vectorize_paddings=True))        \
-    .then(Bufferize())                                             \
-    .then(LowerVectors())                                          \
-    .then(LowerToLLVM())
+    .then(LoweringOnlyExpert('', ''))
   keys = ['M', 'N', 'K']
   n_iters = 1
   problem_size_list = [[24, 32, 48], [27, 37, 43]]
@@ -46,9 +45,7 @@ def fill_matmul_bias_add_fusion():
       .then(Pad(fun_name, 'linalg.fill'))                            \
       .then(Tile(fun_name, 'linalg.matmul', tile_sizes=[0, 0, 24]))  \
       .then(Pad(fun_name, 'linalg.matmul', pack_paddings=[1, 1, 0])) \
-      .then(Bufferize())                                             \
-      .then(LowerVectors())                                          \
-      .then(LowerToLLVM())
+      .then(LoweringOnlyExpert('', ''))
 
   keys = ['M', 'N', 'K']
   n_iters = 1

@@ -47,32 +47,34 @@ def all_experts(fun_name):
         Tile(fun_name,
              op_name,
              tile_sizes=[12, 32, 16],
-             tile_interchange=[0, 1, 2],
-             pad=True,
-             pack_paddings=[1, 1, 0],
-             hoist_paddings=[2, 3, 0])
+             tile_interchange=[0, 1, 2])
+          .then(Pad(fun_name,
+                    op_name,
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[2, 3, 0]))
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name, op_name)),
         Tile(fun_name,
              op_name,
              tile_sizes=[6, 32, 16],
              tile_interchange=[2, 1, 0],
-             peel=[0, 1, 2],
-             )
+             peel=[0, 1, 2])
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name, op_name,
                                    transpose_lowering='shuffle')),
-        DoubleTile(fun_name,
-                   op_name,
-                   tile_sizes1=[288, 128, 512],
-                   tile_interchange1=[0, 2, 1],
-                   tile_sizes2=[12, 32, 1],
-                   tile_interchange2=[0, 1, 2],
-                   pad2=True,
-                   pack_paddings2=[1, 1, 0],
-                   hoist_paddings2=[5, 6, 0],
-                   transpose_paddings2=[[1, 0], [0, 1], [0, 1]],
-                   )
+        Tile(fun_name,
+             op_name,
+             tile_sizes=[288, 128, 512],
+             tile_interchange=[0, 2, 1])
+          .then(Tile(fun_name,
+                     op_name,
+                     tile_sizes=[12, 32, 1],
+                     tile_interchange=[0, 1, 2]))
+          .then(Pad(fun_name,
+                    op_name,
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[5, 6, 0],
+                    transpose_paddings=[[1, 0], [0, 1], [0, 1]]))
           .then(Vectorize(fun_name, ''))
           .then(UnrollOneParentLoop(fun_name,
                                     'vector.contract',

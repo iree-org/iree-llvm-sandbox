@@ -25,11 +25,12 @@ all_names = [ \
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False) for e in [ \
-        SingleTilingExpert(
-            fun_name=fun_name,
-            op_name=op_name,
-            #           N  D, H  W  C   KH KW F
-            tile_sizes=[1, 2, 1, 8, 32, 1, 1, 8])
+        Tile(fun_name=fun_name,
+             op_name=op_name,
+             #           N  D, H  W  C   KH KW F
+             tile_sizes=[1, 2, 1, 8, 32, 1, 1, 8])
+          .then(Vectorize(fun_name, ''))
+          .then(LoweringOnlyExpert(fun_name, op_name))
     ]
 ]
 

@@ -17,11 +17,11 @@ op_name = 'linalg.conv_1d_nwc_wcf'
 
 all_names = ["Conv1DExpert"]
 all_experts = [
-    SingleTilingExpert(
-        fun_name=fun_name,
-        op_name=op_name,
-        #           N  W   C  KW  F
-        tile_sizes=[1, 8, 32, 1, 8]).print_ir(at_begin=True, after_all=False)
+    Tile(fun_name=fun_name,
+         op_name=op_name,
+         #           N  W   C  KW  F
+         tile_sizes=[1, 8, 32, 1, 8])\
+      .then(LoweringOnlyExpert(fun_name=fun_name, op_name=op_name))
 ]
 
 ################################################################################

@@ -172,7 +172,7 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
         bench, [StringAttr.get(os.getenv('SANDBOX_INLINING', 'noinline'))],
         avx512=avx512)
 
-    output_element_ctype = types[-2].element_type
+    output_element_type = types[-2].element_type
 
     index_type = IndexType.get()
     i64_type = IntegerType.get_signless(64)

@@ -25,37 +25,43 @@ all_names = [                                  \
 all_experts = [
     # Note: `\` char at the end of next line prevents formatter reflows, keep it.
     e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [        \
-        DoubleTileAndDecompose(
-             fun_name=fun_name,
+        Tile(fun_name=fun_name,
              op_name=op_name,
              #           N  H   W   C   KH, KW
              tile_sizes=[1, 8, 14, 32],
-             peel=[0, 1, 2],
-             #            N  H  W   C KH, KW
-             tile_sizes2=[1, 1, 7, 32, 1, 3],
-             peel2=[0, 1, 2])
+             peel=[0, 1, 2])
+          .then(Tile(fun_name=fun_name,
+                     op_name=op_name,
+                     #            N  H  W   C KH, KW
+                     tile_sizes=[1, 1, 7, 32, 1, 3],
+                     peel=[0, 1, 2]))
+          .then(DecomposeToLowerDimensionalNamedOp())
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name, op_name)),
-        DoubleTileAndDecompose(
-             fun_name=fun_name,
+        Tile(fun_name=fun_name,
              op_name=op_name,
              #           N  H   W   C   KH, KW
              tile_sizes=[1, 4, 14, 32],
-             peel=[0, 1, 2],
-             #            N  H  W   C KH, KW
-             tile_sizes2=[1, 1, 7, 32, 1, 3],
-             peel2=[0, 1, 2])
+             peel=[0, 1, 2])
+          .then(Tile(fun_name=fun_name,
+                     op_name=op_name,
+                     #            N  H  W   C KH, KW
+                     tile_sizes=[1, 1, 7, 32, 1, 3],
+                     peel=[0, 1, 2]))
+          .then(DecomposeToLowerDimensionalNamedOp())
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name, op_name)),
-        DoubleTileAndDecompose(
-             fun_name=fun_name,
+        Tile(fun_name=fun_name,
              op_name=op_name,
              #           N  H   W   C   KH, KW
              tile_sizes=[1, 8, 16, 32],
-             peel=[0, 1, 2],
-             #            N  H  W   C KH, KW
-             tile_sizes2=[1, 1, 8, 32, 1, 3],
-             peel2=[0, 1, 2])
+             peel=[0, 1, 2])
+          .then(Tile(fun_name=fun_name,
+                     op_name=op_name,
+                     #            N  H  W   C KH, KW
+                     tile_sizes=[1, 1, 8, 32, 1, 3],
+                     peel=[0, 1, 2]))
+          .then(DecomposeToLowerDimensionalNamedOp())
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name, op_name)),
     ]
