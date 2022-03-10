@@ -13,6 +13,10 @@
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
+namespace scf {
+class ForOp;
+}
+
 namespace linalg_ext {
 
 /// Pattern to tile a TilingInterface op using a linalg_ext::TileOp.
@@ -31,6 +35,20 @@ struct LinalgExtTilingPattern
 
 private:
   linalg::LinalgTilingOptions options;
+};
+
+/// Pattern to rewrite a linalg_ext::TileOp to an scf::ForOp.
+struct TileOpToSCFRewriter : public OpRewritePattern<linalg_ext::TileOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  FailureOr<scf::ForOp>
+  returningMatchAndRewrite(linalg_ext::TileOp tileOp,
+                           PatternRewriter &rewriter) const;
+
+  LogicalResult matchAndRewrite(linalg_ext::TileOp tileOp,
+                                PatternRewriter &rewriter) const override {
+    return returningMatchAndRewrite(tileOp, rewriter);
+  }
 };
 
 } // namespace linalg_ext
