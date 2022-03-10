@@ -5,8 +5,8 @@
 /// as related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_COLUMN_SCAN_H
-#define OPERATORS_COLUMN_SCAN_H
+#ifndef ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H
+#define ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H
 
 #include <optional>
 #include <tuple>
@@ -76,4 +76,4 @@ auto makeColumnScanOperator(std::vector<InputTypes>... inputs) {
 
 } // namespace mlir::iterators::operators
 
-#endif // OPERATORS_COLUMN_SCAN_H
+#endif // ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H

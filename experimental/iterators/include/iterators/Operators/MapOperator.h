@@ -5,8 +5,8 @@
 /// related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_MAP_H
-#define OPERATORS_MAP_H
+#ifndef ITERATORS_OPERATORS_MAPOPERATOR_H
+#define ITERATORS_OPERATORS_MAPOPERATOR_H
 
 #include <optional>
 #include <tuple>
@@ -66,4 +66,4 @@ auto makeMapOperator(UpstreamType *const upstream,
 
 } // namespace mlir::iterators::operators
 
-#endif // OPERATORS_MAP_H
+#endif // ITERATORS_OPERATORS_MAPOPERATOR_H

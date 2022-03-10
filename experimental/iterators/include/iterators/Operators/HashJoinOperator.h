@@ -5,8 +5,8 @@
 /// as related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_HASH_JOIN_H
-#define OPERATORS_HASH_JOIN_H
+#ifndef ITERATORS_OPERATORS_HASHJOINOPERATOR_H
+#define ITERATORS_OPERATORS_HASHJOINOPERATOR_H
 
 #include <optional>
 #include <tuple>
@@ -141,4 +141,4 @@ auto MakeHashJoinOperator(BuildUpstreamType *const buildUpstream,
 
 } // namespace mlir::iterators::operators
 
-#endif // OPERATORS_HASH_JOIN_H
+#endif // ITERATORS_OPERATORS_HASHJOINOPERATOR_H

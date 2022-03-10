@@ -5,8 +5,8 @@
 /// well as related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_REDUCE_BY_KEY_H
-#define OPERATORS_REDUCE_BY_KEY_H
+#ifndef ITERATORS_OPERATORS_REDUCEBYKEYOPERATOR_H
+#define ITERATORS_OPERATORS_REDUCEBYKEYOPERATOR_H
 
 #include <optional>
 #include <tuple>
@@ -126,4 +126,4 @@ auto makeReduceByKeyOperator(UpstreamType *const upstream,
 
 } // namespace mlir::iterators::operators
 
-#endif // OPERATORS_REDUCE_BY_KEY_H
+#endif // ITERATORS_OPERATORS_REDUCEBYKEYOPERATOR_H

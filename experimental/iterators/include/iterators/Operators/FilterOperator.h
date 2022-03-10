@@ -5,8 +5,8 @@
 /// related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_FILTER_H
-#define OPERATORS_FILTER_H
+#ifndef ITERATORS_OPERATORS_FILTEROPERATOR_H
+#define ITERATORS_OPERATORS_FILTEROPERATOR_H
 
 #include <optional>
 #include <tuple>
@@ -66,4 +66,4 @@ auto makeFilterOperator(UpstreamType *const upstream,
 
 } // namespace mlir::iterators::operators
 
-#endif // OPERATORS_FILTER_H
+#endif // ITERATORS_OPERATORS_FILTEROPERATOR_H

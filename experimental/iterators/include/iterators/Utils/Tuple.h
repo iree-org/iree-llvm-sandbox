@@ -1,5 +1,5 @@
-#ifndef UTILS_PRINT_H
-#define UTILS_PRINT_H
+#ifndef ITERATORS_UTILS_TUPLE_H
+#define ITERATORS_UTILS_TUPLE_H
 
 #include <iostream>
 #include <tuple>
@@ -101,4 +101,4 @@ void printTuple(const std::tuple<Types...> &tuple) {
 
 } // namespace mlir::iterators::utils
 
-#endif // UTILS_PRINT_H
+#endif // ITERATORS_UTILS_TUPLE_H

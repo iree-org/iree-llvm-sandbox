@@ -5,8 +5,8 @@
 /// related helpers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef OPERATORS_REDUCE_H
-#define OPERATORS_REDUCE_H
+#ifndef ITERATORS_OPERATORS_REDUCEOPERATOR_H
+#define ITERATORS_OPERATORS_REDUCEOPERATOR_H
 
 #include <optional>
 #include <tuple>
@@ -76,4 +76,4 @@ auto makeReduceOperator(UpstreamType *const upstream,
 
 } // namespace mlir::iterators::operators
 
-#endif // OPERATORS_REDUCE_H
+#endif // ITERATORS_OPERATORS_REDUCEOPERATOR_H
