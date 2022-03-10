@@ -84,10 +84,12 @@ module {
     //      CHECK: ^bb0(%[[OFF:.*]]: index, %[[SZ:.*]]: index, %[[C_ITER:.*]]: tensor<?x?xf32>):
     //      CHECK:   %[[M:.*]] = affine.min #[[$MAP]](%[[SZ]], %[[OFF]])
     //      CHECK:   %[[tA:.*]] = tensor.extract_slice %[[A]]{{.*}} : tensor<100x200xf32> to tensor<?x200xf32>
+    //      CHECK:   %[[tC:.*]] = tensor.cast %[[C_ITER]] : tensor<?x?xf32> to tensor<?x300xf32>
     //      CHECK:   %[[RES:.*]] = linalg.matmul
     // CHECK-SAME:      ins(%[[tA]], %[[B]] : tensor<?x200xf32>, tensor<200x300xf32>)
-    // CHECK-SAME:     outs(%[[C_ITER]] : tensor<?x?xf32>) -> tensor<?x?xf32>
-    //      CHECK:   linalg_ext.tile_yield %[[RES]] : tensor<?x?xf32>
+    // CHECK-SAME:     outs(%[[tC]] : tensor<?x300xf32>) -> tensor<?x300xf32>
+    //      CHECK:   %[[RES_DYN:.*]] = tensor.cast %[[RES]] : tensor<?x300xf32> to tensor<?x?xf32>
+    //      CHECK:   linalg_ext.tile_yield %[[RES_DYN]] : tensor<?x?xf32>
     %0 = linalg.matmul ins(%A, %B : tensor<100x200xf32>, tensor<200x300xf32>) outs(%C : tensor<100x300xf32>) -> (tensor<100x300xf32>)
     return %0 : tensor<100x300xf32>
   }
