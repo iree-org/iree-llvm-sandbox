@@ -307,7 +307,7 @@ findMatchingOps(Operation *op, SymbolRefAttr pattern, ModuleOp module) {
   // Clone the pattern operation into the temporary module used by the driver
   // as it might be referenced multiple times.
   OwningOpRef<ModuleOp> pdlModuleOp = ModuleOp::create(patternOp.getLoc());
-  OpBuilder::atBlockBegin(&pdlModuleOp->body().front()).clone(*patternOp);
+  OpBuilder::atBlockBegin(pdlModuleOp->getBody()).clone(*patternOp);
 
   // Build the PDL module.
   PDLPatternModule pdlModule(std::move(pdlModuleOp));
