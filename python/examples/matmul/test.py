@@ -23,8 +23,7 @@ expert_no_tiling = LoweringOnlyExpert('', '')
 expert_tile_1 = \
     Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24], peel=[]) \
     .then(Vectorize('matmul', ''))                                   \
-    .then(Bufferize())                                               \
-    .then(LoweringOnlyExpert('matmul', ''))
+    .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tile and interchange.
 # Note: SingleTilingExpert fails to vectorize if things don't divide and this
@@ -33,8 +32,7 @@ expert_tile_and_interchange_1 = \
     Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24],
          tile_interchange=[2, 0, 1], peel=[])                        \
     .then(Vectorize('matmul', ''))                                   \
-    .then(Bufferize())                                               \
-    .then(LoweringOnlyExpert('matmul', ''))
+    .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
 # TODO: scalarize_dyn_dims should be exposed as a variable in Tile transformation
@@ -43,7 +41,6 @@ expert_tile_1_peel_scalarize = \
     Tile('matmul', 'linalg.generic', tile_sizes=[8], peel=[0])       \
     .then(Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True)) \
     .then(Vectorize('matmul', 'linalg.generic'))                     \
-    .then(Bufferize())                                               \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling, with padding.
@@ -64,7 +61,6 @@ expert_tile_1_pad_hoist = \
               hoist_paddings=[3, 3, 3],
               transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
     .then(Vectorize('matmul', 'linalg.generic'))            \
-    .then(Bufferize())                                      \
     .then(LoweringOnlyExpert('', ''))
 # 2 levels of tiling, with padding hoisted and transposed.
 expert_tile_2_pad_hoist = \
@@ -78,7 +74,6 @@ expert_tile_2_pad_hoist = \
               hoist_paddings=[6, 6, 6],
               transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
     .then(Vectorize('matmul', 'linalg.generic'))            \
-    .then(Bufferize())                                      \
     .then(LoweringOnlyExpert('', ''))
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
 expert_tile_3_pad_hoist_peel = \
@@ -95,7 +90,6 @@ expert_tile_3_pad_hoist_peel = \
                tile_sizes=[2, 3, 7],
                peel=[0, 1, 2]))                            \
     .then(Vectorize('matmul', ''))                         \
-    .then(Bufferize())                                     \
     .then(LoweringOnlyExpert('', ''))
 
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
@@ -121,11 +115,10 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(Tile('matmul',
                 'linalg.generic',
                 tile_sizes=[2, 3, 7],
-                peel=[0, 1, 2]))                             \
+                peel=[0, 1, 2]))                                     \
     .then(Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True)) \
-    .then(Vectorize('matmul', 'linalg.generic'))             \
-    .then(Vectorize('matmul', ''))             \
-    .then(Bufferize())                                       \
+    .then(Vectorize('matmul', 'linalg.generic'))                     \
+    .then(Vectorize('matmul', ''))                                   \
     .then(LoweringOnlyExpert('', ''))
 
 # Fuse, then tile.
@@ -134,7 +127,6 @@ expert_fuse_2_tile_1 = \
     .then(Fuse('matmul', 'linalg.generic', tile_sizes=[4, 4, 0]))  \
     .then(Tile('matmul', 'linalg.generic', tile_sizes=[0, 0, 24])) \
     .then(Vectorize('matmul', ''))                                 \
-    .then(Bufferize())                                             \
     .then(LoweringOnlyExpert('', ''))
 
 # FIXME: could not find replacement for tracked op (failed to apply:
@@ -156,7 +148,6 @@ expert_fuse_and_pad = \
     .then(Tile('matmul', 'linalg.fill', tile_sizes=[8, 8]))  \
     .then(Vectorize('matmul', 'linalg.fill'))                \
     .then(Vectorize('matmul', 'linalg.generic'))             \
-    .then(Bufferize())                                       \
     .then(LoweringOnlyExpert('', ''))
 
 expert_fuse_and_pad_and_pipeline = \
@@ -167,7 +158,6 @@ expert_fuse_and_pad_and_pipeline = \
                                 parent_loop_num=1,
                                 II=10,
                                 read_latency=20))          \
-    .then(Bufferize())                                     \
     .then(LoweringOnlyExpert('', ''))
 
 all_experts = [

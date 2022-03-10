@@ -63,16 +63,20 @@ all_experts = [
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,
                                    transpose_lowering='shuffle')),
-        TripleTile(fun_name,
-                   op_name,
-                   #           M  N
-                   tile_sizes1=[32, 512],
-                   peel1=[0, 1],
-                   tile_sizes2=[32, 32],
-                   peel2=[0, 1],
-                   tile_sizes3=[4, 8],
-                   tile_interchange3=[1, 0],
-                   peel3=[0, 1],)
+        Tile(fun_name,
+             op_name,
+             #           M  N
+             tile_sizes=[32, 512],
+             peel=[0, 1])
+          .then(Tile(fun_name,
+                     op_name,
+                     tile_sizes=[32, 32],
+                     peel=[0, 1]))
+          .then(Tile(fun_name,
+                     op_name,
+                     tile_sizes=[4, 8],
+                     tile_interchange=[1, 0],
+                     peel=[0, 1],))
           .then(Vectorize(fun_name, ''))
           .then(LoweringOnlyExpert(fun_name,
                                    op_name,

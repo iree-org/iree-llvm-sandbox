@@ -13,13 +13,12 @@ from ..contraction.definitions import *
 ################################################################################
 
 # No tiling.
-expert_no_tiling = Bufferize().then(LoweringOnlyExpert('', ''))
+expert_no_tiling = LoweringOnlyExpert('', '')
 
 # 1 level of tiling.
 expert_tile_1 = \
     Tile('matvec', 'linalg.generic', tile_sizes=[8, 24]) \
     .then(Vectorize('matvec', ''))                       \
-    .then(Bufferize())                                   \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tile and interchange.
@@ -29,7 +28,6 @@ expert_tile_and_interchange_1 =       \
          tile_sizes=[8, 24],
          tile_interchange=[1, 0])     \
     .then(Vectorize('matvec', ''))    \
-    .then(Bufferize())                \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling and then generalize and interchange.
@@ -41,7 +39,6 @@ expert_tile_1_and_generalize_interchange = \
     .then(Generalize('matvec', 'linalg.generic'))             \
     .then(Interchange('matvec', iterator_interchange=[0, 1])) \
     .then(Vectorize('matvec', ''))                            \
-    .then(Bufferize())                                        \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
@@ -49,7 +46,6 @@ expert_tile_1_peel_scalarize = \
     Tile('matvec', 'linalg.generic', tile_sizes=[8], peel=[0])       \
     .then(Tile('matvec', 'linalg.generic', scalarize_dyn_dims=True)) \
     .then(Vectorize('matvec', ''))                                   \
-    .then(Bufferize())                                               \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling, with padding.
@@ -61,7 +57,6 @@ expert_tile_1_pad = \
               'linalg.generic',
               pack_paddings=[1, 1, 1])) \
     .then(Vectorize('matvec', ''))      \
-    .then(Bufferize())                  \
     .then(LoweringOnlyExpert('', ''))
 
 # 1 level of tiling, with padding, hoisted.
@@ -74,7 +69,6 @@ expert_tile_1_pad_hoist = \
               pack_paddings=[1, 1, 1],
               hoist_paddings=[3, 3, 3])) \
     .then(Vectorize('matvec', ''))       \
-    .then(Bufferize())                   \
     .then(LoweringOnlyExpert('', ''))
 
 # 2 levels of tiling, with padding, hoisted.
@@ -88,7 +82,6 @@ expert_tile_2_pad_hoist = \
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6])) \
     .then(Vectorize('matvec', ''))       \
-    .then(Bufferize())                   \
     .then(LoweringOnlyExpert('', ''))
 
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
@@ -103,7 +96,6 @@ expert_tile_3_pad_hoist_peel = \
               hoist_paddings=[6, 6, 6])) \
     .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 7], peel=[0, 1]))\
     .then(Vectorize('matvec', ''))    \
-    .then(Bufferize())                \
     .then(LoweringOnlyExpert('', ''))
 
 # 3 levels of tiling, with padding, hoisted. Peeling on the 3rd level.
@@ -120,7 +112,6 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 7], peel=[0, 1])) \
     .then(Tile('matvec', 'linalg.generic', scalarize_dyn_dims=True))\
     .then(Vectorize('matvec', ''))    \
-    .then(Bufferize())                \
     .then(LoweringOnlyExpert('', ''))
 
 # Fuse, then tile.
@@ -129,7 +120,6 @@ expert_fuse_2_tile_1 = \
     .then(Fuse('matvec', 'linalg.generic', tile_sizes=[4, 4])) \
     .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 3])) \
     .then(Vectorize('matvec', ''))    \
-    .then(Bufferize())                \
     .then(LoweringOnlyExpert('', ''))
 
 expert_fuse_and_pad = \
@@ -144,7 +134,6 @@ expert_fuse_and_pad = \
     .then(Vectorize('matvec', 'linalg.generic')) \
     .then(Tile('matvec', 'linalg.fill', tile_sizes=[8, 8]))\
     .then(Vectorize('matvec', ''))    \
-    .then(Bufferize())                \
     .then(LoweringOnlyExpert('', ''))
 
 

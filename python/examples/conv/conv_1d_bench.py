@@ -36,42 +36,42 @@ def all_experts(fun_name):
              tile_sizes=[1, 8, 32, 1, 8],
              peel=[0, 1, 2, 3, 4])
           .then(Vectorize(fun_name, ''))
-          .then(Bufferize())
-          .then(LowerVectors())
-          .then(LowerToLLVM()),
+          .then(LoweringOnlyExpert('', '')),
         Tile(fun_name,
              op_name,
              #           N  W   C  KW  F
-             tile_sizes=[1, 8, 32, 1, 8],
-             pad=True,
-             pack_paddings=[1, 1, 0],
-             hoist_paddings=[3, 0, 0])
+             tile_sizes=[1, 8, 32, 1, 8])
+          .then(Pad(fun_name,
+                     op_name,
+                     pack_paddings=[1, 1, 0],
+                     hoist_paddings=[3, 0, 0]))
           .then(Vectorize(fun_name, ''))
-          .then(Bufferize())
-          .then(LowerVectors())
-          .then(LowerToLLVM()),
-        DoubleTile(fun_name,
+          .then(LoweringOnlyExpert('', '')),
+        Tile(fun_name,
                    op_name,
-                   #            N    W    C KW    F
-                   tile_sizes1=[1,  32, 128, 3,  32],
-                   tile_sizes2=[1,   8,  32, 1,   8],
-                   peel2=[0, 1, 2, 3, 4])
+                   #           N    W    C KW    F
+                   tile_sizes=[1,  32, 128, 3,  32])
+          .then(Tile(fun_name,
+                     op_name,
+                     #           N    W    C KW    F
+                     tile_sizes=[1,   8,  32, 1,   8],
+                     peel=[0, 1, 2, 3, 4]))
           .then(Vectorize(fun_name, ''))
-          .then(Bufferize())
-          .then(LowerVectors())
-          .then(LowerToLLVM()),
-        DoubleTile(fun_name,
-                   op_name,
-                   #            N    W    C KW    F
-                   tile_sizes1=[1,  32, 128, 3,  32],
-                   tile_sizes2=[1,   8,  32, 1,   8],
-                   pad2=True,
-                   pack_paddings2=[1, 1, 0],
-                   hoist_paddings2=[3, 0, 0])
+          .then(LoweringOnlyExpert('', '')),
+        Tile(fun_name,
+             op_name,
+             #           N    W    C KW    F
+             tile_sizes=[1,  32, 128, 3,  32])
+          .then(Tile(fun_name,
+                     op_name,
+                     #           N    W    C KW    F
+                     tile_sizes=[1,   8,  32, 1,   8]))
+          .then(Pad(fun_name,
+                     op_name,
+                     pack_paddings=[1, 1, 0],
+                     hoist_paddings=[3, 0, 0]))
           .then(Vectorize(fun_name, ''))
-          .then(Bufferize())
-          .then(LowerVectors())
-          .then(LowerToLLVM()),
+          .then(LoweringOnlyExpert('', '')),
     ]
   ]
 
