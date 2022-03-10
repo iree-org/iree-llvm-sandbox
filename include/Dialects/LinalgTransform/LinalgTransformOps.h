@@ -9,6 +9,7 @@
 #ifndef MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 #define MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 
+#include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "TrackingListener.h"

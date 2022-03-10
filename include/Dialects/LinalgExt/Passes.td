@@ -73,16 +73,6 @@ def InParallelToSequentialFor : Pass<"linalg-in-parallel-to-sequential-for", "Fu
   ];
 }
 
-def TileToSequentialFor : Pass<"linalg-tile-to-sequential-for", "FuncOp"> {
-  let summary = "Pass to lower linalg_ext.tile to scf.for.";
-  let constructor = "mlir::linalg_ext::createTileToSequentialForPass()";
-  let dependentDialects = [
-    "AffineDialect",
-    "tensor::TensorDialect",
-    "scf::SCFDialect"
-  ];
-}
-
 def TileToInParallel : Pass<"linalg-tile-to-in-parallel", "FuncOp"> {
   let summary = "Pass to lower linalg_ext.tile to linalg_ext.in_parallel.";
   let constructor = "mlir::linalg_ext::createTileToInParallelPass()";

@@ -348,6 +348,22 @@ def TileToLinalgExtTileOp : Linalg_Transform_Operation<"tile_to_linalg_ext_tile_
   }];
 }
 
+def RewriteLinalgExtTileToScfForOp : 
+  Linalg_Transform_Operation<"rewrite_linalg_ext_tile_to_scf_for",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+ 
+  let description = [{Rewrite linalg_ext.tile op to scf.for.}];
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$transformed);
+ 
+  let assemblyFormat = "$target attr-dict";
+ 
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::scf::ForOp> applyToOne(
+        ::mlir::linalg_ext::TileOp target);
+  }];
+}
+
 //===----------------------------------------------------------------------===//
 
 def ExpertOp : Linalg_Transform_Operation<"expert"> {

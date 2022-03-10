@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
+#include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgExt/Transforms/Transforms.h"
 #include "Dialects/LinalgTransform/ScopedTransform.h"
 #include "Dialects/LinalgTransform/TrackingListener.h"
@@ -803,6 +804,22 @@ transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
 
   auto tileSeq = functional::SequenceBuilder().begin(std::move(functionalTile));
   return functional::applyAt(target, tileSeq);
+}
+
+FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
+    linalg_ext::TileOp target) {
+  linalg_ext::TileOpToSCFRewriter pattern(this->getContext());
+  auto functionalRewrite =
+      [&](linalg_ext::TileOp op,
+          PatternRewriter &rewriter) -> FailureOr<scf::ForOp> {
+    auto result = pattern.returningMatchAndRewrite(op, rewriter);
+    if (failed(result))
+      return failure();
+    return result;
+  };
+  auto rewriteSeq =
+      functional::SequenceBuilder().begin(std::move(functionalRewrite));
+  return functional::applyAt(target, rewriteSeq);
 }
 
 #define GET_OP_CLASSES
