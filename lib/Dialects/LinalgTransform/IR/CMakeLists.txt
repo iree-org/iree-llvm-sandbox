@@ -13,6 +13,8 @@ add_mlir_library(MLIRLinalgTransformOps
   IREELinalgTensorSandboxTransforms
   MLIRIR
   MLIRLinalg
+  MLIRLinalgExt
+  MLIRLinalgExtTransforms
   MLIRPDL
   MLIRControlFlowInterfaces
   MLIRRewrite
