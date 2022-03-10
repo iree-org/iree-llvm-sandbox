@@ -8,6 +8,7 @@
 #ifndef ITERATORS_OPERATORS_REDUCEBYKEYOPERATOR_H
 #define ITERATORS_OPERATORS_REDUCEBYKEYOPERATOR_H
 
+#include <cassert>
 #include <optional>
 #include <tuple>
 #include <unordered_map>
