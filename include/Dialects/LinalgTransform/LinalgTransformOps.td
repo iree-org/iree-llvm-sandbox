@@ -380,6 +380,22 @@ def RewriteLinalgExtTileToInParallelOp :
   }];
 }
 
+def RewriteLinalgExtInParallelToAsyncOp :
+  Linalg_Transform_Operation<"rewrite_linalg_ext_in_parallel_to_async",
+    [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
+
+  let description = [{Rewrite linalg_ext.in_parallel op to the async dialect.}];
+  let arguments = (ins PDL_Operation:$target);
+  let results = (outs PDL_Operation:$transformed);
+
+  let assemblyFormat = "$target attr-dict";
+
+  let extraClassDeclaration = [{
+    ::mlir::FailureOr<::mlir::Operation *> applyToOne(
+        ::mlir::linalg_ext::InParallelOp target);
+  }];
+}
+
 //===----------------------------------------------------------------------===//
 
 def ExpertOp : Linalg_Transform_Operation<"expert"> {

@@ -27,17 +27,6 @@ def LinalgExtTiling : Pass<"linalg-ext-tiling", "FuncOp"> {
   ];
 }
 
-def InParallelToAsync : Pass<"linalg-in-parallel-to-async", "FuncOp"> {
-  let summary = "Pass to lower linalg_ext.in_parallel to async.";
-  let constructor = "mlir::linalg_ext::createInParallelToAsyncPass()";
-  let dependentDialects = [
-    "AffineDialect",
-    "async::AsyncDialect",
-    "tensor::TensorDialect",
-    "scf::SCFDialect"
-  ];
-}
-
 def InParallelToSequentialFor : Pass<"linalg-in-parallel-to-sequential-for", "FuncOp"> {
   let summary = "Pass to lower linalg_ext.in_parallel to scf.for.";
   let description = [{
