@@ -29,7 +29,7 @@ public:
   /// Copies the given vectors into its internal state. All provided vectors
   /// have to have the same length.
   explicit ColumnScanOperator(std::vector<InputTypes>... inputs)
-      : inputs(std::make_tuple(std::move(inputs)...)), currentPos(0) {}
+      : inputs(std::make_tuple(std::move(inputs)...)) {}
 
   /// Does nothing.
   void open() {}
@@ -64,7 +64,7 @@ private:
   std::tuple<std::vector<InputTypes>...> inputs;
   /// Position of the tuple values that are returned in the next call to
   /// `computeNext`.
-  size_t currentPos;
+  size_t currentPos{0};
 };
 
 /// Creates a new `ColumnScanOperator` deriving its template parameters from
