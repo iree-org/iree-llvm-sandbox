@@ -11,6 +11,8 @@
 #include <optional>
 #include <tuple>
 
+namespace mlir::iterators::operators {
+
 /// Produces all tuples from upstream that pass the given filter.
 ///
 /// This operator returns all those tuples produced by its upstream operator
@@ -61,5 +63,7 @@ auto makeFilterOperator(UpstreamType *const upstream,
   return FilterOperator<UpstreamType, FilterFunctionType>(
       upstream, std::move(filterFunction));
 }
+
+} // namespace mlir::iterators::operators
 
 #endif // OPERATORS_FILTER_H

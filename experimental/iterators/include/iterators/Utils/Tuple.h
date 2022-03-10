@@ -4,6 +4,8 @@
 #include <iostream>
 #include <tuple>
 
+namespace mlir::iterators::utils {
+
 namespace impl {
 template <typename TupleType, std::size_t... kIndices>
 auto extractElements(const TupleType &tuple,
@@ -96,5 +98,7 @@ template <typename... Types>
 void printTuple(const std::tuple<Types...> &tuple) {
   printTuple(std::cout, tuple);
 }
+
+} // namespace mlir::iterators::utils
 
 #endif // UTILS_PRINT_H

@@ -11,6 +11,8 @@
 #include <optional>
 #include <tuple>
 
+namespace mlir::iterators::operators {
+
 /// Maps (or "transforms") all input tuples to a new one using a map function.
 ///
 /// This operator consumes the tuples produced by its upstream operator and
@@ -61,5 +63,7 @@ auto makeMapOperator(UpstreamType *const upstream,
   return MapOperator<UpstreamType, MapFunctionType>(upstream,
                                                     std::move(mapFunction));
 }
+
+} // namespace mlir::iterators::operators
 
 #endif // OPERATORS_MAP_H

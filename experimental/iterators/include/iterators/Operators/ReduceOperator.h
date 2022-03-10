@@ -11,6 +11,8 @@
 #include <optional>
 #include <tuple>
 
+namespace mlir::iterators::operators {
+
 /// Reduces (or "folds") all input tuples into one given a reduce function.
 ///
 /// This operator consumes the tuples produced by its upstream operator and
@@ -71,5 +73,7 @@ auto makeReduceOperator(UpstreamType *const upstream,
   return ReduceOperator<UpstreamType, ReduceFunctionType>(
       upstream, std::move(reduceFunction));
 }
+
+} // namespace mlir::iterators::operators
 
 #endif // OPERATORS_REDUCE_H

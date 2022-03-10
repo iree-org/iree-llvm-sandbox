@@ -12,6 +12,8 @@
 #include <tuple>
 #include <vector>
 
+namespace mlir::iterators::operators {
+
 /// Co-iterates over a set of vectors representing the columns of a table.
 ///
 /// This operator takes as an input a set of vectors that represent the columns
@@ -71,5 +73,7 @@ template <typename... InputTypes>
 auto makeColumnScanOperator(std::vector<InputTypes>... inputs) {
   return ColumnScanOperator<InputTypes...>(inputs...);
 }
+
+} // namespace mlir::iterators::operators
 
 #endif // OPERATORS_COLUMN_SCAN_H

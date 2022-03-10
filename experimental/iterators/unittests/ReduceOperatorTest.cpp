@@ -6,6 +6,8 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/ReduceOperator.h"
 
+using namespace mlir::iterators::operators;
+
 TEST(ReduceTest, SingleColumnSum) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};
   auto scan = makeColumnScanOperator(numbers);

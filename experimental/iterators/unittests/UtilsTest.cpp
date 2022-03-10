@@ -5,6 +5,8 @@
 
 #include "iterators/Utils/Tuple.h"
 
+using namespace mlir::iterators::utils;
+
 TEST(ExtractHeadTest, Head0) {
   std::tuple<int16_t, int32_t> tuple = {1, 2};
   auto const head = takeFront<0>(tuple);

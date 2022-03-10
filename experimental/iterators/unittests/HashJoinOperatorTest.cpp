@@ -6,6 +6,8 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/HashJoinOperator.h"
 
+using namespace mlir::iterators::operators;
+
 TEST(HashJoinTest, SingleColumnKey) {
   std::vector<int32_t> leftKeys = {1, 2, 1, 2, 5};
   std::vector<int32_t> leftValues = {1, 1, 2, 2, 5};

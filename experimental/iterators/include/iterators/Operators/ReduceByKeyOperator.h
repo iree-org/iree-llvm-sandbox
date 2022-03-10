@@ -14,6 +14,8 @@
 
 #include "iterators/Utils/Tuple.h"
 
+namespace mlir::iterators::operators {
+
 /// Groups the input tuples by key and reduces the tuples within each group.
 ///
 /// This operator consumes the tuples produced by its upstream operator, groups
@@ -78,8 +80,8 @@ private:
   /// Runs the actual "reduce-by-key" logic while consuming all upstream.
   void consumeUpstream() {
     while (auto const tuple = upstream->computeNext()) {
-      auto const key = takeFront<kNumKeyAttributes>(tuple.value());
-      auto const value = dropFront<kNumKeyAttributes>(tuple.value());
+      auto const key = utils::takeFront<kNumKeyAttributes>(tuple.value());
+      auto const value = utils::dropFront<kNumKeyAttributes>(tuple.value());
       auto const [it, hasInserted] = result.emplace(key, value);
       if (!hasInserted)
         it->second = reduceFunction(it->second, value);
@@ -90,10 +92,10 @@ private:
     hasConsumedUpstream = true;
   }
 
-  using KeyTuple =
-      decltype(takeFront<kNumKeyAttributes>(std::declval<OutputTuple>()));
-  using ValueTuple =
-      decltype(dropFront<kNumKeyAttributes>(std::declval<OutputTuple>()));
+  using KeyTuple = decltype(utils::takeFront<kNumKeyAttributes>(
+      std::declval<OutputTuple>()));
+  using ValueTuple = decltype(utils::dropFront<kNumKeyAttributes>(
+      std::declval<OutputTuple>()));
 
   /// Reference to the upstream operator.
   UpstreamType *const upstream;
@@ -101,7 +103,7 @@ private:
   ReduceFunctionType reduceFunction;
   /// Holds the tuples to be returned by this operator (after the first call to
   /// `computeNext`).
-  std::unordered_map<KeyTuple, ValueTuple, TupleHasher<KeyTuple>> result;
+  std::unordered_map<KeyTuple, ValueTuple, utils::TupleHasher<KeyTuple>> result;
   /// Iterator to the tuple returned by the next call to `computeNext`.
   typename decltype(result)::iterator resultIt;
   /// Past-the-end iterator of the tuples returned by this operator.
@@ -121,5 +123,7 @@ auto makeReduceByKeyOperator(UpstreamType *const upstream,
                              kNumKeyAttributes>(upstream,
                                                 std::move(reduceFunction));
 }
+
+} // namespace mlir::iterators::operators
 
 #endif // OPERATORS_REDUCE_BY_KEY_H

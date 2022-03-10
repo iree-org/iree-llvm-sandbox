@@ -7,6 +7,9 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/ReduceByKeyOperator.h"
 
+using namespace mlir::iterators::operators;
+using namespace mlir::iterators::utils;
+
 TEST(ReduceByKeyTest, SingleColumnKey) {
   std::vector<int32_t> keys = {1, 2, 1, 2};
   std::vector<int32_t> values = {1, 2, 3, 4};

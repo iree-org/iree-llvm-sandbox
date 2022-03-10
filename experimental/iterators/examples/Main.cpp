@@ -4,6 +4,9 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Utils/Tuple.h"
 
+using namespace mlir::iterators::operators;
+using namespace mlir::iterators::utils;
+
 int main(int /*unused*/, char ** /*unused*/) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};
   auto scan = makeColumnScanOperator(numbers, numbers, numbers);

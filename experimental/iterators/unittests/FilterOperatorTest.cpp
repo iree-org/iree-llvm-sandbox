@@ -6,6 +6,8 @@
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/FilterOperator.h"
 
+using namespace mlir::iterators::operators;
+
 TEST(FilterTest, SingleColumn) {
   std::vector<int32_t> numbers = {1, 2, 3, 4, 5, 6};
   auto scan = makeColumnScanOperator(numbers);
