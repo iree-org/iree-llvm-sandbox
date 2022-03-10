@@ -19,7 +19,7 @@ auto extractElements(const TupleType &tuple,
 
 template <std::size_t kFrontSize, typename TupleType, std::size_t... kIndices>
 auto dropFront(const TupleType &tuple,
-                 const std::index_sequence<kIndices...> & /*unused*/) {
+               const std::index_sequence<kIndices...> & /*unused*/) {
   using IndexSequence =
       std::integer_sequence<std::size_t, kIndices + kFrontSize...>;
   return extractElements(tuple, IndexSequence{});
