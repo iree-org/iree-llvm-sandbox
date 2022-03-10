@@ -398,15 +398,8 @@ class ApplySchedule(Transform):
 
   def __call__(self, module: Module, **kwargs):
     PassManager.parse('linalg-interp-transforms').run(module)
-    self.drop_schedule_from_module(module)
+    PassManager.parse('linalg-drop-schedule-from-module').run(module)
     return module
-
-  def drop_schedule_from_module(self, module):
-    for op in module.body.operations:
-      op_name = op.operation.name
-      if op_name == 'pdl.pattern' or op_name == 'linalg_transform.sequence':
-        op.operation.erase()
-
 
 ###############################################################################
 # TODO: Port to the transform dialect
