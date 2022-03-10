@@ -41,28 +41,30 @@ def all_experts(fun_name: str):
         LinalgExtTile(fun_name,
                       op_name,
                       tile_sizes=[parallel_tile_size_per_async_thread])
-          .then(LinalgExtTileToInParallel(fun_name, op_name))
-          .then(DoubleTile(fun_name,
-                           op_name,
-                           tile_sizes1=[parallel_tile_size_1,
-                                        parallel_tile_size_2,
-                                        parallel_tile_size_3],
-                           tile_interchange1=[0, 2, 1],
-                           tile_sizes2=[12, 32, 1],
-                           tile_interchange2=[1, 0, 2],
-                           # In the parallel case, peeling performs quite better atm.
-                           # TODO: Investigate inefficiencies in padding/packing.
-                           # peel2=[0, 1, 2],
-                           pad2=True,
-                           pack_paddings2=[1, 1, 0],
-                           hoist_paddings2=[1, 2, 0],
-                           transpose_paddings2=[[1, 0], [0, 1], [0, 1]],
-                           ))
+          .then(LinalgExtTileToInParallel(fun_name))
+          .then(Tile(fun_name,
+                     op_name,
+                     tile_sizes=[parallel_tile_size_1,
+                                  parallel_tile_size_2,
+                                  parallel_tile_size_3],
+                     tile_interchange=[0, 2, 1]))
+          .then(Tile(fun_name,
+                     op_name,
+                     tile_sizes=[12, 32, 1],
+                     tile_interchange=[1, 0, 2]))
+          # In the parallel case, peeling performs quite better atm.
+          # TODO: Investigate inefficiencies in padding/packing.
+          # peel=[0, 1, 2],
+          .then(Pad(fun_name,
+                    op_name,
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[1, 2, 0],
+                    transpose_paddings=[[1, 0], [0, 1], [0, 1]],))
           .then(Vectorize(fun_name, ''))
-          .then(Bufferize)
-          .then(LinalgExtInParallelToAsync)
-          .then(LowerVectors)
-          .then(LowerToLLVM)
+          .then(Bufferize())
+          .then(LinalgExtInParallelToAsync(fun_name))
+          .then(LowerVectors())
+          .then(LowerToLLVM(enable_async=True))
         ]
     ]
   ]

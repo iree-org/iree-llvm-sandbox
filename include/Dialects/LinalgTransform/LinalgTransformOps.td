@@ -256,8 +256,8 @@ def LowerToLLVMOp : Transform_Op<"lower_to_llvm"> {
      DefaultValuedAttr<BoolAttr, "false">:$enable_arm_neon,
      DefaultValuedAttr<BoolAttr, "false">:$enable_arm_sve,
      DefaultValuedAttr<BoolAttr, "false">:$enable_amx,
-     DefaultValuedAttr<BoolAttr, "false">:$enable_x86vector
-    );
+     DefaultValuedAttr<BoolAttr, "false">:$enable_x86vector,
+     DefaultValuedAttr<BoolAttr, "false">:$enable_async);
 
   let assemblyFormat = "attr-dict";
 }

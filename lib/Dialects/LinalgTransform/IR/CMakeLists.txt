@@ -12,16 +12,22 @@ add_mlir_library(MLIRLinalgTransformOps
   LINK_LIBS PUBLIC
   IREELinalgTensorSandboxTransforms
   MLIRIR
+  # Dialects
+  MLIRAsync
   MLIRLinalg
   MLIRLinalgExt
   MLIRLinalgExtTransforms
   MLIRPDL
   MLIRControlFlowInterfaces
   MLIRRewrite
+  # Transforms
+  MLIRAsyncTransforms
   MLIRLinalgTransforms
   MLIRAffineToStandard
   MLIRTransforms
   MLIRReconcileUnrealizedCasts
+  # Conversions
+  MLIRAsyncToLLVM
   MLIRMemRefToLLVM
   MLIRMathToLLVM
   MLIRVectorToLLVM
