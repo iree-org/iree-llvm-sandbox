@@ -133,7 +133,7 @@ private:
 /// provided arguments.
 template <std::size_t kNumKeyAttributes, typename BuildUpstreamType,
           typename ProbeUpstreamType>
-auto MakeHashJoinOperator(BuildUpstreamType *const buildUpstream,
+auto makeHashJoinOperator(BuildUpstreamType *const buildUpstream,
                           ProbeUpstreamType *const probeUpstream) {
   return HashJoinOperator<BuildUpstreamType, ProbeUpstreamType,
                           kNumKeyAttributes>(buildUpstream, probeUpstream);
