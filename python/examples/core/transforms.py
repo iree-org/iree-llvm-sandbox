@@ -11,13 +11,6 @@ import mlir.all_passes_registration
 import typing as tp
 
 
-def _get_size_list_as_str(name: str, sizes: tp.List[int]) -> str:
-  """Compute the textual tile size flag for the given `transform`."""
-  if not sizes or len(sizes) == 0:
-    return ''
-  return f'{name}={",".join([str(ts) for ts in sizes])}'
-
-
 def make_pattern_name(fun_name: str, op_name: str):
   return "match_" + op_name.replace('.', '_') + "_in_" + fun_name
 
