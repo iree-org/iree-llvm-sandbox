@@ -11,7 +11,6 @@
 #include <cstdlib>
 
 #include "Dialects/LinalgExt/LinalgExtOps.h"
-#include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "Dialects/LinalgExt/Transforms/Transforms.h"
 #include "Transforms/Utils.h"
