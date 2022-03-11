@@ -235,7 +235,7 @@ def main(args):
   # Write out .env.
   with open(f"{os.path.join(args.repo_root, '.env')}", "wt") as f:
     f.write(
-        f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_package')}"
+        f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_packages')}"
     )
 
   # Do initial build.
