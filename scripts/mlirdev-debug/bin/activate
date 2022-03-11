@@ -1,0 +1,48 @@
+
+export LLVM_SOURCE_DIR=${HOME}/github/llvm-project
+export LLVM_BUILD_DIR=${HOME}/github/llvm-project/build_debug
+#export CC=/usr/local/bin/clang-14
+#export CXX=/usr/local/bin/clang-14
+
+export IREE_SOURCE_DIR=/usr/local/google/home/ntv/github/iree
+export IREE_LLVM_SANDBOX_SOURCE_DIR=${HOME}/github/iree-llvm-sandbox
+export IREE_LLVM_SANDBOX_BUILD_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR}/build_debug
+export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so
+export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so
+export MLIR_RUNNER_EXTRA_LIBS=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_async_runtime_copy.so
+export PATH=${PATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/bin:${LLVM_BUILD_DIR}/bin
+export CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/usr/local/google/home/ntv/.venv/mlirdev-debug/lib/python3.9/site-packages
+
+sandbox-configure-and-build-iree() {
+    cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+    python ./configure.py --build-mode=Debug --build-dir=${IREE_LLVM_SANDBOX_BUILD_DIR} --use-system-cc --iree-path=${IREE_SOURCE_DIR}
+    source .env
+}
+
+sandbox-configure-and-build-naked() {
+    cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+    python ./configure.py --build-mode=Debug --build-dir=${IREE_LLVM_SANDBOX_BUILD_DIR} --use-system-cc
+    source .env
+}
+
+sandbox-build() {
+    cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+    (cd ${IREE_LLVM_SANDBOX_BUILD_DIR} && ninja tools/sandbox/all)
+    source .env
+}
+
+llvm-build() {
+    cd ${LLVM_SOURCE_DIR}
+    (cd ${LLVM_BUILD_DIR} && ninja all)
+}
+
+llvm-configure-and-build() {
+    cd ${LLVM_SOURCE_DIR}
+    cmake -GNinja -B${LLVM_BUILD_DIR} ${LLVM_SOURCE_DIR}/llvm -DLLVM_ENABLE_LLD=ON \
+    -DLLVM_CCACHE_BUILD=ON -DLLVM_ENABLE_PROJECTS="mlir" \
+    -DLLVM_TARGETS_TO_BUILD="X86" -DMLIR_INCLUDE_INTEGRATION_TESTS=ON \
+    -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_INCLUDE_UTILS=ON -DLLVM_INSTALL_UTILS=ON \
+    -DLLVM_BUILD_EXAMPLES=ON -DMLIR_ENABLE_BINDINGS_PYTHON=ON -DPython3_EXECUTABLE=$(which python) \
+    -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON
+    llvm-build
+}
