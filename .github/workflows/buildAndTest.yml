@@ -28,6 +28,8 @@ jobs:
       with:
         path: iree
         repository: google/iree
+        # Always build with iree/iree-dialects on the iree/sandbox branch.
+        ref: sandbox
 
     # Note that actions/checkout is faster than a general purpose submodule
     # fetch (by a lot), so we get the commit hash and check it out ourselves.
@@ -57,7 +59,8 @@ jobs:
     - name: Build
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
-        python configure.py --llvm-path=../llvm-project --iterators
+        # Always build with iree/iree-dialects on the iree/sandbox branch.
+        python configure.py --llvm-path=../llvm-project  --iree-path=../iree --iterators
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
 
@@ -66,4 +69,3 @@ jobs:
         cd ${GITHUB_WORKSPACE}/sandbox
         python run_tests.py --iterators-tests
 
-    # TODO: Add a build for IREE but it will get stale as soon as we update core + sandbox
