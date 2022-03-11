@@ -18,5 +18,4 @@ add_mlir_library(IREELinalgTensorSandboxTransforms
   DriverPassIncGen
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
-  MLIRLinalgExtPassIncGen
 )

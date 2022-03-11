@@ -21,6 +21,9 @@
 using namespace mlir;
 using namespace mlir::linalg_ext;
 
+// TODO: connect these patterns to PDL. Either via the transform dialect or via
+// PDLL.
+
 static bool isZero(Value v) {
   if (auto cst = v.getDefiningOp<arith::ConstantIndexOp>())
     return cst.value() == 0;
@@ -213,31 +216,4 @@ private:
   linalg::LinalgTransformationFilter filter;
 };
 
-/// Pass to test the tiling tranforamtion.
-struct LinalgExtTilingPass : public LinalgExtTilingBase<LinalgExtTilingPass> {
-  LinalgExtTilingPass() = default;
-  LinalgExtTilingPass(ArrayRef<int64_t> tileSizes) {
-    this->tileSizes = tileSizes;
-  }
-  void runOnOperation() override;
-};
 } // namespace
-
-void LinalgExtTilingPass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  MLIRContext *context = funcOp.getContext();
-
-  RewritePatternSet patterns(context);
-
-  auto options = linalg::LinalgTilingOptions().setTileSizes(tileSizes);
-  auto filter = linalg::LinalgTransformationFilter(
-      ArrayRef<StringAttr>{}, StringAttr::get(context, "tiled"));
-  patterns.insert<OpTilingPattern, SliceOpTiledOpSwapPattern>(context, options,
-                                                              filter);
-  (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
-}
-
-std::unique_ptr<OperationPass<FuncOp>>
-mlir::linalg_ext::createLinalgExtTilingPass(ArrayRef<int64_t> tileSizes) {
-  return std::make_unique<LinalgExtTilingPass>(tileSizes);
-}
