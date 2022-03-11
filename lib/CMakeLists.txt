@@ -35,7 +35,6 @@ set(IREE_LINALG_TENSOR_SANDBOX_DEPENDS
   DriverPassIncGen
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
-  MLIRLinalgExtPassIncGen
 )
 
 add_mlir_library(IREELinalgTensorSandboxDriver

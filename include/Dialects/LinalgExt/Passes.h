@@ -15,14 +15,7 @@ class DialectRegistry;
 
 namespace linalg_ext {
 
-/// Create a pass to drive tiling of LinalgExt operations to scf::ForOp.
-std::unique_ptr<OperationPass<FuncOp>>
-createLinalgExtTilingPass(ArrayRef<int64_t> tileSizes = {});
-
 void registerTilingInterfaceExternalModels(DialectRegistry &registry);
-
-#define GEN_PASS_REGISTRATION
-#include "Dialects/LinalgExt/Passes.h.inc"
 
 } // namespace linalg_ext
 } // namespace mlir

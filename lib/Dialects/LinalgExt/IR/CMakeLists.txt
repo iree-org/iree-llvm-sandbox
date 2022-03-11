@@ -7,7 +7,6 @@ add_mlir_library(MLIRLinalgExt
   mlir-headers
   MLIRLinalgExtInterfacesIncGen
   MLIRLinalgExtOpsIncGen
-  MLIRLinalgExtPassIncGen
 
   LINK_LIBS PUBLIC
   MLIRAffine
