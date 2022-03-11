@@ -38,6 +38,7 @@ def _convert_path_to_module(test_script: str) -> str:
 def _configure_env():
   env = os.environ
   build_dir = env["IREE_LLVM_SANDBOX_BUILD_DIR"]
+  # TODO: just grab from .env.
   env["PYTHONPATH"] = (
       os.path.join(build_dir, "tools/sandbox/python_packages") +
       ((":" + env["PYTHONPATH"]) if "PYTHONPATH" in env else ""))

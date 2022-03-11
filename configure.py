@@ -123,8 +123,8 @@ def main(args):
       print(f"ERROR: Cannot find iree-dialects project at {iree_dialects_path}")
       return 1
     # Must come before the sandbox project.
-    llvm_projects.insert(0, "iree_dialects")
-    #llvm_projects.append("iree_dialects")
+    llvm_projects.insert(0, "iree-dialects")
+    #llvm_projects.append("iree-dialects")
     llvm_configure_args.append(
         f"-DLLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR={iree_dialects_path}")
 
