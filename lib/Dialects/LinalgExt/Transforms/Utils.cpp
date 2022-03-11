@@ -8,7 +8,6 @@
 
 #include "Dialects/LinalgExt/Transforms/Utils.h"
 #include "Dialects/LinalgExt/LinalgExtOps.h"
-#include "Dialects/LinalgExt/PassDetail.h"
 #include "Dialects/LinalgExt/Passes.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
