@@ -74,13 +74,11 @@ def parse_arguments():
       default=False,
       action="store_true",
   )
-  parser.add_argument(
-      "--build-compilation-database",
-      help="Build compilation database",
-      dest="build_compilation_database",
-      default=False,
-      action="store_true"
-  )
+  parser.add_argument("--build-compilation-database",
+                      help="Build compilation database",
+                      dest="build_compilation_database",
+                      default=False,
+                      action="store_true")
   parser.add_argument(
       "--cuda-runner",
       help="Build cuda runner library",
@@ -135,7 +133,7 @@ def main(args):
     llvm_path = os.path.abspath(args.llvm_path)
     print(f"-- Using explicit llvm-project path: {llvm_path}")
   elif llvm_path:
-    print(f"-- Using inferred llvm-project path: {llvm_path}")
+    print(f"-- Using IREE inferred llvm-project path: {llvm_path}")
   else:
     llvm_path = os.path.join(args.repo_root, "..", "llvm-project")
     print(f"-- Using default llvm-project path: {llvm_path}")
@@ -200,7 +198,8 @@ def main(args):
       print("WARNING: Project developers use ccache which is not installed")
   # Build compilation database.
   if args.build_compilation_database:
-    llvm_configure_args.append("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON") 
+    llvm_configure_args.append("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
+
 
 # Build CUDA runner.
   if args.cuda_runner:
@@ -253,12 +252,11 @@ def main(args):
 
   if args.cuda_runner:
     cmake_args.append("mlir_cuda_runtime")
-    
+
   print(f"-- Performing initial build: {' '.join(cmake_args)}")
   subprocess.check_call(cmake_args, cwd=build_dir)
 
   return 0
-
 
 if __name__ == "__main__":
   sys.exit(main(parse_arguments()))
