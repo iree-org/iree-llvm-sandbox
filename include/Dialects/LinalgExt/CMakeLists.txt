@@ -1,3 +1,0 @@
-add_mlir_dialect(LinalgExtOps linalg_ext)
-add_mlir_interface(LinalgExtInterfaces)
-add_dependencies(mlir-headers MLIRLinalgExtInterfacesIncGen)

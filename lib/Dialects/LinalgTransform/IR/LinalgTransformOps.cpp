@@ -7,13 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
-#include "Dialects/LinalgExt/LinalgExtOps.h"
-#include "Dialects/LinalgExt/Transforms/Transforms.h"
 #include "Dialects/LinalgTransform/ScopedTransform.h"
 #include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Dialects/LinalgTransform/TrackingRewriteDriver.h"
 #include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "Transforms/Listener.h"
+
+#include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.h"
+#include "iree-dialects/Dialect/LinalgExt/Transforms/Transforms.h"
+
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
@@ -59,6 +61,7 @@
 
 using namespace mlir;
 using namespace mlir::linalg;
+using namespace mlir::iree_compiler::IREE;
 
 void transform::LinalgTransformDialect::initialize() {
   addOperations<
@@ -801,7 +804,7 @@ transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
   if (!tileSizes.empty())
     tilingOptions.setTileSizes(tileSizes);
 
-  linalg_ext::LinalgExtTilingPattern pattern(this->getContext(), tilingOptions);
+  LinalgExt::LinalgExtTilingPattern pattern(this->getContext(), tilingOptions);
   auto functionalTile =
       [&](TilingInterface op,
           PatternRewriter &rewriter) -> FailureOr<Operation *> {
@@ -816,10 +819,10 @@ transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
 }
 
 FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
-    linalg_ext::TileOp target) {
-  linalg_ext::TileOpToSCFRewriter pattern(this->getContext());
+    LinalgExt::TileOp target) {
+  LinalgExt::TileOpToSCFRewriter pattern(this->getContext());
   auto functionalRewrite =
-      [&](linalg_ext::TileOp op,
+      [&](LinalgExt::TileOp op,
           PatternRewriter &rewriter) -> FailureOr<scf::ForOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
     if (failed(result))
@@ -829,13 +832,13 @@ FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
   return functional::applyAt(target, functionalRewrite);
 }
 
-FailureOr<linalg_ext::InParallelOp>
+FailureOr<LinalgExt::InParallelOp>
 transform::RewriteLinalgExtTileToInParallelOp::applyToOne(
-    linalg_ext::TileOp target) {
-  linalg_ext::TileOpToInParallelRewriter pattern(this->getContext());
+    LinalgExt::TileOp target) {
+  LinalgExt::TileOpToInParallelRewriter pattern(this->getContext());
   auto functionalRewrite =
-      [&](linalg_ext::TileOp op,
-          PatternRewriter &rewriter) -> FailureOr<linalg_ext::InParallelOp> {
+      [&](LinalgExt::TileOp op,
+          PatternRewriter &rewriter) -> FailureOr<LinalgExt::InParallelOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
     if (failed(result))
       return failure();
@@ -846,10 +849,10 @@ transform::RewriteLinalgExtTileToInParallelOp::applyToOne(
 
 FailureOr<Operation *>
 transform::RewriteLinalgExtInParallelToAsyncOp::applyToOne(
-    linalg_ext::InParallelOp target) {
-  linalg_ext::InParallelOpToAsyncRewriter pattern(this->getContext());
+    LinalgExt::InParallelOp target) {
+  LinalgExt::InParallelOpToAsyncRewriter pattern(this->getContext());
   auto functionalRewrite =
-      [&](linalg_ext::InParallelOp op,
+      [&](LinalgExt::InParallelOp op,
           PatternRewriter &rewriter) -> FailureOr<Operation *> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
     if (failed(result))
@@ -861,10 +864,10 @@ transform::RewriteLinalgExtInParallelToAsyncOp::applyToOne(
 
 FailureOr<scf::ForOp>
 transform::RewriteLinalgExtInParallelToScfForOp::applyToOne(
-    linalg_ext::InParallelOp target) {
-  linalg_ext::InParallelOpToScfForRewriter pattern(this->getContext());
+    LinalgExt::InParallelOp target) {
+  LinalgExt::InParallelOpToScfForRewriter pattern(this->getContext());
   auto functionalRewrite =
-      [&](linalg_ext::InParallelOp op,
+      [&](LinalgExt::InParallelOp op,
           PatternRewriter &rewriter) -> FailureOr<scf::ForOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
     if (failed(result))

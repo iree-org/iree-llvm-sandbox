@@ -10,13 +10,13 @@ add_mlir_library(MLIRLinalgTransformOps
   mlir-headers
 
   LINK_LIBS PUBLIC
-  IREELinalgTensorSandboxTransforms
+  IREESandboxTransforms
   MLIRIR
   # Dialects
+  IREELinalgExtDialect
+  IREELinalgExtTransforms
   MLIRAsync
   MLIRLinalg
-  MLIRLinalgExt
-  MLIRLinalgExtTransforms
   MLIRPDL
   MLIRControlFlowInterfaces
   MLIRRewrite

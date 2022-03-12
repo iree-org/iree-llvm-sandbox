@@ -9,10 +9,12 @@
 #ifndef MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 #define MLIR_DIALECT_LINALG_IR_LINALGTRANSFORMOPS_H
 
-#include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "Dialects/LinalgTransform/TrackingListener.h"
 #include "Dialects/LinalgTransform/TransformOpInterface.h"
 #include "TrackingListener.h"
+
+#include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.h"
+
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
