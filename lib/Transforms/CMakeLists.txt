@@ -1,5 +1,5 @@
 
-add_mlir_library(IREELinalgTensorSandboxTransforms
+add_mlir_library(IREESandboxTransforms
   FuseFillIntoReduction.cpp
   Listener.cpp
   ListenerCSE.cpp
@@ -16,6 +16,6 @@ add_mlir_library(IREELinalgTensorSandboxTransforms
   DEPENDS
   mlir-headers
   DriverPassIncGen
-  MLIRLinalgExtInterfacesIncGen
-  MLIRLinalgExtOpsIncGen
+  IREELinalgExtIncGen
+  IREELinalgExtInterfacesIncGen
 )

@@ -9,7 +9,7 @@
 #ifndef PYTHON_BINDINGS_LINALGEXT_OPS
 #define PYTHON_BINDINGS_LINALGEXT_OPS
 
-include "Dialects/LinalgExt/LinalgExtOps.td"
+include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.td"
 include "mlir/Bindings/Python/Attributes.td"
 
 #endif // PYTHON_BINDINGS_LINALGEXT_OPS

@@ -5,13 +5,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "Registration.h"
-#include "Dialects/LinalgExt/LinalgExtBufferization.h"
-#include "Dialects/LinalgExt/LinalgExtDialect.h"
-#include "Dialects/LinalgExt/Passes.h"
 #include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Dialects/LinalgTransform/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "Transforms/Passes.h"
+
 #include "mlir/Dialect/Arithmetic/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/AffineInterfaceImpl.h"
@@ -39,7 +37,10 @@ using namespace mlir::linalg;
 #ifdef SANDBOX_ENABLE_IREE_DIALECTS
 #include "iree-dialects/Dialect/Input/InputDialect.h"
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
-#include "iree-dialects/Dialect/LinalgExt/Transforms/Passes.h"
+#include "iree-dialects/Dialect/LinalgExt/LinalgExtBufferization.h"
+#include "iree-dialects/Dialect/LinalgExt/Passes/Passes.h"
+
+using namespace mlir::iree_compiler::IREE;
 
 static void registerIreeDialects(DialectRegistry &registry) {
   registry.insert<mlir::iree_compiler::IREE::Input::IREEInputDialect>();
@@ -97,12 +98,13 @@ void mlir::registerOutsideOfDialectRegistry() {
 void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
   registerAllDialects(registry);
   registerIreeDialects(registry);
-  registry.insert<linalg_ext::LinalgExtDialect,
-                  linalg::transform::LinalgTransformDialect,
+  registry.insert<linalg::transform::LinalgTransformDialect,
                   vector_ext::VectorExtDialect>();
 
-  linalg_ext::registerTilingInterfaceExternalModels(registry);
+  // Tiling external models.
+  LinalgExt::registerTilingInterfaceExternalModels(registry);
 
+  // Bufferization external models.
   linalg::comprehensive_bufferize::affine_ext::
       registerBufferizableOpInterfaceExternalModels(registry);
   arith::registerBufferizableOpInterfaceExternalModels(registry);
@@ -112,5 +114,5 @@ void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
       registerModuleBufferizationExternalModels(registry);
   tensor::registerBufferizableOpInterfaceExternalModels(registry);
   vector::registerBufferizableOpInterfaceExternalModels(registry);
-  mlir::linalg_ext::registerBufferizableOpInterfaceExternalModels(registry);
+  LinalgExt::registerBufferizableOpInterfaceExternalModels(registry);
 }

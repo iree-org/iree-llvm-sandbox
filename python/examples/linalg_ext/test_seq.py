@@ -9,7 +9,7 @@ from ..core.transforms import *
 from ..contraction.definitions import *
 
 from mlir.iree_sandbox import *
-from mlir.dialects.linalg_ext import *
+from mlir.dialects.iree_linalg_ext import *
 from mlir.dialects.linalg_transform import *
 
 import typing as tp
@@ -21,13 +21,13 @@ op_name = 'linalg.generic'
 # Compilation strategies.
 ################################################################################
 
-expert_linalg_ext_tile = [                                 \
+expert_iree_linalg_ext_tile = [                                 \
     LinalgExtTile(fun_name, op_name, tile_sizes=[2])       \
     .then(LinalgExtTileToScfFor(fun_name)) \
     .then(Vectorize(fun_name, ''))\
     .then(LoweringOnlyExpert(fun_name, op_name, transpose_avx2_lowering=True))\
 ]
-all_experts = expert_linalg_ext_tile
+all_experts = expert_iree_linalg_ext_tile
 
 ################################################################################
 # Problem instantiations.
