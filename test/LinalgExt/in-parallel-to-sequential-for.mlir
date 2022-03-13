@@ -24,7 +24,7 @@ module {
 
     // CHECK: %[[M:.*]] = tensor.dim %{{.*}}, %{{.*}} : tensor<?xf32>
     // CHECK: scf.for %[[IV:.*]] = {{.*}} iter_args(%[[OUT:.*]] = %{{.*}}) -> (tensor<?xf32>) {
-    %2 = linalg_ext.in_parallel %1  -> (tensor<?xf32>) {
+    %2 = iree_linalg_ext.in_parallel %1  -> (tensor<?xf32>) {
       ^bb0(%arg3: index):  // no predecessors
         %3 = affine.apply #map1(%arg3)[%arg0]
         %4 = affine.apply #map2(%0, %3)
@@ -43,8 +43,8 @@ module {
 
         // CHECK:    %[[RES:.*]] = tensor.insert_slice %{{.*}} into %[[OUT]][{{.*}}] : tensor<?xf32> into tensor<?xf32>
         // CHECK:    scf.yield %[[RES]] : tensor<?xf32>
-        linalg_ext.perform_concurrently {
-          linalg_ext.parallel_insert_slice %8 into %arg2[%3] [%5] [%c1] : tensor<?xf32> into tensor<?xf32>
+        iree_linalg_ext.perform_concurrently {
+          iree_linalg_ext.parallel_insert_slice %8 into %arg2[%3] [%5] [%c1] : tensor<?xf32> into tensor<?xf32>
         }
     }
     return %2 : tensor<?xf32>
@@ -64,7 +64,7 @@ module {
     // CHECK: %[[C1:.*]] = arith.constant 1 : index
     // CHECK: %[[M:.*]] = memref.dim %{{.*}}, %{{.*}} : memref<?xf32>
     // CHECK: scf.for %[[IV:.*]] = {{.*}} step %[[C1]] {
-    linalg_ext.in_parallel %1 -> () {
+    iree_linalg_ext.in_parallel %1 -> () {
       ^bb0(%arg3: index):  // no predecessors
         %3 = affine.apply #map1(%arg3)[%arg0]
         %4 = affine.apply #map2(%0, %3)
@@ -82,20 +82,20 @@ module {
 
         // Nothing is yielded, skip the terminator.
         // CHECK-NOT: scf.yield
-        linalg_ext.perform_concurrently {
+        iree_linalg_ext.perform_concurrently {
         }
     }
     return
   }
 
-  pdl.pattern @match_linalg_ext_in_parallel : benefit(1) {
+  pdl.pattern @match_iree_linalg_ext_in_parallel : benefit(1) {
     %0 = operands
     %1 = types
-    %2 = operation "linalg_ext.in_parallel"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
+    %2 = operation "iree_linalg_ext.in_parallel"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
     rewrite %2 with "linalg_transform.apply"
   }
   linalg_transform.sequence {
-    %0 = match @match_linalg_ext_in_parallel
-    %1 = rewrite_linalg_ext_in_parallel_to_scf_for %0
+    %0 = match @match_iree_linalg_ext_in_parallel
+    %1 = rewrite_iree_linalg_ext_in_parallel_to_scf_for %0
   }
 }

@@ -40,7 +40,7 @@ declare_mlir_python_extension(IREELLVMSandboxSources.API
   SOURCES
     PythonAPI.cpp
   EMBED_CAPI_LINK_LIBS
-    IREELinalgTensorSandboxCAPI
+    IREESandboxCAPI
 )
 
 ################################################################################

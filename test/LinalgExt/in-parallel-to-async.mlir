@@ -33,7 +33,7 @@ module {
     // CHECK:   async.add_to_group %[[token]], %[[group]] : !async.token
     // CHECK: }
     // CHECK: async.await_all %[[group]]
-    linalg_ext.in_parallel %1 -> () {
+    iree_linalg_ext.in_parallel %1 -> () {
       ^bb0(%arg3: index):  // no predecessors
         %3 = affine.apply #map1(%arg3)[%arg0]
         %4 = affine.apply #map2(%0, %3)
@@ -49,20 +49,20 @@ module {
           linalg.yield %9 : f32
         }
 
-        linalg_ext.perform_concurrently {
+        iree_linalg_ext.perform_concurrently {
         }
     }
     return
   }
 
-  pdl.pattern @match_linalg_ext_in_parallel : benefit(1) {
+  pdl.pattern @match_iree_linalg_ext_in_parallel : benefit(1) {
     %0 = operands
     %1 = types
-    %2 = operation "linalg_ext.in_parallel"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
+    %2 = operation "iree_linalg_ext.in_parallel"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
     rewrite %2 with "linalg_transform.apply"
   }
   linalg_transform.sequence {
-    %0 = match @match_linalg_ext_in_parallel
-    %1 = rewrite_linalg_ext_in_parallel_to_async %0
+    %0 = match @match_iree_linalg_ext_in_parallel
+    %1 = rewrite_iree_linalg_ext_in_parallel_to_async %0
   }
 }

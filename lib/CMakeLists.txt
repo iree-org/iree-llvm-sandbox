@@ -6,6 +6,8 @@ if(SANDBOX_ENABLE_IREE_DIALECTS)
     IREEInputDialect
     IREELinalgExtDialect
     IREELinalgExtPasses
+    IREELinalgExtOpInterfaceImpl
+    IREESandboxTransforms
   )
 endif()
 
@@ -14,14 +16,10 @@ add_subdirectory(ExecutionEngine)
 add_subdirectory(Transforms)
 
 set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
-  MLIRLinalgExt
-  MLIRLinalgExtOpInterfaceImpl
-  MLIRLinalgExtTransforms
   MLIRLinalgTransformOps
   MLIRLinalgTransformTransforms
   MLIRVectorExt
   MLIRVectorExtTransform
-  IREELinalgTensorSandboxTransforms
 )
 
 if (SANDBOX_ENABLE_ALP)
@@ -33,20 +31,20 @@ endif()
 
 set(IREE_LINALG_TENSOR_SANDBOX_DEPENDS
   DriverPassIncGen
-  MLIRLinalgExtInterfacesIncGen
-  MLIRLinalgExtOpsIncGen
+  IREELinalgExtInterfacesIncGen
+  IREELinalgExtIncGen
 )
 
-add_mlir_library(IREELinalgTensorSandboxDriver
+add_mlir_library(IREESandboxDriver
   LinalgTensorCodegenDriver.cpp
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
+  IREELinalgExtOpInterfaceImpl
   # Dialects
   MLIRAsync
   MLIRGPUOps
   MLIRLinalg
-  MLIRLinalgExtOpInterfaceImpl
   # Transforms
   MLIRAsyncTransforms
   MLIRLinalgTransforms
@@ -69,7 +67,7 @@ add_mlir_library(IREELinalgTensorSandboxDriver
   MLIRLinalgOpsIncGen
 )
 
-add_mlir_library(IREELinalgTensorSandboxRegistration
+add_mlir_library(IREESandboxRegistration
   Registration.cpp
 
   PARTIAL_SOURCES_INTENDED
@@ -79,7 +77,7 @@ add_mlir_library(IREELinalgTensorSandboxRegistration
   MLIRPass
 
   # Sandbox libraries
-  IREELinalgTensorSandboxDriver
+  IREESandboxDriver
   ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
 
   # Tests.
@@ -94,7 +92,7 @@ add_mlir_library(IREELinalgTensorSandboxRegistration
   MLIRLinalgTransformOpsIncGen
 )
 
-add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
+add_mlir_public_c_api_library(IREESandboxCAPI
   CAPI.cpp
 
   PARTIAL_SOURCES_INTENDED
@@ -108,7 +106,7 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
   MLIRPass
 
   # Sandbox libraries
-  IREELinalgTensorSandboxDriver
-  IREELinalgTensorSandboxRegistration
+  IREESandboxDriver
+  IREESandboxRegistration
   ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
 )

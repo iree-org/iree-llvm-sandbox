@@ -324,7 +324,7 @@ def OutlineLoopOp : Linalg_Transform_Operation<"outline_loop", [
 // LinalgExt specific transforms
 //===----------------------------------------------------------------------===//
 
-def TileToLinalgExtTileOp : Linalg_Transform_Operation<"tile_to_linalg_ext_tile_op",
+def TileToLinalgExtTileOp : Linalg_Transform_Operation<"tile_to_iree_linalg_ext_tile_op",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
   let description = [{Tile a linalg op with linalg_ext.tile op along a single 
   dimension.}];
@@ -349,7 +349,7 @@ def TileToLinalgExtTileOp : Linalg_Transform_Operation<"tile_to_linalg_ext_tile_
 }
 
 def RewriteLinalgExtTileToScfForOp : 
-  Linalg_Transform_Operation<"rewrite_linalg_ext_tile_to_scf_for",
+  Linalg_Transform_Operation<"rewrite_iree_linalg_ext_tile_to_scf_for",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
  
   let description = [{Rewrite linalg_ext.tile op to scf.for.}];
@@ -360,12 +360,12 @@ def RewriteLinalgExtTileToScfForOp :
  
   let extraClassDeclaration = [{
     ::mlir::FailureOr<::mlir::scf::ForOp> applyToOne(
-        ::mlir::linalg_ext::TileOp target);
+        ::mlir::iree_compiler::IREE::LinalgExt::TileOp target);
   }];
 }
 
 def RewriteLinalgExtTileToInParallelOp :
-  Linalg_Transform_Operation<"rewrite_linalg_ext_tile_to_in_parallel",
+  Linalg_Transform_Operation<"rewrite_iree_linalg_ext_tile_to_in_parallel",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
 
   let description = [{Rewrite linalg_ext.tile op to linalg_ext.in_parallel.}];
@@ -375,13 +375,13 @@ def RewriteLinalgExtTileToInParallelOp :
   let assemblyFormat = "$target attr-dict";
 
   let extraClassDeclaration = [{
-    ::mlir::FailureOr<::mlir::linalg_ext::InParallelOp> applyToOne(
-        ::mlir::linalg_ext::TileOp target);
+    ::mlir::FailureOr<::mlir::iree_compiler::IREE::LinalgExt::InParallelOp> applyToOne(
+        ::mlir::iree_compiler::IREE::LinalgExt::TileOp target);
   }];
 }
 
 def RewriteLinalgExtInParallelToAsyncOp :
-  Linalg_Transform_Operation<"rewrite_linalg_ext_in_parallel_to_async",
+  Linalg_Transform_Operation<"rewrite_iree_linalg_ext_in_parallel_to_async",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
 
   let description = [{Rewrite linalg_ext.in_parallel op to the async dialect.}];
@@ -392,12 +392,12 @@ def RewriteLinalgExtInParallelToAsyncOp :
 
   let extraClassDeclaration = [{
     ::mlir::FailureOr<::mlir::Operation *> applyToOne(
-        ::mlir::linalg_ext::InParallelOp target);
+        ::mlir::iree_compiler::IREE::LinalgExt::InParallelOp target);
   }];
 }
 
 def RewriteLinalgExtInParallelToScfForOp :
-  Linalg_Transform_Operation<"rewrite_linalg_ext_in_parallel_to_scf_for",
+  Linalg_Transform_Operation<"rewrite_iree_linalg_ext_in_parallel_to_scf_for",
     [TransformOpInterface, TargetableSingleOperandTransformOpTrait]> {
 
   let description = [{Rewrite linalg_ext.in_parallel to a sequential scf.for.
@@ -431,7 +431,7 @@ def RewriteLinalgExtInParallelToScfForOp :
 
   let extraClassDeclaration = [{
     ::mlir::FailureOr<::mlir::scf::ForOp> applyToOne(
-        ::mlir::linalg_ext::InParallelOp target);
+        ::mlir::iree_compiler::IREE::LinalgExt::InParallelOp target);
   }];
 }
 

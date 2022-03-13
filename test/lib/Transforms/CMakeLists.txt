@@ -10,5 +10,5 @@ add_mlir_library(MLIRTransformsExtTestPasses
   LINK_LIBS PUBLIC
   MLIRPass
   MLIRTestDialect
-  IREELinalgTensorSandboxTransforms
+  IREESandboxTransforms
   )

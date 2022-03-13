@@ -12,7 +12,7 @@ module {
 
     // CHECK: %[[M:.*]] = tensor.dim %{{.*}}, %{{.*}} : tensor<?xf32>
     // CHECK: scf.for %[[IV:.*]] = {{.*}} iter_args(%[[OUT:.*]] = %{{.*}}, %[[OUT2:.*]] = %{{.*}}) -> (tensor<?xf32>, tensor<?xf32>) {
-    %0:2 = linalg_ext.tile %chunk_size outs(%out: tensor<?xf32>, %out2: tensor<?xf32>)
+    %0:2 = iree_linalg_ext.tile %chunk_size outs(%out: tensor<?xf32>, %out2: tensor<?xf32>)
         -> (tensor<?xf32>, tensor<?xf32>) {
 
     // CHECK:    %[[SIZE:.*]] = affine.min #[[$SUB_MAP]](%[[IV]])[%[[CHUNK_SIZE]], %[[M]]]
@@ -41,18 +41,18 @@ module {
     // CHECK:    %[[RES:.*]] = tensor.insert_slice %[[R]] into %[[OUT]][%[[IV]]] [%[[SIZE]]] [{{.*}}] : tensor<?xf32> into tensor<?xf32>
     // CHECK:    %[[RES2:.*]] = tensor.insert_slice %[[O2]] into %[[OUT2]][%[[IV]]] [%[[SIZE]]] [{{.*}}] : tensor<?xf32> into tensor<?xf32>
     // CHECK:    scf.yield %[[RES]], %[[RES2]] : tensor<?xf32>, tensor<?xf32>
-        linalg_ext.tile_yield %3, %st2: tensor<?xf32>, tensor<?xf32> // assumes dim is 0 and stacks
+        iree_linalg_ext.tile_yield %3, %st2: tensor<?xf32>, tensor<?xf32> // assumes dim is 0 and stacks
     }
     return %0#0: tensor<?xf32>
   }
-  pdl.pattern @match_linalg_ext_tile : benefit(1) {
+  pdl.pattern @match_iree_linalg_ext_tile : benefit(1) {
     %0 = operands
     %1 = types
-    %2 = operation "linalg_ext.tile"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
+    %2 = operation "iree_linalg_ext.tile"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
     rewrite %2 with "linalg_transform.apply"
   }
   linalg_transform.sequence {
-    %0 = match @match_linalg_ext_tile
-    %1 = rewrite_linalg_ext_tile_to_scf_for %0
+    %0 = match @match_iree_linalg_ext_tile
+    %1 = rewrite_iree_linalg_ext_tile_to_scf_for %0
   }
 }
