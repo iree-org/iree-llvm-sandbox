@@ -4,6 +4,7 @@ import functools
 from mlir.ir import Module
 from mlir.passmanager import PassManager
 import typing as tp
+import mlir.dialects.iree_linalg_transform as tx
 from copy import deepcopy
 
 from .variables import Variable
@@ -129,10 +130,8 @@ class PrintIR(Transform):
   def __init__(self, name='', **kwargs):
     self.name = name
 
-  def __call__(self, module: Module, fun_name: str):
-    print('[[[ IR printer: ' + self.name + ' ]]]')
-    module.dump()
-    return module
+  def build_transform_ir(self):
+    tx.PrintOp(name=self.name)
 
 
 class SaveIR(Transform):

@@ -6,13 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Dialect/LinalgTransform/LinalgTransformOps.h"
-
 #include <algorithm>
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
 #include "Transforms/Listener.h"
+
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/LinalgTransformOps.h"
@@ -20,9 +19,6 @@
 #include "Dialect/LinalgTransform/TrackingListener.h"
 #include "Dialect/LinalgTransform/TrackingRewriteDriver.h"
 #include "Dialect/LinalgTransform/TransformOpInterface.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/ScopeExit.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
@@ -53,6 +49,9 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "mlir/Transforms/Passes.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
+#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "linalg-transform-dialect"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE << "]: ")
@@ -117,7 +116,8 @@ void transform::ScopeOp::getSuccessorRegions(
 static LogicalResult verifySequenceOp(transform::SequenceOp op) {
   WalkResult result = op.walk([](Operation *child) {
     for (OpResult result : child->getResults()) {
-      if (llvm::hasNItemsOrLess(result.getUses(), 1)) continue;
+      if (llvm::hasNItemsOrLess(result.getUses(), 1))
+        continue;
       InFlightDiagnostic diag = child->emitError()
                                 << "result #" << result.getResultNumber()
                                 << " has more than one use";
@@ -140,7 +140,8 @@ LogicalResult transform::MatchOp::apply(TransformResults &results,
                                         TransformState &state) {
   FailureOr<SmallVector<Operation *>> ops =
       findMatchingOps(*this, cast<ModuleOp>(state.getTopLevel()));
-  if (failed(ops)) return failure();
+  if (failed(ops))
+    return failure();
   LLVM_DEBUG(DBGS() << "matched " << ops->size() << " ops\n");
   results.set(getResult().cast<OpResult>(), *ops);
   return success();
@@ -159,13 +160,15 @@ FailureOr<LinalgOp> transform::TileOp::applyToOne(LinalgOp target) {
     tilingOptions.setTileSizes(tileSizes);
   tilingOptions.setInterchange(extractUIntArray(interchange()));
   tilingOptions.setPeeledLoops(extractI64Array(peel()));
-  if (scalarize_dyn_dims()) tilingOptions.scalarizeDynamicDims();
+  if (scalarize_dyn_dims())
+    tilingOptions.scalarizeDynamicDims();
 
   LinalgTilingPattern pattern(getContext(), tilingOptions);
   auto functionalTile = [&](LinalgOp op,
                             PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result)) return failure();
+    if (failed(result))
+      return failure();
     return result->op;
   };
   return functional::applyAt(target, functionalTile);
@@ -193,7 +196,8 @@ FailureOr<LinalgOp> transform::FuseOp::applyToOne(LinalgOp target) {
   auto functionalFuse = [&](LinalgOp op,
                             PatternRewriter &rewriter) -> FailureOr<LinalgOp> {
     auto tileLoopNest = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(tileLoopNest)) return failure();
+    if (failed(tileLoopNest))
+      return failure();
     return tileLoopNest->getRootOp();
   };
   return functional::applyAt(target, functionalFuse);
@@ -216,7 +220,8 @@ LogicalResult transform::FuseOp::verify() {
 
 FailureOr<LinalgOp> transform::GeneralizeOp::applyToOne(LinalgOp target) {
   // Exit early if no transformation is needed.
-  if (isa<GenericOp>(target)) return target;
+  if (isa<GenericOp>(target))
+    return target;
   return functional::applyAt(
       target, callLinalgPattern<LinalgGeneralizationPattern>(getContext()));
 }
@@ -229,7 +234,8 @@ FailureOr<LinalgOp> transform::InterchangeOp::applyToOne(LinalgOp target) {
   SmallVector<unsigned> interchangeVector =
       extractUIntArray(iterator_interchange());
   // Exit early if no transformation is needed.
-  if (interchangeVector.empty()) return target;
+  if (interchangeVector.empty())
+    return target;
   return functional::applyAt(target,
                              callLinalgPattern<GenericOpInterchangePattern>(
                                  getContext(), interchangeVector));
@@ -326,8 +332,9 @@ LogicalResult transform::PadOp::verify() {
 // DecomposeOp
 //===---------------------------------------------------------------------===//
 
-LogicalResult transform::DecomposeOp::apply(
-    transform::TransformResults &results, transform::TransformState &state) {
+LogicalResult
+transform::DecomposeOp::apply(transform::TransformResults &results,
+                              transform::TransformState &state) {
   RewritePatternSet patterns(getContext());
   // TODO: make this targetable.
   populateDecomposeConvolutionPatterns(patterns, LinalgTransformationFilter());
@@ -361,8 +368,9 @@ static void configureVectorizationPatterns(transform::VectorizeOp vectorizeOp,
 /// given target operation AND some related operations.Populates `results` with
 /// transformation operations for further transformations if the pattern applied
 /// successfully (currently, the main "contraction" op after vectorization).
-static FailureOr<LinalgOp> executeTargetedVectorizeOp(
-    LinalgOp target, linalg::transform::VectorizeOp vectorizeOp) {
+static FailureOr<LinalgOp>
+executeTargetedVectorizeOp(LinalgOp target,
+                           linalg::transform::VectorizeOp vectorizeOp) {
   // TODO: this is copy-pasta from LinalgStrategyVectorizePass, it shouldn't be.
   MLIRContext *ctx = target->getContext();
   RewritePatternSet patterns(ctx);
@@ -390,8 +398,9 @@ static FailureOr<LinalgOp> executeTargetedVectorizeOp(
   // How to find ops that were not replaced?
 }
 
-LogicalResult transform::VectorizeOp::apply(
-    transform::TransformResults &results, transform::TransformState &state) {
+LogicalResult
+transform::VectorizeOp::apply(transform::TransformResults &results,
+                              transform::TransformState &state) {
   if (target()) {
     SmallVector<Operation *> resultVector;
     LogicalResult res = applyTransformToEach(
@@ -399,7 +408,8 @@ LogicalResult transform::VectorizeOp::apply(
           return executeTargetedVectorizeOp(target, *this);
         });
 
-    if (failed(res)) return failure();
+    if (failed(res))
+      return failure();
 
     results.set(getResult(0).cast<OpResult>(), resultVector);
     return success();
@@ -437,7 +447,8 @@ ParseResult transform::VectorizeOp::parse(OpAsmParser &parser,
 }
 
 void transform::VectorizeOp::print(OpAsmPrinter &printer) {
-  if (target()) printer << " " << target() << " ";
+  if (target())
+    printer << " " << target() << " ";
   printer.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
@@ -449,15 +460,17 @@ void transform::VectorizeOp::print(OpAsmPrinter &printer) {
 /// of stages specified on the given lowerVectors operation.
 static bool stageIncluded(int stage, transform::LowerVectorsOp lowerVectorsOp) {
   for (auto s : lowerVectorsOp.stages().getAsValueRange<IntegerAttr>()) {
-    if (s.getSExtValue() == stage) return true;
+    if (s.getSExtValue() == stage)
+      return true;
   }
   return false;
 }
 
 // Applies the transformation specified by the given lower vectors operation
 /// to the given function.
-LogicalResult transform::LowerVectorsOp::apply(
-    transform::TransformResults &results, transform::TransformState &state) {
+LogicalResult
+transform::LowerVectorsOp::apply(transform::TransformResults &results,
+                                 transform::TransformState &state) {
   MLIRContext *ctx = getContext();
   RewritePatternSet patterns(ctx);
 
@@ -565,7 +578,8 @@ LogicalResult transform::BufferizeOp::apply(transform::TransformResults &result,
     return success(linalg::makeMemRefCopyOp(builder, loc, from, to));
   };
   pm.addPass(createLinalgComprehensiveModuleBufferizePass(options));
-  if (failed(pm.run(state.getTopLevel()))) return failure();
+  if (failed(pm.run(state.getTopLevel())))
+    return failure();
 
   // Perform buffer-level hoistings.
   state.getTopLevel()->walk(
@@ -577,8 +591,9 @@ LogicalResult transform::BufferizeOp::apply(transform::TransformResults &result,
 // LowerToLLVMOp
 //===---------------------------------------------------------------------===//
 
-LogicalResult transform::LowerToLLVMOp::apply(
-    transform::TransformResults &result, transform::TransformState &state) {
+LogicalResult
+transform::LowerToLLVMOp::apply(transform::TransformResults &result,
+                                transform::TransformState &state) {
   // TODO: it is feasible to scope lowering at arbitrary level and introduce
   // unrealized casts, but there needs to be the final module-wise cleanup in
   // the end. Keep module-level for now.
@@ -607,10 +622,12 @@ LogicalResult transform::LowerToLLVMOp::apply(
   // clang-format on
   pm.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
   pm.addPass(createMemRefToLLVMPass());
-  if (enable_async()) pm.addPass(createConvertAsyncToLLVMPass());
+  if (enable_async())
+    pm.addPass(createConvertAsyncToLLVMPass());
   pm.addPass(createConvertFuncToLLVMPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
-  if (failed(pm.run(state.getTopLevel()))) return failure();
+  if (failed(pm.run(state.getTopLevel())))
+    return failure();
 
   // Make all arguments noalias for now.
   // FIXME: this is a terrible hack!
@@ -628,8 +645,8 @@ LogicalResult transform::LowerToLLVMOp::apply(
 // GetParentLoopOp
 //===---------------------------------------------------------------------===//
 
-FailureOr<scf::ForOp> transform::GetParentLoopOp::applyToOne(
-    Operation *source) {
+FailureOr<scf::ForOp>
+transform::GetParentLoopOp::applyToOne(Operation *source) {
   int64_t nLoops = num_loops();
   for (int64_t i = 0; i < nLoops; ++i) {
     source = source->getParentOfType<scf::ForOp>();
@@ -654,22 +671,26 @@ LogicalResult transform::UnrollLoopOp::applyToOne(scf::ForOp loop) {
 // PipelineLoopOp
 //===---------------------------------------------------------------------===//
 
-static void loopScheduling(
-    scf::ForOp forOp, std::vector<std::pair<Operation *, unsigned>> &schedule,
-    unsigned iterationInterval, unsigned readLatency) {
+static void
+loopScheduling(scf::ForOp forOp,
+               std::vector<std::pair<Operation *, unsigned>> &schedule,
+               unsigned iterationInterval, unsigned readLatency) {
   auto getLatency = [&](Operation *op) {
-    if (isa<vector::TransferReadOp>(op)) return readLatency;
+    if (isa<vector::TransferReadOp>(op))
+      return readLatency;
     return unsigned(1);
   };
 
   DenseMap<Operation *, unsigned> opCycles;
   std::map<unsigned, std::vector<Operation *>> wrappedSchedule;
   for (Operation &op : forOp.getBody()->getOperations()) {
-    if (isa<scf::YieldOp>(op)) continue;
+    if (isa<scf::YieldOp>(op))
+      continue;
     unsigned earlyCycle = 0;
     for (Value operand : op.getOperands()) {
       Operation *def = operand.getDefiningOp();
-      if (!def) continue;
+      if (!def)
+        continue;
       earlyCycle = std::max(earlyCycle, opCycles[def] + getLatency(def));
     }
     opCycles[&op] = earlyCycle;
@@ -721,7 +742,8 @@ FailureOr<scf::ForOp> transform::PipelineLoopOp::applyToOne(scf::ForOp loop) {
 
 static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
                                                    Operation *op) {
-  if (op->getNumRegions() != 1) return nullptr;
+  if (op->getNumRegions() != 1)
+    return nullptr;
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(op);
   scf::ExecuteRegionOp executeRegionOp =
@@ -750,20 +772,34 @@ static FailureOr<FuncOp> outlineLoop(scf::ForOp loop, StringRef funcName,
   assert(exec && "failed to produce execute_region");
   FailureOr<FuncOp> outlined =
       outlineSingleBlockRegion(rewriter, loc, exec.getRegion(), funcName);
-  if (failed(listener.checkErrorState())) return failure();
+  if (failed(listener.checkErrorState()))
+    return failure();
   return outlined;
 }
 
-LogicalResult transform::OutlineLoopOp::apply(
-    transform::TransformResults &results, transform::TransformState &state) {
+LogicalResult
+transform::OutlineLoopOp::apply(transform::TransformResults &results,
+                                transform::TransformState &state) {
   SmallVector<Operation *> resultVector;
   auto res =
       applyTransformToEach(state.getPayloadOps(target()), resultVector,
                            [&](scf::ForOp loop) -> FailureOr<FuncOp> {
                              return outlineLoop(loop, func_name(), state);
                            });
-  if (failed(res)) return failure();
+  if (failed(res))
+    return failure();
   results.set(getResult().cast<OpResult>(), resultVector);
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
+// PrintOp
+//===---------------------------------------------------------------------===//
+
+LogicalResult transform::PrintOp::apply(transform::TransformResults &results,
+                                        transform::TransformState &state) {
+  llvm::outs() << "[[[ IR printer: " << name() << " ]]]\n";
+  state.getTopLevel()->dump();
   return success();
 }
 
@@ -771,18 +807,20 @@ LogicalResult transform::OutlineLoopOp::apply(
 // LinalgExt specific transforms
 //===----------------------------------------------------------------------===//
 
-FailureOr<Operation *> transform::TileToLinalgExtTileOp::applyToOne(
-    TilingInterface target) {
+FailureOr<Operation *>
+transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
   LinalgTilingOptions tilingOptions;
   SmallVector<int64_t> tileSizes = extractI64Array(sizes());
-  if (!tileSizes.empty()) tilingOptions.setTileSizes(tileSizes);
+  if (!tileSizes.empty())
+    tilingOptions.setTileSizes(tileSizes);
 
   LinalgExt::LinalgExtTilingPattern pattern(this->getContext(), tilingOptions);
   auto functionalTile =
       [&](TilingInterface op,
           PatternRewriter &rewriter) -> FailureOr<Operation *> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result)) return failure();
+    if (failed(result))
+      return failure();
     return result;
   };
 
@@ -797,7 +835,8 @@ FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
       [&](LinalgExt::TileOp op,
           PatternRewriter &rewriter) -> FailureOr<scf::ForOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result)) return failure();
+    if (failed(result))
+      return failure();
     return result;
   };
   return functional::applyAt(target, functionalRewrite);
@@ -811,7 +850,8 @@ transform::RewriteLinalgExtTileToInParallelOp::applyToOne(
       [&](LinalgExt::TileOp op,
           PatternRewriter &rewriter) -> FailureOr<LinalgExt::InParallelOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result)) return failure();
+    if (failed(result))
+      return failure();
     return result;
   };
   return functional::applyAt(target, functionalRewrite);
@@ -825,7 +865,8 @@ transform::RewriteLinalgExtInParallelToAsyncOp::applyToOne(
       [&](LinalgExt::InParallelOp op,
           PatternRewriter &rewriter) -> FailureOr<Operation *> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result)) return failure();
+    if (failed(result))
+      return failure();
     return result;
   };
   return functional::applyAt(target, functionalRewrite);
@@ -839,7 +880,8 @@ transform::RewriteLinalgExtInParallelToScfForOp::applyToOne(
       [&](LinalgExt::InParallelOp op,
           PatternRewriter &rewriter) -> FailureOr<scf::ForOp> {
     auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result)) return failure();
+    if (failed(result))
+      return failure();
     return result;
   };
   return functional::applyAt(target, functionalRewrite);
