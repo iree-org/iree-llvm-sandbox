@@ -72,8 +72,8 @@ def emit_test_function(trA, sizes, func: builtin.FuncOp) -> builtin.FuncOp:
                            one_f64,
                            c6789_i32,
                            outs=[B0.results[0]])
-    # A = linalg.FillOp(output=A0.results[0], value=elem)
-    # B = linalg.FillOp(output=B0.results[0], value=elem)
+    # A = linalg.fill(elem, outs=[A0.results[0]])
+    # B = linalg.fill(elem, outs=[B0.results[0]])
 
     # Evaluate actual function and the reference
     func.CallOp(func, [A, B, C.results[0]])

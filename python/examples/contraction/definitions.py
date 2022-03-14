@@ -138,7 +138,7 @@ class EinsumProblem(ProblemDefinition):
       output_tensor = bench.arguments[-1]
       if self.specification.reduction_dims and zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, -0.0)
-        output_tensor = linalg.FillOp(output=bench.arguments[-1], value=zero)
+        output_tensor = linalg.fill(zero, outs=[bench.arguments[-1]])
       print('Einsum spec: ', str(self.specification))
       einsum_op = make_einsum(self.specification)(*bench.arguments[:-1],
                                                   outs=[output_tensor])

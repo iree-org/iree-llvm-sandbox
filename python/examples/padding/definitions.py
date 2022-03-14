@@ -184,7 +184,7 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
       tensor_zero = bench.arguments[-1]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(output_element_type, 0.0)
-        tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
+        tensor_zero = linalg.fill(zero, outs=[tensor_zero])
 
       padded_input = tensor.PadOp(
           result=types[-1],

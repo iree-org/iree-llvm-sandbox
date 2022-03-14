@@ -24,7 +24,7 @@ using mlir::tensor::ExtractSliceOp;
 using mlir::tensor::InsertSliceOp;
 
 SmallVector<OpFoldResult> GetParallelDimStep(scf::LoopNest nest,
-                                              GenericOp tiled_op) {
+                                             GenericOp tiled_op) {
   assert(nest.loops.size() == 2 && "Expected a 2D loop");
   assert(tiled_op.getNumLoops() && "Expected a 2D tiled op");
   SmallVector<unsigned> parallelDims;
@@ -165,8 +165,8 @@ private:
         loc, output_tile_bb_arg, offset, extract_output_slice.getMixedSizes(),
         extract_output_slice.getMixedStrides());
 
-    auto fused_fill =
-        rewriter.create<FillOp>(loc, fill.value(), slice_of_output_tile);
+    auto fused_fill = rewriter.create<FillOp>(loc, ValueRange{fill.value()},
+                                              ValueRange{slice_of_output_tile});
     rewriter.updateRootInPlace(tiled_op, [&]() {
       tiled_op.getOutputOperand(0)->set(fused_fill.result());
     });
