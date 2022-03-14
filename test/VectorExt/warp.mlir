@@ -68,6 +68,44 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
 
 // -----
 
+// CHECK-LABEL: func @warp_propagate_scalar_arith(
+//       CHECK:   %[[r:.*]]:2 = vector_ext.warp_execute_on_lane_0{{.*}} {
+//       CHECK:     %[[some_def0:.*]] = "some_def"
+//       CHECK:     %[[some_def1:.*]] = "some_def"
+//       CHECK:     vector_ext.yield %[[some_def0]], %[[some_def1]]
+//       CHECK:   }
+//       CHECK:   arith.addf %[[r]]#0, %[[r]]#1 : f32
+func @warp_propagate_scalar_arith(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+    %0 = "some_def"() : () -> (f32)
+    %1 = "some_def"() : () -> (f32)
+    %2 = arith.addf %0, %1 : f32
+    vector_ext.yield %2 : f32
+  }
+  vector.print %r : f32
+  return
+}
+
+// -----
+
+// CHECK-LABEL: func @warp_propagate_cast(
+//       CHECK:   %[[cst:.*]] = arith.constant 5 : i32
+//       CHECK:   %[[r:.*]] = vector_ext.warp_execute_on_lane_0{{.*}} -> (i32) {
+//       CHECK:     vector_ext.yield %[[cst]] : i32
+//       CHECK:   }
+//       CHECK:   %[[result:.*]] = arith.sitofp %[[r]] : i32 to f32
+//       CHECK:   return %[[result]]
+func @warp_propagate_cast(%laneid : index) -> (f32) {
+  %cst = arith.constant 5 : i32
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+    %casted = arith.sitofp %cst : i32 to f32
+    vector_ext.yield %casted : f32
+  }
+  return %r : f32
+}
+
+// -----
+
 #map0 = affine_map<()[s0] -> (s0 * 2)>
 
 //  CHECK-DAG: #[[MAP0:.*]] = affine_map<()[s0] -> (s0 * 2)>
