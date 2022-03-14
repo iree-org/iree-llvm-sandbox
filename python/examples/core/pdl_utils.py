@@ -34,7 +34,7 @@ def make_single_op_pdl_pattern(
       for constraints_builder in constraints_builder_list:
         constraints_builder(pdl_op, operands, result_types)
       # TODO: we don't want this, but it is the required terminator for pdl.pattern
-      pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
+      pdl.RewriteOp(pdl_op, 'iree_linalg_transform.apply')
 
 
 ###############################################################################

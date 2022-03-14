@@ -13,7 +13,7 @@ from .transforms import Pipeline, ExtractKernel, ConvertLoops
 # Sandbox imports
 import mlir.iree_sandbox as sandbox
 import mlir.ir as ir
-import mlir.dialects.linalg_transform as transform
+import mlir.dialects.iree_linalg_transform as transform
 from mlir.iree_sandbox import register_sandbox_passes_and_dialects
 from examples.core.transforms import *
 from examples.core.transform import (

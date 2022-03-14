@@ -10,7 +10,7 @@ from ..contraction.definitions import *
 
 from mlir.iree_sandbox import *
 from mlir.dialects.iree_linalg_ext import *
-from mlir.dialects.linalg_transform import *
+from mlir.dialects.iree_linalg_transform import *
 
 import typing as tp
 

@@ -5,7 +5,7 @@ import typing as tp
 
 from mlir.ir import *
 from mlir.passmanager import PassManager
-import mlir.dialects.linalg_transform as tx
+import mlir.dialects.iree_linalg_transform as tx
 from mlir.dialects import builtin, pdl
 
 from .variables import *

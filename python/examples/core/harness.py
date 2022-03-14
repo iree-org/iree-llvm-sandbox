@@ -17,7 +17,7 @@ from mlir.ir import *
 from mlir.runtime import *
 from mlir.iree_sandbox import register_sandbox_passes_and_dialects
 from mlir.dialects.builtin import ModuleOp
-import mlir.dialects.linalg_transform as tx
+import mlir.dialects.iree_linalg_transform as tx
 
 from ..core.compilation import compile_to_execution_engine, \
     emit_benchmarking_function, mlir_type
@@ -212,7 +212,7 @@ def emit_schedule_dialect(module: ModuleOp,
   # complains about "unregistered dialect" despite the registration being called.
   register_sandbox_passes_and_dialects(module.context)
   module.context.dialects["iree_linalg_ext"]
-  module.context.dialects["linalg_transform"]
+  module.context.dialects["iree_linalg_transform"]
   with InsertionPoint(module.body):
     sequence = tx.SequenceOp()
     with InsertionPoint(sequence.body.blocks[0]):
@@ -300,7 +300,7 @@ class ProblemInstance:
       # TODO: this is necessary to force-load the dialect, otherwise op creation
       # complains about "unregistered dialect" despite the registration call just
       # above.
-      ctx.dialects["linalg_transform"]
+      ctx.dialects["iree_linalg_transform"]
       schedule_builder(self.mlir_module)
       return self._compile_to_execution_engine(self.mlir_module,
                                                ApplySchedule(),
