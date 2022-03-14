@@ -32,9 +32,9 @@ pdl.pattern @pdl_target: benefit(1) {
   %results= types
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @pdl_target
   %1 = tile %0 {interchange = [0, 2, 1], peel = [], scalarize_dyn_dims = false, sizes = [32, 32, 32]}
   %2 = tile %1 {interchange = [0, 1, 2], peel = [], scalarize_dyn_dims = false, sizes = [4, 4, 1]}

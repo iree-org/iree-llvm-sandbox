@@ -24,10 +24,10 @@ pdl.pattern @target_pattern : benefit(1) {
   %1 = types
   %2 = operation "linalg.generic"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
   apply_native_constraint "nestedInFunc" [@matmul_021](%2 : !pdl.operation)
-  rewrite %2 with "linalg_transform.apply"
+  rewrite %2 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @target_pattern
   %1 = tile %0 {interchange = [0, 2, 1], sizes = [3, 5, 14]}
   %2 = tile %1 {sizes = [3, 5, 2]}
@@ -61,10 +61,10 @@ pdl.pattern @target_pattern : benefit(1) {
   %1 = types
   %2 = operation "linalg.generic"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
   apply_native_constraint "nestedInFunc" [@matmul_210](%2 : !pdl.operation)
-  rewrite %2 with "linalg_transform.apply"
+  rewrite %2 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @target_pattern
   %1 = tile %0 {interchange = [2, 1, 0], sizes = [3, 5, 14]}
   %2 = tile %1 {sizes = [3, 5, 2]}

@@ -59,9 +59,9 @@ module {
     %0 = operands
     %1 = types
     %2 = operation "iree_linalg_ext.in_parallel"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
-    rewrite %2 with "linalg_transform.apply"
+    rewrite %2 with "iree_linalg_transform.apply"
   }
-  linalg_transform.sequence {
+  iree_linalg_transform.sequence {
     %0 = match @match_iree_linalg_ext_in_parallel
     %1 = rewrite_iree_linalg_ext_in_parallel_to_async %0
   }

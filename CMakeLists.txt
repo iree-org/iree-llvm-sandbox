@@ -88,7 +88,7 @@ include(AddMLIR)
 
 add_subdirectory(include)
 add_subdirectory(lib)
-add_subdirectory(python)
+#add_subdirectory(python)
 add_subdirectory(test)
 add_subdirectory(tools)
 if (SANDBOX_ENABLE_ALP)

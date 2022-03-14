@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CAPI.h"
-#include "Dialects/LinalgTransform/LinalgTransformOps.h"
 #include "Registration.h"
 
 #include "mlir-c/Dialect/Linalg.h"
@@ -22,15 +21,7 @@ using namespace mlir;
 // Dialect
 //===----------------------------------------------------------------------===//
 
-MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(
-    LinalgTransform, linalg_transform,
-    mlir::linalg::transform::LinalgTransformDialect)
-
 void ireeLlvmSandboxRegisterAll(MlirContext context) {
-  MlirDialectHandle linalgTransformDialect =
-      mlirGetDialectHandle__linalg_transform__();
-  mlirDialectHandleRegisterDialect(linalgTransformDialect, context);
-
   registerOutsideOfDialectRegistry();
 
   DialectRegistry registry;
