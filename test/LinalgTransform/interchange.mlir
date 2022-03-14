@@ -1,12 +1,12 @@
 // RUN: mlir-proto-opt -linalg-interp-transforms %s | FileCheck %s
 
-//       CHECK: #[[MAP:.*]] = affine_map<(d0, d1) -> (d1, d0)>
+//       CHECK: #[[$MAP:.*]] = affine_map<(d0, d1) -> (d1, d0)>
 
 // CHECK-LABEL: func @interchange_generic
 func @interchange_generic(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
 
   //      CHECK:   linalg.generic
-  // CHECK-SAME:   indexing_maps = [#[[MAP]], #[[MAP]]
+  // CHECK-SAME:   indexing_maps = [#[[$MAP]], #[[$MAP]]
   %0 = linalg.generic {
     indexing_maps = [affine_map<(d0, d1) -> (d0, d1)>, affine_map<(d0, d1) -> (d0, d1)>],
     iterator_types = ["parallel", "parallel"]
