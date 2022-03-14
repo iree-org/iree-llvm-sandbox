@@ -204,9 +204,9 @@ static bool hasMatchingExtractSliceOp(const BufferizationState &state,
 struct ParallelInsertSliceOpInterface
     : public BufferizableOpInterface::ExternalModel<
           ParallelInsertSliceOpInterface, ParallelInsertSliceOp> {
-  SmallVector<OpResult> getAliasingOpResult(
-      Operation *op, OpOperand &opOperand,
-      const BufferizationState &state) const {
+  SmallVector<OpResult>
+  getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                      const BufferizationState &state) const {
     if (&opOperand != &op->getOpOperand(1) /*dest*/)
       return {};
 

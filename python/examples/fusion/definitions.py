@@ -126,7 +126,7 @@ class MatmulProblem(ProblemDefinition):
       tensor_zero = bench.arguments[2]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, 0.0)
-        tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
+        tensor_zero = linalg.fill(zero, outs=[tensor_zero])
       matmul = linalg.matmul(bench.arguments[0],
                              bench.arguments[1],
                              outs=[tensor_zero])
@@ -252,7 +252,7 @@ class MatmulBiasAddProblem(ProblemDefinition):
       tensor_zero = bench.arguments[3]
       if zero_at_each_iteration:
         zero = arith.ConstantOp(types[-1].element_type, 0.0)
-        tensor_zero = linalg.FillOp(output=tensor_zero, value=zero)
+        tensor_zero = linalg.fill(zero, outs=[tensor_zero])
       matmul = linalg.matmul(bench.arguments[0],
                              bench.arguments[1],
                              outs=[tensor_zero])

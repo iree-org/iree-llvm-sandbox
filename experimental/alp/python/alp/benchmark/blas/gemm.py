@@ -66,8 +66,8 @@ def emit_benchmarking_function(trA, sizes, niter,
     B0 = linalg.InitTensorOp([K, N], F32Type.get())
     C = linalg.InitTensorOp([M, N], F32Type.get())
 
-    A = linalg.FillOp(output=A0.results[0], value=elem)
-    B = linalg.FillOp(output=B0.results[0], value=elem)
+    A = linalg.fill(elem, outs=[A0.results[0]])
+    B = linalg.fill(elem, outs=[B0.results[0]])
     func.CallOp(print_pid, [])
 
     call = func.CallOp(func, [A.results[0], B.results[0], C.results[0]])
