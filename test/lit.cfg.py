@@ -39,9 +39,6 @@ config.excludes = [
   "test_matmul_f16_cuda_mma.mlir",
   "vector-distribution.mlir",
   "matmul-f32-base.mlir",
-  # FIXME: Enable after landing D121369.
-  "double-tiling.mlir",
-  "tile-interchange.mlir"
 ]
 
 config.substitutions.extend([
