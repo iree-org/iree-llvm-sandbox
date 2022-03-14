@@ -5,8 +5,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Registration.h"
-#include "Dialects/LinalgTransform/LinalgTransformOps.h"
-#include "Dialects/LinalgTransform/Passes.h"
 #include "Dialects/VectorExt/VectorExtDialect.h"
 #include "Transforms/Passes.h"
 
@@ -39,15 +37,22 @@ using namespace mlir::linalg;
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "iree-dialects/Dialect/LinalgExt/LinalgExtBufferization.h"
 #include "iree-dialects/Dialect/LinalgExt/Passes/Passes.h"
+#include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
+#include "iree-dialects/Dialect/LinalgTransform/Passes.h"
 
 using namespace mlir::iree_compiler::IREE;
 
 static void registerIreeDialects(DialectRegistry &registry) {
   registry.insert<mlir::iree_compiler::IREE::Input::IREEInputDialect>();
   registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect>();
+  registry.insert<mlir::linalg::transform::LinalgTransformDialect>();
   mlir::iree_compiler::IREE::LinalgExt::registerPasses();
+  mlir::linalg::transform::registerLinalgTransformInterpreterPass();
+  mlir::linalg::transform::registerLinalgTransformExpertExpansionPass();
+  mlir::linalg::transform::registerDropScheduleFromModulePass();
 }
 #else
+#error "SANDBOX_ENABLE_IREE_DIALECTS must be turned on"
 static void registerIreeDialects(DialectRegistry &registry) {}
 #endif
 
@@ -62,44 +67,18 @@ static void registerExperimentalPasses() {
 }
 
 //===----------------------------------------------------------------------===//
-// Test passes.
-//===----------------------------------------------------------------------===//
-namespace mlir {
-namespace test_ext {
-void registerTestStagedPatternRewriteDriver();
-void registerTestVectorMaskingUtils();
-void registerTestListenerPasses();
-void registerTestLinalgTransformWrapScope();
-void registerTestVectorWarps();
-} // namespace test_ext
-} // namespace mlir
-
-void registerTestPasses() {
-  mlir::test_ext::registerTestStagedPatternRewriteDriver();
-  mlir::test_ext::registerTestVectorMaskingUtils();
-  mlir::test_ext::registerTestListenerPasses();
-  mlir::test_ext::registerTestLinalgTransformWrapScope();
-  mlir::test_ext::registerTestVectorWarps();
-}
-
-//===----------------------------------------------------------------------===//
 // Non-optional registrations
 //===----------------------------------------------------------------------===//
 
 void mlir::registerOutsideOfDialectRegistry() {
   registerDriverPasses();
   registerExperimentalPasses();
-  registerTestPasses();
-  transform::registerLinalgTransformInterpreterPass();
-  transform::registerDropScheduleFromModulePass();
-  transform::registerLinalgTransformExpertExpansionPass();
 }
 
 void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
   registerAllDialects(registry);
   registerIreeDialects(registry);
-  registry.insert<linalg::transform::LinalgTransformDialect,
-                  vector_ext::VectorExtDialect>();
+  registry.insert<vector_ext::VectorExtDialect>();
 
   // Tiling external models.
   LinalgExt::registerTilingInterfaceExternalModels(registry);

@@ -32,6 +32,8 @@ PRIVATE
 
   ${LIBS}
 
+  MLIRVectorExtTestPasses
+  
   # Sandbox libs.
   IREESandboxDriver
   IREESandboxRegistration

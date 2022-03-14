@@ -20,10 +20,10 @@ pdl.pattern @pdl_target : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   // This should match the strategy below.
   // EXPAND-NOT: expert apply
   // EXPAND: %[[OP:.*]] = match @pdl_target
@@ -52,7 +52,7 @@ module @strategies {
     %type = type : !pdl.operation
     %target = operand : %type
     %transformed = type
-    %root = operation "linalg_transform.expert"(%target : !pdl.value) {
+    %root = operation "iree_linalg_transform.expert"(%target : !pdl.value) {
       "expertName" = %name,
       "tile_sizes" = %tile_sizes,
       "vectorize_padding" = %vectorize_padding,
@@ -60,21 +60,21 @@ module @strategies {
     } -> (%transformed : !pdl.type)
 
     rewrite %root {
-      %tile = operation "linalg_transform.tile"(%target : !pdl.value) {
+      %tile = operation "iree_linalg_transform.tile"(%target : !pdl.value) {
         "sizes" = %tile_sizes
       } -> (%transformed : !pdl.type)
       %handle = result 0 of %tile
 
-      %vectorize = operation "linalg_transform.vectorize"(%handle : !pdl.value) {
+      %vectorize = operation "iree_linalg_transform.vectorize"(%handle : !pdl.value) {
         "vectorize_padding" = %vectorize_padding
       } -> (%transformed : !pdl.type)
       %handle2 = result 0 of %vectorize
 
-      %bufferize = operation "linalg_transform.bufferize"
-      %lower_vectors = operation "linalg_transform.lower_vectors" {
+      %bufferize = operation "iree_linalg_transform.bufferize"
+      %lower_vectors = operation "iree_linalg_transform.lower_vectors" {
         "multireduction_lowering" = %multireduction_lowering
       }
-      %lower_to_llvm = operation "linalg_transform.lower_to_llvm"
+      %lower_to_llvm = operation "iree_linalg_transform.lower_to_llvm"
 
       replace %root with (%handle2 : !pdl.value)
     }
@@ -102,10 +102,10 @@ pdl.pattern @pdl_target2 : benefit(1) {
   %0 = pdl.operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
   pdl.apply_native_constraint "nestedInFunc"[@matmul_tensors2](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  pdl.rewrite %0 with "linalg_transform.apply"
+  pdl.rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   // This should match the strategy below.
   // EXPAND-NOT: expert apply
   // EXPAND: %[[OP:.*]] = match @pdl_target2
@@ -134,7 +134,7 @@ module @strategies {
     %type = type : !pdl.operation
     %target = operand : %type
     %transformed = type
-    %root = operation "linalg_transform.expert"(%target : !pdl.value) {
+    %root = operation "iree_linalg_transform.expert"(%target : !pdl.value) {
       "expertName" = %name,
       "tile_sizes" = %tile_sizes,
       "vectorize_padding" = %vectorize_padding,
@@ -142,21 +142,21 @@ module @strategies {
     } -> (%transformed : !pdl.type)
 
     rewrite %root {
-      %tile = operation "linalg_transform.tile"(%target : !pdl.value)  {
+      %tile = operation "iree_linalg_transform.tile"(%target : !pdl.value)  {
         "sizes" = %tile_sizes
       } -> (%transformed : !pdl.type)
       %handle = result 0 of %tile
 
-      %vectorize = operation "linalg_transform.vectorize"(%handle : !pdl.value) {
+      %vectorize = operation "iree_linalg_transform.vectorize"(%handle : !pdl.value) {
         "vectorize_padding" = %vectorize_padding
       } -> (%transformed : !pdl.type)
       %handle2 = result 0 of %vectorize
 
-      %bufferize = operation "linalg_transform.bufferize"
-      %lower_vectors = operation "linalg_transform.lower_vectors" {
+      %bufferize = operation "iree_linalg_transform.bufferize"
+      %lower_vectors = operation "iree_linalg_transform.lower_vectors" {
         "multireduction_lowering" = %multireduction_lowering
       }
-      %lower_to_llvm = operation "linalg_transform.lower_to_llvm"
+      %lower_to_llvm = operation "iree_linalg_transform.lower_to_llvm"
 
       replace %root with (%handle2 : !pdl.value)
     }

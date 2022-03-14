@@ -54,7 +54,7 @@ pdl.pattern @pdl_target_attrA : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrA" = %attr}-> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
 // Match matmul operations inside @matmul_tensors with test.attrC set.
@@ -65,10 +65,10 @@ pdl.pattern @pdl_target_attrC : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrC" = %attr}-> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @pdl_target_attrA
   tile %0 {sizes = [4, 4, 4]}
   %1 = match @pdl_target_attrC
@@ -101,10 +101,10 @@ pdl.pattern @pdl_target : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) {"test.attrA" = %attr}-> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@vectorize_one](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @pdl_target
   vectorize %0
 }
@@ -129,6 +129,6 @@ func @vectorize_all(
   return %1 : tensor<128x128xf32>
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   vectorize
 }

@@ -1,4 +1,4 @@
-add_mlir_library(MLIRVectorExtTransform
+add_mlir_library(MLIRVectorExtTransforms
   VectorMaskingUtils.cpp
   VectorWarpUtils.cpp
 
