@@ -6,7 +6,7 @@ import numpy as np
 import mlir.iree_sandbox as sandbox
 import mlir.ir as ir
 import mlir.dialects.pdl as pdl
-import mlir.dialects.linalg_transform as transform
+import mlir.dialects.iree_linalg_transform as transform
 
 from ..core.experts import *
 from ..core.harness import *
@@ -91,7 +91,7 @@ class NGScheduler(NGSchedulerInterface):
     # TODO: this is necessary to force-load the dialect, otherwise op creation
     # complains about "unregistered dialect" despite the registration being called.
     register_sandbox_passes_and_dialects(module.context)
-    module.context.dialects["linalg_transform"]
+    module.context.dialects["iree_linalg_transform"]
 
     with InsertionPoint(module.body):
       # TODO: Evolve to python-metaprogrammed PDLL constraints.

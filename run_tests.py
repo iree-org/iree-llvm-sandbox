@@ -91,9 +91,8 @@ def _run_test(test_script: str) -> bool:
 
 def main(args):
   results = []
-  # TODO: reenable python tests once integration with iree-dialects is fixed.
-  # for f in glob.glob("./python/**/*test.py", recursive=True):
-  #   results.append(_run_test(f))
+  for f in glob.glob("./python/**/*test.py", recursive=True):
+    results.append(_run_test(f))
   errors = results.count(False)
   if errors:
     print(f"-> {errors} tests failed!")

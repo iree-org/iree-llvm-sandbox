@@ -4,7 +4,7 @@
 # and codegen options.
 
 import mlir.ir as ir
-import mlir.dialects.linalg_transform as transform
+import mlir.dialects.iree_linalg_transform as transform
 
 from ..core.experts import *
 from ..core.harness import *

@@ -1,6 +1,6 @@
 from mlir.ir import *
 from mlir.passmanager import PassManager
-import mlir.dialects.linalg_transform as tx
+import mlir.dialects.iree_linalg_transform as tx
 from mlir.dialects import builtin, pdl
 
 from .variables import *
@@ -24,7 +24,7 @@ def emit_transform_matcher(fun_name: str, op_name: str):
     pdl.ApplyNativeConstraintOp('nestedInFunc',
                                 args=[pdl_op],
                                 params=[FlatSymbolRefAttr.get(fun_name)])
-    pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
+    pdl.RewriteOp(pdl_op, 'iree_linalg_transform.apply')
 
 
 def emit_pattern_if_not_present(fun_name: str, op_name: str):
