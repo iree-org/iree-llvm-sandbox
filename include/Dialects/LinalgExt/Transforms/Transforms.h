@@ -9,6 +9,7 @@
 #ifndef MLIR_DIALECT_LINALGEXT_TRANSFORMS_TRANSFORMS_H
 #define MLIR_DIALECT_LINALGEXT_TRANSFORMS_TRANSFORMS_H
 
+#include "Dialects/LinalgExt/LinalgExtOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/IR/PatternMatch.h"
 

@@ -14,7 +14,7 @@ func @reduce(%in: tensor<8x16xf32>) -> tensor<8xf32> {
   %c16 = arith.constant 16 : index
   %c0 = arith.constant 0 : index
   %0 = linalg.init_tensor [8] : tensor<8xf32>
-  %fill = linalg.fill(%cst, %0) : f32, tensor<8xf32> -> tensor<8xf32>
+  %fill = linalg.fill ins(%cst : f32) outs(%0 : tensor<8xf32>) -> tensor<8xf32>
   %2 = scf.for %i = %c0 to %c8 step %c4
       iter_args (%fill0_ = %fill) -> (tensor<8xf32>) {
     %out = scf.for %j = %c0 to %c16 step %c2
@@ -57,7 +57,7 @@ func @reduce(%in: tensor<8x16xf32>) -> tensor<8xf32> {
 
 // CHECK: %[[INIT8:.*]] = linalg.init_tensor [8] : tensor<8xf32>
 // CHECK: %[[INIT4:.*]] = linalg.init_tensor [4] : tensor<4xf32>
-// CHECK: %[[FILL8:.*]] = linalg.fill(%[[C0_F32]], %[[INIT8]]) : f32, tensor<8xf32> -> tensor<8xf32>
+// CHECK: %[[FILL8:.*]] = linalg.fill ins(%[[C0_F32]] : f32) outs(%[[INIT8]] : tensor<8xf32>) -> tensor<8xf32>
 
 // CHECK: %[[OUTER:.*]]:2 = scf.for %[[I:.*]] = %[[C0]] to %[[C8]] step %[[C4]]
 // CHECK-SAME: iter_args(%[[FILL8_:.*]] = %[[FILL8]],
@@ -69,7 +69,7 @@ func @reduce(%in: tensor<8x16xf32>) -> tensor<8xf32> {
 
 // CHECK:     %[[IN_SUB:.*]] = tensor.extract_slice %[[INPUT]][%[[I]], %[[J]]] [4, 2] [1, 1] : tensor<8x16xf32> to tensor<4x2xf32>
 // CHECK:     %[[FILL8_SUB:.*]] = tensor.extract_slice %[[FILL8_BB]][%[[I]]] [4] [1] : tensor<8xf32> to tensor<4xf32>
-// CHECK:     %[[FILL4:.*]] = linalg.fill(%[[C0_F32]], %[[INIT4_BB]]) : f32, tensor<4xf32> -> tensor<4xf32>
+// CHECK:     %[[FILL4:.*]] = linalg.fill ins(%[[C0_F32]] : f32) outs(%[[INIT4_BB]] : tensor<4xf32>) -> tensor<4xf32>
 
 // CHECK:     %[[REDUCE_TILE:.*]] = linalg.generic {
 // CHECK-SAME:  indexing_maps = [#map0, #map1],

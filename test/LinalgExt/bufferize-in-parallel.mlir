@@ -18,8 +18,8 @@ func @parallel_insert_slice_no_conflict(
     ^bb0(%arg3: index):  // no predecessors
       // CHECK: %[[subview:.*]] = memref.subview %[[arg2]][5] [%[[idx]]] [1]
       %6 = tensor.extract_slice %arg2[5] [%idx] [%c1] : tensor<?xf32> to tensor<?xf32>
-      // CHECK: linalg.fill(%{{.*}}, %[[subview]])
-      %8 = linalg.fill (%cst, %6) : f32, tensor<?xf32> -> tensor<?xf32>
+      // CHECK: linalg.fill ins(%{{.*}}) outs(%[[subview]] : memref<?xf32
+      %8 = linalg.fill ins(%cst : f32) outs(%6 : tensor<?xf32>) -> tensor<?xf32>
 
       // CHECK: linalg_ext.perform_concurrently
       // CHECK-NOT: parallel_insert_slice
@@ -63,8 +63,8 @@ func @parallel_insert_slice_with_conflict(
       // CHECK: linalg.generic {{.*}} ins(%[[subview2]]{{.*}}outs(%[[alloc2]]
       %6 = tensor.extract_slice %arg2[5] [%idx] [%c1] : tensor<?xf32> to tensor<?xf32>
 
-      // CHECK: linalg.fill(%{{.*}}, %[[alloc2]])
-      %8 = linalg.fill (%cst, %6) : f32, tensor<?xf32> -> tensor<?xf32>
+      // CHECK: linalg.fill ins(%{{.*}}) outs(%[[alloc2]] : memref<?xf32
+      %8 = linalg.fill ins(%cst : f32) outs(%6 : tensor<?xf32>) -> tensor<?xf32>
 
       // parallel_insert_slice buffer was already allocated but not copied yet.
       //
