@@ -1,5 +1,5 @@
 // RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute=propagate-distribution -canonicalize | FileCheck %s
-// RaUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute=rewrite-warp-ops-to-scf-if -canonicalize | FileCheck %s --check-prefix=CHECK-SCF-IF
+// RUN: mlir-proto-opt %s -allow-unregistered-dialect -split-input-file -test-vector-warp-distribute=rewrite-warp-ops-to-scf-if -canonicalize | FileCheck %s --check-prefix=CHECK-SCF-IF
 
 // CHECK-LABEL:   func @warp_dead_result(
 func @warp_dead_result(%laneid: index) -> (vector<1xf32>) {
