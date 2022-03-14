@@ -15,6 +15,7 @@ import typing as tp
 
 from ..core.harness import *
 from ..core.nevergrad_tuner_utils import NGSchedulerInterface
+from ..core.plotting import Plotting
 from ..core.problem_definition import ProblemDefinition
 from ..core.utils import compute_quantiles
 
@@ -241,7 +242,6 @@ def finalize_parallel_search(scheduler: NGSchedulerInterface, \
                                     module_save_filename=final_module_filename,
                                     benefit=best)
 
-
 ################################################################################
 ### Multiprocess optimization loop.
 ################################################################################
@@ -343,6 +343,9 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
 
   signal.signal(signal.SIGINT, signal_handler)
 
+  plotting = Plotting()
+  plot_dir = parsed_args.plot_output_dir
+
   # Enqueue slightly more jobs than processes, so that another job can start
   # running immediately when a job finishes. When a job finishes, another job
   # is immediately enqueued.
@@ -377,11 +380,18 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
       num_timeout += 1
     throughput = tell_optimizer(optimizer, result, throughputs, parsed_args)
     best = throughput if throughput > best else best
+    if plot_dir:
+      plotting.add_data_point(result.proposal.kwargs, throughput)
 
     if search_number < parsed_args.search_budget:
       search_number += 1
       enqueue_search_job()
 
   finalize_parallel_search(scheduler, optimizer, throughputs, parsed_args)
+
+  if plot_dir:
+    print("Plotting throughput analysis: " + plot_dir)
+    for feature in plotting.get_features():
+      plotting.plot(feature, plot_dir)
 
   print('Done')

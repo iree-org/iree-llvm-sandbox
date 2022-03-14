@@ -25,15 +25,15 @@ class NGSchedulerInterface:
     pass
 
   def create_matchers(self, module, benefit: int = 1):
-    """Create the PDL matchers 
-    
+    """Create the PDL matchers
+
     Create the PDL IR for matchers / constraints inside `module`.
     """
     pass
 
   def schedule(self, module, proposal, benefit: int = 1):
-    """Create the PDL matchers 
-    
+    """Create the PDL matchers
+
     Create the PDL IR for schedule inside `module`.
     """
     pass
@@ -183,3 +183,7 @@ def add_argparser_tuning_arguments(parser: ArgumentParser):
                       type=float,
                       nargs='?',
                       default=1)
+  parser.add_argument('--plot-output-dir',
+                      type=str,
+                      nargs='?',
+                      default="")
