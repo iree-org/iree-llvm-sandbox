@@ -17,7 +17,6 @@
 #include "mlir/Rewrite/FrozenRewritePatternSet.h"
 #include "mlir/Rewrite/PatternApplicator.h"
 #include "llvm/Support/Debug.h"
-#include <memory>
 
 #define DEBUG_TYPE "expert-expansion"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]")
@@ -29,7 +28,8 @@ using namespace mlir::linalg;
 /// of transformations as described by the `expansions` module that contains
 /// PDL.
 static void expandStrategyOps(ModuleOp module, ModuleOp expansions) {
-  mlir::OwningOpRef<mlir::ModuleOp> clonedExpansions(cast<ModuleOp>(expansions->clone()));
+  mlir::OwningOpRef<mlir::ModuleOp> clonedExpansions(
+      cast<ModuleOp>(expansions->clone()));
   RewritePatternSet patterns(std::move(clonedExpansions));
   FrozenRewritePatternSet frozen(std::move(patterns));
   PatternApplicator applicator(frozen);
