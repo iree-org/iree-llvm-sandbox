@@ -39,12 +39,10 @@ using namespace mlir::linalg;
 #ifdef SANDBOX_ENABLE_IREE_DIALECTS
 #include "iree-dialects/Dialect/Input/InputDialect.h"
 #include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
-#include "iree-dialects/Dialect/LinalgExt/Transforms/Passes.h"
 
 static void registerIreeDialects(DialectRegistry &registry) {
   registry.insert<mlir::iree_compiler::IREE::Input::IREEInputDialect>();
   registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect>();
-  mlir::iree_compiler::IREE::LinalgExt::registerPasses();
 }
 #else
 static void registerIreeDialects(DialectRegistry &registry) {}
