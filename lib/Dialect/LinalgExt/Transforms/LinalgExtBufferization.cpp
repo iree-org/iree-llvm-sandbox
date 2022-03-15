@@ -17,6 +17,18 @@
 
 using namespace mlir;
 using namespace mlir::iree_compiler::IREE::LinalgExt;
+namespace mlir {
+
+using bufferization::AnalysisState;
+using bufferization::BufferizableOpInterface;
+using bufferization::BufferizationState;
+using bufferization::BufferRelation;
+using bufferization::getMemRefType;
+using bufferization::replaceOpWithBufferizedValues;
+using bufferization::replaceOpWithNewBufferizedOp;
+using tensor::ExtractSliceOp;
+
+namespace linalg_ext {
 
 /// Return the destinations that an InParallelOp is inserting into. One per
 /// ParallelInsertSliceOp.
@@ -54,15 +66,16 @@ namespace LinalgExt {
 struct InParallelOpInterface
     : public BufferizableOpInterface::ExternalModel<InParallelOpInterface,
                                                     InParallelOp> {
-  SmallVector<OpOperand *> getAliasingOpOperand(
-      Operation *op, OpResult opResult, const BufferizationState &state) const {
+  SmallVector<OpOperand *>
+  getAliasingOpOperand(Operation *op, OpResult opResult,
+                       const AnalysisState &state) const {
     // Get OpOperand (dest) from corresponding ParallelInsertSliceOp.
     auto inParallelOp = cast<InParallelOp>(op);
     return {getInsertionDest(inParallelOp)[opResult.getResultNumber()]};
   }
 
   bool isMemoryWrite(Operation *op, OpResult opResult,
-                     const BufferizationState &state) const {
+                     const AnalysisState &state) const {
     // This op is a memory write. Stop lookup here to avoid finding false
     // conflicts involving this op and one of the ops in the region. This is
     // similar to how scf.if ops are analyzed.
@@ -72,12 +85,12 @@ struct InParallelOpInterface
   bool isAllocationHoistingBarrier(Operation *op) const { return true; }
 
   BufferRelation bufferRelation(Operation *op, OpResult opResult,
-                                const BufferizationState &state) const {
+                                const AnalysisState &state) const {
     return BufferRelation::Equivalent;
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &b,
-                          const BufferizationState &state) const {
+                          BufferizationState &state) const {
     OpBuilder::InsertionGuard g(b);
     auto inParallelOp = cast<InParallelOp>(op);
     Block *body = &inParallelOp.region().front();
@@ -89,7 +102,7 @@ struct InParallelOpInterface
     SmallVector<Value> newResults;
     for (OpResult opResult : inParallelOp->getOpResults()) {
       SmallVector<OpOperand *> insertDestOperands =
-          state.getAliasingOpOperand(opResult);
+          state.getAnalysisState().getAliasingOpOperand(opResult);
       assert(insertDestOperands.size() == 1 &&
              "expected exactly one aliasing OpOperand");
       // Insert copies right before the PerformConcurrentlyOp terminator. They
@@ -167,7 +180,7 @@ struct PerformConcurrentlyOpInterface
     : public BufferizableOpInterface::ExternalModel<
           PerformConcurrentlyOpInterface, PerformConcurrentlyOp> {
   LogicalResult bufferize(Operation *op, RewriterBase &b,
-                          const BufferizationState &state) const {
+                          BufferizationState &state) const {
     llvm_unreachable("op does not have any tensor OpOperands / OpResults");
     return failure();
   }
@@ -175,7 +188,7 @@ struct PerformConcurrentlyOpInterface
 
 /// Return true if the (ExtractSliceOp, ParallelInsertSliceOp) pair match (i.e.
 /// equivalent operand / result and same offset/sizes/strides specification).
-static bool areEquivalentExtractSliceOps(const BufferizationState &state,
+static bool areEquivalentExtractSliceOps(const AnalysisState &state,
                                          ExtractSliceOp st,
                                          ParallelInsertSliceOp sti) {
   if (!st || !sti) return false;
@@ -189,7 +202,7 @@ static bool areEquivalentExtractSliceOps(const BufferizationState &state,
 
 /// Return true if `value` is originating from an ExtractSliceOp that matches
 /// the given InsertSliceOp.
-static bool hasMatchingExtractSliceOp(const BufferizationState &state,
+static bool hasMatchingExtractSliceOp(const AnalysisState &state,
                                       Value value,
                                       ParallelInsertSliceOp insertOp) {
   auto condition = [&](Value val) {
@@ -206,10 +219,11 @@ static bool hasMatchingExtractSliceOp(const BufferizationState &state,
 struct ParallelInsertSliceOpInterface
     : public BufferizableOpInterface::ExternalModel<
           ParallelInsertSliceOpInterface, ParallelInsertSliceOp> {
-  SmallVector<OpResult> getAliasingOpResult(
-      Operation *op, OpOperand &opOperand,
-      const BufferizationState &state) const {
-    if (&opOperand != &op->getOpOperand(1) /*dest*/) return {};
+  SmallVector<OpResult>
+  getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                      const AnalysisState &state) const {
+    if (&opOperand != &op->getOpOperand(1) /*dest*/)
+      return {};
 
     // ParallelInsertSliceOp itself has no results. Tensors are returned via
     // the parent op.
@@ -233,22 +247,22 @@ struct ParallelInsertSliceOpInterface
   }
 
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
-                              const BufferizationState &state) const {
+                              const AnalysisState &state) const {
     return true;
   }
 
   bool bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
-                               const BufferizationState &state) const {
+                               const AnalysisState &state) const {
     return &opOperand == &op->getOpOperand(1) /*dest*/;
   }
 
   BufferRelation bufferRelation(Operation *op, OpResult opResult,
-                                const BufferizationState &state) const {
+                                const AnalysisState &state) const {
     return BufferRelation::Equivalent;
   }
 
   LogicalResult bufferize(Operation *op, RewriterBase &b,
-                          const BufferizationState &state) const {
+                          BufferizationState &state) const {
     // Will be bufferized as part of InParallelOp.
     return failure();
   }
@@ -257,7 +271,7 @@ struct ParallelInsertSliceOpInterface
   // the code.
   bool isNotConflicting(Operation *op, OpOperand *uRead,
                         OpOperand *uConflictingWrite,
-                        const BufferizationState &state) const {
+                        const AnalysisState &state) const {
     Operation *readingOp = uRead->getOwner();
     Operation *conflictingWritingOp = uConflictingWrite->getOwner();
 
