@@ -139,6 +139,7 @@ static LogicalResult executeSequence(linalg::transform::SequenceOp sequence,
   FrozenRewritePatternSet patterns(std::move(patternList));
 
   transform::TransformState state(module);
+  applyDefaultTimingManagerCLOptions(state.tm);
   TrackingListener &listener = state.addExtension<TrackingListener>();
 
   // Run the canonicalizations upfront so we don't match and transform

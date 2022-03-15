@@ -104,9 +104,12 @@ void transform::TransformState::updatePayloadOps(
 
 LogicalResult
 transform::TransformState::applyTransform(TransformOpInterface transform) {
+  TimingScope timing = tm.getRootScope();
+  TimingScope transformOp = timing.nest(transform->getName().getStringRef());
   transform::TransformResults results(transform->getNumResults());
   if (failed(transform.apply(results, *this)))
     return failure();
+  transformOp.stop();
 
   for (Value target : transform->getOperands())
     removePayloadOps(target);
