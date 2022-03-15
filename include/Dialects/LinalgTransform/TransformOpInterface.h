@@ -12,6 +12,7 @@
 #include "Dialects/LinalgTransform/TransformOpMapping.h"
 #include "Transforms/Functional.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/Support/Timing.h"
 #include <type_traits>
 
 namespace mlir {
@@ -206,6 +207,9 @@ private:
   /// Extensions attached to the TransformState, identified by the TypeID of
   /// their type. Only one extension of any given type is allowed.
   DenseMap<TypeID, std::unique_ptr<Extension>> extensions;
+
+public:
+  DefaultTimingManager tm;
 };
 
 /// Local mapping between values defined by a specific op implementing the
