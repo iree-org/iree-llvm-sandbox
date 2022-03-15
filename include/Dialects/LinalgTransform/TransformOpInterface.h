@@ -11,7 +11,7 @@
 
 #include "Dialects/LinalgTransform/TransformOpMapping.h"
 #include "Transforms/Functional.h"
-#include <mlir/IR/OpDefinition.h>
+#include "mlir/IR/OpDefinition.h"
 #include <type_traits>
 
 namespace mlir {
