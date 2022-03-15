@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Dialects/VectorExt/VectorExtOps.h"
-#include "Dialects/VectorExt/VectorMaskingUtils.h"
+#include "Dialect/VectorExt/VectorExtOps.h"
+#include "Dialect/VectorExt/VectorMaskingUtils.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Visitors.h"

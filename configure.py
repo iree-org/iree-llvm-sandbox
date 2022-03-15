@@ -74,13 +74,11 @@ def parse_arguments():
       default=False,
       action="store_true",
   )
-  parser.add_argument(
-      "--build-compilation-database",
-      help="Build compilation database",
-      dest="build_compilation_database",
-      default=False,
-      action="store_true"
-  )
+  parser.add_argument("--build-compilation-database",
+                      help="Build compilation database",
+                      dest="build_compilation_database",
+                      default=False,
+                      action="store_true")
   parser.add_argument(
       "--cuda-runner",
       help="Build cuda runner library",
@@ -125,8 +123,8 @@ def main(args):
       print(f"ERROR: Cannot find iree-dialects project at {iree_dialects_path}")
       return 1
     # Must come before the sandbox project.
-    llvm_projects.insert(0, "iree_dialects")
-    #llvm_projects.append("iree_dialects")
+    llvm_projects.insert(0, "iree-dialects")
+    #llvm_projects.append("iree-dialects")
     llvm_configure_args.append(
         f"-DLLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR={iree_dialects_path}")
 
@@ -135,7 +133,7 @@ def main(args):
     llvm_path = os.path.abspath(args.llvm_path)
     print(f"-- Using explicit llvm-project path: {llvm_path}")
   elif llvm_path:
-    print(f"-- Using inferred llvm-project path: {llvm_path}")
+    print(f"-- Using IREE inferred llvm-project path: {llvm_path}")
   else:
     llvm_path = os.path.join(args.repo_root, "..", "llvm-project")
     print(f"-- Using default llvm-project path: {llvm_path}")
@@ -200,7 +198,8 @@ def main(args):
       print("WARNING: Project developers use ccache which is not installed")
   # Build compilation database.
   if args.build_compilation_database:
-    llvm_configure_args.append("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON") 
+    llvm_configure_args.append("-DCMAKE_EXPORT_COMPILE_COMMANDS=ON")
+
 
 # Build CUDA runner.
   if args.cuda_runner:
@@ -236,7 +235,7 @@ def main(args):
   # Write out .env.
   with open(f"{os.path.join(args.repo_root, '.env')}", "wt") as f:
     f.write(
-        f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_package')}"
+        f"PYTHONPATH={os.path.join(build_dir, 'tools', 'sandbox', 'python_packages')}"
     )
 
   # Do initial build.
@@ -253,12 +252,11 @@ def main(args):
 
   if args.cuda_runner:
     cmake_args.append("mlir_cuda_runtime")
-    
+
   print(f"-- Performing initial build: {' '.join(cmake_args)}")
   subprocess.check_call(cmake_args, cwd=build_dir)
 
   return 0
-
 
 if __name__ == "__main__":
   sys.exit(main(parse_arguments()))

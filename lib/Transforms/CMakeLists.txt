@@ -1,22 +1,18 @@
 
-add_mlir_library(IREELinalgTensorSandboxTransforms
-  FuseFillIntoReduction.cpp
+add_mlir_library(IREEDialectsTransforms
   Listener.cpp
   ListenerCSE.cpp
   ListenerGreedyPatternRewriteDriver.cpp
-  StagedPatternRewriteDriver.cpp
-  VectorDistribution.cpp
-
+  
   LINK_LIBS PRIVATE
+  # TODO: break dialect dependency by implementing the transformation separately
+  # and registering it.
   MLIRAsync
-  MLIRGPUOps
   MLIRLinalg
   MLIRLinalgTransforms
 
   DEPENDS
   mlir-headers
-  DriverPassIncGen
-  MLIRLinalgExtInterfacesIncGen
-  MLIRLinalgExtOpsIncGen
-  MLIRLinalgExtPassIncGen
+  IREELinalgExtIncGen
+  IREELinalgExtInterfacesIncGen
 )

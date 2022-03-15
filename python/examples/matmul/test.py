@@ -130,7 +130,7 @@ expert_fuse_2_tile_1 = \
     .then(LoweringOnlyExpert('', ''))
 
 # FIXME: could not find replacement for tracked op (failed to apply:
-#       %7 = linalg_transform.outline_loop %6 {func_name = "foo"})
+#       %7 = iree_linalg_transform.outline_loop %6 {func_name = "foo"})
 # .then(OutlineOneParentLoop('matmul',
 #                            'vector.contract',
 #                            'foo',

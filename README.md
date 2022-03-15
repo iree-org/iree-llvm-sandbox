@@ -58,13 +58,17 @@ python -m pip install -r requirements.txt
 The sandbox can be optionally built with or without IREE integration (for
 accessing IREE specific IR and evaluating on IREE compatible targets):
 
+Note that useful python environment `activate` scripts for `mlirdev` and
+`mlirdev-debug` are provided in the `scripts` directory.
+
 ### Building with IREE
 
 Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
 directory and initialize submodules:
 
 ```
-(cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project)
+(cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project && \
+ git checkout sandbox)
 ```
 
 And configure/build the project:
@@ -73,7 +77,15 @@ And configure/build the project:
 python configure.py --iree-path=../iree
 ```
 
+Or if using `scripts/mlirdev/bin/activate`:
+
+```
+sandbox-configure-and-build-iree
+```
+
 Note that the `third_party/llvm-project` bundled with IREE will be used.
+The `sandbox` branch often runs ahead of the IREE integration and should
+generally be used.
 
 ### Building without IREE
 
@@ -204,7 +216,7 @@ done
 IREE_LLVM_SANDBOX_BUILD_DIR=$(pwd)/build \
 MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so \
 MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
-PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package cset proc -s sandbox \
+PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_packages cset proc -s sandbox \
 -e ${PATH_TO_VENV}/.venv/mlirdev/bin/python -- -m python.examples.matmul.bench
 
 IREE_LLVM_SANDBOX_BUILD_DIR=$(pwd)/build \
@@ -212,7 +224,7 @@ MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so
 MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
 MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so \
 export MLIR_RUNNER_EXTRA_LIBS=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_async_runtime_copy.so \
-PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_package cset proc -s sandbox_parallel \
+PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_packages cset proc -s sandbox_parallel \
 -e ${PATH_TO_VENV}/.venv/mlirdev/bin/python -- -m python.examples.linalg_ext.in_par_bench
 ```
 

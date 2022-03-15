@@ -13,5 +13,5 @@ add_mlir_library(MLIRVectorExtTestPasses
   MLIRRewrite
   MLIRVector
   MLIRVectorExt
-  MLIRVectorExtTransform
+  MLIRVectorExtTransforms
   )
