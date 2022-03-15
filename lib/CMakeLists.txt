@@ -25,6 +25,11 @@ if (SANDBOX_ENABLE_ALP)
   )
 endif()
 
+if (SANDBOX_ENABLE_ITERATORS)
+  list(APPEND dialect_libs
+    MLIRIterators
+  )
+endif()
 
 set(IREE_DIALECTS_DEPENDS
   DriverPassIncGen

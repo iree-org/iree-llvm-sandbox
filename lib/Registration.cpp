@@ -47,6 +47,16 @@ static void registerIreeDialects(DialectRegistry &registry) {
 // Optional dialects and projects.
 //===----------------------------------------------------------------------===//
 
+#ifdef SANDBOX_ENABLE_ITERATORS
+#include "Dialects/Iterators/Iterators.h"
+
+static void registerIteratorDialects(DialectRegistry &registry) {
+  registry.insert<mlir::iterators::IteratorsDialect>();
+}
+#else
+static void registerIteratorDialects(DialectRegistry &registry) {}
+#endif
+
 #ifdef SANDBOX_ENABLE_ALP
 #include "alp/Transforms/Passes.h"
 #endif
@@ -70,6 +80,7 @@ void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
   registerAllDialects(registry);
   registerIreeDialects(registry);
   registry.insert<vector_ext::VectorExtDialect>();
+  registerIteratorDialects(registry);
 
   // Tiling external models.
   LinalgExt::registerTilingInterfaceExternalModels(registry);

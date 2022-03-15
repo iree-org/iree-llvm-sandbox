@@ -43,7 +43,10 @@ if (SANDBOX_ENABLE_ALP)
 endif()
 
 if (SANDBOX_ENABLE_ITERATORS)
-  add_subdirectory(experimental/iterators)
+  # Iterators includes
+  add_compile_definitions("SANDBOX_ENABLE_ITERATORS")
+  include_directories(experimental/iterators/include)
+  include_directories(${CMAKE_BINARY_DIR}/tools/sandbox/experimental/iterators/include)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${MLIR_MAIN_SRC_DIR}/cmake/modules)
@@ -105,7 +108,4 @@ add_subdirectory(lib)
 add_subdirectory(python)
 add_subdirectory(test)
 add_subdirectory(tools)
-if (SANDBOX_ENABLE_ALP)
-# ALP cmake files
 add_subdirectory(experimental)
-endif()
