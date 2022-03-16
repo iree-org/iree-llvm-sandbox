@@ -1,0 +1,36 @@
+
+ROOT_DIR=${ROOT_DIR:=${HOME}}
+export LLVM_SOURCE_DIR=${ROOT_DIR}/github/llvm-project
+export LLVM_BUILD_DIR=${ROOT_DIR}/github/llvm-project/build
+export IREE_DIALECTS_BUILD_DIR=${ROOT_DIR}/github/llvm-project/build-iree-dialects
+#export CC=/usr/local/bin/clang-14
+#export CXX=/usr/local/bin/clang-14
+
+export IREE_SOURCE_DIR=${ROOT_DIR}/github/iree
+export IREE_DIALECTS_SOURCE=${ROOT_DIR}/github/iree/llvm-external-projects/iree-dialects
+export IREE_LLVM_SANDBOX_SOURCE_DIR=${ROOT_DIR}/github/iree-llvm-sandbox
+export IREE_LLVM_SANDBOX_BUILD_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR}/build
+export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so
+export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so
+export MLIR_RUNNER_EXTRA_LIBS=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_async_runtime_copy.so
+
+export PATH=${PATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/bin:${IREE_DIALECTS_BUILD_DIR}/bin:${LLVM_BUILD_DIR}/bin
+export CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:${ROOT_DIR}/.venv/mlirdev/lib/python3.9/site-packages
+
+export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_packages/
+
+sandbox-build() {
+    cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+    (cd ${IREE_LLVM_SANDBOX_BUILD_DIR} && ninja tools/sandbox/all)
+    export $(cat .env)
+}
+
+sandbox-configure-and-build() {
+    python ./configure.py --build-mode=Release --build-dir=${IREE_LLVM_SANDBOX_BUILD_DIR} --use-system-cc
+    sandbox-build
+}
+
+sandbox-configure-and-build-iree() {
+    python ./configure.py --build-mode=Release --build-dir=${IREE_LLVM_SANDBOX_BUILD_DIR} --use-system-cc --iree-path=${IREE_SOURCE_DIR}
+    sandbox-build
+}

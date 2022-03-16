@@ -1,53 +1,47 @@
 get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
 get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 
-if(SANDBOX_ENABLE_IREE_DIALECTS)
-  list(APPEND dialect_libs
-    IREEInputDialect
-    IREELinalgExtDialect
-    IREELinalgExtPasses
-  )
-endif()
-
-add_subdirectory(Dialects)
-add_subdirectory(ExecutionEngine)
-add_subdirectory(Transforms)
-
-set(IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
-  MLIRLinalgExt
-  MLIRLinalgExtOpInterfaceImpl
-  MLIRLinalgExtTransforms
-  MLIRLinalgTransformOps
-  MLIRLinalgTransformTransforms
+# Whether we are using IREE of the sandbox mirror, 
+list(APPEND dialect_libs
+  IREELinalgExtDialect
+  IREELinalgExtOpInterfaceImpl
+  IREELinalgTransformDialect
+  IREELinalgTransformDialectTransforms
   MLIRVectorExt
-  MLIRVectorExtTransform
-  IREELinalgTensorSandboxTransforms
+  MLIRVectorExtTransforms
+  IREESandboxTransforms
 )
 
+add_subdirectory(Dialect)
+add_subdirectory(ExecutionEngine)
+add_subdirectory(Passes)
+if (NOT SANDBOX_ENABLE_IREE_DIALECTS)
+  add_subdirectory(Transforms)
+endif()
+
 if (SANDBOX_ENABLE_ALP)
-  list(APPEND IREE_LINALG_TENSOR_SANDBOX_LIBRARIES
+  list(APPEND dialect_libs
     ExperimentalAlpTransforms
   )
 endif()
 
 
-set(IREE_LINALG_TENSOR_SANDBOX_DEPENDS
+set(IREE_DIALECTS_DEPENDS
   DriverPassIncGen
-  MLIRLinalgExtInterfacesIncGen
-  MLIRLinalgExtOpsIncGen
-  MLIRLinalgExtPassIncGen
+  IREELinalgExtInterfacesIncGen
+  IREELinalgExtIncGen
 )
 
-add_mlir_library(IREELinalgTensorSandboxDriver
+add_mlir_library(IREESandboxDriver
   LinalgTensorCodegenDriver.cpp
 
   PARTIAL_SOURCES_INTENDED
   LINK_LIBS PRIVATE
+  IREELinalgExtOpInterfaceImpl
   # Dialects
   MLIRAsync
   MLIRGPUOps
   MLIRLinalg
-  MLIRLinalgExtOpInterfaceImpl
   # Transforms
   MLIRAsyncTransforms
   MLIRLinalgTransforms
@@ -61,16 +55,15 @@ add_mlir_library(IREELinalgTensorSandboxDriver
   MLIRSCFToControlFlow
   MLIRVectorToLLVM
 
-  # Sandbox libraries
-  ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
+  ${dialect_libs}
 
   DEPENDS
   mlir-headers
-  ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
+  ${IREE_DIALECTS_DEPENDS}
   MLIRLinalgOpsIncGen
 )
 
-add_mlir_library(IREELinalgTensorSandboxRegistration
+add_mlir_library(IREESandboxRegistration
   Registration.cpp
 
   PARTIAL_SOURCES_INTENDED
@@ -78,24 +71,15 @@ add_mlir_library(IREELinalgTensorSandboxRegistration
   ${dialect_libs}
   ${conversion_libs}
   MLIRPass
-
-  # Sandbox libraries
-  IREELinalgTensorSandboxDriver
-  ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
-
-  # Tests.
-  MLIRLinalgTransformTestPasses
-  MLIRTransformsExtTestPasses
-  MLIRVectorExtTestPasses
+  IREESandboxDriver
 
   DEPENDS
   mlir-headers
-  ${IREE_LINALG_TENSOR_SANDBOX_DEPENDS}
+  ${IREE_DIALECTS_DEPENDS}
   MLIRLinalgOpsIncGen
-  MLIRLinalgTransformOpsIncGen
 )
 
-add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
+add_mlir_public_c_api_library(IREESandboxCAPI
   CAPI.cpp
 
   PARTIAL_SOURCES_INTENDED
@@ -108,8 +92,9 @@ add_mlir_public_c_api_library(IREELinalgTensorSandboxCAPI
   MLIRIR
   MLIRPass
 
+  ${dialect_libs}
+  
   # Sandbox libraries
-  IREELinalgTensorSandboxDriver
-  IREELinalgTensorSandboxRegistration
-  ${IREE_LINALG_TENSOR_SANDBOX_LIBRARIES}
+  IREESandboxDriver
+  IREESandboxRegistration
 )

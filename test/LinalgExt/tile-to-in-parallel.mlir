@@ -15,8 +15,8 @@ module {
 
     // CHECK: %[[M:.*]] = tensor.dim %{{.*}}, %{{.*}} : tensor<?xf32>
     // CHECK: %[[CEIL:.*]] = affine.apply #[[$CEIL_MAP]]()[%[[CHUNK_SIZE]], %[[M]]]
-    // CHECK: linalg_ext.in_parallel %[[CEIL]] -> (tensor<?xf32>) {
-    %0 = linalg_ext.tile %chunk_size outs(%out: tensor<?xf32>) -> (tensor<?xf32>) {
+    // CHECK: iree_linalg_ext.in_parallel %[[CEIL]] -> (tensor<?xf32>) {
+    %0 = iree_linalg_ext.tile %chunk_size outs(%out: tensor<?xf32>) -> (tensor<?xf32>) {
 
     // CHECK: ^bb0(%[[TIDX:.*]]: index):
     // CHECK:    %[[OFFSET:.*]] = affine.apply #[[$MUL_MAP]](%[[TIDX]])[%[[CHUNK_SIZE]]]
@@ -42,21 +42,21 @@ module {
             linalg.yield %tmp: f32
         } -> tensor<?xf32>
 
-    // CHECK: linalg_ext.perform_concurrently {
-    // CHECK:    linalg_ext.parallel_insert_slice %[[R]] into %[[OUT]][%[[OFFSET]]] [%[[SIZE]]] [{{.*}}] : tensor<?xf32> into tensor<?xf32>
-        linalg_ext.tile_yield %3: tensor<?xf32> 
+    // CHECK: iree_linalg_ext.perform_concurrently {
+    // CHECK:    iree_linalg_ext.parallel_insert_slice %[[R]] into %[[OUT]][%[[OFFSET]]] [%[[SIZE]]] [{{.*}}] : tensor<?xf32> into tensor<?xf32>
+        iree_linalg_ext.tile_yield %3: tensor<?xf32> 
     }
     return %0: tensor<?xf32>
   }
 
-  pdl.pattern @match_linalg_ext_tile : benefit(1) {
+  pdl.pattern @match_iree_linalg_ext_tile : benefit(1) {
     %0 = operands
     %1 = types
-    %2 = operation "linalg_ext.tile"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
-    rewrite %2 with "linalg_transform.apply"
+    %2 = operation "iree_linalg_ext.tile"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
+    rewrite %2 with "iree_linalg_transform.apply"
   }
-  linalg_transform.sequence {
-    %0 = match @match_linalg_ext_tile
-    %1 = rewrite_linalg_ext_tile_to_in_parallel %0
+  iree_linalg_transform.sequence {
+    %0 = match @match_iree_linalg_ext_tile
+    %1 = rewrite_iree_linalg_ext_tile_to_in_parallel %0
   }
 }

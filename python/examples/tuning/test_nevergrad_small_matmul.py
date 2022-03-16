@@ -91,7 +91,7 @@ class NGScheduler(NGSchedulerInterface):
     # TODO: this is necessary to force-load the dialect, otherwise op creation
     # complains about "unregistered dialect" despite the registration being called.
     register_sandbox_passes_and_dialects(module.context)
-    module.context.dialects["linalg_transform"]
+    module.context.dialects["iree_linalg_transform"]
 
     with InsertionPoint(module.body):
       # TODO: Evolve to python-metaprogrammed PDLL constraints.
