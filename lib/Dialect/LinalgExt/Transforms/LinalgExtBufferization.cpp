@@ -17,7 +17,6 @@
 
 using namespace mlir;
 using namespace mlir::iree_compiler::IREE::LinalgExt;
-namespace mlir {
 
 using bufferization::AnalysisState;
 using bufferization::BufferizableOpInterface;
@@ -27,8 +26,6 @@ using bufferization::getMemRefType;
 using bufferization::replaceOpWithBufferizedValues;
 using bufferization::replaceOpWithNewBufferizedOp;
 using tensor::ExtractSliceOp;
-
-namespace linalg_ext {
 
 /// Return the destinations that an InParallelOp is inserting into. One per
 /// ParallelInsertSliceOp.
@@ -46,15 +43,6 @@ static SmallVector<OpOperand *> getInsertionDest(InParallelOp inParallelOp) {
 }
 
 namespace mlir {
-
-using bufferization::BufferizableOpInterface;
-using bufferization::BufferizationState;
-using bufferization::BufferRelation;
-using bufferization::getMemRefType;
-using bufferization::replaceOpWithBufferizedValues;
-using bufferization::replaceOpWithNewBufferizedOp;
-using tensor::ExtractSliceOp;
-
 namespace iree_compiler {
 namespace IREE {
 namespace LinalgExt {
@@ -166,7 +154,8 @@ struct InParallelOpInterface
           b.eraseOp(insertOp);
           return WalkResult::advance();
         });
-    if (walkResult.wasInterrupted()) return failure();
+    if (walkResult.wasInterrupted())
+      return failure();
 
     // Replace the op.
     replaceOpWithBufferizedValues(b, op, newResults);
@@ -191,7 +180,8 @@ struct PerformConcurrentlyOpInterface
 static bool areEquivalentExtractSliceOps(const AnalysisState &state,
                                          ExtractSliceOp st,
                                          ParallelInsertSliceOp sti) {
-  if (!st || !sti) return false;
+  if (!st || !sti)
+    return false;
   if (st != sti &&
       !state.areEquivalentBufferizedValues(st.source(), sti.dest()))
     return false;
@@ -202,12 +192,12 @@ static bool areEquivalentExtractSliceOps(const AnalysisState &state,
 
 /// Return true if `value` is originating from an ExtractSliceOp that matches
 /// the given InsertSliceOp.
-static bool hasMatchingExtractSliceOp(const AnalysisState &state,
-                                      Value value,
+static bool hasMatchingExtractSliceOp(const AnalysisState &state, Value value,
                                       ParallelInsertSliceOp insertOp) {
   auto condition = [&](Value val) {
     if (auto extractOp = val.getDefiningOp<ExtractSliceOp>())
-      if (areEquivalentExtractSliceOps(state, extractOp, insertOp)) return true;
+      if (areEquivalentExtractSliceOps(state, extractOp, insertOp))
+        return true;
     return false;
   };
 
@@ -219,9 +209,8 @@ static bool hasMatchingExtractSliceOp(const AnalysisState &state,
 struct ParallelInsertSliceOpInterface
     : public BufferizableOpInterface::ExternalModel<
           ParallelInsertSliceOpInterface, ParallelInsertSliceOp> {
-  SmallVector<OpResult>
-  getAliasingOpResult(Operation *op, OpOperand &opOperand,
-                      const AnalysisState &state) const {
+  SmallVector<OpResult> getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                                            const AnalysisState &state) const {
     if (&opOperand != &op->getOpOperand(1) /*dest*/)
       return {};
 
@@ -237,7 +226,8 @@ struct ParallelInsertSliceOpInterface
     unsigned int opIdx = 0;
     for (ParallelInsertSliceOp insertOp :
          block->getOps<ParallelInsertSliceOp>()) {
-      if (insertOp.getOperation() == op) break;
+      if (insertOp.getOperation() == op)
+        break;
       ++opIdx;
     }
     assert(opIdx < inParallelOp->getNumResults() &&
@@ -346,10 +336,10 @@ struct ParallelInsertSliceOpInterface
     return false;
   }
 };
-}  // namespace LinalgExt
-}  // namespace IREE
-}  // namespace iree_compiler
-}  // namespace mlir
+} // namespace LinalgExt
+} // namespace IREE
+} // namespace iree_compiler
+} // namespace mlir
 
 void mlir::iree_compiler::IREE::LinalgExt::
     registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry) {
