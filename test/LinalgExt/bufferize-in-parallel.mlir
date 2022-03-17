@@ -57,10 +57,6 @@ func @parallel_insert_slice_with_conflict(
     ^bb0(%arg3: index):  // no predecessors
       // Another alloc for the extract_slice op.
       // CHECK: %[[alloc2:.*]] = memref.alloc
-      // CHECK: %[[subview2:.*]] = memref.subview %[[arg2]][5] [%[[idx]]] [1]
-      //
-      // TODO: memeref.copy currently horrendously slow, just use linalg.generic
-      // CHECK: linalg.generic {{.*}} ins(%[[subview2]]{{.*}}outs(%[[alloc2]]
       %6 = tensor.extract_slice %arg2[5] [%idx] [%c1] : tensor<?xf32> to tensor<?xf32>
 
       // CHECK: linalg.fill ins(%{{.*}}) outs(%[[alloc2]] : memref<?xf32

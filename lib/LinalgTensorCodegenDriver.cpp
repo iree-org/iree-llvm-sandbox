@@ -344,7 +344,7 @@ void LinalgBufferizationDriverPass::runOnOperation() {
   dynamicPM.addPass(createCanonicalizerPass());
   dynamicPM.addPass(createCSEPass());
 
-  bufferization::AnalysisBufferizationOptions options;
+  bufferization::OneShotBufferizationOptions options;
   options.memCpyFn = [](OpBuilder &b, Location loc, Value from, Value to) {
     if (linalg::makeMemRefCopyOp(b, loc, from, to))
       return success();
