@@ -18,10 +18,10 @@ pdl.pattern @target_pattern : benefit(1) {
   %0 = operands
   %1 = types
   %2 = operation "linalg.generic"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
-  rewrite %2 with "linalg_transform.apply"
+  rewrite %2 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @target_pattern
   // expected-error@below {{failed to apply}}
   vectorize %0
@@ -45,10 +45,10 @@ pdl.pattern @target_pattern : benefit(1) {
   %0 = operands
   %1 = types
   %2 = operation "linalg.generic"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
-  rewrite %2 with "linalg_transform.apply"
+  rewrite %2 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @target_pattern
   // expected-error@below {{the transformed op is enclosed by 0 loops, but 1 expected}}
   // expected-error@below {{failed to apply}}
@@ -62,7 +62,7 @@ func private @prevent_dce()
 pdl.pattern @something : benefit(1) {
   %0 = operands
   %2 = operation "scf.for"(%0 : !pdl.range<value>)
-  rewrite %2 with "linalg_transform.apply"
+  rewrite %2 with "iree_linalg_transform.apply"
 }
 
 func public @loop(%lb: index, %ub: index, %step: index) {
@@ -72,7 +72,7 @@ func public @loop(%lb: index, %ub: index, %step: index) {
   return
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @something
   // expected-error@below {{NYI: cannot target the result of pipelining}}
   // expected-error@below {{failed to apply}}
@@ -90,10 +90,10 @@ func public @no_outlining() {
 
 pdl.pattern @some_operation : benefit(1) {
   %0 = operation "some.operation"
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @some_operation
   // Make sure we don't crash on wrong operation type.
   // expected-error@below {{failed to apply}}
@@ -120,10 +120,10 @@ pdl.pattern @pdl_target : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@no_replacement](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   %0 = match @pdl_target
   // expected-error @below {{failed to apply}}
   vectorize
@@ -150,7 +150,7 @@ pdl.pattern @pdl_target1 : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@repeated_match](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
 // An exact copy of the above, but with a different name.
@@ -160,10 +160,10 @@ pdl.pattern @pdl_target2 : benefit(1) {
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
   apply_native_constraint "nestedInFunc"[@repeated_match](%0 : !pdl.operation)
   // TODO: we don't want this, but it is the required terminator for pdl.pattern
-  rewrite %0 with "linalg_transform.apply"
+  rewrite %0 with "iree_linalg_transform.apply"
 }
 
-linalg_transform.sequence {
+iree_linalg_transform.sequence {
   // expected-note @below {{handle}}
   %0 = match @pdl_target1
   // expected-error @below {{failed to apply}}

@@ -1,6 +1,6 @@
 import mlir.iree_sandbox as sandbox
 import mlir.ir as ir
-import mlir.dialects.linalg_transform as transform
+import mlir.dialects.iree_linalg_transform as transform
 
 
 def run(f):
@@ -11,7 +11,7 @@ def run(f):
     # TODO: this is necessary to force-load the dialect, otherwise op creation
     # complains about "unregistered dialect" despite the registration call just
     # above.
-    ctx.dialects["linalg_transform"]
+    ctx.dialects["iree_linalg_transform"]
 
     module = ir.Module.create()
     with ir.InsertionPoint(module.body):

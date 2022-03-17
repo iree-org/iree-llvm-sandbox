@@ -6,11 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Dialects/LinalgExt/LinalgExtBufferization.h"
-#include "Dialects/LinalgExt/LinalgExtDialect.h"
-#include "Transforms/PassDetail.h"
-#include "Transforms/Passes.h"
-#include "Transforms/Transforms.h"
+#include "Passes/PassDetail.h"
+#include "Passes/Passes.h"
+#include "Passes/Transforms.h"
+
+#include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
+#include "Dialect/LinalgExt/LinalgExtBufferization.h"
+
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/LinalgToLLVM/LinalgToLLVM.h"
@@ -23,6 +25,7 @@
 #include "mlir/Dialect/Async/Passes.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -36,7 +39,6 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Transforms.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
 #include "mlir/Dialect/Vector/Transforms/VectorTransforms.h"
@@ -348,8 +350,7 @@ void LinalgBufferizationDriverPass::runOnOperation() {
       return success();
     return failure();
   };
-  dynamicPM.addPass(
-      createLinalgComprehensiveModuleBufferizePass(options));
+  dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass(options));
 
   if (failed(runPipeline(dynamicPM, getOperation())))
     return signalPassFailure();
@@ -483,7 +484,8 @@ void UnrollOneParentLoopPass::runOnOperation() {
   });
 }
 
-static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b, Operation *op) {
+static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
+                                                   Operation *op) {
   if (op->getNumRegions() != 1)
     return nullptr;
   OpBuilder::InsertionGuard g(b);

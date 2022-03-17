@@ -1,6 +1,6 @@
 from mlir.ir import *
 from mlir.passmanager import PassManager
-import mlir.dialects.linalg_transform as tx
+import mlir.dialects.iree_linalg_transform as tx
 from mlir.dialects import builtin, pdl
 
 from .variables import *
@@ -24,7 +24,7 @@ def emit_transform_matcher(fun_name: str, op_name: str):
     pdl.ApplyNativeConstraintOp('nestedInFunc',
                                 args=[pdl_op],
                                 params=[FlatSymbolRefAttr.get(fun_name)])
-    pdl.RewriteOp(pdl_op, 'linalg_transform.apply')
+    pdl.RewriteOp(pdl_op, 'iree_linalg_transform.apply')
 
 
 def emit_pattern_if_not_present(fun_name: str, op_name: str):
@@ -404,7 +404,7 @@ class ApplySchedule(Transform):
 
 
 class LinalgExtTile(Transform):
-  """Tile a linalg op with using the linalg_ext.tile op and a single
+  """Tile a linalg op with using the iree_linalg_ext.tile op and a single
   entry tile_sizes.
 
   This transform can be configured as follows:
@@ -427,7 +427,7 @@ class LinalgExtTile(Transform):
 
 
 class LinalgExtTileToScfFor(Transform):
-  """Rewrite linalg_ext.tile op to scf.for.
+  """Rewrite iree_linalg_ext.tile op to scf.for.
   """
 
   variables = {}
@@ -437,12 +437,12 @@ class LinalgExtTileToScfFor(Transform):
 
   def build_transform_ir(self):
     target = tx.MatchOp(
-        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.tile'))
+        emit_pattern_if_not_present(self.fun_name, 'iree_linalg_ext.tile'))
     tx.RewriteLinalgExtTileToScfForOp(target)
 
 
 class LinalgExtTileToInParallel(Transform):
-  """Rewrite linalg_ext.tile op to linalg_ext.in_parallel.
+  """Rewrite iree_linalg_ext.tile op to iree_linalg_ext.in_parallel.
   """
 
   variables = {}
@@ -452,12 +452,12 @@ class LinalgExtTileToInParallel(Transform):
 
   def build_transform_ir(self):
     target = tx.MatchOp(
-        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.tile'))
+        emit_pattern_if_not_present(self.fun_name, 'iree_linalg_ext.tile'))
     tx.RewriteLinalgExtTileToInParallelOp(target)
 
 
 class LinalgExtInParallelToScfFor(Transform):
-  """Rewrite linalg_ext.in_parallel op to scf.for.
+  """Rewrite iree_linalg_ext.in_parallel op to scf.for.
   """
 
   variables = {}
@@ -467,12 +467,13 @@ class LinalgExtInParallelToScfFor(Transform):
 
   def build_transform_ir(self):
     target = tx.MatchOp(
-        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.in_parallel'))
+        emit_pattern_if_not_present(self.fun_name,
+                                    'iree_linalg_ext.in_parallel'))
     tx.RewriteLinalgExtInParallelToScfForOp(target)
 
 
 class LinalgExtInParallelToAsync(Transform):
-  """Rewrite linalg_ext.in_parallel op to async.
+  """Rewrite iree_linalg_ext.in_parallel op to async.
   """
 
   variables = {}
@@ -482,7 +483,8 @@ class LinalgExtInParallelToAsync(Transform):
 
   def build_transform_ir(self):
     target = tx.MatchOp(
-        emit_pattern_if_not_present(self.fun_name, 'linalg_ext.in_parallel'))
+        emit_pattern_if_not_present(self.fun_name,
+                                    'iree_linalg_ext.in_parallel'))
     tx.RewriteLinalgExtInParallelToAsyncOp(target)
 
 

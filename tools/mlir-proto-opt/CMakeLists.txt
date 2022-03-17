@@ -32,9 +32,11 @@ PRIVATE
 
   ${LIBS}
 
+  MLIRVectorExtTestPasses
+  
   # Sandbox libs.
-  IREELinalgTensorSandboxDriver
-  IREELinalgTensorSandboxRegistration
+  IREESandboxDriver
+  IREESandboxRegistration
 )
 
 mlir_check_all_link_libraries(mlir-proto-opt)

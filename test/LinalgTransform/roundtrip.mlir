@@ -1,7 +1,7 @@
 // RUN: mlir-proto-opt %s | FileCheck %s
 
-// CHECK: linalg_transform.sequence
-linalg_transform.sequence {
+// CHECK: iree_linalg_transform.sequence
+iree_linalg_transform.sequence {
   // CHECK: %[[OPS:.*]] = match @{{.*}}
   %0 = match @match1
   // CHECK: %[[TILED:.*]] = tile %[[OPS]] {
