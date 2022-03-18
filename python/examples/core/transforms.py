@@ -394,7 +394,7 @@ class ApplySchedule(Transform):
 
   def __call__(self, module: Module, **kwargs):
     PassManager.parse('linalg-interp-transforms').run(module)
-    PassManager.parse('linalg-drop-schedule-from-module').run(module)
+    PassManager.parse('linalg-drop-schedule').run(module)
     return module
 
 

@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt -linalg-drop-schedule-from-module %s | FileCheck %s
+// RUN: mlir-proto-opt -linalg-drop-schedule %s | FileCheck %s
 
 func @matmul_tensors(
   %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { linalg.inplaceable = true}) 
