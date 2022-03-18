@@ -6,7 +6,7 @@ import numpy as np
 import mlir.iree_sandbox as sandbox
 import mlir.ir as ir
 import mlir.dialects.pdl as pdl
-import mlir.dialects.linalg_transform as transform
+import mlir.dialects.iree_linalg_transform as transform
 
 from ..core.experts import *
 from ..core.harness import *
