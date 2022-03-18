@@ -6,13 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Dialect/LinalgTransform/LinalgTransformOps.h"
-
 #include <algorithm>
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
 #include "Transforms/Listener.h"
+
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/LinalgTransformOps.h"
@@ -790,6 +789,17 @@ transform::OutlineLoopOp::apply(transform::TransformResults &results,
   if (failed(res))
     return failure();
   results.set(getResult().cast<OpResult>(), resultVector);
+  return success();
+}
+
+//===---------------------------------------------------------------------===//
+// PrintOp
+//===---------------------------------------------------------------------===//
+
+LogicalResult transform::PrintOp::apply(transform::TransformResults &results,
+                                        transform::TransformState &state) {
+  llvm::outs() << "[[[ IR printer: " << name() << " ]]]\n";
+  state.getTopLevel()->dump();
   return success();
 }
 
