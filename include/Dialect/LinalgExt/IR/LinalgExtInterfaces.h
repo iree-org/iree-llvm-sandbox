@@ -28,14 +28,14 @@ namespace detail {
 LogicalResult verifyLinalgExtOpInterface(Operation *op);
 }
 
-#include "Dialect/LinalgExt/IR/LinalgExtOps.h.inc"  // IWYU pragma: export
+#include "Dialect/LinalgExt/IR/LinalgExtOps.h.inc" // IWYU pragma: export
 
 /// Include the generated interface declarations.
-#include "Dialect/LinalgExt/IR/LinalgExtOpInterfaces.h.inc"  // IWYU pragma: export
+#include "Dialect/LinalgExt/IR/LinalgExtOpInterfaces.h.inc" // IWYU pragma: export
 
-}  // namespace LinalgExt
-}  // namespace IREE
-}  // namespace iree_compiler
-}  // namespace mlir
+} // namespace LinalgExt
+} // namespace IREE
+} // namespace iree_compiler
+} // namespace mlir
 
-#endif  // IREE_DIALECTS_DIALECT_LINALGEXT_IR_LINALGEXTINTERFACES_H_
+#endif // IREE_DIALECTS_DIALECT_LINALGEXT_IR_LINALGEXTINTERFACES_H_

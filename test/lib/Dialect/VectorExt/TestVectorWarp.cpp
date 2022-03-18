@@ -39,10 +39,9 @@ struct TestVectorWarp
       llvm::cl::desc("Test distribution of transfer write"),
       llvm::cl::init(false)};
 
-  Option<bool> hoistUniform{
-      *this, "hoist-uniform",
-      llvm::cl::desc("Test hoist uniform"),
-      llvm::cl::init(false)};
+  Option<bool> hoistUniform{*this, "hoist-uniform",
+                            llvm::cl::desc("Test hoist uniform"),
+                            llvm::cl::init(false)};
 
   Option<bool> propagateDistribution{
       *this, "propagate-distribution",
@@ -54,7 +53,7 @@ struct TestVectorWarp
 
   void runOnOperation() override {
     FuncOp funcOp = getOperation();
-    funcOp.walk([&](Operation * op) {
+    funcOp.walk([&](Operation *op) {
       if (auto warpOp = dyn_cast<WarpSingleLaneOp>(op)) {
         if (hoistUniform) {
           moveScalarUniformCode(warpOp);
@@ -70,8 +69,8 @@ struct TestVectorWarp
         // complex cases.
         int64_t vecRank = writeOp.getVectorType().getRank();
         OpBuilder builder(writeOp.getContext());
-        auto map = AffineMap::get(vecRank, 0,
-                                  builder.getAffineDimExpr(vecRank - 1));
+        auto map =
+            AffineMap::get(vecRank, 0, builder.getAffineDimExpr(vecRank - 1));
         return map;
       };
       RewritePatternSet patterns(ctx);

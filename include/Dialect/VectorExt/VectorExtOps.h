@@ -20,8 +20,8 @@ namespace vector_ext {
 
 void buildTerminatedBody(OpBuilder &builder, Location loc);
 
-}  // namespace vector_ext
-}  // namespace mlir
+} // namespace vector_ext
+} // namespace mlir
 
 #define GET_OP_CLASSES
 #include "Dialect/VectorExt/VectorExtOps.h.inc"
