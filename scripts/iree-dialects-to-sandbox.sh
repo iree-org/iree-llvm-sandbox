@@ -35,3 +35,7 @@ git grep -l "add_subdirectory(Passes)" | grep LinalgExt | xargs sed -i "s:add_su
 
 # Drop IREE python import, we do our own registration.
 git grep -l "from .._mlir_libs._ireeDialects" | grep -v scripts | xargs sed -i "s:from .._mlir:\# from .._mlir:g"
+
+# Run a formatting pass.
+find . -name "*.h" | xargs clang-format --style=file -i
+find . -name "*.cpp" | xargs clang-format --style=file -i
