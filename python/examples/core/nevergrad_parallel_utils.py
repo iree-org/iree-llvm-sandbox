@@ -6,6 +6,7 @@ import multiprocessing as mp
 import numpy as np
 import os
 from prwlock import RWLock
+import queue
 import signal
 import sys
 import threading
@@ -111,7 +112,6 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       compile_time_problem_sizes_dict=scheduler.
       build_compile_time_problem_sizes(),
       schedule_builder=schedule_and_save)
-
   throughputs_placeholder = []
 
   # Function called in the benchmark thread.
@@ -140,7 +140,6 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       # Acquire a read lock for compilation. Multiple compilations may run in
       # parallel on this CPU range.
       lock.acquire_read()
-
       # Start compilation.
       t = threading.Thread(target=compile)
       t.start()
@@ -150,7 +149,6 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       lock.release()
       if t.is_alive():
         kill_process()
-
       # Acquire a write lock for benchmarking. No other compilation or benchmark
       # may run on this CPU range.
       lock.acquire_write()
@@ -298,7 +296,17 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
     signal.signal(signal.SIGINT, signal_handler)
 
     # Pin this process to a single CPU (for compilation).
-    cpu_id = process_state.available_cpus_queue.get()
+    cpu_id = None
+    try:
+      cpu_id = process_state.available_cpus_queue.get(timeout=1.0)
+    except queue.Empty as e:
+      # Could not get CPU ID from queue. This indicates a crash. When a process
+      # terminates gracefully (e.g., due a timeout), the occupied CPU ID
+      # would've been put back into the queue.
+      process_state.shutdown_event.set()
+      print("\nCompilation or benchmark process crashed. Shutting down.\n")
+      exit(1)
+
     os.sched_setaffinity(0, {cpu_id})
 
   # Initialize the process pool. This also initializes all worker processes. If
@@ -373,7 +381,18 @@ def async_optim_loop(problem_definition: ProblemDefinition, \
       sys.stdout.flush()
 
     # Retrieve a result from the queue.
-    result = results_queue.get()
+    result = None
+    while result is None:
+      # Keep checking the shutdown event while waiting.
+      if shutdown_event.is_set():
+        shutdown()
+        return
+      try:
+        result = results_queue.get(timeout=0.5)
+      except queue.Empty as e:
+        pass
+
+    # Process retrieved result.
     if result.status == SearchJobResultStatus.FAILURE:
       num_failed += 1
     if result.status == SearchJobResultStatus.TIMEOUT:
