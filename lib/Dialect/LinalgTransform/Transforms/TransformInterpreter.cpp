@@ -52,6 +52,12 @@
 using namespace mlir;
 using namespace mlir::linalg;
 
+static llvm::cl::opt<std::string> clTransformFileName(
+    "linalg-transform-file-name",
+    llvm::cl::desc("mlir file containing a top-level module that specifies "
+                   "the transformations to apply."),
+    llvm::cl::init(""));
+
 //===----------------------------------------------------------------------===//
 // Linalg Interpreter Driver
 //===----------------------------------------------------------------------===//
@@ -280,10 +286,26 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
     // If no transform file is specified, assume the transforms live in the
     // same module as the IR. The considered ModuleOp is either `getOperation()`
     // if it is already a ModuleOp, or the first parent ModuleOp.
-    ModuleOp module = dyn_cast<ModuleOp>(getOperation());
-    if (!module)
-      module = getOperation()->getParentOfType<ModuleOp>();
-    return runTransformModuleOnOperation(module, getOperation());
+    if (clTransformFileName.empty()) {
+      ModuleOp module = dyn_cast<ModuleOp>(getOperation());
+      if (!module)
+        module = getOperation()->getParentOfType<ModuleOp>();
+      return runTransformModuleOnOperation(module, getOperation());
+    }
+
+    // If a transform file is specified, parse its content into a ModuleOp.
+    std::string errorMessage;
+    auto memoryBuffer = openInputFile(clTransformFileName, &errorMessage);
+    if (!memoryBuffer) {
+      llvm::errs() << errorMessage << "\n";
+      return signalPassFailure();
+    }
+    // Tell sourceMgr about this buffer, the parser will pick it up.
+    llvm::SourceMgr sourceMgr;
+    sourceMgr.AddNewSourceBuffer(std::move(memoryBuffer), llvm::SMLoc());
+    OwningOpRef<ModuleOp> module(
+        parseSourceFile<ModuleOp>(sourceMgr, &getContext()));
+    runTransformModuleOnOperation(module.get(), getOperation());
   }
 };
 
