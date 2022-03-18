@@ -309,8 +309,11 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
   }
 };
 
-struct DropSchedulePass : public PassWrapper<DropSchedulePass, Pass> {
-  StringRef getArgument() const final { return "linalg-drop-schedule"; }
+struct DropSchedulePass
+    : public PassWrapper<DropSchedulePass, Pass> {
+  StringRef getArgument() const final {
+    return "linalg-drop-schedule";
+  }
 
   StringRef getDescription() const final {
     return "Drop the schedule from the operation";

@@ -10,6 +10,9 @@
 
 #include <algorithm>
 
+#include "FunctionHelpers.h"
+#include "PDL.h"
+#include "Transforms/Listener.h"
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/LinalgTransformOps.h"
@@ -17,9 +20,6 @@
 #include "Dialect/LinalgTransform/TrackingListener.h"
 #include "Dialect/LinalgTransform/TrackingRewriteDriver.h"
 #include "Dialect/LinalgTransform/TransformOpInterface.h"
-#include "FunctionHelpers.h"
-#include "PDL.h"
-#include "Transforms/Listener.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"

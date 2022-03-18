@@ -14,6 +14,13 @@ function repopulate_iree_dir() {
   cp -R -f ../iree/llvm-external-projects/iree-dialects/lib/$1 lib/
 }
 
+if [ -z "$(git status --porcelain)" ]; then
+  echo "Start synchronizing from IREE"
+else
+  echo "Git repository unclean, abort synchronizing form IREE."
+  exit 1
+fi
+
 repopulate_iree_dialect LinalgExt
 repopulate_iree_dialect LinalgTransform
 
@@ -37,5 +44,5 @@ git grep -l "add_subdirectory(Passes)" | grep LinalgExt | xargs sed -i "s:add_su
 git grep -l "from .._mlir_libs._ireeDialects" | grep -v scripts | xargs sed -i "s:from .._mlir:\# from .._mlir:g"
 
 # Run a formatting pass.
-find . -name "*.h" | xargs clang-format --style=file -i
-find . -name "*.cpp" | xargs clang-format --style=file -i
+git diff --name-only egrep "*.(\.cpp|\.h)" | xargs -i clang-format --style=file -i {}
+

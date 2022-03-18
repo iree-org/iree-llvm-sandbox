@@ -13,8 +13,8 @@
 
 #include <type_traits>
 
-#include "Dialect/LinalgTransform/TransformOpMapping.h"
 #include "Transforms/Functional.h"
+#include "Dialect/LinalgTransform/TransformOpMapping.h"
 
 namespace mlir {
 namespace linalg {
