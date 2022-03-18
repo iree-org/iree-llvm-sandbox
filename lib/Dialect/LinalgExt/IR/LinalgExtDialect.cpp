@@ -7,12 +7,12 @@
 #include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
 
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/SourceMgr.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/OpImplementation.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/SourceMgr.h"
 
 using namespace mlir;
 using namespace mlir::iree_compiler::IREE::LinalgExt;

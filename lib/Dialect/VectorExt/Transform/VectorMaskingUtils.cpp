@@ -131,9 +131,9 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
 /// apply to its enclosing operations and erasing the vector.predicate op after
 /// inlining its enclosing operations into its parent region.
 static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
-                             SmallVectorImpl<Value> &activeMasks,
-                             const WalkStage &stage,
-                             SmallVectorImpl<Operation *> &erasedOps) {
+                            SmallVectorImpl<Value> &activeMasks,
+                            const WalkStage &stage,
+                            SmallVectorImpl<Operation *> &erasedOps) {
   OpBuilder::InsertionGuard guard(builder);
 
   // Actions before visiting the TruePredicateRegion: Generate the new active
@@ -212,8 +212,8 @@ LogicalResult mlir::vector_ext::maskVectorPredicateOps(
 /// Masking strategy that only masks vector transfer operations and operations
 /// with side effects. Non-side-effecting ops are left unmasked.
 void mlir::vector_ext::maskGenericOpWithSideEffects(
-    OpBuilder &builder, Operation *op, Value activeMask,
-    const WalkStage &stage, SmallVectorImpl<Operation *> &erasedOps) {
+    OpBuilder &builder, Operation *op, Value activeMask, const WalkStage &stage,
+    SmallVectorImpl<Operation *> &erasedOps) {
   // Nothing to do. All-ones mask to apply.
   if (!activeMask)
     return;

@@ -219,9 +219,8 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
 
   LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
                                 PatternRewriter &rewriter) const override {
-    OpOperand *yieldOperand = getWarpResult(warpOp, [](Operation *op) {
-      return isa<vector::ReductionOp>(op);
-    });
+    OpOperand *yieldOperand = getWarpResult(
+        warpOp, [](Operation *op) { return isa<vector::ReductionOp>(op); });
     if (!yieldOperand)
       return failure();
 
@@ -252,16 +251,18 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
 
     // Every lane has one scalar value. These should be reduced.
     Value laneValVec = newWarpOp.getResult(warpOp.getNumResults());
-    Value laneVal =
-        rewriter.create<vector::ExtractOp>(yieldLoc, laneValVec, 0);
+    Value laneVal = rewriter.create<vector::ExtractOp>(yieldLoc, laneValVec, 0);
 
     // Parallel reduction: Every thread reduces two values. The result is
     // stored at the lower thread. Requires log_2(kWarpSize) many parallel
     // reductions.
-    for (int i = kWarpSize/2; i > 0; i /= 2) {
-      Value shuffled = rewriter.create<gpu::ShuffleOp>(
-          reductionOp.getLoc(), laneVal, i, /*width=*/kWarpSize,
-          /*mode=*/gpu::ShuffleMode::DOWN).result();
+    for (int i = kWarpSize / 2; i > 0; i /= 2) {
+      Value shuffled =
+          rewriter
+              .create<gpu::ShuffleOp>(reductionOp.getLoc(), laneVal, i,
+                                      /*width=*/kWarpSize,
+                                      /*mode=*/gpu::ShuffleMode::DOWN)
+              .result();
       laneVal = makeArithReduction(rewriter, reductionOp.getLoc(),
                                    reductionOp.kind(), laneVal, shuffled);
     }
@@ -472,8 +473,8 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
 
     // Move op outside of region: Insert clone at the insertion point and delete
     // the old op.
-    auto newWriteOp = cast<vector::TransferWriteOp>(
-        rewriter.clone(*writeOp.getOperation()));
+    auto newWriteOp =
+        cast<vector::TransferWriteOp>(rewriter.clone(*writeOp.getOperation()));
     rewriter.eraseOp(writeOp);
 
     rewriter.setInsertionPoint(newWriteOp);
@@ -491,8 +492,9 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
       unsigned vectorPos = std::get<1>(it).cast<AffineDimExpr>().getPosition();
       auto scale =
           getAffineConstantExpr(targetShape[vectorPos], newWarpOp.getContext());
-      indices[indexPos] = makeComposedAffineApply(
-          rewriter, loc, d0 + scale * d1, {indices[indexPos], newWarpOp.laneid()});
+      indices[indexPos] =
+          makeComposedAffineApply(rewriter, loc, d0 + scale * d1,
+                                  {indices[indexPos], newWarpOp.laneid()});
     }
     newWriteOp.vectorMutable().assign(newWarpOp.getResults().back());
     newWriteOp.indicesMutable().assign(indices);
@@ -524,8 +526,8 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     rewriter.setInsertionPointAfter(newWarpOp);
 
     // Create a second warp op that contains only writeOp.
-    auto secondWarpOp = rewriter.create<WarpSingleLaneOp>(
-        loc, TypeRange(), newWarpOp.laneid());
+    auto secondWarpOp =
+        rewriter.create<WarpSingleLaneOp>(loc, TypeRange(), newWarpOp.laneid());
     Block &body = secondWarpOp.getBodyRegion().front();
     rewriter.setInsertionPointToStart(&body);
     auto newWriteOp =
@@ -568,7 +570,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     return failure();
   }
 
- private:
+private:
   DistributionMapFn distributionMapFn;
 };
 
@@ -678,8 +680,8 @@ void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
   patterns.add<WarpOpTransferWrite>(patterns.getContext(), distributionMapFn);
 }
 
-static LogicalResult rewriteWarpOpToScfFor(
-    RewriterBase &rewriter, WarpSingleLaneOp warpOp) {
+static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
+                                           WarpSingleLaneOp warpOp) {
   assert(warpOp.getBodyRegion().hasOneBlock() &&
          "expected WarpOp with single block");
   Block *warpOpBody = &warpOp.getBodyRegion().front();
@@ -697,13 +699,13 @@ static LogicalResult rewriteWarpOpToScfFor(
                                          /*withElseRegion=*/false);
   rewriter.eraseOp(ifOp.thenBlock()->getTerminator());
 
-
   // Allocate a shared memory buffer for the given type.
   auto allocBuffer = [&](Type type) {
     OpBuilder::InsertionGuard g(rewriter);
     rewriter.setInsertionPoint(ifOp);
     if (auto vectorType = type.dyn_cast<VectorType>()) {
-      return rewriter.create<memref::AllocOp>(loc,
+      return rewriter.create<memref::AllocOp>(
+          loc,
           MemRefType::get(vectorType.getShape(), vectorType.getElementType()));
     } else {
       return rewriter.create<memref::AllocOp>(loc, MemRefType::get({1}, type));
@@ -722,7 +724,8 @@ static LogicalResult rewriteWarpOpToScfFor(
     rewriter.setInsertionPoint(ifOp);
     auto vectorType = val.getType().cast<VectorType>();
     int64_t storeSize = vectorType.getShape()[0];
-    Value storeOffset = rewriter.create<arith::MulIOp>(loc, warpOp.laneid(),
+    Value storeOffset = rewriter.create<arith::MulIOp>(
+        loc, warpOp.laneid(),
         rewriter.create<arith::ConstantIndexOp>(loc, storeSize));
     rewriter.create<vector::StoreOp>(loc, val, buffer, storeOffset);
 
@@ -769,7 +772,8 @@ static LogicalResult rewriteWarpOpToScfFor(
       int64_t loadSize = loadedVectorType.getShape()[0];
 
       // loadOffset = laneid * loadSize
-      Value loadOffset = rewriter.create<arith::MulIOp>(loc, warpOp.laneid(),
+      Value loadOffset = rewriter.create<arith::MulIOp>(
+          loc, warpOp.laneid(),
           rewriter.create<arith::ConstantIndexOp>(loc, loadSize));
       Value loadOp = rewriter.create<vector::LoadOp>(loc, loadedVectorType,
                                                      buffer, loadOffset);

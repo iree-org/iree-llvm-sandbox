@@ -20,13 +20,13 @@ namespace LinalgExt {
 
 namespace detail {
 #define GEN_PASS_REGISTRATION
-#include "Dialect/LinalgExt/Passes/Passes.h.inc"  // IWYU pragma: export
-}  // namespace detail
+#include "Dialect/LinalgExt/Passes/Passes.h.inc" // IWYU pragma: export
+} // namespace detail
 
-}  // namespace LinalgExt
-}  // namespace IREE
-}  // namespace iree_compiler
-}  // namespace mlir
+} // namespace LinalgExt
+} // namespace IREE
+} // namespace iree_compiler
+} // namespace mlir
 
 void IREE::LinalgExt::registerPasses() {
   IREE::LinalgExt::detail::registerPasses();

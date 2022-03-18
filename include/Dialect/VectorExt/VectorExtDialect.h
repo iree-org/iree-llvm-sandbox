@@ -13,7 +13,7 @@
 #include "mlir/IR/OpDefinition.h"
 
 // clang-format off: must be included after all LLVM/MLIR headers
-#include "Dialect/VectorExt/VectorExtOpsDialect.h.inc"  // IWYU pragma: keep
+#include "Dialect/VectorExt/VectorExtOpsDialect.h.inc" // IWYU pragma: keep
 // clang-format on
 
 #endif // DIALECTS_VECTOREXT_VECTOREXTBASE_H

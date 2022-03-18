@@ -20,7 +20,7 @@ namespace mlir {
 /// Create a pass extract the kernel function out
 std::unique_ptr<mlir::OperationPass<ModuleOp>> createExtractKernelPass();
 
-/// Create a pass extract the kernel function out 
+/// Create a pass extract the kernel function out
 std::unique_ptr<mlir::OperationPass<ModuleOp>> createExtractKernelTailPass();
 
 /// Create a pass to modulo-schedule the kernel
