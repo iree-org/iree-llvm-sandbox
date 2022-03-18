@@ -5,6 +5,7 @@ import glob
 import os
 import subprocess
 import sys
+from typing import Sequence
 
 
 def parse_arguments():
@@ -51,7 +52,7 @@ def _configure_env():
   return env
 
 
-def _run_test(test_script: str) -> bool:
+def _run_test(test_script: str, test_args: Sequence[str] = []) -> bool:
   """Run the provided test script an return failure or success.
   A test succeeds if:
   - it does not time out
@@ -61,7 +62,7 @@ def _run_test(test_script: str) -> bool:
   print(f"- running {test_script}: ", end="")
   module = _convert_path_to_module(test_script)
   env = _configure_env()
-  proc = subprocess.Popen(["python", "-m", module],
+  proc = subprocess.Popen(["python", "-m", module] + test_args,
                           stdout=subprocess.PIPE,
                           stderr=subprocess.PIPE,
                           env=env)
@@ -89,13 +90,26 @@ def _run_test(test_script: str) -> bool:
   return True
 
 
+def run_small_search():
+  return _run_test(
+      "./python/examples/tuning/test_nevergrad_small_matmul.py",
+      ['--search-budget 500', '--n_iters 3000', '--num-parallel-tasks 10'])
+
+
 def main(args):
   results = []
   for f in glob.glob("./python/**/*test.py", recursive=True):
     results.append(_run_test(f))
+  # Tun a small search.
+  results.append(
+      _run_test("./python/examples/tuning/test_nevergrad_small_matmul.py", [
+          '--search-budget', '10', '--n_iters', '10', '--num-parallel-tasks',
+          '4'
+      ]))
   errors = results.count(False)
   if errors:
     print(f"-> {errors} tests failed!")
+
   # Additionally run the lit tests.
   print(f"- running lit tests:")
   lit_args = ["lit", "-v"]
