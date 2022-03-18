@@ -309,10 +309,10 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
   }
 };
 
-struct DropScheduleFromModulePass
-    : public PassWrapper<DropScheduleFromModulePass, Pass> {
+struct DropSchedulePass
+    : public PassWrapper<DropSchedulePass, Pass> {
   StringRef getArgument() const final {
-    return "linalg-drop-schedule-from-module";
+    return "linalg-drop-schedule";
   }
 
   StringRef getDescription() const final {
@@ -339,8 +339,8 @@ std::unique_ptr<Pass> createLinalgTransformInterpreterPass() {
   return std::make_unique<InterpreterPass>();
 }
 /// Create a Linalg pass to drop the schedule from the module.
-std::unique_ptr<Pass> createDropScheduleFromModulePass() {
-  return std::make_unique<DropScheduleFromModulePass>();
+std::unique_ptr<Pass> createDropSchedulePass() {
+  return std::make_unique<DropSchedulePass>();
 }
 } // namespace mlir
 
@@ -350,6 +350,6 @@ void mlir::linalg::transform::registerLinalgTransformInterpreterPass() {
 }
 
 /// Registration hook for the Linalg drop schedule from module pass.
-void mlir::linalg::transform::registerDropScheduleFromModulePass() {
-  PassRegistration<DropScheduleFromModulePass>();
+void mlir::linalg::transform::registerDropSchedulePass() {
+  PassRegistration<DropSchedulePass>();
 }

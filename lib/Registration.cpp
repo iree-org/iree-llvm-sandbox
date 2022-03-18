@@ -40,7 +40,7 @@ static void registerIreeDialects(DialectRegistry &registry) {
   registry.insert<mlir::linalg::transform::LinalgTransformDialect>();
   mlir::linalg::transform::registerLinalgTransformInterpreterPass();
   mlir::linalg::transform::registerLinalgTransformExpertExpansionPass();
-  mlir::linalg::transform::registerDropScheduleFromModulePass();
+  mlir::linalg::transform::registerDropSchedulePass();
 }
 
 //===----------------------------------------------------------------------===//
