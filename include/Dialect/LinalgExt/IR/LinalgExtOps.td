@@ -32,6 +32,7 @@ class IREELinalgExt_Op<string mnemonic, list<Trait> traits = []> :
          SingleBlockImplicitTerminator<"::mlir::iree_compiler::IREE::LinalgExt::YieldOp">
   ])> {
   let hasVerifier = 1;
+  let hasCustomAssemblyFormat = 1;
   code extraLinalgExtOpClassDeclaration = [{
     SmallVector<Value> getDestinationOperands(OpBuilder &b) {
       SmallVector<Value> dest(outputs().begin(), outputs().end());

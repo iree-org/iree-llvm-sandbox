@@ -6,12 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Dialect/LinalgTransform/LinalgTransformOps.h"
+
 #include <algorithm>
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
 #include "Transforms/Listener.h"
-
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/LinalgTransformOps.h"
