@@ -1,10 +1,8 @@
-//===-- LinalgExtBufferization.cpp - Linalg Extension bufferization -------===//
+// Copyright 2021 The IREE Authors
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
 
 #include "Dialect/LinalgExt/LinalgExtBufferization.h"
 
@@ -170,7 +168,7 @@ struct PerformConcurrentlyOpInterface
           PerformConcurrentlyOpInterface, PerformConcurrentlyOp> {
   LogicalResult bufferize(Operation *op, RewriterBase &b,
                           BufferizationState &state) const {
-    llvm_unreachable("op does not have any tensor OpOperands / OpResults");
+    assert(false && "op does not have any tensor OpOperands / OpResults");
     return failure();
   }
 };

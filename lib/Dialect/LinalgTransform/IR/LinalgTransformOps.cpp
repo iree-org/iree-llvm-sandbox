@@ -1,10 +1,8 @@
-//===-- LinalgTransformOps.cpp - Linalg Transform dialect -----------------===//
+// Copyright 2021 The IREE Authors
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
 
 #include "Dialect/LinalgTransform/LinalgTransformOps.h"
 
@@ -12,14 +10,13 @@
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
-#include "Transforms/Listener.h"
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
-#include "Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "Dialect/LinalgTransform/ScopedTransform.h"
 #include "Dialect/LinalgTransform/TrackingListener.h"
 #include "Dialect/LinalgTransform/TrackingRewriteDriver.h"
 #include "Dialect/LinalgTransform/TransformOpInterface.h"
+#include "Transforms/Listener.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVMPass.h"
