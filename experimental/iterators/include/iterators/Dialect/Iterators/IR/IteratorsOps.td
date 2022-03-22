@@ -1,10 +1,10 @@
 //===- IteratorsOps.td - Iterators operations definitions --*- tablegen -*-===//
 
-#ifndef DIALECTS_ITERATORS_ITERATORSOPS
-#define DIALECTS_ITERATORS_ITERATORSOPS
+#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
+#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
 
-include "Dialects/Iterators/IteratorsDialect.td"
-include "Dialects/Iterators/IteratorsTypes.td"
+include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
+include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
 
 class Iterators_Op<string mnemonic, list<Trait> traits = []> :
     Op<Iterators_Dialect, mnemonic, traits> {
@@ -26,4 +26,4 @@ def Iterators_SinkOp : Iterators_Op<"sink"> {
   let arguments = (ins Iterators_Iterator);
 }
 
-#endif // DIALECTS_ITERATORS_ITERATORSOPS
+#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS

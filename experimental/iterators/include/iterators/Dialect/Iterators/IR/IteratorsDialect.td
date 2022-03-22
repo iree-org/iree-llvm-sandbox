@@ -1,7 +1,7 @@
 //===-- IteratorsDialect.td - Iterators dialect ------------*- tablegen -*-===//
 
-#ifndef DIALECTS_ITERATORS_ITERATORSDIALECT
-#define DIALECTS_ITERATORS_ITERATORSDIALECT
+#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSDIALECT
+#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSDIALECT
 
 include "mlir/IR/OpBase.td"
 
@@ -16,4 +16,4 @@ def Iterators_Dialect : Dialect {
   let useDefaultTypePrinterParser = 1;
 }
 
-#endif // DIALECTS_ITERATORS_ITERATORSDIALECT
+#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSDIALECT
