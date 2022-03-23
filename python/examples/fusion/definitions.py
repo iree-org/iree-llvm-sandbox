@@ -124,9 +124,6 @@ class MatmulProblem(ProblemDefinition):
     acc_type = types[-1].element_type
     with InsertionPoint(bench.add_entry_block()):
       tensor_zero = bench.arguments[2]
-      if zero_at_each_iteration:
-        zero = arith.ConstantOp(types[-1].element_type, 0.0)
-        tensor_zero = linalg.fill(zero, outs=[tensor_zero])
       matmul = linalg.matmul(bench.arguments[0],
                              bench.arguments[1],
                              outs=[tensor_zero])
@@ -139,11 +136,10 @@ class MatmulProblem(ProblemDefinition):
 
 # TODO: fold OpDSL definition and inferences into ProblemDefinition.
 @linalg_structured_op
-def add_bias_to_2d(I=TensorDef(T, S.M, S.N),
-                   Bias=TensorDef(T, S.N),
+def add_bias_to_2d(Bias=TensorDef(T, S.N),
                    O=TensorDef(T, S.M, S.N, output=True)):
   domain(D.m, D.n)
-  O[D.m, D.n] = I[D.m, D.n] + Bias[D.n]
+  O[D.m, D.n] = O[D.m, D.n] + Bias[D.n]
 
 
 class MatmulBiasAddProblem(ProblemDefinition):
@@ -249,16 +245,13 @@ class MatmulBiasAddProblem(ProblemDefinition):
 
     acc_type = types[-2].element_type
     with InsertionPoint(bench.add_entry_block()):
-      tensor_zero = bench.arguments[3]
-      if zero_at_each_iteration:
-        zero = arith.ConstantOp(types[-1].element_type, 0.0)
-        tensor_zero = linalg.fill(zero, outs=[tensor_zero])
+      zero = arith.ConstantOp(types[-1].element_type, 0.0)
+      tensor_zero = linalg.fill(zero, outs=[bench.arguments[3]])
       matmul = linalg.matmul(bench.arguments[0],
                              bench.arguments[1],
                              outs=[tensor_zero])
-      bias_add = add_bias_to_2d(matmul,
-                                bench.arguments[2],
-                                outs=[bench.arguments[3]])
+      bias_add = add_bias_to_2d(bench.arguments[2],
+                                outs=[matmul])
       # linalg.matmul returns a Value instead of OpView, so we have to manually
       # wrap it in a list here.
       func.ReturnOp([bias_add])
