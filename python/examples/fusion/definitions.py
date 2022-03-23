@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional, Sequence
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, func
+from mlir.dialects import arith, func, linalg, tensor, scf, func
 from mlir.dialects.linalg.opdsl.lang import *
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
@@ -105,7 +105,7 @@ class MatmulProblem(ProblemDefinition):
 
   def build_problem_under_context_manager(
       self, name: str, types: Sequence[Type],
-      zero_at_each_iteration: bool) -> builtin.FuncOp:
+      zero_at_each_iteration: bool) -> func.FuncOp:
     """MLIR problem builder.
 
     Given a list of MLIR shaped types, build and return the MLIR FuncOp that
@@ -114,7 +114,7 @@ class MatmulProblem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = func.FuncOp(name, (types, [types[-1]]))
     # TODO: need something much more flexible to add function argument attributes.
     attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
     attach_passthrough(
@@ -231,7 +231,7 @@ class MatmulBiasAddProblem(ProblemDefinition):
 
   def build_problem_under_context_manager(
       self, name: str, types: Sequence[Type],
-      zero_at_each_iteration: bool) -> builtin.FuncOp:
+      zero_at_each_iteration: bool) -> func.FuncOp:
     """MLIR problem builder.
 
     Given a list of MLIR shaped types, build and return the MLIR FuncOp that
@@ -240,7 +240,7 @@ class MatmulBiasAddProblem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = func.FuncOp(name, (types, [types[-1]]))
     # TODO: need something much more flexible to add function argument attributes.
     attach_inplaceable_attributes(bench, inplaceable=[False, False, False, True])
     attach_passthrough(

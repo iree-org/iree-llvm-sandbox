@@ -12,7 +12,7 @@ from typing import Sequence, Optional
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, memref, scf, func
+from mlir.dialects import arith, func, linalg, memref, scf, func
 from mlir.dialects.linalg.opdsl.lang import OperandKind
 from mlir.execution_engine import *
 from mlir.runtime import *
@@ -63,7 +63,7 @@ def operand_type(odef, **assignments):
   raise Exception(f"unsupported operand type: {repr(odef)}")
 
 
-def attach_inplaceable_attributes(func: builtin.FuncOp,
+def attach_inplaceable_attributes(func: func.FuncOp,
                                   inplaceable: Sequence[Optional[bool]]):
   attrs = []
   for t, flag in zip(func.type.inputs, inplaceable):
@@ -81,7 +81,7 @@ def attach_inplaceable_attributes(func: builtin.FuncOp,
   func.arg_attrs = attrs
 
 
-def attach_passthrough(func: builtin.FuncOp,
+def attach_passthrough(func: func.FuncOp,
                        extras: Sequence[Attribute] = [],
                        avx512: bool = False):
   attributes = extras[:]
@@ -107,19 +107,19 @@ def attach_passthrough(func: builtin.FuncOp,
 
 
 def emit_benchmarking_function(name: str,
-                               bench: builtin.FuncOp) -> builtin.FuncOp:
+                               bench: func.FuncOp) -> func.FuncOp:
   """Produces the benchmarking function.
 
   This function calls the given function `bench` as many times as requested by
   its last argument.
   """
   i64_type = IntegerType.get_signless(64)
-  nano_time = builtin.FuncOp("nano_time", ([], [i64_type]),
+  nano_time = func.FuncOp("nano_time", ([], [i64_type]),
                              visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
   memref_of_i64_type = MemRefType.get([-1], i64_type)
-  wrapper = builtin.FuncOp(
+  wrapper = func.FuncOp(
       # Same signature and an extra buffer of indices to save timings.
       name,
       (bench.arguments.types + [memref_of_i64_type], bench.type.results),

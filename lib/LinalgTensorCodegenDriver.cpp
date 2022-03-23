@@ -185,7 +185,9 @@ void LLVMLoweringPass::runOnOperation() {
   // Make all arguments noalias for now.
   getOperation().walk([](LLVM::LLVMFuncOp funcOp) {
     for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
-      if (!funcOp.getType().getParamType(i).isa<LLVM::LLVMPointerType>())
+      if (!funcOp.getFunctionType()
+               .getParamType(i)
+               .isa<LLVM::LLVMPointerType>())
         continue;
       funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
     }

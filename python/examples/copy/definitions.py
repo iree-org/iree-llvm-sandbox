@@ -18,8 +18,8 @@ class CopyProblem(ProblemDefinition):
   """Benchmarking problem definition for copy.
 
   This requires a separate ProblemDefinition than Einsum on tensors
-  to avoid the issues related to folding an identity generic op on 
-  tensors that just removes the computation we are interested in 
+  to avoid the issues related to folding an identity generic op on
+  tensors that just removes the computation we are interested in
   benchmarking.
   """
 
@@ -101,7 +101,7 @@ class CopyProblem(ProblemDefinition):
     """
     global avx512
 
-    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = func.FuncOp(name, (types, [types[-1]]))
     inplaceable_attributes = [False] * len(types)
     inplaceable_attributes[-1] = True
     # TODO: need something much more flexible to add function argument attributes.

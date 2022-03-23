@@ -13,6 +13,7 @@
 #ifndef IREE_LLVM_SANDBOX_PASSES_H
 #define IREE_LLVM_SANDBOX_PASSES_H
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
@@ -58,7 +59,7 @@ std::unique_ptr<OperationPass<FuncOp>> createPropagateVectorDistribution();
 //===----------------------------------------------------------------------===//
 
 /// Add staged lowering of vector ops. `passManager` is expected to be a
-/// `builtin.func` op pass manager.
+/// `func.func` op pass manager.
 void addLowerToVectorTransforms(OpPassManager &passManager);
 
 //===----------------------------------------------------------------------===//

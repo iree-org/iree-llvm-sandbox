@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional, Sequence
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, scf, func, tensor
+from mlir.dialects import arith, func, linalg, scf, func, tensor
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *
@@ -156,7 +156,7 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
 
   def build_problem_under_context_manager(
       self, name: str, types: Sequence[Type],
-      zero_at_each_iteration: bool) -> builtin.FuncOp:
+      zero_at_each_iteration: bool) -> func.FuncOp:
     """MLIR problem builder.
 
     Given a list of MLIR shaped types, build and return the MLIR FuncOp that
@@ -165,7 +165,7 @@ class Padded_Conv1d_NWC_WCF_Problem(ProblemDefinition):
     global avx512
 
     # Actual benchmarked function called under entry_point_name.
-    bench = builtin.FuncOp(name, (types[:-1], [types[-2]]))
+    bench = func.FuncOp(name, (types[:-1], [types[-2]]))
     # TODO: need something much more flexible to add function argument attributes.
     attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
     attach_passthrough(

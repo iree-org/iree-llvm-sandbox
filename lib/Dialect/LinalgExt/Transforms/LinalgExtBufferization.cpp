@@ -8,6 +8,7 @@
 
 #include <mlir/IR/BuiltinOps.h>
 
+#include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
@@ -341,9 +342,11 @@ struct ParallelInsertSliceOpInterface
 
 void mlir::iree_compiler::IREE::LinalgExt::
     registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry) {
-  registry.addOpInterface<InParallelOp, InParallelOpInterface>();
-  registry
-      .addOpInterface<PerformConcurrentlyOp, PerformConcurrentlyOpInterface>();
-  registry
-      .addOpInterface<ParallelInsertSliceOp, ParallelInsertSliceOpInterface>();
+  registry.addExtension(+[](MLIRContext *ctx, IREELinalgExtDialect *dialect) {
+    InParallelOp::attachInterface<InParallelOpInterface>(*ctx);
+    PerformConcurrentlyOp::attachInterface<PerformConcurrentlyOpInterface>(
+        *ctx);
+    ParallelInsertSliceOp::attachInterface<ParallelInsertSliceOpInterface>(
+        *ctx);
+  });
 }

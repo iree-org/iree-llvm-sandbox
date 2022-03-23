@@ -12,6 +12,7 @@
 
 #include "Dialect/VectorExt/VectorExtOps.h"
 #include "Dialect/VectorExt/VectorMaskingUtils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Visitors.h"
@@ -54,7 +55,7 @@ struct TestVectorMaskingUtils
     // Test function body predication.
     if (!predicationSucceeded) {
       FuncOp funcOp = getOperation();
-      ValueRange funcArgs = funcOp.body().getArguments();
+      ValueRange funcArgs = funcOp.getBody().getArguments();
 
       if (funcArgs.size() >= 3) {
         predicationSucceeded = true;
@@ -79,7 +80,7 @@ struct TestVectorMaskingUtils
         OpBuilder builder(funcOp);
         Value idx = *std::prev(funcArgs.end(), 2);
         Value incoming = funcArgs.back();
-        if (!predicateOp(builder, funcOp, &funcOp.body(),
+        if (!predicateOp(builder, funcOp, &funcOp.getBody(),
                          createPredicateMaskForFuncOp, idx, incoming))
           funcOp.emitRemark("Predication of function failed");
       }

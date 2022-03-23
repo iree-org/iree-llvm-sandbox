@@ -1,5 +1,5 @@
 from typing import Any, List, Mapping, Optional, Sequence, Union
-from mlir.dialects.builtin import FuncOp
+from mlir.dialects.func import FuncOp
 
 # Qualified import of only np.dtype for type checking.
 np = __import__('numpy', fromlist=['dtype'])

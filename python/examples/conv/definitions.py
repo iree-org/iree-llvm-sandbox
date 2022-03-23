@@ -5,7 +5,7 @@ from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, scf, func, tensor
+from mlir.dialects import arith, func, linalg, scf, func, tensor
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *
@@ -375,7 +375,7 @@ class ConvolutionProblem(ProblemDefinition):
 
   def build_problem_under_context_manager(
       self, name: str, mlir_types: Sequence[Type],
-      zero_at_each_iteration: bool) -> builtin.FuncOp:
+      zero_at_each_iteration: bool) -> func.FuncOp:
     """Constructs MLIR that implements the current convolution.
 
     Expects to operate under MLIR's context manager.
@@ -388,7 +388,7 @@ class ConvolutionProblem(ProblemDefinition):
     global avx512
 
     output_type = mlir_types[-1]
-    bench = builtin.FuncOp(name, (mlir_types, [output_type]))
+    bench = func.FuncOp(name, (mlir_types, [output_type]))
     # TODO: need something much more flexible to add function argument attributes.
     attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
     attach_passthrough(

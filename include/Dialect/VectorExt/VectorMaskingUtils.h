@@ -13,7 +13,9 @@
 #include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
+namespace func {
 class FuncOp;
+} // namespace func
 class LogicalResult;
 class Region;
 class OpBuilder;

@@ -5,7 +5,7 @@ from typing import Any, List, NewType, Optional, Sequence, Type
 import numpy as np
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, memref, scf, func, vector
+from mlir.dialects import arith, func, linalg, memref, scf, func, vector
 from mlir.execution_engine import *
 from mlir.runtime import *
 
@@ -18,7 +18,7 @@ from ..core.compilation import compile_to_execution_engine
 def emit_func(name: str, operand_types: Sequence[Type],
               result_types: Sequence[Type]):
   # Actual benchmarked function called under entry_point_name.
-  bench = builtin.FuncOp(name, (operand_types, result_types))
+  bench = func.FuncOp(name, (operand_types, result_types))
 
   vec_type = VectorType(operand_types[0].element_type)
   scal_type = vec_type.element_type

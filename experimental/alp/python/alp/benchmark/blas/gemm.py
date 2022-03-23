@@ -9,7 +9,7 @@ import numpy as np
 import argparse
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
+from mlir.dialects import arith, func, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 from ...transition.blas.gemm import GEMM
@@ -25,7 +25,7 @@ def save_mlir(mlir_txt, dest):
 
 
 def emit_benchmarking_function(trA, sizes, niter,
-                               func: builtin.FuncOp) -> builtin.FuncOp:
+                               func: func.FuncOp) -> func.FuncOp:
   """Produces the benchmarking function.
 
     This function calls the given function `func` as many times as requested by
@@ -33,15 +33,15 @@ def emit_benchmarking_function(trA, sizes, niter,
     """
   f64 = F64Type.get()
 
-  print_flops = builtin.FuncOp("print_flops", ([f64], []), visibility="private")
+  print_flops = func.FuncOp("print_flops", ([f64], []), visibility="private")
 
-  print_time = builtin.FuncOp("print_time", ([f64], []), visibility="private")
+  print_time = func.FuncOp("print_time", ([f64], []), visibility="private")
 
-  print_pid = builtin.FuncOp("print_pid", ([], []), visibility="private")
+  print_pid = func.FuncOp("print_pid", ([], []), visibility="private")
 
-  rtclock = builtin.FuncOp("rtclock", ([], [f64]), visibility="private")
+  rtclock = func.FuncOp("rtclock", ([], [f64]), visibility="private")
 
-  wrapper = builtin.FuncOp(
+  wrapper = func.FuncOp(
       # Same signature and an extra buffer of indices to save timings.
       "main",
       ([], [IntegerType.get_signless(32)]),
@@ -103,7 +103,7 @@ def generate_benchmark_mlir(func_name, trA, size, reps, dest):
         [f32, f32, f32],
     )
     with InsertionPoint(mlir_module.body):
-      gemm = builtin.FuncOp(func_name, (types, [types[-1]]),
+      gemm = func.FuncOp(func_name, (types, [types[-1]]),
                             visibility="private")
       benchmark = emit_benchmarking_function(trA, size, reps, gemm)
   save_mlir(str(mlir_module), dest)
