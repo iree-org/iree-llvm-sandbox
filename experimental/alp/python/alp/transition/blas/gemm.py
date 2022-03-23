@@ -9,7 +9,7 @@ import numpy as np
 import argparse
 
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
+from mlir.dialects import arith, func, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 from examples.core.problem_definition import *
@@ -21,7 +21,7 @@ def save_mlir(mlir_txt, dest):
   f.close()
 
 
-def attach_inplaceable_attributes(func: builtin.FuncOp,
+def attach_inplaceable_attributes(func: func.FuncOp,
                                   inplaceable: Sequence[Optional[bool]]):
 
   # Create the following affine_map
@@ -111,10 +111,10 @@ class GEMM(ProblemDefinition):
     ]
 
   def build_problem_under_context_manager(
-      self, name: str, types: Sequence[Type]) -> builtin.FuncOp:
+      self, name: str, types: Sequence[Type]) -> func.FuncOp:
 
     # Actual benchmarked function called under entry_point_name.
-    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = func.FuncOp(name, (types, [types[-1]]))
 
     attach_inplaceable_attributes(bench, inplaceable=[False, False, True])
 

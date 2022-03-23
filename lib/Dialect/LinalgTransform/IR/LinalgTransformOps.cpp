@@ -10,6 +10,7 @@
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
+
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/ScopedTransform.h"
@@ -31,6 +32,7 @@
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/Passes.h"
@@ -631,7 +633,9 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
   // FIXME: this is a terrible hack!
   state.getTopLevel()->walk([](LLVM::LLVMFuncOp funcOp) {
     for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
-      if (!funcOp.getType().getParamType(i).isa<LLVM::LLVMPointerType>())
+      if (!funcOp.getFunctionType()
+               .getParamType(i)
+               .isa<LLVM::LLVMPointerType>())
         continue;
       funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
     }

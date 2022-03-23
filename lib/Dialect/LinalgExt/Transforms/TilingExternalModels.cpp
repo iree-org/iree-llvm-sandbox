@@ -156,24 +156,28 @@ struct LinalgOpTilingInterface
 };
 } // namespace
 
-template <typename OpType>
-void registerOne(DialectRegistry &registry) {
-  registry.addOpInterface<OpType, LinalgOpTilingInterface<OpType>>();
-}
-
-/// Variadic helper function.
-template <typename... OpTypes>
-void registerAll(DialectRegistry &registry) {
-  // FIXME: In c++17 this can be simplified by using 'fold expressions'.
-  (void)std::initializer_list<int>{0, (registerOne<OpTypes>(registry), 0)...};
-}
-
-#define GET_OP_LIST
+/// Helper structure that iterates over all LinalgOps in `OpTys` and registers
+/// the `LinalgOpTilingInterface` with each of them.
+template <typename... Ops>
+struct LinalgOpTilingInterfaceHelper {
+  static void registerOpInterface(MLIRContext *ctx) {
+    (void)std::initializer_list<int>{
+        0, (Ops::template attachInterface<LinalgOpTilingInterface<Ops>>(*ctx),
+            0)...};
+  }
+};
 
 void mlir::iree_compiler::IREE::LinalgExt::
     registerTilingInterfaceExternalModels(DialectRegistry &registry) {
-  registerOne<linalg::GenericOp>(registry);
-  registerAll<
+  registry.addExtension(+[](MLIRContext *ctx, LinalgDialect *dialect) {
+    GenericOp::attachInterface<LinalgOpTilingInterface<GenericOp>>(*ctx);
+
+    // Register all Linalg structured ops. `LinalgOp` is an interface and it is
+    // not possible to attach an external interface to an existing interface.
+    // Therefore, attach the `LinalgOpTilingInterface` to all ops one-by-one.
+    LinalgOpTilingInterfaceHelper<
+#define GET_OP_LIST
 #include "mlir/Dialect/Linalg/IR/LinalgStructuredOps.cpp.inc"
-      >(registry);
+        >::registerOpInterface(ctx);
+  });
 }

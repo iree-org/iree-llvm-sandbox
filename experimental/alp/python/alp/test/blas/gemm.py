@@ -7,7 +7,7 @@ import argparse
 
 # MLIR imports
 from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
+from mlir.dialects import arith, func, linalg, tensor, scf, func, memref
 from mlir.dialects.linalg.opdsl.lang import *
 
 # Sandbox imports
@@ -20,15 +20,15 @@ from ...transition.blas.gemm import GEMM, matmul_NN, matmul_TN
 from ..infra import *
 
 
-def emit_test_function(trA, sizes, func: builtin.FuncOp) -> builtin.FuncOp:
+def emit_test_function(trA, sizes, func: func.FuncOp) -> func.FuncOp:
   """Produces the test function."""
   f64 = F64Type.get()
   f32 = F32Type.get()
 
-  printF32 = builtin.FuncOp("printF32", ([f32], []), visibility="private")
+  printF32 = func.FuncOp("printF32", ([f32], []), visibility="private")
 
-  printNewline = builtin.FuncOp("printNewline", ([], []), visibility="private")
-  wrapper = builtin.FuncOp(
+  printNewline = func.FuncOp("printNewline", ([], []), visibility="private")
+  wrapper = func.FuncOp(
       # Same signature and an extra buffer of indices to save timings.
       "main",
       ([], [IntegerType.get_signless(32)]),
@@ -116,7 +116,7 @@ def generate_test_mlir(func_name, trA, size, dest):
     )
 
     with InsertionPoint(mlir_module.body):
-      gemm = builtin.FuncOp(func_name, (types, [types[-1]]),
+      gemm = func.FuncOp(func_name, (types, [types[-1]]),
                             visibility="private")
       test = emit_test_function(trA, size, gemm)
   save_mlir(str(mlir_module), dest)

@@ -29,7 +29,7 @@ class Pipeline(Transform):
                 f"     {distance_str}}},"
                 f"canonicalize,"
                 f"cse")
-    self.pipeline = f"builtin.func({pipeline})"
+    self.pipeline = f"func.func({pipeline})"
 
 
 class ExtractKernel(Transform):
@@ -58,4 +58,4 @@ class ConvertLoops(Transform):
                 f"     anchor-func={fun_name}}},"
                 f"canonicalize,"
                 f"cse")
-    self.pipeline = f"builtin.func({pipeline})"
+    self.pipeline = f"func.func({pipeline})"

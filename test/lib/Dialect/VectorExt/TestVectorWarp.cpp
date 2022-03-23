@@ -8,6 +8,7 @@
 
 #include "Dialect/VectorExt/VectorExtOps.h"
 #include "Dialect/VectorExt/VectorExtWarpUtils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Visitors.h"

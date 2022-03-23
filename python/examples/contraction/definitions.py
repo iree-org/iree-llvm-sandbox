@@ -125,7 +125,7 @@ class EinsumProblem(ProblemDefinition):
     """
     global avx512
 
-    bench = builtin.FuncOp(name, (types, [types[-1]]))
+    bench = func.FuncOp(name, (types, [types[-1]]))
     inplaceable_attributes = [False] * len(types)
     inplaceable_attributes[-1] = True
     # TODO: need something much more flexible to add function argument attributes.
