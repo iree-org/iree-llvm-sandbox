@@ -10,7 +10,7 @@ function repopulate_iree_dialect() {
 
 function repopulate_iree_dir() {
   rm -Rf include/$1 lib/$1
-  cp -R -f ../iree/llvm-external-projects/iree-dialects/include/$1 include/
+  cp -R -f ../iree/llvm-external-projects/iree-dialects/include/iree-dialects/$1 include/
   cp -R -f ../iree/llvm-external-projects/iree-dialects/lib/$1 lib/
 }
 
@@ -36,6 +36,7 @@ cp ../iree/llvm-external-projects/iree-dialects/python/iree/compiler/dialects/Li
 
 # Fix include paths.
 git grep -l iree-dialects/Dialect/ | grep -v scripts | xargs sed -i "s:iree-dialects/Dialect/:Dialect/:g"
+git grep -l iree-dialects/Transforms/ | grep -v scripts | xargs sed -i "s:iree-dialects/Transforms/:Transforms/:g"
 
 # Drop building of IREE's LinalgExt/Passes that depends on the IREEInputDialect.
 git grep -l "add_subdirectory(Passes)" | grep LinalgExt | xargs sed -i "s:add_subdirectory(Passes)::g"
