@@ -60,9 +60,9 @@ ParseResult mlir::vector_ext::PredicateOp::parse(OpAsmParser &parser,
   auto &builder = parser.getBuilder();
 
   // Parse all the operands.
-  OpAsmParser::OperandType predicateMask;
-  OpAsmParser::OperandType incomingMask;
-  SmallVector<OpAsmParser::OperandType> indices;
+  OpAsmParser::UnresolvedOperand predicateMask;
+  OpAsmParser::UnresolvedOperand incomingMask;
+  SmallVector<OpAsmParser::UnresolvedOperand> indices;
   if (parser.parseLParen() || parser.parseRegionArgument(predicateMask) ||
       parser.parseComma() ||
       parser.parseOperandList(indices, AsmParser::Delimiter::Square) ||
@@ -162,7 +162,7 @@ ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
   Region *warpRegion = result.addRegion();
 
   auto &builder = parser.getBuilder();
-  OpAsmParser::OperandType laneId;
+  OpAsmParser::UnresolvedOperand laneId;
 
   // Parse predicate operand.
   if (parser.parseLParen() || parser.parseRegionArgument(laneId) ||
@@ -173,7 +173,7 @@ ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
     return failure();
 
   llvm::SMLoc inputsOperandsLoc;
-  SmallVector<OpAsmParser::OperandType> inputsOperands;
+  SmallVector<OpAsmParser::UnresolvedOperand> inputsOperands;
   SmallVector<Type> inputTypes;
   if (succeeded(parser.parseOptionalKeyword("args"))) {
     if (parser.parseLParen())
