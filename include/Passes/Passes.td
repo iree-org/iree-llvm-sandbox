@@ -28,6 +28,9 @@ def LinalgFuse : Pass<"linalg-fuse", "FuncOp"> {
                 "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"pad", "pad", "bool", /*default=*/"false",
       "Pad the anchor op operands.">,
+    ListOption<"paddingValues", "padding-values", "std::string",
+               "Operand padding values."
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     ListOption<"packPaddings", "pack-paddings", "int64_t",
                "Operand packing flags.",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
@@ -93,6 +96,9 @@ def LinalgSingleTilingExpert
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     Option<"pad", "pad", "bool", /*default=*/"false",
       "Pad the anchor op operands.">,
+    ListOption<"paddingValues", "padding-values", "std::string",
+               "Operand padding values."
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     ListOption<"packPaddings", "pack-paddings", "int64_t",
                "Operand packing flags.",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,

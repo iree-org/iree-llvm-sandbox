@@ -50,6 +50,7 @@ def all_experts(fun_name):
              tile_interchange=[0, 1, 2])
           .then(Pad(fun_name,
                     op_name,
+                    padding_values=[0.0, 0.0, 0.0],
                     pack_paddings=[1, 1, 0],
                     hoist_paddings=[2, 3, 0]))
           .then(Vectorize(fun_name, ''))
@@ -72,6 +73,7 @@ def all_experts(fun_name):
                      tile_interchange=[0, 1, 2]))
           .then(Pad(fun_name,
                     op_name,
+                    padding_values=[0.0, 0.0, 0.0],
                     pack_paddings=[1, 1, 0],
                     hoist_paddings=[5, 6, 0],
                     transpose_paddings=[[1, 0], [0, 1], [0, 1]]))

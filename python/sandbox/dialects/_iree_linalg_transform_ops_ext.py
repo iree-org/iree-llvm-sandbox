@@ -25,6 +25,7 @@ IntListArg = Optional[Union[Sequence[int], ir.ArrayAttr]]
 IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]],
                                 ir.ArrayAttr]]
 StringArg = Optional[Union[str, ir.StringAttr]]
+StringListArg = Optional[Union[Sequence[str], ir.ArrayAttr]]
 
 
 def _defaulted_ensure(f):
@@ -37,7 +38,7 @@ def _defaulted_ensure(f):
 
 
 @_defaulted_ensure
-def _ensure_array_attr(value: IntListArg):
+def _ensure_int_array_attr(value: IntListArg):
   i64 = ir.IntegerType.get_signless(64)
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([ir.IntegerAttr.get(i64, i) for i in value])
@@ -45,9 +46,16 @@ def _ensure_array_attr(value: IntListArg):
 
 
 @_defaulted_ensure
+def _ensure_string_array_attr(value: StringListArg):
+  if isinstance(value, Sequence):
+    return ir.ArrayAttr.get([ir.StringAttr.get(str(i)) for i in value])
+  return value
+
+
+@_defaulted_ensure
 def _ensure_array_of_array_attr(value: IntListListArg):
   if isinstance(value, Sequence):
-    return ir.ArrayAttr.get([_ensure_array_attr(inner) for inner in value])
+    return ir.ArrayAttr.get([_ensure_int_array_attr(inner) for inner in value])
   return value
 
 
@@ -97,7 +105,7 @@ class LowerVectorsOp:
                transpose_avx2_lowering: BoolArg = None,
                loc=None,
                ip=None):
-    stages = _ensure_array_attr(stages, [0, 1, 2, 3, 4, 5, 6])
+    stages = _ensure_int_array_attr(stages, [0, 1, 2, 3, 4, 5, 6])
     contraction_lowering = _ensure_string_attr(contraction_lowering,
                                                "outerproduct")
     multireduction_lowering = _ensure_string_attr(multireduction_lowering,
@@ -153,8 +161,8 @@ class FuseOp:
                tile_interchange: IntListArg = None,
                loc=None,
                ip=None):
-    tile_sizes = _ensure_array_attr(tile_sizes, [])
-    tile_interchange = _ensure_array_attr(tile_interchange, [])
+    tile_sizes = _ensure_int_array_attr(tile_sizes, [])
+    tile_interchange = _ensure_int_array_attr(tile_interchange, [])
     operation_type = pdl.OperationType.get()
 
     super().__init__(operation_type,
@@ -177,9 +185,9 @@ class TileOp:
                scalarize_dyn_dims: BoolArg = None,
                loc=None,
                ip=None):
-    sizes = _ensure_array_attr(sizes, [])
-    interchange = _ensure_array_attr(interchange, [])
-    peel = _ensure_array_attr(peel, [])
+    sizes = _ensure_int_array_attr(sizes, [])
+    interchange = _ensure_int_array_attr(interchange, [])
+    peel = _ensure_int_array_attr(peel, [])
     scalarize_dyn_dims = _ensure_bool_attr(scalarize_dyn_dims, False)
     operation_type = pdl.OperationType.get()
 
@@ -199,18 +207,21 @@ class PadOp:
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
+               padding_values: StringListArg = None,
                pack_paddings: IntListArg = None,
                hoist_paddings: IntListArg = None,
                transpose_paddings: IntListListArg = None,
                loc=None,
                ip=None):
-    pack_paddings = _ensure_array_attr(pack_paddings, [])
-    hoist_paddings = _ensure_array_attr(hoist_paddings, [])
+    padding_values = _ensure_string_array_attr(padding_values, [])
+    pack_paddings = _ensure_int_array_attr(pack_paddings, [])
+    hoist_paddings = _ensure_int_array_attr(hoist_paddings, [])
     transpose_paddings = _ensure_array_of_array_attr(transpose_paddings, [])
     operation_type = pdl.OperationType.get()
 
     super().__init__(operation_type,
                      target,
+                     padding_values,
                      pack_paddings,
                      hoist_paddings,
                      transpose_paddings,
@@ -240,7 +251,7 @@ class InterchangeOp:
                iterator_interchange: IntListArg = None,
                loc=None,
                ip=None):
-    iterator_interchange = _ensure_array_attr(iterator_interchange, [])
+    iterator_interchange = _ensure_int_array_attr(iterator_interchange, [])
     operation_type = pdl.OperationType.get()
 
     super().__init__(operation_type,
@@ -356,7 +367,7 @@ class TileToLinalgExtTileOp:
                sizes: IntListArg = None,
                loc=None,
                ip=None):
-    sizes = _ensure_array_attr(sizes, [])
+    sizes = _ensure_int_array_attr(sizes, [])
     operation_type = pdl.OperationType.get()
     super().__init__(operation_type, target, sizes, loc=loc, ip=ip)
 
