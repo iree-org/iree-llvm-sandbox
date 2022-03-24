@@ -66,13 +66,13 @@ TEST(HashTupleTest, SimpleTests) {
 }
 
 TEST(PrintTupleTest, SingleField) {
-  std::stringstream string_buffer;
-  printTuple(string_buffer, std::make_tuple(1));
-  EXPECT_EQ(string_buffer.str(), "(1)");
+  std::stringstream stringBuffer;
+  printTuple(stringBuffer, std::make_tuple(1));
+  EXPECT_EQ(stringBuffer.str(), "(1)");
 }
 
 TEST(PrintTupleTest, MultipleFields) {
-  std::stringstream string_buffer;
-  printTuple(string_buffer, std::make_tuple(1, 2, 3));
-  EXPECT_EQ(string_buffer.str(), "(1, 2, 3)");
+  std::stringstream stringBuffer;
+  printTuple(stringBuffer, std::make_tuple(1, 2, 3));
+  EXPECT_EQ(stringBuffer.str(), "(1, 2, 3)");
 }

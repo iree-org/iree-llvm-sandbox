@@ -56,7 +56,7 @@ extern "C" void iteratorsComsumeAndPrint(int8_t *const upstream) {
       decltype(makeColumnScanOperator(std::declval<std::vector<int32_t>>()));
   using ReduceOperatorType =
       decltype(makeReduceOperator(std::declval<ScanOperatorType *>(), sum));
-  auto const typedUpstream = reinterpret_cast<ReduceOperatorType *>(upstream);
+  auto *const typedUpstream = reinterpret_cast<ReduceOperatorType *>(upstream);
   typedUpstream->open();
   while (auto const tuple = typedUpstream->computeNext()) {
     printTuple(tuple.value());
