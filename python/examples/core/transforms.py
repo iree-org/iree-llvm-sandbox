@@ -107,12 +107,12 @@ class Tile(Transform):
   def build_transform_ir(self):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
                                                     self.op_name))
-    # TODO: handles are currently bugfed when using peeling.
-    tile_only = tx.TileOp(target,
-                          sizes=self.tile_sizes,
-                          interchange=self.tile_interchange,
-                          peel=self.peel,
-                          scalarize_dyn_dims=self.scalarize_dyn_dims)
+    tiled = tx.TileOp(target,
+                      sizes=self.tile_sizes,
+                      interchange=self.tile_interchange,
+                      scalarize_dyn_dims=self.scalarize_dyn_dims)
+    for loop_index in self.peel:
+      tx.PeelLoopOp(tiled.results[1 + loop_index])
 
 
 class Pad(Transform):
