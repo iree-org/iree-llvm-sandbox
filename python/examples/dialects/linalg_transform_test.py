@@ -26,7 +26,7 @@ def tile_once():
   with ir.InsertionPoint(sequence.body.blocks[0]):
     target = transform.MatchOp("foo")
     tiled = transform.TileOp(target, sizes=[32, 16])
-    padded = transform.PadOp(tiled)
+    padded = transform.PadOp(tiled.results[0])
     transform.VectorizeOp(padded, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")
@@ -48,8 +48,8 @@ def tile_twice():
   with ir.InsertionPoint(sequence.body.blocks[0]):
     target = transform.MatchOp("foo")
     tiled1 = transform.TileOp(target, sizes=[128, 32])
-    tiled2 = transform.TileOp(tiled1, sizes=[32, 16])
-    padded = transform.PadOp(tiled2)
+    tiled2 = transform.TileOp(tiled1.results[0], sizes=[32, 16])
+    padded = transform.PadOp(tiled2.results[0])
     transform.VectorizeOp(padded, vectorize_padding=True)
     transform.BufferizeOp()
     transform.LowerVectorsOp(multireduction_lowering="innerreduce")

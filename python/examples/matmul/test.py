@@ -169,8 +169,9 @@ all_experts = [
         expert_tile_1_pad,
         expert_tile_1_pad_hoist,
         expert_tile_2_pad_hoist,
-        expert_tile_3_pad_hoist_peel,
-        expert_tile_3_pad_hoist_peel_scalarize,
+        # Input size is too small for 3 levels of tiling.
+        #expert_tile_3_pad_hoist_peel,
+        #expert_tile_3_pad_hoist_peel_scalarize,
         expert_fuse_2_tile_1,
         expert_fuse_and_pad,
         expert_fuse_and_pad_and_pipeline
