@@ -32,7 +32,7 @@ static Operation *cloneOpWithOperandsAndTypes(OpBuilder &builder, Location loc,
                                               ArrayRef<Type> resultTypes) {
   OperationState res(loc, op->getName().getStringRef(), operands, resultTypes,
                      op->getAttrs());
-  return builder.createOperation(res);
+  return builder.create(res);
 }
 
 /// Helper to create a new WarpSingleLaneOp regions with different signature.
