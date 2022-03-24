@@ -28,9 +28,9 @@ jobs:
       with:
         path: iree
         repository: google/iree
-        # Always build with iree/iree-dialects on the iree/sandbox branch.
-        ref: sandbox
-        # Use the LLVM version bundled with IREE and coming from the iree-llvm-fork/sandbox branch.
+        # Always build with iree/iree-dialects on the iree/ntv-sandbox branch.
+        ref: ntv-sandbox
+        # Use the LLVM version bundled with IREE and coming from the iree-llvm-fork/ntv-sandbox branch.
         # This is transparent for this integration.
         submodules: recursive
 
