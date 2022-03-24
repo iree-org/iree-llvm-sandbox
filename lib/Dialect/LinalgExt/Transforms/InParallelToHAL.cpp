@@ -6,9 +6,9 @@
 
 #include <cstdlib>
 
-#include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtOps.h"
-#include "iree-dialects/Dialect/LinalgExt/Transforms/Transforms.h"
-#include "iree-dialects/Dialect/LinalgExt/Transforms/Utils.h"
+#include "Dialect/LinalgExt/IR/LinalgExtOps.h"
+#include "Dialect/LinalgExt/Transforms/Transforms.h"
+#include "Dialect/LinalgExt/Transforms/Utils.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"

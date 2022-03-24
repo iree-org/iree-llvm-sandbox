@@ -119,6 +119,7 @@ class Pad(Transform):
   """Pad a linalg op.
 
   This transform can be configured as follows:
+  * `padding_values`: Pad the operands with the specified values.
   * `pack_paddings`: Pack the padded operand if the packing flag is set.
   * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
   * `transpose_paddings`: Transpose the padded operands by the specified
@@ -131,6 +132,7 @@ class Pad(Transform):
   """
 
   variables = {
+      'padding_values': (PaddingValueVariable, []),
       'pack_paddings': (PackPaddingVariable, []),
       'hoist_paddings': (HoistPaddingVariable, []),
       'transpose_paddings': (TransposePaddingVariable, []),
@@ -145,6 +147,7 @@ class Pad(Transform):
     target = tx.MatchOp(emit_pattern_if_not_present(self.fun_name,
                                                     self.op_name))
     tx.PadOp(target,
+             padding_values=self.padding_values,
              pack_paddings=self.pack_paddings,
              hoist_paddings=self.hoist_paddings,
              transpose_paddings=self.transpose_paddings)

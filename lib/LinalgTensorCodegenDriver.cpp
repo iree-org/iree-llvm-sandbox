@@ -8,6 +8,7 @@
 
 #include "Passes/PassDetail.h"
 #include "Passes/Passes.h"
+
 #include "Passes/Transforms.h"
 
 #include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
@@ -48,6 +49,7 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Visitors.h"
+#include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
@@ -194,15 +196,6 @@ void LLVMLoweringPass::runOnOperation() {
   });
 }
 
-/// Return the neutral element as a new Value.
-/// For now, just assume it is the zero of type.
-/// In the future, it should be the zero of type + op.
-static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
-  auto t = getElementTypeOrSelf(op.get().getType());
-  return b.create<arith::ConstantOp>(op.getOwner()->getLoc(), t,
-                                     b.getZeroAttr(t));
-}
-
 /// Collect all Linalg ops, they must all have tensor semantics.
 /// For now this just fuses everything.
 // TODO: finer control.
@@ -217,36 +210,31 @@ void LinalgFusePass::runOnOperation() {
   tilingOptions.tileInterchange = {tileInterchange.begin(),
                                    tileInterchange.end()};
 
+  // Parse the padding values.
+  SmallVector<Attribute> paddingValueAttributes;
+  for (const std::string &paddingValue : paddingValues) {
+    paddingValueAttributes.push_back(
+        parseAttribute(paddingValue, &getContext()));
+  }
+
   // Set up padding options.
-  // TODO: Replace the lambdas by either functions defined in MLIR core or even
-  // adapt the LinalgPaddingOptions to take the `hoistPaddings` and
-  // `packPaddings` arrays directly.
-  auto packFunc = [&](OpOperand &opOperand) {
-    return opOperand.getOperandNumber() < packPaddings.size()
-               ? packPaddings[opOperand.getOperandNumber()]
-               : false;
-  };
-  auto hoistingFunc = [&](OpOperand &opOperand) {
-    return opOperand.getOperandNumber() < hoistPaddings.size()
-               ? hoistPaddings[opOperand.getOperandNumber()]
-               : 0;
-  };
-  auto transposeFunc = [&](OpOperand &opOperand) {
+  SmallVector<SmallVector<int64_t>> transposePaddingVectors;
+  for (const std::string &transposePadding : transposePaddings) {
     SmallVector<int64_t> transposeVector = {};
-    if (opOperand.getOperandNumber() >= transposePaddings.size())
-      return transposeVector;
-    SmallVector<StringRef> elems;
-    StringRef(transposePaddings[opOperand.getOperandNumber()])
-        .split(elems, ':');
-    for (StringRef elem : elems)
-      transposeVector.push_back(std::stoi(elem.str()));
-    return transposeVector;
-  };
+    SmallVector<StringRef> tokens;
+    StringRef(transposePadding).split(tokens, ':');
+    for (StringRef token : tokens)
+      transposeVector.push_back(std::stoi(token.str()));
+    transposePaddingVectors.push_back(transposeVector);
+  }
+
   LinalgPaddingOptions paddingOptions;
-  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
-  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
-  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
-  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
+  paddingOptions.setPaddingValues(paddingValueAttributes);
+  paddingOptions.setPackPaddings(
+      SmallVector<bool>{packPaddings.begin(), packPaddings.end()});
+  paddingOptions.setHoistPaddings(
+      SmallVector<int64_t>{hoistPaddings.begin(), hoistPaddings.end()});
+  paddingOptions.setTransposePaddings(transposePaddingVectors);
 
   CodegenStrategy strategy;
   strategy.tileAndFuseIf(!tileSizes.empty(), anchorOpName, tilingOptions)
@@ -290,36 +278,31 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
   }
   tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
 
+  // Parse the padding values.
+  SmallVector<Attribute> paddingValueAttributes;
+  for (const std::string &paddingValue : paddingValues) {
+    paddingValueAttributes.push_back(
+        parseAttribute(paddingValue, &getContext()));
+  }
+
   // Set up padding options.
-  // TODO: Replace the lambdas by either functions defined in MLIR core or even
-  // adapt the LinalgPaddingOptions to take the `hoistPaddings` and
-  // `packPaddings` arrays directly.
-  auto packFunc = [&](OpOperand &opOperand) {
-    return opOperand.getOperandNumber() < packPaddings.size()
-               ? packPaddings[opOperand.getOperandNumber()]
-               : false;
-  };
-  auto hoistingFunc = [&](OpOperand &opOperand) {
-    return opOperand.getOperandNumber() < hoistPaddings.size()
-               ? hoistPaddings[opOperand.getOperandNumber()]
-               : 0;
-  };
-  auto transposeFunc = [&](OpOperand &opOperand) {
+  SmallVector<SmallVector<int64_t>> transposePaddingVectors;
+  for (const std::string &transposePadding : transposePaddings) {
     SmallVector<int64_t> transposeVector = {};
-    if (opOperand.getOperandNumber() >= transposePaddings.size())
-      return transposeVector;
-    SmallVector<StringRef> elems;
-    StringRef(transposePaddings[opOperand.getOperandNumber()])
-        .split(elems, ':');
-    for (StringRef elem : elems)
-      transposeVector.push_back(std::stoi(elem.str()));
-    return transposeVector;
-  };
+    SmallVector<StringRef> tokens;
+    StringRef(transposePadding).split(tokens, ':');
+    for (StringRef token : tokens)
+      transposeVector.push_back(std::stoi(token.str()));
+    transposePaddingVectors.push_back(transposeVector);
+  }
+
   LinalgPaddingOptions paddingOptions;
-  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
-  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
-  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
-  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
+  paddingOptions.setPaddingValues(paddingValueAttributes);
+  paddingOptions.setPackPaddings(
+      SmallVector<bool>{packPaddings.begin(), packPaddings.end()});
+  paddingOptions.setHoistPaddings(
+      SmallVector<int64_t>{hoistPaddings.begin(), hoistPaddings.end()});
+  paddingOptions.setTransposePaddings(transposePaddingVectors);
 
   auto vectorizeFilter = [&](mlir::Operation *op) {
     return success(!vectorizeOnlyTiled || op->getParentOfType<scf::ForOp>());
