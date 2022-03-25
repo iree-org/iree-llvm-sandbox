@@ -15,9 +15,9 @@ namespace iree_compiler {
 namespace IREE {
 namespace LinalgExt {
 
-std::unique_ptr<OperationPass<FuncOp>> createTiledOpInterfaceTilingPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createTiledOpInterfaceTilingPass();
 
-std::unique_ptr<OperationPass<FuncOp>> createLinalgExtToLoopsPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createLinalgExtToLoopsPass();
 
 std::unique_ptr<OperationPass<>> createPadContractionToBlockSizePass();
 

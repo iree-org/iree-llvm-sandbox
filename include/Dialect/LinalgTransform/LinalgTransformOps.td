@@ -323,7 +323,7 @@ def OutlineLoopOp : Linalg_Transform_Operation<"outline_loop", [
   let assemblyFormat = "$target attr-dict";
 
   let extraClassDeclaration = [{
-    ::mlir::FailureOr<::mlir::func::FuncOp> applyToOne(::mlir::scf::ForOp loop);
+    ::mlir::FailureOr<::mlir::FuncOp> applyToOne(::mlir::scf::ForOp loop);
   }];
 }
 
@@ -357,7 +357,7 @@ def TileToLinalgExtTileOp : Linalg_Transform_Operation<"tile_to_iree_linalg_ext_
 
   let extraClassDeclaration = [{
     ::mlir::FailureOr<Operation *> applyToOne(
-        ::mlir::TilingInterface target);
+        ::mlir::Operation *target);
   }];
 }
 

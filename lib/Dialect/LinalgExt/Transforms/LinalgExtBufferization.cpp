@@ -6,12 +6,11 @@
 
 #include "Dialect/LinalgExt/LinalgExtBufferization.h"
 
-#include <mlir/IR/BuiltinOps.h>
-
 #include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 
 using namespace mlir;
@@ -23,7 +22,6 @@ using bufferization::BufferizationState;
 using bufferization::BufferRelation;
 using bufferization::getMemRefType;
 using bufferization::replaceOpWithBufferizedValues;
-using bufferization::replaceOpWithNewBufferizedOp;
 using tensor::ExtractSliceOp;
 
 /// Return the destinations that an InParallelOp is inserting into. One per
@@ -342,11 +340,12 @@ struct ParallelInsertSliceOpInterface
 
 void mlir::iree_compiler::IREE::LinalgExt::
     registerBufferizableOpInterfaceExternalModels(DialectRegistry &registry) {
-  registry.addExtension(+[](MLIRContext *ctx, IREELinalgExtDialect *dialect) {
-    InParallelOp::attachInterface<InParallelOpInterface>(*ctx);
-    PerformConcurrentlyOp::attachInterface<PerformConcurrentlyOpInterface>(
-        *ctx);
-    ParallelInsertSliceOp::attachInterface<ParallelInsertSliceOpInterface>(
-        *ctx);
-  });
+  registry.addExtension(
+      +[](MLIRContext *ctx, LinalgExt::IREELinalgExtDialect *dialect) {
+        InParallelOp::attachInterface<InParallelOpInterface>(*ctx);
+        PerformConcurrentlyOp::attachInterface<PerformConcurrentlyOpInterface>(
+            *ctx);
+        ParallelInsertSliceOp::attachInterface<ParallelInsertSliceOpInterface>(
+            *ctx);
+      });
 }
