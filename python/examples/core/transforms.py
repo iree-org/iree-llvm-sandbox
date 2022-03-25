@@ -21,8 +21,9 @@ def emit_transform_matcher(fun_name: str, op_name: str):
     args = pdl.OperandsOp()
     types = pdl.TypesOp()
     pdl_op = pdl.OperationOp(op_name, args=[args], types=[types])
-    pdl_attr = pdl.AttributeOp(value=FlatSymbolRefAttr.get(fun_name))
-    pdl.ApplyNativeConstraintOp('nestedInFunc', args=[pdl_op, pdl_attr])
+    pdl.ApplyNativeConstraintOp('nestedInFunc',
+                                args=[pdl_op],
+                                params=[FlatSymbolRefAttr.get(fun_name)])
     pdl.RewriteOp(pdl_op, 'iree_linalg_transform.apply')
 
 

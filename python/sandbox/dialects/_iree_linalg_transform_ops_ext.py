@@ -8,16 +8,12 @@
 # MLIR.
 # pytype: skip-file
 
-from typing import Optional, Sequence, Union
 try:
   from .. import ir
   from ..dialects import pdl
+  from typing import Optional, Sequence, Union
 except ImportError as e:
-  try:
-    import mlir.ir as ir
-    import mlir.dialects.pdl as pdl
-  except ImportError as e:
-    raise RuntimeError("Error loading imports from extension module") from e
+  raise RuntimeError("Error loading imports from extension module") from e
 
 BoolArg = Optional[Union[bool, ir.BoolAttr]]
 IntArg = Optional[Union[int, ir.IntegerAttr]]

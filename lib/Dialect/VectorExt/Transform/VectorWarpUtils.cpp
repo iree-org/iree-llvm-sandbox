@@ -13,7 +13,6 @@
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
-#include "mlir/Dialect/Vector/Transforms/VectorTransforms.h"
 #include "mlir/Dialect/Vector/Utils/VectorUtils.h"
 #include "mlir/IR/AffineMap.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -33,7 +32,7 @@ static Operation *cloneOpWithOperandsAndTypes(OpBuilder &builder, Location loc,
                                               ArrayRef<Type> resultTypes) {
   OperationState res(loc, op->getName().getStringRef(), operands, resultTypes,
                      op->getAttrs());
-  return builder.create(res);
+  return builder.createOperation(res);
 }
 
 /// Helper to create a new WarpSingleLaneOp regions with different signature.
@@ -674,12 +673,6 @@ void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
               WarpOpReduction, WarpOpBroadcast, WarpOpForwardOperand,
               WarpOpScfForOp>(pattern.getContext());
-  vector::populateVectorUnrollPatterns(
-      pattern, UnrollVectorOptions()
-                    .setNativeShape(ArrayRef<int64_t>{32})
-                    .setFilterConstraint([](Operation *op) {
-                      return success(isa<vector::ReductionOp>(op));
-                    }));
 }
 
 void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(

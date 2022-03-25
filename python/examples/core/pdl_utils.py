@@ -12,7 +12,7 @@ def make_single_op_pdl_pattern(
         [pdl.OperationOp, pdl.OperandsOp, pdl.TypesOp], None]],
     benefit: int = 1):
   """Given a module, create a new pdl.PatternOp @ module.body insertion point.
-
+  
   The pdl.PatternOp is additionally populated with constraints created from the
   constraints_builder_list. Each such builder takes as arguments:
     - the pdl.OperationOp of `op_to_match_name` that we are trying to match
@@ -57,12 +57,14 @@ def constraint_is_operand_dim_multiple_of(operands: pdl.OperandsOp,
     * `divisor == 1` is considered to divide any static size, excluding dynamic sizes
     * `divisor  > 1` divides only static sizes `k * divisor`, where `k > 0`
   """
-  pdl_dict_attr = pdl.AttributeOp(value=ir.DictAttr.get({
-    'operand_number': i64_attr(operand_number),
-    'dim': i64_attr(dim),
-    'divisor': i64_attr(divisor),}))
+
   return pdl.ApplyNativeConstraintOp(\
-    "isDimMultipleOf", args=[operands, pdl_dict_attr])
+    "isDimMultipleOf",
+    args=[operands],
+    params=[ir.DictAttr.get({'operand_number': i64_attr(operand_number),
+                             'dim': i64_attr(dim),
+                             'divisor': i64_attr(divisor),})]
+    )
 
 
 def constraint_is_operand_dim_dynamic(operands: pdl.OperandsOp,
@@ -72,11 +74,13 @@ def constraint_is_operand_dim_dynamic(operands: pdl.OperandsOp,
   Create a pdl.ApplyNativeConstraintOp that filters whether operands[operand_number]
   is a ShapedType whose dimension `dim` is dynamic.
   """
-  pdl_dict_attr = pdl.AttributeOp(value=ir.DictAttr.get({
-    'operand_number': i64_attr(operand_number),
-    'dim': i64_attr(dim),}))
+
   return pdl.ApplyNativeConstraintOp(\
-    "isDimDynamic", args=[operands, pdl_dict_attr])
+    "isDimDynamic",
+    args=[operands],
+    params=[ir.DictAttr.get({'operand_number': i64_attr(operand_number),
+                             'dim': i64_attr(dim),})]
+    )
 
 
 def constraint_is_operand_dim_static(operands: pdl.OperandsOp,
@@ -86,27 +90,28 @@ def constraint_is_operand_dim_static(operands: pdl.OperandsOp,
   Create a pdl.ApplyNativeConstraintOp that filters whether operands[operand_number]
   is a ShapedType whose dimension `dim` is static.
   """
-  pdl_dict_attr = pdl.AttributeOp(value=ir.DictAttr.get({
-    'operand_number': i64_attr(operand_number),
-    'dim': i64_attr(dim),}))
   return pdl.ApplyNativeConstraintOp(\
-    "isDimStatic", args=[operands, pdl_dict_attr])
+    "isDimStatic",
+    args=[operands],
+    params=[ir.DictAttr.get({'operand_number': i64_attr(operand_number),
+                             'dim': i64_attr(dim),})]
+    )
 
 
 def constraint_is_equivalent_to_op(pdl_op: pdl.OperationOp,
                                    desired_op_name: str):
   """Assume this is called under `with ir.InsertionPoint(pdl_pattern.body)`.
 
-  Create a pdl.ApplyNativeConstraintOp that filters whether the Operation*
+  Create a pdl.ApplyNativeConstraintOp that filters whether the Operation* 
   captured by pdl_op is equivalent to `desired_op_name`.
   This is mostly used for linalg ops.
-  The underlying implementation
+  The underlying implementation 
   """
 
-  pdl_op_name = pdl.AttributeOp(value=ir.StringAttr.get(desired_op_name))
   return pdl.ApplyNativeConstraintOp(
       "isEquivalentToOp",
-      args=[pdl_op, pdl_op_name])
+      args=[pdl_op],
+      params=[ir.StringAttr.get(desired_op_name)])
 
 
 ###############################################################################
@@ -178,8 +183,8 @@ def match_op_with_sizes_multiple_of(
     op_dim_spec_list: Sequence[Sequence[int]] = [],
     op_to_match_name: str = 'linalg.generic'):
   """
-  Return a constraint builder that matches `op_to_match_name` that are known to
-  be equivalent to `equivalent_op_name` and such that a subset of dimensions
+  Return a constraint builder that matches `op_to_match_name` that are known to 
+  be equivalent to `equivalent_op_name` and such that a subset of dimensions 
   are constrained to be multiples of fizes passed in `divisors_list`.
 
   Parameters:
@@ -225,12 +230,12 @@ def match_op_with_dynamic_or_static_sizes(
     op_dim_spec_list: Sequence[Sequence[int]] = [],
     op_to_match_name: str = 'linalg.generic'):
   """
-  Return a constraint builder that matches `op_to_match_name` that are known to
-  be equivalent to `equivalent_op_name` and such that a subset of dimensions
+  Return a constraint builder that matches `op_to_match_name` that are known to 
+  be equivalent to `equivalent_op_name` and such that a subset of dimensions 
   are constrained to be static or dynamic according to `dynamic_spec_list`.
 
   Parameters:
-  * dynamic_spec_list: list of 's' or 'd' characters, one for each entry in
+  * dynamic_spec_list: list of 's' or 'd' characters, one for each entry in 
     `op_dim_spec_list`
   * op_dim_spec_list: list of pairs of (operand number, dim) for which static
     or dynamic constraint will be added according to the corresponding entry in

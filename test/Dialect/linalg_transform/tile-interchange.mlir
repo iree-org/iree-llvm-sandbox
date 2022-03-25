@@ -23,8 +23,7 @@ pdl.pattern @target_pattern : benefit(1) {
   %0 = operands
   %1 = types
   %2 = operation "linalg.generic"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
-  %3 = pdl.attribute @matmul_021
-  apply_native_constraint "nestedInFunc"(%2, %3 : !pdl.operation, !pdl.attribute)
+  apply_native_constraint "nestedInFunc" [@matmul_021](%2 : !pdl.operation)
   rewrite %2 with "iree_linalg_transform.apply"
 }
 
@@ -61,8 +60,7 @@ pdl.pattern @target_pattern : benefit(1) {
   %0 = operands
   %1 = types
   %2 = operation "linalg.generic"(%0 : !pdl.range<value>)  -> (%1 : !pdl.range<type>)
-  %3 = pdl.attribute @matmul_210
-  apply_native_constraint "nestedInFunc"(%2, %3 : !pdl.operation, !pdl.attribute)
+  apply_native_constraint "nestedInFunc" [@matmul_210](%2 : !pdl.operation)
   rewrite %2 with "iree_linalg_transform.apply"
 }
 

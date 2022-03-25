@@ -31,8 +31,7 @@ pdl.pattern @pdl_target: benefit(1) {
   %args = operands
   %results= types
   %0 = operation "linalg.matmul"(%args : !pdl.range<value>) -> (%results : !pdl.range<type>)
-  %1 = pdl.attribute @matmul_tensors
-  apply_native_constraint "nestedInFunc"(%0, %1 : !pdl.operation, !pdl.attribute)
+  apply_native_constraint "nestedInFunc"[@matmul_tensors](%0 : !pdl.operation)
   rewrite %0 with "iree_linalg_transform.apply"
 }
 iree_linalg_transform.sequence {

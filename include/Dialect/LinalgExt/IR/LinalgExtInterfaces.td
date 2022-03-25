@@ -421,7 +421,7 @@ def LinalgExtInterface : OpInterface<"LinalgExtOp"> {
           $_op->getAttrs());
         for (Region &r : $_op->getRegions())
           r.cloneInto(state.addRegion(), bvm);
-        return b.create(state);
+        return b.createOperation(state);
       }]
     >
   ];

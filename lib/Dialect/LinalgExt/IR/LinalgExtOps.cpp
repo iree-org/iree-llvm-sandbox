@@ -1327,13 +1327,13 @@ void TileOp::print(OpAsmPrinter &p) {
 ParseResult TileOp::parse(OpAsmParser &parser, OperationState &result) {
   auto &builder = parser.getBuilder();
 
-  OpAsmParser::UnresolvedOperand tileSizes;
+  OpAsmParser::OperandType tileSizes;
   // TODO: also allow tensor<..xindex> and figure out a good syntax.
   // Type tensorOfIndexType =
   //     RankedTensorType::get({ShapedType::kDynamicSize}, indexType);
   Type tileSizesType = builder.getIndexType();
   SmallVector<Type> outsTypes;
-  SmallVector<OpAsmParser::UnresolvedOperand, 4> outsOperands;
+  SmallVector<OpAsmParser::OperandType, 4> outsOperands;
 
   llvm::SMLoc outputsOperandsLoc;
   if (parser.parseOperand(tileSizes) ||
@@ -1369,7 +1369,7 @@ ParseResult TileOp::parse(OpAsmParser &parser, OperationState &result) {
   if (parser.parseArrowTypeList(result.types))
     return failure();
 
-  SmallVector<OpAsmParser::UnresolvedOperand, 8> regionOperands;
+  SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   std::unique_ptr<Region> region = std::make_unique<Region>();
   SmallVector<Type, 8> operandTypes, regionTypes;
   if (parser.parseRegion(*region, regionOperands, regionTypes))
@@ -1431,7 +1431,7 @@ void InParallelOp::print(OpAsmPrinter &p) {
 ParseResult InParallelOp::parse(OpAsmParser &parser, OperationState &result) {
   auto &builder = parser.getBuilder();
 
-  OpAsmParser::UnresolvedOperand numThreads;
+  OpAsmParser::OperandType numThreads;
   Type indexType = builder.getIndexType();
 
   if (parser.parseOperand(numThreads) ||
@@ -1440,7 +1440,7 @@ ParseResult InParallelOp::parse(OpAsmParser &parser, OperationState &result) {
   if (parser.parseArrowTypeList(result.types))
     return failure();
 
-  SmallVector<OpAsmParser::UnresolvedOperand, 8> regionOperands;
+  SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   SmallVector<Type, 8> regionTypes;
   std::unique_ptr<Region> region = std::make_unique<Region>();
   if (parser.parseRegion(*region, regionOperands, regionTypes))
@@ -1608,7 +1608,7 @@ ParseResult PerformConcurrentlyOp::parse(OpAsmParser &parser,
                                          OperationState &result) {
   auto &builder = parser.getBuilder();
 
-  SmallVector<OpAsmParser::UnresolvedOperand, 8> regionOperands;
+  SmallVector<OpAsmParser::OperandType, 8> regionOperands;
   SmallVector<Type, 8> regionTypes;
   std::unique_ptr<Region> region = std::make_unique<Region>();
   if (parser.parseRegion(*region, regionOperands, regionTypes))
