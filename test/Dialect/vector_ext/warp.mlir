@@ -405,3 +405,46 @@ func @warp_scf_for_multiple_yield(%arg0: index, %arg1: memref<?xf32>, %arg2: mem
   "some_use"(%0#0) : (vector<1xf32>) -> ()
   return
 }
+
+// -----
+
+// CHECK-LABEL: func @large_vector_reduction(
+//       CHECK:   vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>, vector<1xf32>) {
+//       CHECK:     %[[some_def:.*]] = "some_def"()
+//       CHECK:     %[[slice1:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [0], sizes = [32]
+//       CHECK:     %[[slice2:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [32], sizes = [32]
+//       CHECK:     vector_ext.yield %[[slice1]], %[[slice2]]
+//       CHECK:   }
+//       CHECK:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   %[[r0:.*]], %{{.*}} = gpu.shuffle  idx
+//       CHECK:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   gpu.shuffle  down
+//  CHECK-NEXT:   arith.addf
+//  CHECK-NEXT:   %[[r1:.*]], %{{.*}} = gpu.shuffle  idx
+//       CHECK:   %[[result:.*]] = arith.addf %[[r1]], %[[r0]] : f32
+//       CHECK:   vector.print %[[result]]
+func @large_vector_reduction(%laneid: index) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+    %0 = "some_def"() : () -> (vector<64xf32>)
+    %1 = vector.reduction <add>, %0 : vector<64xf32> into f32
+    vector_ext.yield %1 : f32
+  }
+  vector.print %r : f32
+  return
+}

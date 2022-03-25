@@ -13,5 +13,6 @@ add_mlir_library(MLIRVectorExtTransforms
   MLIRLinalg
   MLIRVector
   MLIRVectorExt
+  MLIRVectorTransforms
   MLIRVectorUtils
 )
