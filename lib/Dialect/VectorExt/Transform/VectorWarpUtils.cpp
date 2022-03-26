@@ -379,12 +379,23 @@ struct WarpOpForwardOperand : public OpRewritePattern<WarpSingleLaneOp> {
     Value valForwarded;
     unsigned resultIndex;
     for (OpOperand &operand : yield->getOpOperands()) {
+      Value result = warpOp.getResult(operand.getOperandNumber());
+      if (result.use_empty())
+        continue;
+
+      // Assume all the values coming from above are uniform.
+      if (!warpOp.getBodyRegion().isAncestor(operand.get().getParentRegion())) {
+        if (result.getType() != operand.get().getType())
+          continue;
+        valForwarded = operand.get();
+        resultIndex = operand.getOperandNumber();
+        break;
+      }
       auto arg = operand.get().dyn_cast<BlockArgument>();
       if (!arg || arg.getOwner()->getParentOp() != warpOp.getOperation())
         continue;
-      Value result = warpOp.getResult(operand.getOperandNumber());
       Value warpOperand = warpOp.args()[arg.getArgNumber()];
-      if (result.use_empty() || result.getType() != warpOperand.getType())
+      if (result.getType() != warpOperand.getType())
         continue;
       valForwarded = warpOperand;
       resultIndex = operand.getOperandNumber();
