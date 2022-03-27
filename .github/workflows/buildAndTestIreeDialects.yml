@@ -27,11 +27,10 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: iree
-        repository: google/iree
-        # Always build with iree/iree-dialects on the iree/ntv-sandbox branch.
+        repository: nicolasvasilache/iree
+        # Always build with iree/iree-dialects on the nicolasvasilache/iree/ntv-sandbox branch.
         ref: ntv-sandbox
-        # Use the LLVM version bundled with IREE and coming from the iree-llvm-fork/ntv-sandbox branch.
-        # This is transparent for this integration.
+        # Use the LLVM version bundled with IREE and coming from iree-llvm-fork.
         submodules: recursive
 
     - name: Install Python depends
@@ -58,4 +57,3 @@ jobs:
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
         python run_tests.py --iterators-tests
-
