@@ -6,7 +6,6 @@
 
 #include "Dialect/LinalgExt/IR/TiledOpInterface.h"
 
-#include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
@@ -306,11 +305,12 @@ void IREE::LinalgExt::registerTiledOpInterfaceExternalModels(
     DialectRegistry &registry) {
   LLVM_DEBUG(
       { llvm::dbgs() << "Adding external models of tiled op interface\n"; });
-  registry.addExtension(+[](MLIRContext *ctx,
-                            IREE::LinalgExt::IREELinalgExtDialect *dialect) {
+
+  registry.addExtension(+[](MLIRContext *ctx, tensor::TensorDialect *dialect) {
     tensor::ExtractSliceOp::attachInterface<ExtractSliceTiledOpInterface>(*ctx);
     tensor::InsertSliceOp::attachInterface<InsertSliceTiledOpInterface>(*ctx);
   });
+
   // TODO(ravishankarm): Needs custom PadTiledOpInterface or equiv.
   // registry.addOpInterface<tensor::PadOp,
   //                         ForwardToTilingInterface<tensor::PadOp>>();

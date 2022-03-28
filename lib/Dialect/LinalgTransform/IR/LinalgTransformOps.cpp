@@ -10,7 +10,6 @@
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
-
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/ScopedTransform.h"
@@ -205,7 +204,7 @@ FailureOr<LinalgOp> transform::FuseOp::applyToOne(LinalgOp target) {
 
 LogicalResult transform::FuseOp::verify() {
   SmallVector<int64_t> permutation = extractI64Array(tile_interchange());
-  auto sequence = llvm::seq<int64_t>(0, permutation.size());
+  auto sequence = llvm::to_vector(llvm::seq<int64_t>(0, permutation.size()));
   if (!std::is_permutation(sequence.begin(), sequence.end(),
                            permutation.begin(), permutation.end())) {
     return emitOpError() << "expects interchange to be a permutation, found "
@@ -243,7 +242,7 @@ FailureOr<LinalgOp> transform::InterchangeOp::applyToOne(LinalgOp target) {
 
 LogicalResult transform::InterchangeOp::verify() {
   SmallVector<unsigned> permutation = extractUIntArray(iterator_interchange());
-  auto sequence = llvm::seq<unsigned>(0, permutation.size());
+  auto sequence = llvm::to_vector(llvm::seq<unsigned>(0, permutation.size()));
   if (!std::is_permutation(sequence.begin(), sequence.end(),
                            permutation.begin(), permutation.end())) {
     return emitOpError()
@@ -317,7 +316,7 @@ LogicalResult transform::PadOp::verify() {
   ArrayAttr transposes = transpose_paddings();
   for (Attribute attr : transposes) {
     SmallVector<int64_t> transpose = extractFromI64ArrayAttr(attr);
-    auto sequence = llvm::seq<int64_t>(0, transpose.size());
+    auto sequence = llvm::to_vector(llvm::seq<int64_t>(0, transpose.size()));
     if (!std::is_permutation(sequence.begin(), sequence.end(),
                              transpose.begin(), transpose.end())) {
       return emitOpError()
@@ -583,7 +582,7 @@ LogicalResult transform::BufferizeOp::apply(transform::TransformResults &result,
 
   // Perform buffer-level hoistings.
   state.getTopLevel()->walk(
-      [&](FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
+      [&](func::FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
   return success();
 }
 
@@ -599,8 +598,8 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
   // the end. Keep module-level for now.
   PassManager pm(getContext());
 
-  pm.addNestedPass<FuncOp>(createConvertVectorToSCFPass());
-  pm.addNestedPass<FuncOp>(createConvertLinalgToLoopsPass());
+  pm.addNestedPass<func::FuncOp>(createConvertVectorToSCFPass());
+  pm.addNestedPass<func::FuncOp>(createConvertLinalgToLoopsPass());
   if (enable_async()) {
     pm.addPass(createAsyncToAsyncRuntimePass());
     pm.addPass(createAsyncRuntimeRefCountingPass());
@@ -620,7 +619,7 @@ transform::LowerToLLVMOp::apply(transform::TransformResults &result,
         .enableAMX(enable_amx())
         .enableX86Vector(enable_x86vector())));
   // clang-format on
-  pm.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
+  pm.addNestedPass<func::FuncOp>(createConvertMathToLLVMPass());
   pm.addPass(createMemRefToLLVMPass());
   if (enable_async())
     pm.addPass(createConvertAsyncToLLVMPass());
@@ -778,15 +777,15 @@ static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
   return executeRegionOp;
 }
 
-static FailureOr<FuncOp> outlineLoop(scf::ForOp loop, StringRef funcName,
-                                     transform::TransformState &state) {
+static FailureOr<func::FuncOp> outlineLoop(scf::ForOp loop, StringRef funcName,
+                                           transform::TransformState &state) {
   PatternRewriterListener rewriter(loop->getContext());
   auto &listener = state.getExtension<TrackingListener>();
   rewriter.addListener(&listener);
   Location loc = loop.getLoc();
   scf::ExecuteRegionOp exec = outlineInExecuteRegion(rewriter, loop);
   assert(exec && "failed to produce execute_region");
-  FailureOr<FuncOp> outlined =
+  FailureOr<func::FuncOp> outlined =
       outlineSingleBlockRegion(rewriter, loc, exec.getRegion(), funcName);
   if (failed(listener.checkErrorState()))
     return failure();
@@ -799,7 +798,7 @@ transform::OutlineLoopOp::apply(transform::TransformResults &results,
   SmallVector<Operation *> resultVector;
   auto res =
       applyTransformToEach(state.getPayloadOps(target()), resultVector,
-                           [&](scf::ForOp loop) -> FailureOr<FuncOp> {
+                           [&](scf::ForOp loop) -> FailureOr<func::FuncOp> {
                              return outlineLoop(loop, func_name(), state);
                            });
   if (failed(res))
@@ -824,7 +823,7 @@ LogicalResult transform::PrintOp::apply(transform::TransformResults &results,
 //===----------------------------------------------------------------------===//
 
 FailureOr<Operation *>
-transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
+transform::TileToLinalgExtTileOp::applyToOne(Operation *target) {
   LinalgTilingOptions tilingOptions;
   SmallVector<int64_t> tileSizes = extractI64Array(sizes());
   if (!tileSizes.empty())
@@ -832,12 +831,13 @@ transform::TileToLinalgExtTileOp::applyToOne(TilingInterface target) {
 
   LinalgExt::LinalgExtTilingPattern pattern(this->getContext(), tilingOptions);
   auto functionalTile =
-      [&](TilingInterface op,
-          PatternRewriter &rewriter) -> FailureOr<Operation *> {
-    auto result = pattern.returningMatchAndRewrite(op, rewriter);
-    if (failed(result))
+      [&](Operation *op, PatternRewriter &rewriter) -> FailureOr<Operation *> {
+    auto tilingInterfaceOp = dyn_cast<TilingInterface>(op);
+    if (!tilingInterfaceOp) {
+      op->emitError("Cannot tile op: Not a TilingInterface");
       return failure();
-    return result;
+    }
+    return pattern.returningMatchAndRewrite(tilingInterfaceOp, rewriter);
   };
 
   auto tileSeq = functional::SequenceBuilder().begin(std::move(functionalTile));
