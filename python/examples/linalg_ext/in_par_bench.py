@@ -58,6 +58,7 @@ def all_experts(fun_name: str):
           .then(Pad(fun_name,
                     op_name,
                     padding_values=[0.0, 0.0, 0.0],
+                    padding_dimensions=[0, 1, 2],
                     pack_paddings=[1, 1, 0],
                     hoist_paddings=[1, 2, 0],
                     transpose_paddings=[[1, 0], [0, 1], [0, 1]],))

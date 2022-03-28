@@ -230,6 +230,8 @@ void LinalgFusePass::runOnOperation() {
 
   LinalgPaddingOptions paddingOptions;
   paddingOptions.setPaddingValues(paddingValueAttributes);
+  paddingOptions.setPaddingDimensions(
+      SmallVector<int64_t>{paddingDimensions.begin(), paddingDimensions.end()});
   paddingOptions.setPackPaddings(
       SmallVector<bool>{packPaddings.begin(), packPaddings.end()});
   paddingOptions.setHoistPaddings(

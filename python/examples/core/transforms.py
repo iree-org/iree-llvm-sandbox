@@ -120,6 +120,8 @@ class Pad(Transform):
 
   This transform can be configured as follows:
   * `padding_values`: Pad the operands with the specified values.
+  * `padding_dimensions`: Pad the operand shape dimensions matching the
+    specified loops.
   * `pack_paddings`: Pack the padded operand if the packing flag is set.
   * `hoist_paddings`: Hoist the padded operand by the specified number of loops.
   * `transpose_paddings`: Transpose the padded operands by the specified
@@ -133,6 +135,7 @@ class Pad(Transform):
 
   variables = {
       'padding_values': (PaddingValueVariable, []),
+      'padding_dimensions': (PaddingDimensionVariable, []),
       'pack_paddings': (PackPaddingVariable, []),
       'hoist_paddings': (HoistPaddingVariable, []),
       'transpose_paddings': (TransposePaddingVariable, []),
@@ -148,6 +151,7 @@ class Pad(Transform):
                                                     self.op_name))
     tx.PadOp(target,
              padding_values=self.padding_values,
+             padding_dimensions=self.padding_dimensions,
              pack_paddings=self.pack_paddings,
              hoist_paddings=self.hoist_paddings,
              transpose_paddings=self.transpose_paddings)

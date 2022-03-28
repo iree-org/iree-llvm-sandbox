@@ -44,6 +44,7 @@ def all_experts(fun_name):
           .then(Pad(fun_name,
                      op_name,
                      padding_values=[0.0, 0.0, 0.0],
+                     padding_dimensions=[0, 1, 2, 3, 4],
                      pack_paddings=[1, 1, 0],
                      hoist_paddings=[3, 0, 0]))
           .then(Vectorize(fun_name, ''))
@@ -70,6 +71,7 @@ def all_experts(fun_name):
           .then(Pad(fun_name,
                      op_name,
                      padding_values=[0.0, 0.0, 0.0],
+                     padding_dimensions=[0, 1, 2, 3, 4],
                      pack_paddings=[1, 1, 0],
                      hoist_paddings=[3, 0, 0]))
           .then(Vectorize(fun_name, ''))

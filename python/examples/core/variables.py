@@ -114,6 +114,20 @@ class PaddingValueVariable(Variable):
     return f'PaddingValueVariable({self.name}, {self.length_range})'
 
 
+class PaddingDimensionVariable(Variable):
+  'Variable that corresponds to padding dimension.'
+
+  def __init__(self, name, length_ranges):
+    Variable.__init__(self, name)
+    if name in length_ranges:
+      self.length_range = length_ranges[name]
+    else:
+      self.length_range = length_ranges['default']
+
+  def __repr__(self):
+    return f'PaddingDimensionVariable({self.name}, {self.length_range})'
+
+
 class PackPaddingVariable(Variable):
   'Variable that corresponds to pack padding.'
 
