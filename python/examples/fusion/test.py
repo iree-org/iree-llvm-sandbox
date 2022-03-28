@@ -21,10 +21,12 @@ def fill_matmul_fusion():
   expert = Fuse(fun_name, op_name, tile_sizes=[8, 16, 0],          \
                 tile_interchange=[0, 1, 2])                        \
     .then(Pad(fun_name, 'linalg.fill',                             \
-              padding_values=[0.0, 0.0]))                      \
+              padding_values=[0.0, 0.0],                           \
+              padding_dimensions=[0, 1]))                          \
     .then(Tile(fun_name, op_name, tile_sizes=[0, 0, 24]))          \
     .then(Pad(fun_name, op_name,                                   \
-              padding_values=[0.0, 0.0, 0.0],                \
+              padding_values=[0.0, 0.0, 0.0],                      \
+              padding_dimensions=[0, 1, 2],                        \
               pack_paddings=[1, 1, 0]))                            \
     .then(Vectorize(fun_name, '', vectorize_paddings=True))        \
     .then(LoweringOnlyExpert('', ''))
@@ -46,10 +48,12 @@ def fill_matmul_bias_add_fusion():
   expert = Fuse(fun_name, op_name, tile_sizes=[8, 16],               \
                 tile_interchange=[0, 1])                             \
       .then(Pad(fun_name, 'linalg.fill',                             \
-                padding_values=[0.0, 0.0]))                      \
+                padding_values=[0.0, 0.0],                           \
+                padding_dimensions=[0, 1]))                          \
       .then(Tile(fun_name, 'linalg.matmul', tile_sizes=[0, 0, 24]))  \
       .then(Pad(fun_name, 'linalg.matmul',                           \
-                padding_values=[0., 0., 0.],       \
+                padding_values=[0., 0., 0.],                         \
+                padding_dimensions=[0, 1, 2],                        \
                 pack_paddings=[1, 1, 0]))                            \
       .then(LoweringOnlyExpert('', ''))
 

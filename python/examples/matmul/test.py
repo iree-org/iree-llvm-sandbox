@@ -47,7 +47,8 @@ expert_tile_1_peel_scalarize = \
 expert_tile_1_pad = \
     Tile('matmul', 'linalg.generic', tile_sizes=[8, 8, 24])         \
     .then(Pad('matmul', 'linalg.generic',                           \
-              padding_values=[0.0, 0.0, 0.0],                 \
+              padding_values=[0.0, 0.0, 0.0],                       \
+              padding_dimensions=[0, 1, 2],                         \
               pack_paddings=[1, 1, 1]))                             \
     .then(Vectorize('matmul', 'linalg.generic'))                    \
     .then(LoweringOnlyExpert('', ''))
@@ -60,6 +61,7 @@ expert_tile_1_pad_hoist = \
     .then(Pad('matmul',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1, 2],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[3, 3, 3],
               transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
@@ -74,6 +76,7 @@ expert_tile_2_pad_hoist = \
     .then(Pad('matmul',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1, 2],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6],
               transpose_paddings=[[1, 0], [0, 1], [0, 1]])) \
@@ -88,6 +91,7 @@ expert_tile_3_pad_hoist_peel = \
     .then(Pad('matmul',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1, 2],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6]))                 \
     .then(Tile('matmul',
@@ -116,6 +120,7 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(Pad('matmul',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1, 2],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6])) \
     .then(Tile('matmul',
@@ -149,6 +154,7 @@ expert_fuse_and_pad = \
     .then(Pad('matmul',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1, 2],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[3, 3, 3]))                     \
     .then(Vectorize('matmul', 'linalg.generic'))             \

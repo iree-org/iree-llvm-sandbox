@@ -56,6 +56,7 @@ expert_tile_1_pad = \
     .then(Pad('matvec',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1])) \
     .then(Vectorize('matvec', ''))      \
     .then(LoweringOnlyExpert('', ''))
@@ -68,6 +69,7 @@ expert_tile_1_pad_hoist = \
     .then(Pad('matvec',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[3, 3, 3])) \
     .then(Vectorize('matvec', ''))       \
@@ -82,6 +84,7 @@ expert_tile_2_pad_hoist = \
     .then(Pad('matvec',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6])) \
     .then(Vectorize('matvec', ''))       \
@@ -96,6 +99,7 @@ expert_tile_3_pad_hoist_peel = \
     .then(Pad('matvec',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6])) \
     .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 7], peel=[0, 1]))\
@@ -112,6 +116,7 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(Pad('matvec',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6]))\
     .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 7], peel=[0, 1])) \
@@ -135,6 +140,7 @@ expert_fuse_and_pad = \
     .then(Pad('matvec',
               'linalg.generic',
               padding_values=[0.0, 0.0, 0.0],
+              padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[3, 3, 3])) \
     .then(Vectorize('matvec', 'linalg.generic')) \

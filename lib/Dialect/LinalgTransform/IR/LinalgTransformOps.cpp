@@ -10,6 +10,7 @@
 
 #include "FunctionHelpers.h"
 #include "PDL.h"
+
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/ScopedTransform.h"
@@ -291,6 +292,8 @@ FailureOr<LinalgOp> transform::PadOp::applyToOne(LinalgOp target) {
 
   LinalgPaddingOptions paddingOptions;
   paddingOptions.setPaddingValues(paddingValues);
+  paddingOptions.setPaddingDimensions(
+      extractI64Array(this->padding_dimensions()));
   paddingOptions.setPackPaddings(packPaddings);
   paddingOptions.setHoistPaddings(extractI64Array(this->hoist_paddings()));
   paddingOptions.setTransposePaddings(transposePaddings);
@@ -306,6 +309,14 @@ LogicalResult transform::PadOp::verify() {
     return emitOpError()
            << "expects pack_paddings to contain booleans (0/1), found "
            << pack_paddings();
+  }
+  SmallVector<int64_t> paddingDimensions =
+      extractI64Array(padding_dimensions());
+  if (any_of(paddingDimensions,
+             [](int64_t paddingDimension) { return paddingDimension < 0; })) {
+    return emitOpError()
+           << "expects padding_dimensions to contain positive integers, found "
+           << padding_dimensions();
   }
   SmallVector<int64_t> hoistPaddings = extractI64Array(hoist_paddings());
   if (any_of(hoistPaddings,

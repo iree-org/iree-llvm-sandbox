@@ -208,12 +208,14 @@ class PadOp:
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
                padding_values: StringListArg = None,
+               padding_dimensions: IntListArg = None,
                pack_paddings: IntListArg = None,
                hoist_paddings: IntListArg = None,
                transpose_paddings: IntListListArg = None,
                loc=None,
                ip=None):
     padding_values = _ensure_string_array_attr(padding_values, [])
+    padding_dimensions = _ensure_int_array_attr(padding_dimensions, [])
     pack_paddings = _ensure_int_array_attr(pack_paddings, [])
     hoist_paddings = _ensure_int_array_attr(hoist_paddings, [])
     transpose_paddings = _ensure_array_of_array_attr(transpose_paddings, [])
@@ -222,6 +224,7 @@ class PadOp:
     super().__init__(operation_type,
                      target,
                      padding_values,
+                     padding_dimensions,
                      pack_paddings,
                      hoist_paddings,
                      transpose_paddings,

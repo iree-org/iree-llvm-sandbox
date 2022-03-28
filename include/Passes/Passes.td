@@ -31,6 +31,9 @@ def LinalgFuse : Pass<"linalg-fuse", "FuncOp"> {
     ListOption<"paddingValues", "padding-values", "std::string",
                "Operand padding values."
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
+    ListOption<"paddingDimensions", "padding-dimensions", "int64_t",
+               "Operation iterator dimensions to pad."
+               "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
     ListOption<"packPaddings", "pack-paddings", "int64_t",
                "Operand packing flags.",
                "llvm::cl::ZeroOrMore, llvm::cl::MiscFlags::CommaSeparated">,
