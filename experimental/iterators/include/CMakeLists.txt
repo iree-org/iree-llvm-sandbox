@@ -1,4 +1,4 @@
-add_subdirectory(Dialects)
+add_subdirectory(iterators)
 
 add_library(Iterators INTERFACE)
 target_include_directories(Iterators INTERFACE .)

@@ -1,9 +1,9 @@
 //===- IteratorsTypes.td - Iterators dialect types ---------*- tablegen -*-===//
 
-#ifndef DIALECTS_ITERATORS_ITERATORSTYPES
-#define DIALECTS_ITERATORS_ITERATORSTYPES
+#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
+#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
 
-include "Dialects/Iterators/IteratorsDialect.td"
+include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 
@@ -19,4 +19,4 @@ def Iterators_Iterator : Iterators_Type<"Iterator", "iterator"> {
   let assemblyFormat = "`<` qualified($typesTuple) `>`";
 }
 
-#endif // DIALECTS_ITERATORS_ITERATORSTYPES
+#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES

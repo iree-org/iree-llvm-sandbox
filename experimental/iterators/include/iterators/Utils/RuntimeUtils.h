@@ -24,15 +24,15 @@
 // Exposed C API.
 //===---------------------------------------------------------------------===//
 
-extern "C" RUNTIME_UTILS_EXPORT int8_t *iteratorsMakeHeap();
+extern "C" RUNTIME_UTILS_EXPORT int8_t *iteratorsMakeSampleInputOperator();
 
-extern "C" RUNTIME_UTILS_EXPORT void iteratorsDestroyHeap(int8_t *heap);
-
-extern "C" RUNTIME_UTILS_EXPORT int8_t *
-iteratorsMakeSampleInputOperator(int8_t *heap);
+extern "C" RUNTIME_UTILS_EXPORT void
+iteratorsDestroySampleInputOperator(int8_t *op);
 
 extern "C" RUNTIME_UTILS_EXPORT int8_t *
-iteratorsMakeReduceOperator(int8_t *heap, int8_t *upstream);
+iteratorsMakeReduceOperator(int8_t *upstream);
+
+extern "C" RUNTIME_UTILS_EXPORT void iteratorsDestroyReduceOperator(int8_t *op);
 
 extern "C" RUNTIME_UTILS_EXPORT void iteratorsComsumeAndPrint(int8_t *upstream);
 

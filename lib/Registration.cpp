@@ -48,7 +48,7 @@ static void registerIreeDialects(DialectRegistry &registry) {
 //===----------------------------------------------------------------------===//
 
 #ifdef SANDBOX_ENABLE_ITERATORS
-#include "Dialects/Iterators/Iterators.h"
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
 
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<mlir::iterators::IteratorsDialect>();
