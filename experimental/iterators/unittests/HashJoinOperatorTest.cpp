@@ -95,10 +95,10 @@ TEST(HashJoinTest, NoValueLeft) {
 
 TEST(HashJoinTest, NoValueRight) {
   std::vector<int32_t> leftKeys = {1, 1};
-  std::vector<int32_t> LeftValues = {2, 2};
+  std::vector<int32_t> leftValues = {2, 2};
   std::vector<int32_t> rightKeys = {1};
 
-  auto leftScan = makeColumnScanOperator(leftKeys, LeftValues);
+  auto leftScan = makeColumnScanOperator(leftKeys, leftValues);
   auto rightScan = makeColumnScanOperator(rightKeys);
   auto hashJoin = makeHashJoinOperator<1>(&leftScan, &rightScan);
 
