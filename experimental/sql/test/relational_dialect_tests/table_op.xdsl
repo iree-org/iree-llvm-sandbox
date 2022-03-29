@@ -1,0 +1,11 @@
+// RUN: rel_opt.py %s | filecheck %s
+
+module() {
+    %0 : !rel.bag = rel.pandas_table() ["table_name" = "some_name"] {
+        rel.schema_element() ["elt_name" = "id", "elt_type" = !rel.int32]
+    }
+}
+
+// CHECK: %{{.*}} : !rel.bag = rel.pandas_table() ["table_name" = "some_name"] {
+// CHECK-NEXT:    rel.schema_element() ["elt_name" = "id", "elt_type" = !rel.int32]
+// CHECK-Next: }

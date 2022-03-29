@@ -1,0 +1,7 @@
+// RUN: rel_opt.py %s | filecheck %s
+
+module() {
+    %0 : !rel.int32 = rel.literal() ["value" = 5 : !i32]
+}
+
+// CHECK:   %{{.*}} : !rel.int32 = rel.literal() ["value" = 5 : !i32] 

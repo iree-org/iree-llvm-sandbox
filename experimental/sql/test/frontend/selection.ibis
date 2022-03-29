@@ -1,0 +1,5 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table.filter(table['a'] == 'AS')
+
+# CHECK: module() {

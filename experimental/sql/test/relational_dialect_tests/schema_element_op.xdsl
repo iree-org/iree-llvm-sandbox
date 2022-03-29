@@ -1,0 +1,15 @@
+// RUN: rel_opt.py %s | filecheck %s
+
+module() {
+    rel.schema_element() ["elt_name" = "id", "elt_type" = !rel.int32]
+    rel.schema_element() ["elt_name" = "name", "elt_type" = !rel.string<0 : !i1>]
+    rel.schema_element() ["elt_name" = "nullable_name", "elt_type" = !rel.string<1 : !i1>]
+    rel.schema_element() ["elt_name" = "distance", "elt_type" = !rel.float64]
+    rel.schema_element() ["elt_name" = "data", "elt_type" = !rel.datatype]
+}
+
+// CHECK:    rel.schema_element() ["elt_name" = "id", "elt_type" = !rel.int32]
+// CHECK-NEXT:    rel.schema_element() ["elt_name" = "name", "elt_type" = !rel.string<0 : !i1>]
+// CHECK-NEXT:    rel.schema_element() ["elt_name" = "nullable_name", "elt_type" = !rel.string<1 : !i1>]
+// CHECK-NEXT:    rel.schema_element() ["elt_name" = "distance", "elt_type" = !rel.float64]
+// CHECK-NEXT:    rel.schema_element() ["elt_name" = "data", "elt_type" = !rel.datatype]

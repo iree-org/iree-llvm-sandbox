@@ -1,0 +1,5 @@
+# RUN: rel_opt.py -f ibis -p ibis-dialect-to-relational %s | filecheck %s
+
+table.filter(table['a'] == 'AS')
+
+# CHECK: module() {
