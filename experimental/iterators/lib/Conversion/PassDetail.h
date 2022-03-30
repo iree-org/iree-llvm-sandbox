@@ -1,4 +1,10 @@
-//===- PassDetail.h - Iterators pass class details --------------*- C++ -*-===//
+//===-- PassDetail.h - Iterators pass class details -------------*- C++ -*-===//
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef EXPERIMENTAL_ITERATORS_LIB_CONVERSION_PASSDETAIL_H
 #define EXPERIMENTAL_ITERATORS_LIB_CONVERSION_PASSDETAIL_H

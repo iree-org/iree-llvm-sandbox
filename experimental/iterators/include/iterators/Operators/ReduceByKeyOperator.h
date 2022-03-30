@@ -1,4 +1,10 @@
-//===-- operators/reduce_by_key.h - ReduceByKeyOperator ---------*- C++ -*-===//
+//===-- ReduceByKeyOperator.h - ReduceByKeyOperator definition --*- C++ -*-===//
+//
+// Licensed under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
 ///
 /// \file
 /// This file contains the definition of the `ReduceByKeyOperator class` as
