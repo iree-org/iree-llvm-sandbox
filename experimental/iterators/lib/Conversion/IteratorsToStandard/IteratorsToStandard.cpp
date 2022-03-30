@@ -22,7 +22,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/ScopedPrinter.h" // XXX
 
 #include <memory>
 
@@ -36,7 +35,7 @@ struct ConvertIteratorsToStandardPass
 };
 } // namespace
 
-/// Maps IteratorType to llvm.ptr<i8>
+/// Maps IteratorType to llvm.ptr<i8>.
 class IteratorsTypeConverter : public TypeConverter {
 public:
   IteratorsTypeConverter() {
@@ -44,6 +43,8 @@ public:
     addConversion(convertIteratorType);
   }
 
+private:
+  /// Maps IteratorType to llvm.ptr<i8>.
   static Optional<Type> convertIteratorType(Type type) {
     if (type.isa<iterators::IteratorType>())
       return LLVM::LLVMPointerType::get(IntegerType::get(type.getContext(), 8));
@@ -52,19 +53,19 @@ public:
 };
 
 /// Returns or creates a function declaration at the module of the provided
-/// original op,
+/// original op.
 FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
                             Operation *op, PatternRewriter &rewriter) {
   ModuleOp module = op->getParentOfType<ModuleOp>();
+  assert(module);
 
-  // Return function if already declared
+  // Return function if already declared.
   if (FuncOp funcOp = module.lookupSymbol<mlir::FuncOp>(fnName))
     return funcOp;
 
-  // Add new declaration at the end of the module
+  // Add new declaration at the start of the module.
   OpBuilder::InsertionGuard guard(rewriter);
-  rewriter.setInsertionPoint(module.getBody(),
-                             std::prev(module.getBody()->end()));
+  rewriter.setInsertionPointToStart(module.getBody());
   FuncOp funcOp = rewriter.create<FuncOp>(op->getLoc(), fnName, fnType);
   funcOp.setPrivate();
   return funcOp;
@@ -84,7 +85,7 @@ struct IteratorConversionPattern : public ConversionPattern {
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
-    // Convert result types
+    // Convert result types.
     llvm::SmallVector<Type, 4> resultTypes;
     if (typeConverter->convertTypes(op->getResultTypes(), resultTypes).failed())
       return failure();
@@ -93,33 +94,35 @@ struct IteratorConversionPattern : public ConversionPattern {
 
     // Constructor (aka "iteratorsMake*Operator")
 
-    // Look up or declare function symbol
+    // Look up or declare function symbol.
     auto const fnType =
         FunctionType::get(getContext(), TypeRange(operands), resultTypes);
     FuncOp funcOp = lookupOrCreateFuncOp(constructorName, fnType, op, rewriter);
 
-    // Replace op with call to function
+    // Replace op with call to function.
     func::CallOp callOp =
         rewriter.replaceOpWithNewOp<func::CallOp>(op, funcOp, operands);
 
     // Destructor (aka "iteratorsDestroy*Operator")
 
-    // No destructor necessary for sinks
+    // No destructor necessary for sinks.
     if (resultTypes.empty())
       return success();
     assert(resultTypes.size() == 1);
 
     {
       Value result = callOp.getResult(0);
-      assert(result.use_empty() && "It is not allowed to return an iterator.");
+      assert(result.use_empty() &&
+             "Values of type Iterator cannot outlive their consumers, so "
+             "functions are not allowed to return them.");
 
-      // Look up or declare function symbol
+      // Look up or declare function symbol.
       auto const fnType =
           FunctionType::get(getContext(), TypeRange(resultTypes), TypeRange());
       FuncOp funcOp =
           lookupOrCreateFuncOp(destructorName, fnType, op, rewriter);
 
-      // Add call to destructor to the end of the block
+      // Add call to destructor to the end of the block.
       OpBuilder::InsertionGuard guard(rewriter);
       rewriter.setInsertionPoint(callOp->getBlock()->getTerminator());
       rewriter.create<func::CallOp>(op->getLoc(), funcOp, result);
