@@ -8,14 +8,14 @@
 
 #include <algorithm>
 
-#include "FunctionHelpers.h"
-#include "PDL.h"
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "Dialect/LinalgExt/Transforms/Transforms.h"
 #include "Dialect/LinalgTransform/ScopedTransform.h"
 #include "Dialect/LinalgTransform/TrackingListener.h"
 #include "Dialect/LinalgTransform/TrackingRewriteDriver.h"
 #include "Dialect/LinalgTransform/TransformOpInterface.h"
+#include "FunctionHelpers.h"
+#include "PDL.h"
 #include "Transforms/Listener.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
@@ -267,31 +267,35 @@ static Value getNeutralOfLinalgOp(OpBuilder &b, OpOperand &op) {
 }
 
 FailureOr<LinalgOp> transform::PadOp::applyToOne(LinalgOp target) {
+  // Disabled due to incompatibility with changes in
+  // https://github.com/llvm/llvm-project/commit/58d0da885ef46e3fdb5247295da7898b377c41e1
+
   // Copy the stack allocated options since the lambdas have a longer lifetime.
-  SmallVector<int64_t> packPaddings = extractI64Array(this->pack_paddings());
-  auto packFunc = [=](OpOperand &opOperand) {
-    return opOperand.getOperandNumber() < packPaddings.size()
-               ? packPaddings[opOperand.getOperandNumber()] != 0
-               : false;
-  };
-  SmallVector<int64_t> hoistPaddings = extractI64Array(this->hoist_paddings());
-  auto hoistingFunc = [=](OpOperand &opOperand) {
-    return opOperand.getOperandNumber() < hoistPaddings.size()
-               ? hoistPaddings[opOperand.getOperandNumber()]
-               : 0;
-  };
-  ArrayAttr transposePaddings = this->transpose_paddings().cast<ArrayAttr>();
-  auto transposeFunc = [=](OpOperand &opOperand) {
-    if (opOperand.getOperandNumber() >= transposePaddings.size())
-      return SmallVector<int64_t>();
-    return extractI64Array(
-        transposePaddings[opOperand.getOperandNumber()].cast<ArrayAttr>());
-  };
+  // SmallVector<int64_t> packPaddings = extractI64Array(this->pack_paddings());
+  // auto packFunc = [=](OpOperand &opOperand) {
+  //   return opOperand.getOperandNumber() < packPaddings.size()
+  //              ? packPaddings[opOperand.getOperandNumber()] != 0
+  //              : false;
+  // };
+  // SmallVector<int64_t> hoistPaddings =
+  // extractI64Array(this->hoist_paddings()); auto hoistingFunc = [=](OpOperand
+  // &opOperand) {
+  //   return opOperand.getOperandNumber() < hoistPaddings.size()
+  //              ? hoistPaddings[opOperand.getOperandNumber()]
+  //              : 0;
+  // };
+  // ArrayAttr transposePaddings = this->transpose_paddings().cast<ArrayAttr>();
+  // auto transposeFunc = [=](OpOperand &opOperand) {
+  //   if (opOperand.getOperandNumber() >= transposePaddings.size())
+  //     return SmallVector<int64_t>();
+  //   return extractI64Array(
+  //       transposePaddings[opOperand.getOperandNumber()].cast<ArrayAttr>());
+  // };
   LinalgPaddingOptions paddingOptions;
-  paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
-  paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
-  paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
-  paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
+  // paddingOptions.setPaddingValueComputationFunction(getNeutralOfLinalgOp);
+  // paddingOptions.setPaddingNoFoldComputationFunction(packFunc);
+  // paddingOptions.setPaddingHoistComputationFunction(hoistingFunc);
+  // paddingOptions.setPaddingTransposeComputationFunction(transposeFunc);
 
   return functional::applyAt(target, callLinalgPattern<LinalgPaddingPattern>(
                                          getContext(), paddingOptions));
@@ -813,8 +817,15 @@ transform::OutlineLoopOp::apply(transform::TransformResults &results,
 
 LogicalResult transform::PrintOp::apply(transform::TransformResults &results,
                                         transform::TransformState &state) {
-  llvm::outs() << "[[[ IR printer: " << name() << " ]]]\n";
-  state.getTopLevel()->dump();
+  if (!target()) {
+    llvm::outs() << "[[[ IR printer: " << name() << " top-level ]]]\n";
+    state.getTopLevel()->dump();
+    return success();
+  }
+
+  llvm::outs() << "[[[ IR printer: " << name() << " single op ]]]\n";
+  ArrayRef<Operation *> targets = state.getPayloadOps(target());
+  targets.front()->dump();
   return success();
 }
 
@@ -822,26 +833,29 @@ LogicalResult transform::PrintOp::apply(transform::TransformResults &results,
 // LinalgExt specific transforms
 //===----------------------------------------------------------------------===//
 
-FailureOr<Operation *>
-transform::TileToLinalgExtTileOp::applyToOne(Operation *target) {
+LogicalResult
+transform::TileToLinalgExtTileOp::apply(transform::TransformResults &results,
+                                        transform::TransformState &state) {
   LinalgTilingOptions tilingOptions;
   SmallVector<int64_t> tileSizes = extractI64Array(sizes());
   if (!tileSizes.empty())
     tilingOptions.setTileSizes(tileSizes);
 
   LinalgExt::LinalgExtTilingPattern pattern(this->getContext(), tilingOptions);
-  auto functionalTile =
-      [&](Operation *op, PatternRewriter &rewriter) -> FailureOr<Operation *> {
-    auto tilingInterfaceOp = dyn_cast<TilingInterface>(op);
-    if (!tilingInterfaceOp) {
-      op->emitError("Cannot tile op: Not a TilingInterface");
-      return failure();
-    }
-    return pattern.returningMatchAndRewrite(tilingInterfaceOp, rewriter);
-  };
+  ArrayRef<Operation *> targets = state.getPayloadOps(target());
+  auto tilingInterfaceOp = dyn_cast<TilingInterface>(targets.front());
+  if (!tilingInterfaceOp) {
+    targets.front()->emitError("Cannot tile op: Not a TilingInterface");
+    return failure();
+  }
 
-  auto tileSeq = functional::SequenceBuilder().begin(std::move(functionalTile));
-  return functional::applyAt(target, tileSeq);
+  FailureOr<iree_compiler::IREE::LinalgExt::TilingResult> result =
+      functional::applyReturningPatternAt(pattern, tilingInterfaceOp);
+  if (failed(result))
+    return failure();
+  results.set(tiled_op().cast<OpResult>(), result->tiledOp);
+  results.set(tile_op().cast<OpResult>(), result->tileOp.getOperation());
+  return success();
 }
 
 FailureOr<scf::ForOp> transform::RewriteLinalgExtTileToScfForOp::applyToOne(
@@ -886,6 +900,14 @@ transform::RewriteLinalgExtInParallelToAsyncOp::applyToOne(
     return result;
   };
   return functional::applyAt(target, functionalRewrite);
+}
+
+LogicalResult transform::RewriteLinalgExtInParallelToHALOp::apply(
+    transform::TransformResults &results, transform::TransformState &state) {
+  LinalgExt::InParallelOpToHALRewriter pattern(this->getContext());
+  ArrayRef<Operation *> targets = state.getPayloadOps(target());
+  return functional::applyReturningPatternAt(
+      pattern, cast<LinalgExt::InParallelOp>(targets.front()));
 }
 
 FailureOr<scf::ForOp>
