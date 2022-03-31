@@ -225,9 +225,9 @@ void mlir::vector_ext::maskGenericOpWithSideEffects(
     if (auto xferReadOp = dyn_cast<TransferReadOp>(op)) {
       builder.setInsertionPoint(op);
       auto newXferOp = builder.create<TransferReadOp>(
-          op->getLoc(), xferReadOp.getType(), xferReadOp.source(),
-          xferReadOp.indices(), xferReadOp.permutation_map(),
-          xferReadOp.padding(), activeMask, xferReadOp.in_boundsAttr());
+          op->getLoc(), xferReadOp.getType(), xferReadOp.getSource(),
+          xferReadOp.getIndices(), xferReadOp.getPermutationMap(),
+          xferReadOp.getPadding(), activeMask, xferReadOp.getInBoundsAttr());
       xferReadOp.replaceAllUsesWith(newXferOp.getResult());
       erasedOps.push_back(xferReadOp);
       return;
@@ -237,9 +237,9 @@ void mlir::vector_ext::maskGenericOpWithSideEffects(
     if (auto xferWriteOp = dyn_cast<TransferWriteOp>(op)) {
       builder.setInsertionPoint(op);
       builder.create<TransferWriteOp>(
-          op->getLoc(), xferWriteOp.vector(), xferWriteOp.source(),
-          xferWriteOp.indices(), xferWriteOp.permutation_mapAttr(), activeMask,
-          xferWriteOp.in_boundsAttr());
+          op->getLoc(), xferWriteOp.getVector(), xferWriteOp.getSource(),
+          xferWriteOp.getIndices(), xferWriteOp.getPermutationMapAttr(),
+          activeMask, xferWriteOp.getInBoundsAttr());
       erasedOps.push_back(xferWriteOp);
       return;
     }

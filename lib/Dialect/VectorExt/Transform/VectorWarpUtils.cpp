@@ -227,7 +227,7 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
 
     auto reductionOp =
         cast<vector::ReductionOp>(yieldOperand->get().getDefiningOp());
-    auto vectorType = reductionOp.vector().getType().cast<VectorType>();
+    auto vectorType = reductionOp.getVector().getType().cast<VectorType>();
     // Only rank 1 vectors supported.
     if (vectorType.getRank() != 1)
       return failure();
@@ -245,7 +245,7 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
     unsigned operandIndex = yieldOperand->getOperandNumber();
     SmallVector<Value> yieldValues;
     SmallVector<Type> retTypes;
-    yieldValues.push_back(reductionOp.vector());
+    yieldValues.push_back(reductionOp.getVector());
     retTypes.push_back(VectorType::get({1}, reductionOp->getResultTypes()[0]));
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
@@ -265,7 +265,7 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
                                       /*mode=*/gpu::ShuffleMode::DOWN)
               .result();
       laneVal = makeArithReduction(rewriter, reductionOp.getLoc(),
-                                   reductionOp.kind(), laneVal, shuffled);
+                                   reductionOp.getKind(), laneVal, shuffled);
     }
 
     // Broadcast the result to all lanes.
@@ -307,9 +307,10 @@ struct WarpOpTransferRead : public OpRewritePattern<WarpSingleLaneOp> {
     unsigned operandIndex = operand->getOperandNumber();
     Value distributedVal = warpOp.getResult(operandIndex);
 
-    SmallVector<Value, 4> indices(read.indices().begin(), read.indices().end());
+    SmallVector<Value, 4> indices(read.getIndices().begin(),
+                                  read.getIndices().end());
     AffineMap map = calculateImplicitMap(read.getResult(), distributedVal);
-    AffineMap indexMap = map.compose(read.permutation_map());
+    AffineMap indexMap = map.compose(read.getPermutationMap());
     OpBuilder::InsertionGuard g(rewriter);
     rewriter.setInsertionPointAfter(warpOp);
     for (auto it : llvm::zip(indexMap.getResults(), map.getResults())) {
@@ -327,9 +328,9 @@ struct WarpOpTransferRead : public OpRewritePattern<WarpSingleLaneOp> {
                                   {indices[indexPos], warpOp.laneid()});
     }
     Value newRead = rewriter.create<vector::TransferReadOp>(
-        read.getLoc(), distributedVal.getType(), read.source(), indices,
-        read.permutation_mapAttr(), read.padding(), read.mask(),
-        read.in_boundsAttr());
+        read.getLoc(), distributedVal.getType(), read.getSource(), indices,
+        read.getPermutationMapAttr(), read.getPadding(), read.getMask(),
+        read.getInBoundsAttr());
     distributedVal.replaceAllUsesWith(newRead);
     return success();
   }
@@ -422,8 +423,8 @@ struct WarpOpBroadcast : public OpRewritePattern<WarpSingleLaneOp> {
     auto destVecType =
         warpOp->getResultTypes()[operandNumber].cast<VectorType>();
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
-        rewriter, warpOp, {broadcastOp.source()},
-        {broadcastOp.source().getType()});
+        rewriter, warpOp, {broadcastOp.getSource()},
+        {broadcastOp.getSource().getType()});
     Value broadcasted = rewriter.create<vector::BroadcastOp>(
         broadcastOp.getLoc(), destVecType,
         newWarpOp->getResult(newWarpOp->getNumResults() - 1));
@@ -477,7 +478,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     VectorType targetType =
         VectorType::get(targetShape, writeOp.getVectorType().getElementType());
 
-    SmallVector<Value> yieldValues = {writeOp.vector()};
+    SmallVector<Value> yieldValues = {writeOp.getVector()};
     SmallVector<Type> retTypes = {targetType};
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
@@ -490,10 +491,10 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     rewriter.eraseOp(writeOp);
 
     rewriter.setInsertionPoint(newWriteOp);
-    AffineMap indexMap = map.compose(newWriteOp.permutation_map());
+    AffineMap indexMap = map.compose(newWriteOp.getPermutationMap());
     Location loc = newWriteOp.getLoc();
-    SmallVector<Value> indices(newWriteOp.indices().begin(),
-                               newWriteOp.indices().end());
+    SmallVector<Value> indices(newWriteOp.getIndices().begin(),
+                               newWriteOp.getIndices().end());
     for (auto it : llvm::zip(indexMap.getResults(), map.getResults())) {
       AffineExpr d0, d1;
       bindDims(newWarpOp.getContext(), d0, d1);
@@ -508,8 +509,8 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
           makeComposedAffineApply(rewriter, loc, d0 + scale * d1,
                                   {indices[indexPos], newWarpOp.laneid()});
     }
-    newWriteOp.vectorMutable().assign(newWarpOp.getResults().back());
-    newWriteOp.indicesMutable().assign(indices);
+    newWriteOp.getVectorMutable().assign(newWarpOp.getResults().back());
+    newWriteOp.getIndicesMutable().assign(indices);
 
     return success();
   }
@@ -531,7 +532,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
         }))
       return failure();
 
-    SmallVector<Value> yieldValues = {writeOp.vector()};
+    SmallVector<Value> yieldValues = {writeOp.getVector()};
     SmallVector<Type> retTypes = {vecType};
     WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
@@ -544,7 +545,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     rewriter.setInsertionPointToStart(&body);
     auto newWriteOp =
         cast<vector::TransferWriteOp>(rewriter.clone(*writeOp.getOperation()));
-    newWriteOp.vectorMutable().assign(
+    newWriteOp.getVectorMutable().assign(
         newWarpOp.getResult(newWarpOp.getNumResults() - 1));
     rewriter.eraseOp(writeOp);
     rewriter.create<vector_ext::YieldOp>(newWarpOp.getLoc());
@@ -554,7 +555,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
   LogicalResult matchAndRewrite(vector::TransferWriteOp writeOp,
                                 PatternRewriter &rewriter) const override {
     // Ops with mask not supported yet.
-    if (writeOp.mask())
+    if (writeOp.getMask())
       return failure();
 
     auto warpOp = dyn_cast<WarpSingleLaneOp>(writeOp->getParentOp());
@@ -568,7 +569,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
         return failure();
 
     if (!llvm::all_of(writeOp->getOperands(), [&](Value value) {
-          return writeOp.vector() == value ||
+          return writeOp.getVector() == value ||
                  warpOp.isDefinedOutsideOfRegion(value);
         }))
       return failure();
@@ -687,10 +688,10 @@ void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
               WarpOpScfForOp>(pattern.getContext());
   vector::populateVectorUnrollPatterns(
       pattern, UnrollVectorOptions()
-                    .setNativeShape(ArrayRef<int64_t>{32})
-                    .setFilterConstraint([](Operation *op) {
-                      return success(isa<vector::ReductionOp>(op));
-                    }));
+                   .setNativeShape(ArrayRef<int64_t>{32})
+                   .setFilterConstraint([](Operation *op) {
+                     return success(isa<vector::ReductionOp>(op));
+                   }));
 }
 
 void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(

@@ -20,13 +20,18 @@ namespace iree_compiler {
 namespace IREE {
 namespace LinalgExt {
 
+struct TilingResult {
+  TileOp tileOp;
+  Operation *tiledOp;
+};
+
 /// Pattern to tile a TilingInterface op using a TileOp.
 struct LinalgExtTilingPattern
     : public OpInterfaceRewritePattern<TilingInterface> {
   LinalgExtTilingPattern(MLIRContext *context, linalg::LinalgTilingOptions opt)
       : OpInterfaceRewritePattern<TilingInterface>(context), options(opt) {}
 
-  FailureOr<Operation *>
+  FailureOr<TilingResult>
   returningMatchAndRewrite(TilingInterface op, PatternRewriter &rewriter) const;
 
   LogicalResult matchAndRewrite(TilingInterface op,
@@ -69,6 +74,20 @@ struct InParallelOpToAsyncRewriter : public OpRewritePattern<InParallelOp> {
   using OpRewritePattern::OpRewritePattern;
 
   FailureOr<Operation *>
+  returningMatchAndRewrite(InParallelOp inParallelOp,
+                           PatternRewriter &rewriter) const;
+
+  LogicalResult matchAndRewrite(InParallelOp inParallelOp,
+                                PatternRewriter &rewriter) const override {
+    return returningMatchAndRewrite(inParallelOp, rewriter);
+  }
+};
+
+/// Pattern to rewrite a InParallelOp to the HAL dialect.
+struct InParallelOpToHALRewriter : public OpRewritePattern<InParallelOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  FailureOr<SmallVector<Operation *>>
   returningMatchAndRewrite(InParallelOp inParallelOp,
                            PatternRewriter &rewriter) const;
 

@@ -4,6 +4,7 @@
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+#include "Dialect/LinalgExt/IR/LinalgExtDialect.h"
 #include "Dialect/LinalgTransform/LinalgTransformOps.h"
 #include "Dialect/LinalgTransform/Passes.h"
 #include "Dialect/LinalgTransform/TrackingCSE.h"
@@ -69,12 +70,8 @@ static LogicalResult performEnablerTransformations(
 
   // This assumes LICM never removes operations so we don't need tracking.
   if (options.licm) {
-    WalkResult result =
-        func->walk([](LoopLikeOpInterface loopLike) -> WalkResult {
-          return moveLoopInvariantCode(loopLike);
-        });
-    if (result.wasInterrupted())
-      return failure();
+    func->walk(
+        [](LoopLikeOpInterface loopLike) { moveLoopInvariantCode(loopLike); });
   }
 
   func.walk([](Operation *op) {
@@ -237,7 +234,8 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
 
   void getDependentDialects(DialectRegistry &registry) const override {
     // clang-format off
-    registry.insert<arith::ArithmeticDialect,
+    registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
+                    arith::ArithmeticDialect,
                     AffineDialect,
                     bufferization::BufferizationDialect,
                     func::FuncDialect,

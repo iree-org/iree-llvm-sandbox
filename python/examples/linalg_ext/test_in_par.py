@@ -37,6 +37,8 @@ all_experts = [
                          tile_sizes=[12, 32, 16]))
               .then(Pad(fun_name,
                         op_name,
+                        padding_values=[0.0, 0.0, 0.0],
+                        padding_dimensions=[0, 1, 2],
                         pack_paddings=[1, 1, 0],
                         hoist_paddings=[2, 3, 0]))
               .then(Vectorize(fun_name, ''))
@@ -50,6 +52,8 @@ all_experts = [
                          tile_sizes=[12, 32, 16]))
               .then(Pad(fun_name,
                         op_name,
+                        padding_values=[0.0, 0.0, 0.0],
+                        padding_dimensions=[0, 1, 2],
                         pack_paddings=[1, 1, 0],
                         hoist_paddings=[2, 3, 0]))
               .then(Vectorize(fun_name, ''))
