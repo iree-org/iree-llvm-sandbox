@@ -10,7 +10,7 @@ export BASE_SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 source ${BASE_SCRIPT_PATH}/benchmark.sh
 
 function depthwise_conv_1d_l1_repro() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   STRIDES_AND_DILATIONS='[1],[1]'
   (${COMMAND} --expert_list SingleTiling3D4x16x3Peel --problem_sizes_list 1,8,32,3,[1],[1] --n_iters=3000)
@@ -90,7 +90,7 @@ function run_depthwise_conv_1d_l1_benchmarks_n_times() {
 
 
 function depthwise_conv_1d_l2_repro() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   STRIDES_AND_DILATIONS='[1],[1]'
   (${COMMAND} --expert_list SingleTiling3D6x16x3Peel --problem_sizes_list 1,16,256,3,[1],[1] --n_iters=3000)
@@ -165,7 +165,7 @@ function run_depthwise_conv_1d_l2_benchmarks_n_times() {
 
 
 function depthwise_conv_1d_l3_repro() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.depthwise_conv.depthwise_conv_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   STRIDES_AND_DILATIONS='[1],[1]'
   (${COMMAND} --expert_list SingleTiling3D4x16x3Peel --problem_sizes_list 1,256,1024,3,[1],[1] --n_iters=3000)
@@ -240,7 +240,7 @@ function run_depthwise_conv_1d_l3_benchmarks_n_times() {
 
 
 function depthwise_conv_2d_mobilenet() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.depthwise_conv.depthwise_conv_2d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list DoubleTileAndDecompose8x14x32then7x32x1x3 --problem_sizes_list 1,112,112,32,3,3,[1,1],[1,1] --n_iters=3000)
   (${COMMAND} --expert_list DoubleTileAndDecompose4x14x32then8x32x1x3 --problem_sizes_list 1,56,56,128,3,3,[1,1],[1,1] --n_iters=3000)

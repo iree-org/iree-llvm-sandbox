@@ -10,7 +10,7 @@ export BASE_SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 source ${BASE_SCRIPT_PATH}/benchmark.sh
 
 function matmul_mkkn_repro() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.matmul.bench --spec_list mk,kn ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list [] "
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.matmul.bench --spec_list mk,kn ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list [] "
 
   (${COMMAND} --expert_list SingleTiling2DPeel --problem_sizes_list 18,32,96 --n_iters=200)
   (${COMMAND} --expert_list SingleTiling2DPeel --problem_sizes_list 24,64,96 --n_iters=200)
@@ -26,7 +26,7 @@ function matmul_mkkn_repro() {
 }
 
 function matmul_kmkn_repro() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.matmul.bench --spec_list km,kn ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list [] "
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.matmul.bench --spec_list km,kn ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list [] "
 
   (${COMMAND} --expert_list SingleTiling3DPeel --problem_sizes_list 18,32,96 --n_iters=200)
   (${COMMAND} --expert_list SingleTiling3DPeel --problem_sizes_list 24,64,96 --n_iters=200)
@@ -42,7 +42,7 @@ function matmul_kmkn_repro() {
 }
 
 function matmul_mknk_repro() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.matmul.bench --spec_list mk,nk ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list [] "
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.matmul.bench --spec_list mk,nk ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list [] "
 
   (${COMMAND} --expert_list SingleTiling3DPeelTranspose --problem_sizes_list 18,32,96 --n_iters=200)
   (${COMMAND} --expert_list SingleTiling3DPeelTranspose --problem_sizes_list 24,64,96 --n_iters=200)

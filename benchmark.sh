@@ -67,7 +67,7 @@ set -ex
 # # https://documentation.suse.com/sle-rt/15-SP2/html/SLE-RT-all/cha-shielding-cpuset.html
 # #
 # cset set -c 0-3,5-39,41-71 -s system -s system
-# cset set -s sandbox_0 -c 4 -m 0 --cpu_exclusive
+# cset set -s sandbox_parallel -c 4 -m 0 --cpu_exclusive
 # cset proc -m -f root -t system
 
 # ################################################################
@@ -118,7 +118,7 @@ function prepare_data_collection() {
 # [30000, 272], # DRAM (2.4x L3 load), L3 BW @ 12.2GB/s
 # [300000, 272], # DRAM (24x L3 load), L3 BW @ 10.8GB/s
 function copy_bandwidth_benchmark() {
-  cset proc -s sandbox_0 -e python -- -m python.examples.copy.custom_copy_2d_bench
+  cset proc -s sandbox_parallel -e python -- -m python.examples.copy.custom_copy_2d_bench
 }
 
 ###############################################################################
@@ -128,7 +128,7 @@ function copy_bandwidth_benchmark() {
 # away since the result tensor is not used.
 # TODO: add a fake noop use after the timer in the timing loop to avoid this.
 function copy_1d_static_small() {
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.copy.copy_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.copy.copy_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --problem_sizes_list 32)
   (${COMMAND} --problem_sizes_list 128)
@@ -144,7 +144,7 @@ function copy_1d_static_small() {
 ###############################################################################
 function reduction_1d_static_l1_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 100)
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 1000)
@@ -155,7 +155,7 @@ function reduction_1d_static_l1_repro() {
 }
 function reduction_1d_static_l2_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 10000)
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 20000)
@@ -166,7 +166,7 @@ function reduction_1d_static_l2_repro() {
 }
 function reduction_1d_static_l3_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 1000000)
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 2000000)
@@ -176,7 +176,7 @@ function reduction_1d_static_l3_repro() {
 }
 function reduction_1d_static_dram_repro() {
   export SANDBOX_INLINING='alwaysinline'
-  COMMAND="cset proc -s sandbox_0 -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
+  COMMAND="cset proc -s sandbox_parallel -e python -- -m python.examples.reduction.reduction_1d_bench ${DUMP_DATA_FLAG} --dynamic_at_compile_time_list []"
 
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 10000000)
   (${COMMAND} --expert_list Tile1DPeel --problem_sizes_list 20000000)
