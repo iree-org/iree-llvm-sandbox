@@ -76,6 +76,12 @@ def _ensure_string_attr(value: StringArg):
   return value
 
 
+def _count_expected_loops(tile_sizes: ir.ArrayAttr) -> int:
+  # Number of loops = number of tile sizes != 0
+  zero = _ensure_int_attr(0)
+  return len(list(tile_sizes)) - list(tile_sizes).count(zero)
+
+
 class MatchOp:
   """Specialization for the MatchOp class."""
 
@@ -160,8 +166,8 @@ class FuseOp:
     tile_sizes = _ensure_int_array_attr(tile_sizes, [])
     tile_interchange = _ensure_int_array_attr(tile_interchange, [])
     operation_type = pdl.OperationType.get()
-
-    super().__init__(operation_type,
+    num_loops = _count_expected_loops(tile_sizes)
+    super().__init__(operation_type, [operation_type] * num_loops,
                      target,
                      tile_sizes,
                      tile_interchange,
@@ -182,9 +188,7 @@ class TileOp:
     sizes = _ensure_int_array_attr(sizes, [])
     interchange = _ensure_int_array_attr(interchange, [])
     operation_type = pdl.OperationType.get()
-    tile_size_zero = _ensure_int_attr(0)
-    # Number of loops = number of tile sizes != 0
-    num_loops = sum(1 for _ in filter(lambda i: i != tile_size_zero, sizes))
+    num_loops = _count_expected_loops(sizes)
     super().__init__(operation_type, [operation_type] * num_loops,
                      target,
                      sizes,
