@@ -206,7 +206,8 @@ class Tile:
     # self.scalarize_dyn_dims is a BoolChoice of length 1.
     if self.scalarize_dyn_dims is not None and \
        self.scalarize_dyn_dims.extract_from_proposal(proposal)[0]:
-      tiled = tx.TileOp(tiled.results[0], scalarize_dyn_dims=True)
+      return tx.ScalarizeOp(tiled.results[0])
+
     return tiled
 
 
