@@ -5,7 +5,7 @@
 from ..core.experts import *
 from ..core.harness import *
 from ..core.transforms import *
-from ..core.transform import PrintIR
+from ..core.transform import Print
 
 from .definitions import *
 

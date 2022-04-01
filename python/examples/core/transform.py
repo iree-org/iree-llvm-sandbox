@@ -119,7 +119,7 @@ class Transform:
                               " does not implement build_transform_ir")
 
 
-class PrintIR(Transform):
+class Print(Transform):
   """Print intermediate IR.
 
   Dump the module and do not change it. The transform can be configured as
@@ -131,7 +131,7 @@ class PrintIR(Transform):
     self.name = name
 
   def build_transform_ir(self):
-    tx.PrintOp(name=self.name)
+    tx.PrintOp(None, name=self.name)
 
 
 class SaveIR(Transform):
@@ -230,12 +230,12 @@ class TransformationList:
                at_begin: bool = False,
                llvm: bool = False) -> TransformationList:
     """Return a new transformation list that prints IR at the given points."""
-    transforms = [PrintIR()] if at_begin else []
+    transforms = [Print()] if at_begin else []
     for t in self.transforms:
       transforms.append(t)
       if (after_all and 'LowerToLLVM' not in str(t)) or \
          (llvm and 'LowerToLLVM' in str(t)):
-        transforms.append(PrintIR(name=str(t)))
+        transforms.append(Print(name=str(t)))
     return TransformationList(transforms=transforms)
 
   def save_ir(self,

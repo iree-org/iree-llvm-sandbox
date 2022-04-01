@@ -19,7 +19,7 @@ from examples.core.transforms import *
 from examples.core.transform import (
     TransformListFactory,
     TransformationList,
-    PrintIR,
+    Print,
     SaveIR,
 )
 
