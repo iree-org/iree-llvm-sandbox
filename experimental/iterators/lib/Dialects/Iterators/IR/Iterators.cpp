@@ -44,3 +44,46 @@ void IteratorsDialect::initialize() {
 
 #define GET_TYPEDEF_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
+
+//===----------------------------------------------------------------------===//
+// Optional
+//===----------------------------------------------------------------------===//
+
+LogicalResult OptionalInsertValueOp::verify() {
+  // Check result type.
+  if (optional().getType() != result().getType()) {
+    return emitOpError() << "Type mismatch: Inserting into "
+                         << optional().getType() << " should produce a "
+                         << optional().getType() << " but this op returns "
+                         << result().getType();
+  }
+
+  // Check value type.
+  OptionalType inputType = optional().getType().dyn_cast<OptionalType>();
+  if (!inputType)
+    return failure();
+
+  if (inputType.getElementType() != value().getType()) {
+    return emitOpError() << "Type mismatch: Inserting into " << inputType
+                         << " requires to insert a "
+                         << inputType.getElementType()
+                         << " but this op inserts a " << value().getType();
+  }
+
+  return success();
+}
+
+LogicalResult OptionalExtractValueOp::verify() {
+  // Check return type.
+  OptionalType inputType = input().getType().dyn_cast<OptionalType>();
+  if (!inputType)
+    return failure();
+
+  if (inputType.getElementType() != result().getType()) {
+    return emitOpError() << "Type mismatch: Extracting from a " << inputType
+                         << " should produce a " << inputType.getElementType()
+                         << " but this op returns a " << result().getType();
+  }
+
+  return success();
+}

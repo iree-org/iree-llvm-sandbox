@@ -25,4 +25,16 @@ def Iterators_Iterator : Iterators_Type<"Iterator", "iterator"> {
   let assemblyFormat = "`<` qualified($typesTuple) `>`";
 }
 
+def Iterators_Optional : Iterators_Type<"Optional", "optional"> {
+  let summary = "Optional (or \"nullable\") type";
+
+  let description = [{
+    Wraps a given type such that it may be empty like C++'s `std::optional`
+    (or database types, which may be `NULL`.)
+  }];
+
+  let parameters = (ins "Type":$elementType);
+  let assemblyFormat = "`<` qualified($elementType) `>`";
+}
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
