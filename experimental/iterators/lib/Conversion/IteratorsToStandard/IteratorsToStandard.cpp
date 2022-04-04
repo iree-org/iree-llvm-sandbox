@@ -71,7 +71,7 @@ FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
   return funcOp;
 }
 
-/// Replaces a instances of a certain IteratorOp with a call to the given
+/// Replaces an instance of a certain IteratorOp with a call to the given
 /// external constructor as well as a call to the given destructor at the end of
 /// the block.
 struct IteratorConversionPattern : public ConversionPattern {
