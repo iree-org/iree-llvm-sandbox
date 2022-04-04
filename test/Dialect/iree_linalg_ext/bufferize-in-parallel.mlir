@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -linalg-bufferization-driver -canonicalize | FileCheck %s
+// RUN: mlir-proto-opt %s -linalg-interp-transforms -canonicalize | FileCheck %s
 
 // CHECK-LABEL: func @parallel_insert_slice_no_conflict(
 //  CHECK-SAME:     %[[idx:.*]]: index, %[[idx2:.*]]: index,
@@ -37,6 +37,8 @@ func @parallel_insert_slice_no_conflict(
 
 // -----
 
+module {
+
 // CHECK-LABEL: func @parallel_insert_slice_with_conflict(
 //  CHECK-SAME:     %[[idx:.*]]: index, %[[idx2:.*]]: index,
 //  CHECK-SAME:     %[[arg1:.*]]: memref<?xf32, #{{.*}}>,
@@ -64,13 +66,11 @@ func @parallel_insert_slice_with_conflict(
 
       // parallel_insert_slice buffer was already allocated but not copied yet.
       //
-      // TODO: memeref.copy currently horrendously slow, just use linalg.generic
       // CHECK: linalg.generic {{.*}} ins(%[[arg2]]{{.*}}outs(%[[alloc1]]
 
       // Now the copy of the actual insert_slice.
-      // CHECK: %[[subview1:.*]] = memref.subview %[[alloc1]][5] [%[[idx]]] [1]
+      // CHECK: %[[subview1:.*]] = memref.subview %[[arg2]][5] [%[[idx]]] [1]
       //
-      // TODO: memeref.copy currently horrendously slow, just use linalg.generic
       // CHECK: linalg.generic {{.*}} ins(%[[alloc2]]{{.*}}outs(%[[subview1]]
       // CHECK: memref.dealloc %[[alloc2]]
 
@@ -90,4 +90,16 @@ func @parallel_insert_slice_with_conflict(
 
   // CHECK: return %[[load2]], %[[load]] : f32, f32
   return %f2, %f : f32, f32
+}
+
+pdl.pattern @pdl_target_2 : benefit(1) {
+  %0 = operation "func"
+  // TODO: we don't want this, but it is the required terminator for pdl.pattern
+  rewrite %0 with "iree_linalg_transform.apply"
+}
+
+iree_linalg_transform.sequence {
+  bufferize
+}
+
 }

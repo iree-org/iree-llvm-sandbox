@@ -52,13 +52,13 @@ class NGScheduler(NGSchedulerInterface):
         'register_interchange', length=3)\
           .with_permutation_subset([[0, 2, 1], [0, 1, 2], [1, 2, 0], [1, 0, 2]])
     self.register_peel = strategies.SearchableList( \
-        strategies.BoolChoice('register_peel', length=3).with_fixed_value(True)
+        strategies.BoolChoice('register_peel', length=3)
     )
     # TODO: atm there are some issues with multi-handles after peeling and
     # passing that to scalarize_dyn_dims, so we force that part of search to be
     # False.
     self.register_scalarize_dyn_dims = strategies.BoolChoice(
-        'register_scalarize_dyn_dims').with_fixed_value(False)
+        'register_scalarize_dyn_dims')
     self.tuning_knobs = strategies.SearchableList( \
       self.register_tile_sizes,
       self.register_interchange,

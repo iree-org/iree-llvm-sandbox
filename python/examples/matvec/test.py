@@ -43,8 +43,7 @@ expert_tile_1_and_generalize_interchange = \
 
 # 1 level of tiling, peel, scalarize the remaining dynamic dims.
 expert_tile_1_peel_scalarize = \
-    Tile('matvec', 'linalg.generic', tile_sizes=[8], peel=[0])       \
-    .then(Tile('matvec', 'linalg.generic', scalarize_dyn_dims=True)) \
+    Tile('matvec', 'linalg.generic', tile_sizes=[8], peel=[0], scalarize_dyn_dims=True)       \
     .then(Vectorize('matvec', ''))                                   \
     .then(LoweringOnlyExpert('', ''))
 
@@ -119,8 +118,7 @@ expert_tile_3_pad_hoist_peel_scalarize = \
               padding_dimensions=[0, 1],
               pack_paddings=[1, 1, 1],
               hoist_paddings=[6, 6, 6]))\
-    .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 7], peel=[0, 1])) \
-    .then(Tile('matvec', 'linalg.generic', scalarize_dyn_dims=True))\
+    .then(Tile('matvec', 'linalg.generic', tile_sizes=[2, 7], peel=[0, 1], scalarize_dyn_dims=True)) \
     .then(Vectorize('matvec', ''))    \
     .then(LoweringOnlyExpert('', ''))
 

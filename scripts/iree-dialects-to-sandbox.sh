@@ -8,6 +8,11 @@ function repopulate_iree_dialect() {
   cp -R -f ../iree/llvm-external-projects/iree-dialects/lib/Dialect/$1 lib/Dialect/
 }
 
+function repopulate_iree_dialect_test() {
+  rm -Rf test/Dialect/$1
+  cp -R -f ../iree/llvm-external-projects/iree-dialects/test/Dialect/$1 test/Dialect/
+}
+
 function repopulate_iree_dir() {
   rm -Rf include/$1 lib/$1
   cp -R -f ../iree/llvm-external-projects/iree-dialects/include/iree-dialects/$1 include/
@@ -23,6 +28,9 @@ fi
 
 repopulate_iree_dialect LinalgExt
 repopulate_iree_dialect LinalgTransform
+
+repopulate_iree_dialect_test iree_linalg_ext
+repopulate_iree_dialect_test linalg_transform
 
 repopulate_iree_dir Transforms
 
@@ -47,3 +55,5 @@ git grep -l "from .._mlir_libs._ireeDialects" | grep -v scripts | xargs sed -i "
 # Run a formatting pass.
 git diff --name-only | egrep "*.(\.cpp|\.h)" | xargs -i clang-format --style=file -i {}
 
+# Fix tests.
+git grep -l iree-dialects-opt | grep -v scripts | xargs sed -i "s:iree-dialects-opt:mlir-proto-opt:g"

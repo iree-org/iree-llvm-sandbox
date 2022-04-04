@@ -193,17 +193,21 @@ class Tile:
       if self.tile_interchange is not None else [i for i, x in sizes]
     peel = self.tile_peel.extract_from_proposal(proposal) \
       if self.tile_peel is not None else []
-    peel_indices = [i for i, x in enumerate(peel) if x is True]
+    peel_indices = [i for i, x in enumerate(peel, start=0) if x is True]
     tiled = tx.TileOp(
         target,
         sizes=sizes,
         interchange=interchange,
-        peel=peel_indices,
     )
+
+    for loop_index in peel_indices:
+      tx.PeelLoopOp(tiled.results[1 + loop_index])
+
     # self.scalarize_dyn_dims is a BoolChoice of length 1.
     if self.scalarize_dyn_dims is not None and \
        self.scalarize_dyn_dims.extract_from_proposal(proposal)[0]:
-      tiled = tx.TileOp(tiled, scalarize_dyn_dims=True)
+      return tx.ScalarizeOp(tiled.results[0])
+
     return tiled
 
 
