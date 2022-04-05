@@ -131,7 +131,7 @@ class PrintIR(Transform):
     self.name = name
 
   def build_transform_ir(self):
-    tx.PrintOp(name=self.name)
+    tx.PrintOp(None, name=self.name)
 
 
 class SaveIR(Transform):
