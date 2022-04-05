@@ -131,6 +131,11 @@ func @warp_propagate_read(%laneid: index, %src: memref<1024xf32>, %dest: memref<
 
 // -----
 
+// CHECK-SCF-IF-DAG: memref.global "private" @__shared_32xf32 : memref<32xf32, 3>
+// CHECK-SCF-IF-DAG: memref.global "private" @__shared_64xf32 : memref<64xf32, 3>
+// CHECK-SCF-IF-DAG: memref.global "private" @__shared_128xf32 : memref<128xf32, 3>
+// CHECK-SCF-IF-DAG: memref.global "private" @__shared_256xf32 : memref<256xf32, 3>
+
 // CHECK-SCF-IF-LABEL: func @rewrite_warp_op_to_scf_if(
 //  CHECK-SCF-IF-SAME:     %[[laneid:.*]]: index,
 //  CHECK-SCF-IF-SAME:     %[[v0:.*]]: vector<4xf32>, %[[v1:.*]]: vector<8xf32>)
@@ -142,22 +147,22 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 //   CHECK-SCF-IF-DAG:   %[[c8:.*]] = arith.constant 8 : index
 //       CHECK-SCF-IF:   %[[is_lane_0:.*]] = arith.cmpi eq, %[[laneid]], %[[c0]]
 
-//       CHECK-SCF-IF:   %[[buffer_v0:.*]] = memref.alloc() : memref<128xf32>
+//       CHECK-SCF-IF:   %[[buffer_v0:.*]] = memref.get_global @__shared_128xf32
 //       CHECK-SCF-IF:   %[[s0:.*]] = arith.muli %[[laneid]], %[[c4]]
 //       CHECK-SCF-IF:   vector.store %[[v0]], %[[buffer_v0]][%[[s0]]]
-//       CHECK-SCF-IF:   %[[buffer_v1:.*]] = memref.alloc() : memref<256xf32>
+//       CHECK-SCF-IF:   %[[buffer_v1:.*]] = memref.get_global @__shared_256xf32
 //       CHECK-SCF-IF:   %[[s1:.*]] = arith.muli %[[laneid]], %[[c8]]
 //       CHECK-SCF-IF:   vector.store %[[v1]], %[[buffer_v1]][%[[s1]]]
 
-//       CHECK-SCF-IF:   %[[buffer_def_0:.*]] = memref.alloc() : memref<32xf32>
-//       CHECK-SCF-IF:   %[[buffer_def_1:.*]] = memref.alloc() : memref<64xf32>
+//       CHECK-SCF-IF:   %[[buffer_def_0:.*]] = memref.get_global @__shared_32xf32
+//       CHECK-SCF-IF:   %[[buffer_def_1:.*]] = memref.get_global @__shared_64xf32
 
 //       CHECK-SCF-IF:   scf.if %[[is_lane_0]] {
   %r:2 = vector_ext.warp_execute_on_lane_0(%laneid)
       args(%v0, %v1 : vector<4xf32>, vector<8xf32>) -> (vector<1xf32>, vector<2xf32>) {
     ^bb0(%arg0: vector<128xf32>, %arg1: vector<256xf32>):
-//       CHECK-SCF-IF:     %[[arg1:.*]] = vector.load %[[buffer_v1]][%[[c0]]] : memref<256xf32>, vector<256xf32>
-//       CHECK-SCF-IF:     %[[arg0:.*]] = vector.load %[[buffer_v0]][%[[c0]]] : memref<128xf32>, vector<128xf32>
+//       CHECK-SCF-IF:     %[[arg1:.*]] = vector.load %[[buffer_v1]][%[[c0]]] : memref<256xf32, 3>, vector<256xf32>
+//       CHECK-SCF-IF:     %[[arg0:.*]] = vector.load %[[buffer_v0]][%[[c0]]] : memref<128xf32, 3>, vector<128xf32>
 //       CHECK-SCF-IF:     %[[def_0:.*]] = "some_def"(%[[arg0]]) : (vector<128xf32>) -> vector<32xf32>
 //       CHECK-SCF-IF:     %[[def_1:.*]] = "some_def"(%[[arg1]]) : (vector<256xf32>) -> vector<64xf32>
     %2 = "some_def"(%arg0) : (vector<128xf32>) -> vector<32xf32>
@@ -168,8 +173,8 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
   }
 //       CHECK-SCF-IF:   }
 //       CHECK-SCF-IF:   %[[o1:.*]] = arith.muli %[[laneid]], %[[c2]]
-//       CHECK-SCF-IF:   %[[r1:.*]] = vector.load %[[buffer_def_1]][%[[o1]]] : memref<64xf32>, vector<2xf32>
-//       CHECK-SCF-IF:   %[[r0:.*]] = vector.load %[[buffer_def_0]][%[[laneid]]] : memref<32xf32>, vector<1xf32>
+//       CHECK-SCF-IF:   %[[r1:.*]] = vector.load %[[buffer_def_1]][%[[o1]]] : memref<64xf32, 3>, vector<2xf32>
+//       CHECK-SCF-IF:   %[[r0:.*]] = vector.load %[[buffer_def_0]][%[[laneid]]] : memref<32xf32, 3>, vector<1xf32>
 //       CHECK-SCF-IF:   vector.print %[[r0]]
 //       CHECK-SCF-IF:   vector.print %[[r1]]
   vector.print %r#0 : vector<1xf32>
@@ -179,11 +184,13 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 
 // -----
 
+// CHECK-SCF-IF-DAG: memref.global "private" @__shared_1xf32 : memref<1xf32, 3>
+
 // CHECK-SCF-IF-LABEL: func @vector_reduction(
 //  CHECK-SCF-IF-SAME:     %[[laneid:.*]]: index)
 //       CHECK-SCF-IF:   %[[c0:.*]] = arith.constant 0 : index
 //       CHECK-SCF-IF:   %[[is_lane_0:.*]] = arith.cmpi eq, %[[laneid]]
-//       CHECK-SCF-IF:   %[[buffer:.*]] = memref.alloc() : memref<1xf32>
+//       CHECK-SCF-IF:   %[[buffer:.*]] = memref.get_global @__shared_1xf32 : memref<1xf32, 3>
 //       CHECK-SCF-IF:   scf.if %[[is_lane_0]] {
 //       CHECK-SCF-IF:     %[[reduction:.*]] = vector.reduction
 //       CHECK-SCF-IF:     memref.store %[[reduction]], %[[buffer]][%[[c0]]]

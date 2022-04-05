@@ -25,6 +25,8 @@ using namespace mlir::vector_ext;
 
 static const unsigned kWarpSize = 32;
 
+static const int64_t kSharedMemorySpace = 3;
+
 // Clones `op` into a new operations that takes `operands` and returns
 // `resultTypes`.
 static Operation *cloneOpWithOperandsAndTypes(OpBuilder &builder, Location loc,
@@ -720,15 +722,45 @@ static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
 
   // Allocate a shared memory buffer for the given type.
   auto allocBuffer = [&](Type type) {
-    OpBuilder::InsertionGuard g(rewriter);
-    rewriter.setInsertionPoint(ifOp);
+    // Compute type of shared memory buffer.
+    MemRefType memrefType;
     if (auto vectorType = type.dyn_cast<VectorType>()) {
-      return rewriter.create<memref::AllocOp>(
-          loc,
-          MemRefType::get(vectorType.getShape(), vectorType.getElementType()));
+      memrefType = MemRefType::get(
+          vectorType.getShape(), vectorType.getElementType(), {},
+          kSharedMemorySpace);
     } else {
-      return rewriter.create<memref::AllocOp>(loc, MemRefType::get({1}, type));
+      memrefType = MemRefType::get({1}, type, {}, kSharedMemorySpace);
     }
+
+    // Get symbol table holding all shared memory globals.
+    ModuleOp moduleOp = warpOp->getParentOfType<ModuleOp>();
+    SymbolTable symbolTable(moduleOp);
+
+    // Create a pretty name.
+    SmallString<64> buf;
+    llvm::raw_svector_ostream os(buf);
+    interleave(memrefType.getShape(), os, "x");
+    os << "x" << memrefType.getElementType();
+    std::string symbolName = (Twine("__shared_") + os.str()).str();
+
+    // Create the shared memory globa.
+    OpBuilder::InsertionGuard g(rewriter);
+    rewriter.setInsertionPoint(moduleOp);
+    auto global = rewriter.create<memref::GlobalOp>(
+        loc,
+        /*sym_name=*/symbolName,
+        /*sym_visibility=*/rewriter.getStringAttr("private"),
+        /*type=*/memrefType,
+        /*initial_value=*/Attribute(),
+        /*constant=*/false,
+        /*alignment=*/IntegerAttr());
+    symbolTable.insert(global);
+    // The symbol table inserts at the end of the module, but globals are a bit
+    // nicer if they are at the beginning.
+    global->moveBefore(&moduleOp.front());
+
+    rewriter.setInsertionPoint(ifOp);
+    return rewriter.create<memref::GetGlobalOp>(loc, memrefType, symbolName);
   };
 
   // Store vectors that are defined outside of warpOp into the scratch pad
