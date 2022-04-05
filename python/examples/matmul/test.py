@@ -38,8 +38,7 @@ expert_tile_and_interchange_1 = \
 # TODO: scalarize_dyn_dims should be exposed as a variable in Tile transformation
 # to enable tuning and pass it into the transformation list directly.
 expert_tile_1_peel_scalarize = \
-    Tile('matmul', 'linalg.generic', tile_sizes=[8], peel=[0])       \
-    .then(Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True)) \
+    Tile('matmul', 'linalg.generic', tile_sizes=[8], peel=[0], scalarize_dyn_dims=True)       \
     .then(Vectorize('matmul', 'linalg.generic'))                     \
     .then(LoweringOnlyExpert('', ''))
 
@@ -126,8 +125,8 @@ expert_tile_3_pad_hoist_peel_scalarize = \
     .then(Tile('matmul',
                 'linalg.generic',
                 tile_sizes=[2, 3, 7],
-                peel=[0, 1, 2]))                                     \
-    .then(Tile('matmul', 'linalg.generic', scalarize_dyn_dims=True)) \
+                peel=[0, 1, 2],
+                scalarize_dyn_dims=True))                            \
     .then(Vectorize('matmul', 'linalg.generic'))                     \
     .then(Vectorize('matmul', ''))                                   \
     .then(LoweringOnlyExpert('', ''))
