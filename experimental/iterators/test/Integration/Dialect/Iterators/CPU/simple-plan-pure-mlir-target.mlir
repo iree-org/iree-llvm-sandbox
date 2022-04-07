@@ -10,7 +10,8 @@
 /// This file contains a manual translation of the "simple plan" (see
 /// simple-plan-e2e.mlir) to a potential new conversion target, which only
 /// consists of MLIR (SCF, Func, and LLVM dialects) rather than function calls
-/// into a C/C++ implementation that does all of the heavy lifting.
+/// into a C/C++ implementation that does all of the heavy lifting. In this
+/// version, the Create/Open/Next/Close interface is done via function calls.
 ///
 //===----------------------------------------------------------------------===//
 //
