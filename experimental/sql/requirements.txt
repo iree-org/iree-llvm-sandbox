@@ -1,0 +1,9 @@
+filecheck==0.0.18
+lit==14.0.0
+pytest==6.2.5
+xdsl==0.4.1
+yapf==0.32.0
+pyright==0.0.13
+frozenlist==1.2.*
+psutil==5.9.0
+ibis-framework==2.1.1
