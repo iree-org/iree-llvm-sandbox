@@ -144,6 +144,20 @@ python ./run_tests.py
 
 The lit configuration file `test/lit.cfg.py` contains a list of excluded tests.
 
+## Diagnostics via MLIR LSP server
+
+The [MLIR LSP Server](https://mlir.llvm.org/docs/Tools/MLIRLSP/) allows editors
+to display as-you-type diagnostics, code navigation, and similar features. In
+order to extend this functionality to the dialects from this repository, use
+the following LSP server binary:
+
+```
+/path/to/iree-llvm-sandbox/build/bin/mlir-proto-lsp-server
+```
+
+In VS Code, this is done via the `mlir.server_path` property in
+`settings.json`.
+
 ## Running a simple search with Nevergrad
 
 The following command runs a simple search of 1000 iterations distributed across
