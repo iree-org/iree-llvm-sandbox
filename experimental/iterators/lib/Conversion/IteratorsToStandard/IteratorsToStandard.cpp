@@ -35,18 +35,18 @@ struct ConvertIteratorsToStandardPass
 };
 } // namespace
 
-/// Maps IteratorType to llvm.ptr<i8>.
+/// Maps StreamType to llvm.ptr<i8>.
 class IteratorsTypeConverter : public TypeConverter {
 public:
   IteratorsTypeConverter() {
     addConversion([](Type type) { return type; });
-    addConversion(convertIteratorType);
+    addConversion(convertStreamType);
   }
 
 private:
-  /// Maps IteratorType to llvm.ptr<i8>.
-  static Optional<Type> convertIteratorType(Type type) {
-    if (type.isa<iterators::IteratorType>())
+  /// Maps StreamType to llvm.ptr<i8>.
+  static Optional<Type> convertStreamType(Type type) {
+    if (type.isa<iterators::StreamType>())
       return LLVM::LLVMPointerType::get(IntegerType::get(type.getContext(), 8));
     return llvm::None;
   }
