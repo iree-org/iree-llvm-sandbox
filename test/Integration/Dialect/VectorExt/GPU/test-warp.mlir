@@ -48,7 +48,7 @@ func @gpu_func(%arg1: memref<32xf32>, %arg2: memref<32xf32>) {
       %1 = vector.transfer_read %arg2[%c0], %cst {in_bound = [true]} : memref<32xf32>, vector<32xf32>
       %2 = arith.addf %0, %1 : vector<32xf32>
       vector.transfer_write %2, %arg1[%c0] {in_bounds = [true]} : vector<32xf32>, memref<32xf32>
-    }
+    } {warp_size = 32}
     gpu.terminator
   }
   return

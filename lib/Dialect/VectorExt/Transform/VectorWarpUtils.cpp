@@ -23,8 +23,6 @@ using namespace mlir;
 using namespace mlir::vector;
 using namespace mlir::vector_ext;
 
-static const unsigned kWarpSize = 32;
-
 static const int64_t kSharedMemorySpace = 3;
 
 // Clones `op` into a new operations that takes `operands` and returns
@@ -47,8 +45,8 @@ moveRegionToNewWarpOpAndReplaceReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(warpOp);
   auto newWarpOp = b.create<WarpSingleLaneOp>(
-      warpOp.getLoc(), newReturnTypes, warpOp.laneid(), warpOp.args(),
-      warpOp.getBody()->getArgumentTypes());
+      warpOp.getLoc(), newReturnTypes, warpOp.laneid(), warpOp.warp_size(),
+      warpOp.args(), warpOp.getBody()->getArgumentTypes());
 
   Region &opBody = warpOp.getBodyRegion();
   Region &newOpBody = newWarpOp.getBodyRegion();
@@ -233,8 +231,8 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
     // Only rank 1 vectors supported.
     if (vectorType.getRank() != 1)
       return failure();
-    // Only kWarpSize vectors supported.
-    if (vectorType.getShape()[0] != kWarpSize)
+    // Only warp_size-sized vectors supported.
+    if (static_cast<uint64_t>(vectorType.getShape()[0]) != warpOp.warp_size())
       return failure();
     // Only f32 and i32 element types are supported.
     if (!reductionOp.getType().isF32() &&
@@ -257,13 +255,13 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
     Value laneVal = rewriter.create<vector::ExtractOp>(yieldLoc, laneValVec, 0);
 
     // Parallel reduction: Every thread reduces two values. The result is
-    // stored at the lower thread. Requires log_2(kWarpSize) many parallel
+    // stored at the lower thread. Requires log_2(warp_size) many parallel
     // reductions.
-    for (int i = kWarpSize / 2; i > 0; i /= 2) {
+    for (int i = newWarpOp.warp_size() / 2; i > 0; i /= 2) {
       Value shuffled =
           rewriter
               .create<gpu::ShuffleOp>(reductionOp.getLoc(), laneVal, i,
-                                      /*width=*/kWarpSize,
+                                      /*width=*/newWarpOp.warp_size(),
                                       /*mode=*/gpu::ShuffleMode::DOWN)
               .result();
       laneVal = makeArithReduction(rewriter, reductionOp.getLoc(),
@@ -272,7 +270,7 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
 
     // Broadcast the result to all lanes.
     auto shuffleOp = rewriter.create<gpu::ShuffleOp>(
-        yieldLoc, laneVal, /*offset=*/0, /*width=*/kWarpSize,
+        yieldLoc, laneVal, /*offset=*/0, /*width=*/newWarpOp.warp_size(),
         /*mode=*/gpu::ShuffleMode::IDX);
     newWarpOp.getResult(operandIndex).replaceAllUsesWith(shuffleOp.result());
     return success();
@@ -542,7 +540,8 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
 
     // Create a second warp op that contains only writeOp.
     auto secondWarpOp =
-        rewriter.create<WarpSingleLaneOp>(loc, TypeRange(), newWarpOp.laneid());
+        rewriter.create<WarpSingleLaneOp>(loc, TypeRange(), newWarpOp.laneid(),
+                                          newWarpOp.warp_size());
     Block &body = secondWarpOp.getBodyRegion().front();
     rewriter.setInsertionPointToStart(&body);
     auto newWriteOp =
@@ -652,7 +651,8 @@ struct WarpOpScfForOp : public OpRewritePattern<WarpSingleLaneOp> {
     rewriter.setInsertionPoint(newForOp.getBody(), newForOp.getBody()->begin());
     auto innerWarp = rewriter.create<WarpSingleLaneOp>(
         warpOp.getLoc(), newForOp.getResultTypes(), warpOp.laneid(),
-        newForOp.getRegionIterArgs(), forOp.getResultTypes());
+        warpOp.warp_size(), newForOp.getRegionIterArgs(),
+        forOp.getResultTypes());
     // Move the loop region within the new WarpSingleLaneOp region.
     BlockAndValueMapping mapping;
     mapping.map(forOp.getInductionVar(), newForOp.getInductionVar());
@@ -688,9 +688,11 @@ void mlir::vector_ext::populatePropagateVectorDistributionPatterns(
   pattern.add<WarpOpElementwise, WarpOpTransferRead, WarpOpDeadResult,
               WarpOpReduction, WarpOpBroadcast, WarpOpForwardOperand,
               WarpOpScfForOp>(pattern.getContext());
+  // TODO: This constant should not be hard-coded here.
+  static const int64_t kWarpSize = 32;
   vector::populateVectorUnrollPatterns(
       pattern, UnrollVectorOptions()
-                   .setNativeShape(ArrayRef<int64_t>{32})
+                   .setNativeShape(ArrayRef<int64_t>{kWarpSize})
                    .setFilterConstraint([](Operation *op) {
                      return success(isa<vector::ReductionOp>(op));
                    }));

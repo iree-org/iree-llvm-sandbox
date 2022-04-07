@@ -46,7 +46,7 @@ func @warp(%laneid: index, %arg1: memref<1024xf32>, %arg2: memref<1024xf32>,
     %7 = arith.addf %4, %5 : vector<64xf32>
     vector.transfer_write %6, %sc[%c0] : vector<32xf32>, memref<128xf32, #map0>
     vector.transfer_write %7, %sc[%c32] : vector<64xf32>, memref<128xf32, #map0>
-  }
+  } {warp_size = 32}
   return
 }
 
@@ -69,6 +69,6 @@ func @warp_extract(%laneid: index, %arg1: memref<1024xf32>, %gid : index) {
     %c0 = arith.constant 0 : index
     %v = "test.dummy_op"() : () -> (vector<1xf32>)
     vector.transfer_write %v, %sa[%c0] : vector<1xf32>, memref<128xf32, #map2>
-  }
+  } {warp_size = 32}
   return
 }

@@ -38,7 +38,7 @@ func @predicate_results(%pred: vector<32xi1>, %idx: index, %incoming: vector<32x
 
 func @warp(%laneid: index) {
   vector_ext.warp_execute_on_lane_0 (%laneid) {
-  }
+  } {warp_size = 32}
   return
 }
 
@@ -57,11 +57,11 @@ func @warp_operand_result(%laneid: index, %v0 : vector<4xi32>) -> (vector<4xi32>
     %0 = arith.constant dense<2>: vector<128xi32>
     %1 = arith.addi %arg0, %0 : vector<128xi32>
     vector_ext.yield %1 : vector<128xi32>
-  }
+  } {warp_size = 32}
   return %2 : vector<4xi32>
 }
 
 // CHECK-LABEL:   func @warp_operand_result(
 // CHECK-NEXT:      %{{.*}} = vector_ext.warp_execute_on_lane_0(%{{.*}}) args(%{{.*}} : vector<4xi32>) -> (vector<4xi32>) {
 //      CHECK:        vector_ext.yield %{{.*}} : vector<128xi32>
-// CHECK-NEXT:      }
+// CHECK-NEXT:      } {warp_size = 32 : i64}

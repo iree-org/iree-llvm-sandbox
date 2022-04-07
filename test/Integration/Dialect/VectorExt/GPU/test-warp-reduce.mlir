@@ -30,10 +30,10 @@ func @gpu_func(%in: memref<1024xf32>, %out: memref<1xf32>) {
       %22 = vector.broadcast %21 : f32 to vector<1xf32>
       %23 = arith.addf %22, %arg1 : vector<1xf32>
       scf.yield %23 : vector<1xf32>
-    }
+    } {warp_size = 32}
     %14 = arith.divf %13, %cst : vector<1xf32>
     vector.transfer_write %14, %out[%c0] {in_bounds = [true]} : vector<1xf32>, memref<1xf32>
-    }
+    } {warp_size = 32}
     gpu.terminator
   }
   return
