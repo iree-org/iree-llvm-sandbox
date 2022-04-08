@@ -18,18 +18,18 @@ class Iterators_Op<string mnemonic, list<Trait> traits = []> :
 
 def Iterators_SampleInputOp : Iterators_Op<"sampleInput"> {
   let summary = "Create some sample input";
-  let results = (outs Iterators_Iterator);
+  let results = (outs Iterators_Stream);
 }
 
 def Iterators_ReduceOp : Iterators_Op<"reduce"> {
   let summary = "Reduce the input to a single tuple";
-  let arguments = (ins Iterators_Iterator);
-  let results = (outs Iterators_Iterator);
+  let arguments = (ins Iterators_Stream);
+  let results = (outs Iterators_Stream);
 }
 
 def Iterators_SinkOp : Iterators_Op<"sink"> {
   let summary = "Consume tuples from an iterator";
-  let arguments = (ins Iterators_Iterator);
+  let arguments = (ins Iterators_Stream);
 }
 
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS

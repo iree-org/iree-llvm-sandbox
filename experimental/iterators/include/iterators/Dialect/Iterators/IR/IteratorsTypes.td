@@ -19,10 +19,10 @@ class Iterators_Type<string name, string typeMnemonic>
   let mnemonic = typeMnemonic;
 }
 
-def Iterators_Iterator : Iterators_Type<"Iterator", "iterator"> {
-  let summary = "Basic iterator type";
-  let parameters = (ins "Type":$typesTuple);
-  let assemblyFormat = "`<` qualified($typesTuple) `>`";
+def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
+  let summary = "Stream of elements of the given type";
+  let parameters = (ins "Type":$elementType);
+  let assemblyFormat = "`<` qualified($elementType) `>`";
 }
 
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES

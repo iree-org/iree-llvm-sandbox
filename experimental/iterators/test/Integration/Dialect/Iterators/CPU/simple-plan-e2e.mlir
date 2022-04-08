@@ -4,9 +4,9 @@
 // RUN: | FileCheck %s
 
 func @main() {
-  %input = "iterators.sampleInput"() : () -> (!iterators.iterator<tuple<i32>>)
-  %reduce = "iterators.reduce"(%input) : (!iterators.iterator<tuple<i32>>) -> (!iterators.iterator<tuple<i32>>)
-  "iterators.sink"(%reduce) : (!iterators.iterator<tuple<i32>>) -> ()
+  %input = "iterators.sampleInput"() : () -> (!iterators.stream<tuple<i32>>)
+  %reduce = "iterators.reduce"(%input) : (!iterators.stream<tuple<i32>>) -> (!iterators.stream<tuple<i32>>)
+  "iterators.sink"(%reduce) : (!iterators.stream<tuple<i32>>) -> ()
   // CHECK: (6)
   return
 }

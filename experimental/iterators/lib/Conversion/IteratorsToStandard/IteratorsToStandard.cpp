@@ -35,18 +35,18 @@ struct ConvertIteratorsToStandardPass
 };
 } // namespace
 
-/// Maps IteratorType to llvm.ptr<i8>.
+/// Maps StreamType to llvm.ptr<i8>.
 class IteratorsTypeConverter : public TypeConverter {
 public:
   IteratorsTypeConverter() {
     addConversion([](Type type) { return type; });
-    addConversion(convertIteratorType);
+    addConversion(convertStreamType);
   }
 
 private:
-  /// Maps IteratorType to llvm.ptr<i8>.
-  static Optional<Type> convertIteratorType(Type type) {
-    if (type.isa<iterators::IteratorType>())
+  /// Maps StreamType to llvm.ptr<i8>.
+  static Optional<Type> convertStreamType(Type type) {
+    if (type.isa<iterators::StreamType>())
       return LLVM::LLVMPointerType::get(IntegerType::get(type.getContext(), 8));
     return llvm::None;
   }
@@ -71,7 +71,7 @@ FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
   return funcOp;
 }
 
-/// Replaces a instances of a certain IteratorOp with a call to the given
+/// Replaces an instance of a certain IteratorOp with a call to the given
 /// external constructor as well as a call to the given destructor at the end of
 /// the block.
 struct IteratorConversionPattern : public ConversionPattern {
