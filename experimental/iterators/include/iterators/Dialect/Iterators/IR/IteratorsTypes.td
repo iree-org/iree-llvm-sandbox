@@ -31,17 +31,31 @@ def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
 //===----------------------------------------------------------------------===//
 
 class Iterators_Iterator<string name, string typeMnemonic>
-    : Iterators_Type<name, typeMnemonic, [DeclareTypeInterfaceMethods<Iterators_IteratorInterface>]> {
+    : Iterators_Type<name, typeMnemonic,
+                     [DeclareTypeInterfaceMethods<Iterators_IteratorInterface>]> {
   let summary = "State of a Volcano-style iterator";
+}
+
+def Iterators_SampleInputState
+    : Iterators_Iterator<"SampleInputState", "sampleinputstate"> {
   let parameters = (ins "Type":$elementType);
   let assemblyFormat = "`<` qualified($elementType) `>`";
 }
 
-def Iterators_SampleInputState : Iterators_Iterator<"SampleInputState", "sampleinputstate">;
+def Iterators_ReduceState : Iterators_Iterator<"ReduceState", "reducestate"> {
+  let parameters = (ins "IteratorInterface":$upstreamType);
+  let assemblyFormat = "`<` qualified($upstreamType) `>`";
+  let extraClassDeclaration = [{
+    ::mlir::Type getElementType() {
+      return this->getUpstreamType().getElementType();
+    }
+  }];
+}
 
-def Iterators_ReduceState : Iterators_Iterator<"ReduceState", "reducestate">;
+def IsIteratorTypePred
+    : CPred<"$_self.isa<::mlir::iterators::IteratorInterface>()">;
 
-def IsIteratorTypePred : CPred<"$_self.isa<::mlir::iterators::IteratorInterface>()">;
-def AnyIteratorState : Type<IsIteratorTypePred, "iteratorstate", "::mlir::Type">;
+def AnyIteratorState
+    : Type<IsIteratorTypePred, "iteratorstate", "::mlir::Type">;
 
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES

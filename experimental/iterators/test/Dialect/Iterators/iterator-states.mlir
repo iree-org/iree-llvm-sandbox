@@ -1,21 +1,24 @@
 // Test that we can parse and verify iterator states without errors
 // RUN: mlir-proto-opt %s
 
-func private @makeReduceState() -> !iterators.reducestate<i32>
-func private @makeSampleInputState() -> !iterators.sampleinputstate<i32>
+!sampleInputState = type !iterators.sampleinputstate<i32>
+!reduceState = type !iterators.reducestate<!sampleInputState>
+
+func private @makeReduceState() -> !reduceState
+func private @makeSampleInputState() -> !sampleInputState
 
 func @testSampleInput() {
-  %initialState = call @makeSampleInputState() : () -> !iterators.sampleinputstate<i32>
-  %openedState = "iterators.open"(%initialState) : (!iterators.sampleinputstate<i32>) -> !iterators.sampleinputstate<i32>
-  %consumedState, %hasNext, %nextElement = "iterators.next"(%openedState) : (!iterators.sampleinputstate<i32>) -> (!iterators.sampleinputstate<i32>, i1, i32)
-  %closedState = "iterators.close"(%consumedState) : (!iterators.sampleinputstate<i32>) -> !iterators.sampleinputstate<i32>
+  %initialState = call @makeSampleInputState() : () -> !sampleInputState
+  %openedState = "iterators.open"(%initialState) : (!sampleInputState) -> !sampleInputState
+  %consumedState, %hasNext, %nextElement = "iterators.next"(%openedState) : (!sampleInputState) -> (!sampleInputState, i1, i32)
+  %closedState = "iterators.close"(%consumedState) : (!sampleInputState) -> !sampleInputState
   return
 }
 
 func @testReduce() {
-  %initialState = call @makeReduceState() : () -> !iterators.reducestate<i32>
-  %openedState = "iterators.open"(%initialState) : (!iterators.reducestate<i32>) -> !iterators.reducestate<i32>
-  %consumedState, %hasNext, %nextElement = "iterators.next"(%openedState) : (!iterators.reducestate<i32>) -> (!iterators.reducestate<i32>, i1, i32)
-  %closedState = "iterators.close"(%consumedState) : (!iterators.reducestate<i32>) -> !iterators.reducestate<i32>
+  %initialState = call @makeReduceState() : () -> !reduceState
+  %openedState = "iterators.open"(%initialState) : (!reduceState) -> !reduceState
+  %consumedState, %hasNext, %nextElement = "iterators.next"(%openedState) : (!reduceState) -> (!reduceState, i1, i32)
+  %closedState = "iterators.close"(%consumedState) : (!reduceState) -> !reduceState
   return
 }
