@@ -11,4 +11,20 @@
 
 include "mlir/IR/OpBase.td"
 
+def Iterators_IteratorInterface : TypeInterface<"IteratorInterface"> {
+  let description = [{
+    This is an example interface definition.
+  }];
+
+  let methods = [
+    InterfaceMethod<
+      "This is an example of a non-static hook to an operation.",
+      "Type", "getElementType",  (ins), /*methodBody=*/[{}],
+      /*defaultImplementation=*/[{
+        return ConcreteType::getElementType();
+      }]
+    >,
+  ];
+}
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSINTERFACES

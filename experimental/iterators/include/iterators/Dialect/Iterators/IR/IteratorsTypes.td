@@ -26,4 +26,22 @@ def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
   let assemblyFormat = "`<` qualified($elementType) `>`";
 }
 
+//===----------------------------------------------------------------------===//
+// State of low-level iterators
+//===----------------------------------------------------------------------===//
+
+class Iterators_Iterator<string name, string typeMnemonic>
+    : Iterators_Type<name, typeMnemonic, [DeclareTypeInterfaceMethods<Iterators_IteratorInterface>]> {
+  let summary = "State of a Volcano-style iterator";
+  let parameters = (ins "Type":$elementType);
+  let assemblyFormat = "`<` qualified($elementType) `>`";
+}
+
+def Iterators_SampleInputState : Iterators_Iterator<"SampleInputState", "sampleinputstate">;
+
+def Iterators_ReduceState : Iterators_Iterator<"ReduceState", "reducestate">;
+
+def IsIteratorTypePred : CPred<"$_self.isa<::mlir::iterators::IteratorInterface>()">;
+def AnyIteratorState : Type<IsIteratorTypePred, "iteratorstate", "::mlir::Type">;
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
