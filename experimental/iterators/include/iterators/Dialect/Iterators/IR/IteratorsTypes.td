@@ -10,12 +10,13 @@
 #define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
 
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
+include "iterators/Dialect/Iterators/IR/IteratorsInterfaces.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 
 // Base class for Iterators dialect types.
-class Iterators_Type<string name, string typeMnemonic>
-    : TypeDef<Iterators_Dialect, name> {
+class Iterators_Type<string name, string typeMnemonic, list<Trait> traits = []>
+    : TypeDef<Iterators_Dialect, name, traits> {
   let mnemonic = typeMnemonic;
 }
 

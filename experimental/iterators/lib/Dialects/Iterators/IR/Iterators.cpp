@@ -32,6 +32,13 @@ void IteratorsDialect::initialize() {
 }
 
 //===----------------------------------------------------------------------===//
+// Iterators interfaces
+//===----------------------------------------------------------------------===//
+
+#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.cpp.inc"
+
+//===----------------------------------------------------------------------===//
 // Iterators operations
 //===----------------------------------------------------------------------===//
 

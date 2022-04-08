@@ -14,6 +14,13 @@
 
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
 
+namespace mlir {
+namespace iterators {
+#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.h.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.h.inc"
+} // namespace iterators
+} // namespace mlir
+
 #define GET_TYPEDEF_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.h.inc"
 
