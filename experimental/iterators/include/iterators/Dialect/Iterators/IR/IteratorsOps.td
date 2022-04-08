@@ -61,4 +61,21 @@ def Iterators_CloseOp : Iterators_Op<"close"> {
   let hasVerifier = true;
 }
 
+//===----------------------------------------------------------------------===//
+// State creation of low-level iterators
+//===----------------------------------------------------------------------===//
+
+def Iterators_CreateSampleInputStateOp : Iterators_Op<"createSampleInputState"> {
+  let summary = "Create initial state of SampleInput iterator";
+  let results = (outs Iterators_SampleInputState:$createdState);
+  let hasVerifier = true;
+}
+
+def Iterators_CreateReduceStateOp : Iterators_Op<"createReduceState"> {
+  let summary = "Create initial state of Reduce iterator";
+  let arguments = (ins AnyIteratorState:$upstreamState);
+  let results = (outs Iterators_ReduceState:$createdState);
+  let hasVerifier = true;
+}
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
