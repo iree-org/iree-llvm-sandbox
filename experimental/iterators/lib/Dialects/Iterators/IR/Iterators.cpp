@@ -46,16 +46,6 @@ void IteratorsDialect::initialize() {
 #define GET_OP_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
 
-LogicalResult OpenOp::verify() {
-  if (inputState().getType() != resultState().getType()) {
-    return emitOpError() << "Type mismatch: Opening iterator of type "
-                         << inputState().getType()
-                         << " should return the same type but returns "
-                         << resultState().getType();
-  }
-  return success();
-}
-
 LogicalResult NextOp::verify() {
   // Check matching state types
   if (inputState().getType() != resultState().getType()) {
@@ -78,16 +68,6 @@ LogicalResult NextOp::verify() {
            << nextElement().getType();
   }
 
-  return success();
-}
-
-LogicalResult CloseOp::verify() {
-  if (inputState().getType() != resultState().getType()) {
-    return emitOpError() << "Type mismatch: Closing iterator of type "
-                         << inputState().getType()
-                         << " should return the same type but returns "
-                         << resultState().getType();
-  }
   return success();
 }
 

@@ -11,6 +11,7 @@
 
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 
 class Iterators_Op<string mnemonic, list<Trait> traits = []> :
     Op<Iterators_Dialect, mnemonic, traits> {
@@ -40,11 +41,10 @@ def Iterators_SinkOp : Iterators_Op<"sink"> {
 // Create/Open/Next/Close interface of low-level iterators
 //===----------------------------------------------------------------------===//
 
-def Iterators_OpenOp : Iterators_Op<"open"> {
+def Iterators_OpenOp : Iterators_Op<"open", [SameOperandsAndResultType]> {
   let summary = "Opens the given operator";
   let arguments = (ins AnyIteratorState:$inputState);
   let results = (outs AnyIteratorState:$resultState);
-  let hasVerifier = true;
 }
 
 def Iterators_NextOp : Iterators_Op<"next"> {
@@ -54,11 +54,10 @@ def Iterators_NextOp : Iterators_Op<"next"> {
   let hasVerifier = true;
 }
 
-def Iterators_CloseOp : Iterators_Op<"close"> {
+def Iterators_CloseOp : Iterators_Op<"close", [SameOperandsAndResultType]> {
   let summary = "Closes the given operator";
   let arguments = (ins AnyIteratorState:$inputState);
   let results = (outs AnyIteratorState:$resultState);
-  let hasVerifier = true;
 }
 
 //===----------------------------------------------------------------------===//

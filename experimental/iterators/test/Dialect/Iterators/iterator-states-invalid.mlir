@@ -25,7 +25,7 @@ func @testCreateSampleInputTypeMismatch() {
 !sampleInputState = type !iterators.sampleinputstate<i32>
 func @testOpenElementTypeMismatch() {
   %initialState = "iterators.createSampleInputState"() : () -> !sampleInputState
-  // expected-error@+1 {{Opening iterator of type '!iterators.sampleinputstate<i32>' should return the same type but returns '!iterators.sampleinputstate<i64>'}}
+  // expected-error@+1 {{'iterators.open' op requires the same type for all operands and results}}
   %openedState = "iterators.open"(%initialState) : (!sampleInputState) -> !iterators.sampleinputstate<i64>
   return
 }
@@ -36,7 +36,7 @@ func @testOpenElementTypeMismatch() {
 !reduceState = type !iterators.reducestate<!sampleInputState>
 func @testOpenStateTypeMismatch() {
   %initialState = "iterators.createSampleInputState"() : () -> !sampleInputState
-  // expected-error@+1 {{Opening iterator of type '!iterators.sampleinputstate<i32>' should return the same type but returns '!iterators.reducestate<!iterators.sampleinputstate<i32>>'}}
+  // expected-error@+1 {{'iterators.open' op requires the same type for all operands and results}}
   %openedState = "iterators.open"(%initialState) : (!sampleInputState) -> !reduceState
   return
 }
@@ -69,7 +69,7 @@ func @testNextElementTypeMismatch() {
 func @testCloseStateTypeMismatch() {
   %initialState = "iterators.createSampleInputState"() : () -> !sampleInputState
   %openedState = "iterators.open"(%initialState) : (!sampleInputState) -> !sampleInputState
-  // expected-error@+1 {{Type mismatch: Closing iterator of type '!iterators.sampleinputstate<i32>' should return the same type but returns '!iterators.sampleinputstate<i64>'}}
+  // expected-error@+1 {{'iterators.close' op requires the same type for all operands and results}}
   %closedState = "iterators.close"(%openedState) : (!sampleInputState) -> !iterators.sampleinputstate<i64>
   return
 }
