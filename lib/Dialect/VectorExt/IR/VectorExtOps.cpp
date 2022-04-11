@@ -216,15 +216,19 @@ void WarpSingleLaneOp::getSuccessorRegions(
 }
 
 void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
-                             TypeRange resultTypes, Value laneId) {
-  build(builder, result, resultTypes, laneId,
+                             TypeRange resultTypes, Value laneId,
+                             int64_t warpSize) {
+  build(builder, result, resultTypes, laneId, warpSize,
         /*operands=*/llvm::None, /*argTypes=*/llvm::None);
 }
 
 void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
                              TypeRange resultTypes, Value laneId,
-                             ValueRange args, TypeRange blockArgTypes) {
+                             int64_t warpSize, ValueRange args,
+                             TypeRange blockArgTypes) {
   result.addOperands(laneId);
+  result.addAttribute(getAttributeNames()[0],
+                      builder.getI64IntegerAttr(warpSize));
   result.addTypes(resultTypes);
   result.addOperands(args);
   assert(args.size() == blockArgTypes.size());

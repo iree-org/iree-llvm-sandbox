@@ -65,13 +65,13 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
        RecursiveSideEffects]> {
   let summary = "vector.warp_execute_on_lane_0 operation";
   let description = [{
-    Operation that encapsulate code that should be ran on a single lane within a
-    warp. Any code present in the region would only be executed on first lane
-    based on the laneid paramter. The op assumes `laneid` operand is an id to
-    identify the warp and it goes from 0 to warp_size.
+    Operation that encapsulates code that should be run on a single lane within
+    a warp. Any code present in the region would only be executed on first lane
+    based on the `laneid` operand. The `laneid` operand is an integer ID between
+    [0, `warp_size`). The `warp_size` attribute indicates the number of lanes in
+    a warp.
 
-    // TODO: Add warp size as an attribute and support multiple dimensions lane
-    ids.
+    // TODO: Support multiple dimensions, i.e., one lane ID per dimension.
 
     Operands are vector values distributed on all threads that may be used by
     the single lane execution. The matching region argument is a vector of all
@@ -141,19 +141,22 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
   // TODO: Add verifier to check type consistentcy at the region boundary based
   // on warp size and future permutation map.
 
-  let arguments = (ins Index:$laneid, Variadic<AnyType>:$args);
+  let arguments = (ins Index:$laneid, I64Attr:$warp_size,
+                       Variadic<AnyType>:$args);
   let results = (outs Variadic<AnyType>:$results);
   let regions = (region SizedRegion<1>:$warpRegion);
 
   let skipDefaultBuilders = 1;
   let builders = [
-    OpBuilder<(ins "Value":$laneid)>,
-    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid)>,
+    OpBuilder<(ins "Value":$laneid, "int64_t":$warpSize)>,
+    OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid,
+                   "int64_t":$warpSize)>,
     // `blockArgTypes` are different than `args` types as they are they
     // represent all the `args` instances visibile to lane 0. Therefore we need
     // to explicit pass the type.
     OpBuilder<(ins "TypeRange":$resultTypes, "Value":$laneid,
-                   "ValueRange":$args, "TypeRange":$blockArgTypes)>
+                   "int64_t":$warpSize, "ValueRange":$args,
+                   "TypeRange":$blockArgTypes)>
   ];
 
   let extraClassDeclaration = [{
