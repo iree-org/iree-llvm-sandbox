@@ -22,9 +22,7 @@ class RelOptMain(xDSLOptMain):
       connection = ibis.pandas.connect(
           {"t": pd.DataFrame({"a": ["AS", "EU", "NA"]})})
       table = connection.table('t')
-      f.readline()
-      f.readline()
-      query = f.readline()
+      query = f.read()
       res = eval(query)
 
       return ibis_to_xdsl(self.ctx, res)
