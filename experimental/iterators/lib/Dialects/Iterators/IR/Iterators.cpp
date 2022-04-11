@@ -47,15 +47,6 @@ void IteratorsDialect::initialize() {
 #include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
 
 LogicalResult NextOp::verify() {
-  // Check matching state types
-  if (inputState().getType() != resultState().getType()) {
-    return emitOpError()
-           << "Type mismatch: Consuming an element of an iterator of type "
-           << inputState().getType()
-           << " should return in an iterator of the same type but returns "
-           << resultState().getType();
-  }
-
   // Check matching tuple type
   IteratorInterface iteratorType =
       inputState().getType().dyn_cast<IteratorInterface>();

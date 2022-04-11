@@ -47,7 +47,7 @@ def Iterators_OpenOp : Iterators_Op<"open", [SameOperandsAndResultType]> {
   let results = (outs AnyIteratorState:$resultState);
 }
 
-def Iterators_NextOp : Iterators_Op<"next"> {
+def Iterators_NextOp : Iterators_Op<"next", [AllTypesMatch<["inputState", "resultState"]>]> {
   let summary = "Consumes the next element from the given operator";
   let arguments = (ins AnyIteratorState:$inputState);
   let results = (outs AnyIteratorState:$resultState, I1:$hasNext, AnyType:$nextElement);

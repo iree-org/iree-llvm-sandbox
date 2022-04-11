@@ -47,7 +47,7 @@ func @testOpenStateTypeMismatch() {
 func @testNextStateTypeMismatch() {
   %initialState = "iterators.createSampleInputState"() : () -> !sampleInputState
   %openedState = "iterators.open"(%initialState) : (!sampleInputState) -> !sampleInputState
-  // expected-error@+1 {{Type mismatch: Consuming an element of an iterator of type '!iterators.sampleinputstate<i32>' should return in an iterator of the same type but returns '!iterators.sampleinputstate<i64>'}}
+  // expected-error@+1 {{'iterators.next' op failed to verify that all of {inputState, resultState} have same type}}
   %consumedState, %hasNext, %nextElement = "iterators.next"(%openedState) : (!sampleInputState) -> (!iterators.sampleinputstate<i64>, i1, i32)
   return
 }
