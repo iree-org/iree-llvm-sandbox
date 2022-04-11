@@ -3,15 +3,15 @@
 
 // CHECK-LABEL:   func @warp_dead_result(
 func @warp_dead_result(%laneid: index) -> (vector<1xf32>) {
-  // CHECK: %[[R:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>)
-  %r:3 = vector_ext.warp_execute_on_lane_0(%laneid) ->
+  // CHECK: %[[R:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}})[32] -> (vector<1xf32>)
+  %r:3 = vector_ext.warp_execute_on_lane_0(%laneid)[32] ->
     (vector<1xf32>, vector<1xf32>, vector<1xf32>) {
     %2 = "some_def"() : () -> (vector<32xf32>)
     %3 = "some_def"() : () -> (vector<32xf32>)
     %4 = "some_def"() : () -> (vector<32xf32>)
   // CHECK:   vector_ext.yield %{{.*}} : vector<32xf32>
     vector_ext.yield %2, %3, %4 : vector<32xf32>, vector<32xf32>, vector<32xf32>
-  } {warp_size = 32}
+  }
   // CHECK: return %[[R]] : vector<1xf32>
   return %r#1 : vector<1xf32>
 }
@@ -22,11 +22,11 @@ func @warp_dead_result(%laneid: index) -> (vector<1xf32>) {
 //  CHECK-SAME:   %[[ID:.*]]: index, %[[V:.*]]: vector<4xf32>)
 func @warp_propagate_operand(%laneid: index, %v0: vector<4xf32>)
   -> (vector<4xf32>) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid)
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32]
      args(%v0 : vector<4xf32>) -> (vector<4xf32>) {
      ^bb0(%arg0 : vector<128xf32>) :
     vector_ext.yield %arg0 : vector<128xf32>
-  } {warp_size = 32}
+  }
   // CHECK: return %[[V]] : vector<4xf32>
   return %r : vector<4xf32>
 }
@@ -40,8 +40,8 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
   %c0 = arith.constant 0 : index
   %c32 = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
-  // CHECK: %[[R:.*]]:4 = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>, vector<1xf32>, vector<2xf32>, vector<2xf32>)
-  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid) ->
+  // CHECK: %[[R:.*]]:4 = vector_ext.warp_execute_on_lane_0(%{{.*}})[32] -> (vector<1xf32>, vector<1xf32>, vector<2xf32>, vector<2xf32>)
+  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid)[32] ->
     (vector<1xf32>, vector<2xf32>) {
     // CHECK: %[[V0:.*]] = "some_def"() : () -> vector<32xf32>
     // CHECK: %[[V1:.*]] = "some_def"() : () -> vector<32xf32>
@@ -55,7 +55,7 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
     %6 = arith.addf %2, %3 : vector<32xf32>
     %7 = arith.addf %4, %5 : vector<64xf32>
     vector_ext.yield %6, %7 : vector<32xf32>, vector<64xf32>
-  } {warp_size = 32}
+  }
   // CHECK: %[[A0:.*]] = arith.addf %[[R]]#2, %[[R]]#3 : vector<2xf32>
   // CHECK: %[[A1:.*]] = arith.addf %[[R]]#0, %[[R]]#1 : vector<1xf32>
   %id2 = affine.apply #map0()[%laneid]
@@ -76,12 +76,12 @@ func @warp_propagate_elementwise(%laneid: index, %dest: memref<1024xf32>) {
 //       CHECK:   }
 //       CHECK:   arith.addf %[[r]]#0, %[[r]]#1 : f32
 func @warp_propagate_scalar_arith(%laneid: index) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (f32) {
     %0 = "some_def"() : () -> (f32)
     %1 = "some_def"() : () -> (f32)
     %2 = arith.addf %0, %1 : f32
     vector_ext.yield %2 : f32
-  } {warp_size = 32}
+  }
   vector.print %r : f32
   return
 }
@@ -93,10 +93,10 @@ func @warp_propagate_scalar_arith(%laneid: index) {
 //       CHECK:   %[[result:.*]] = arith.sitofp %{{.*}} : i32 to f32
 //       CHECK:   return %[[result]]
 func @warp_propagate_cast(%laneid : index, %i : i32) -> (f32) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (f32) {
     %casted = arith.sitofp %i : i32 to f32
     vector_ext.yield %casted : f32
-  } {warp_size = 32}
+  }
   return %r : f32
 }
 
@@ -118,11 +118,11 @@ func @warp_propagate_read(%laneid: index, %src: memref<1024xf32>, %dest: memref<
   %c0 = arith.constant 0 : index
   %c32 = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
-  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid) ->(vector<1xf32>, vector<2xf32>) {
+  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid)[32] ->(vector<1xf32>, vector<2xf32>) {
     %2 = vector.transfer_read %src[%c0], %cst : memref<1024xf32>, vector<32xf32>
     %3 = vector.transfer_read %src[%c32], %cst : memref<1024xf32>, vector<64xf32>
     vector_ext.yield %2, %3 : vector<32xf32>, vector<64xf32>
-  } {warp_size = 32}
+  }
   %id2 = affine.apply #map0()[%laneid]
   vector.transfer_write %r#0, %dest[%laneid] : vector<1xf32>, memref<1024xf32>
   vector.transfer_write %r#1, %dest[%id2] : vector<2xf32>, memref<1024xf32>
@@ -158,7 +158,7 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 //       CHECK-SCF-IF:   %[[buffer_def_1:.*]] = memref.get_global @__shared_64xf32
 
 //       CHECK-SCF-IF:   scf.if %[[is_lane_0]] {
-  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid)
+  %r:2 = vector_ext.warp_execute_on_lane_0(%laneid)[32]
       args(%v0, %v1 : vector<4xf32>, vector<8xf32>) -> (vector<1xf32>, vector<2xf32>) {
     ^bb0(%arg0: vector<128xf32>, %arg1: vector<256xf32>):
 //       CHECK-SCF-IF:     %[[arg1:.*]] = vector.load %[[buffer_v1]][%[[c0]]] : memref<256xf32, 3>, vector<256xf32>
@@ -170,7 +170,7 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 //       CHECK-SCF-IF:     vector.store %[[def_0]], %[[buffer_def_0]][%[[c0]]]
 //       CHECK-SCF-IF:     vector.store %[[def_1]], %[[buffer_def_1]][%[[c0]]]
     vector_ext.yield %2, %3 : vector<32xf32>, vector<64xf32>
-  } {warp_size = 32}
+  }
 //       CHECK-SCF-IF:   }
 //       CHECK-SCF-IF:   %[[o1:.*]] = arith.muli %[[laneid]], %[[c2]]
 //       CHECK-SCF-IF:   %[[r1:.*]] = vector.load %[[buffer_def_1]][%[[o1]]] : memref<64xf32, 3>, vector<2xf32>
@@ -207,7 +207,7 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 //   CHECK-DAG:   %[[c8:.*]] = arith.constant 8 : i32
 //   CHECK-DAG:   %[[c16:.*]] = arith.constant 16 : i32
 //   CHECK-DAG:   %[[c32:.*]] = arith.constant 32 : i32
-//       CHECK:   %[[warp_op:.*]] = vector_ext.warp_execute_on_lane_0(%[[laneid]]) -> (vector<1xf32>) {
+//       CHECK:   %[[warp_op:.*]] = vector_ext.warp_execute_on_lane_0(%[[laneid]])[32] -> (vector<1xf32>) {
 //       CHECK:     vector_ext.yield %{{.*}} : vector<32xf32>
 //       CHECK:   }
 //       CHECK:   %[[a:.*]] = vector.extract %[[warp_op]][0] : vector<1xf32>
@@ -224,11 +224,11 @@ func @rewrite_warp_op_to_scf_if(%laneid: index,
 //       CHECK:   %[[broadcasted:.*]], %{{.*}} = gpu.shuffle  idx %[[a4]], %[[c0]], %[[c32]]
 //       CHECK:   vector.print %[[broadcasted]] : f32
 func @vector_reduction(%laneid: index) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (f32) {
     %0 = "some_def"() : () -> (vector<32xf32>)
     %1 = vector.reduction <add>, %0 : vector<32xf32> into f32
     vector_ext.yield %1 : f32
-  } {warp_size = 32}
+  }
   vector.print %r : f32
   return
 }
@@ -241,11 +241,11 @@ func @vector_reduction(%laneid: index) {
 //       CHECK:     vector_ext.yield %[[some_def]] : vector<1xf32>
 //       CHECK:   vector.print %[[r]] : vector<1xf32>
 func @fold_vector_broadcast(%laneid: index) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<1xf32>) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (vector<1xf32>) {
     %0 = "some_def"() : () -> (vector<1xf32>)
     %1 = vector.broadcast %0 : vector<1xf32> to vector<32xf32>
     vector_ext.yield %1 : vector<32xf32>
-  } {warp_size = 32}
+  }
   vector.print %r : vector<1xf32>
   return
 }
@@ -259,11 +259,11 @@ func @fold_vector_broadcast(%laneid: index) {
 //       CHECK:   %[[broadcasted:.*]] = vector.broadcast %[[r]] : vector<1xf32> to vector<2xf32>
 //       CHECK:   vector.print %[[broadcasted]] : vector<2xf32>
 func @extract_vector_broadcast(%laneid: index) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<2xf32>) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (vector<2xf32>) {
     %0 = "some_def"() : () -> (vector<1xf32>)
     %1 = vector.broadcast %0 : vector<1xf32> to vector<64xf32>
     vector_ext.yield %1 : vector<64xf32>
-  } {warp_size = 32}
+  }
   vector.print %r : vector<2xf32>
   return
 }
@@ -277,11 +277,11 @@ func @extract_vector_broadcast(%laneid: index) {
 //       CHECK:   %[[broadcasted:.*]] = vector.broadcast %[[r]] : f32 to vector<2xf32>
 //       CHECK:   vector.print %[[broadcasted]] : vector<2xf32>
 func @extract_scalar_vector_broadcast(%laneid: index) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<2xf32>) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (vector<2xf32>) {
     %0 = "some_def"() : () -> (f32)
     %1 = vector.broadcast %0 : f32 to vector<64xf32>
     vector_ext.yield %1 : vector<64xf32>
-  } {warp_size = 32}
+  }
   vector.print %r : vector<2xf32>
   return
 }
@@ -289,16 +289,16 @@ func @extract_scalar_vector_broadcast(%laneid: index) {
 // -----
 
 // CHECK-LABEL:   func @warp_scf_for(
-// CHECK: %[[INI:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<4xf32>) {
+// CHECK: %[[INI:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}})[32] -> (vector<4xf32>) {
 // CHECK:   %[[INI1:.*]] = "some_def"() : () -> vector<128xf32>
 // CHECK:   vector_ext.yield %[[INI1]] : vector<128xf32>
-// CHECK: } {warp_size = 32 : i64}
+// CHECK: }
 // CHECK: %[[F:.*]] = scf.for %{{.*}} = %{{.*}} to %{{.*}} step %{{.*}} iter_args(%[[FARG:.*]] = %[[INI]]) -> (vector<4xf32>) {
-// CHECK:   %[[W:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}}) args(%[[FARG]] : vector<4xf32>) -> (vector<4xf32>) {
+// CHECK:   %[[W:.*]] = vector_ext.warp_execute_on_lane_0(%{{.*}})[32] args(%[[FARG]] : vector<4xf32>) -> (vector<4xf32>) {
 // CHECK:    ^bb0(%[[ARG:.*]]: vector<128xf32>):
 // CHECK:      %[[ACC:.*]] = "some_def"(%[[ARG]]) : (vector<128xf32>) -> vector<128xf32>
 // CHECK:      vector_ext.yield %[[ACC]] : vector<128xf32>
-// CHECK:   } {warp_size = 32 : i64}
+// CHECK:   }
 // CHECK:   scf.yield %[[W]] : vector<4xf32>
 // CHECK: }
 // CHECK: "some_use"(%[[F]]) : (vector<4xf32>) -> ()
@@ -306,14 +306,14 @@ func @warp_scf_for(%arg0: index) {
   %c128 = arith.constant 128 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
-  %0 = vector_ext.warp_execute_on_lane_0(%arg0) -> (vector<4xf32>) {
+  %0 = vector_ext.warp_execute_on_lane_0(%arg0)[32] -> (vector<4xf32>) {
     %ini = "some_def"() : () -> (vector<128xf32>)
     %3 = scf.for %arg3 = %c0 to %c128 step %c1 iter_args(%arg4 = %ini) -> (vector<128xf32>) {
       %acc = "some_def"(%arg4) : (vector<128xf32>) -> (vector<128xf32>)
       scf.yield %acc : vector<128xf32>
     }
     vector_ext.yield %3 : vector<128xf32>
-  } {warp_size = 32}
+  }
   "some_use"(%0) : (vector<4xf32>) -> ()
   return
 }
@@ -321,18 +321,18 @@ func @warp_scf_for(%arg0: index) {
 // -----
 
 // CHECK-LABEL:   func @warp_scf_for_swap(
-// CHECK: %[[INI:.*]]:2 = vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<4xf32>, vector<4xf32>) {
+// CHECK: %[[INI:.*]]:2 = vector_ext.warp_execute_on_lane_0(%{{.*}})[32] -> (vector<4xf32>, vector<4xf32>) {
 // CHECK:   %[[INI1:.*]] = "some_def"() : () -> vector<128xf32>
 // CHECK:   %[[INI2:.*]] = "some_def"() : () -> vector<128xf32>
 // CHECK:   vector_ext.yield %[[INI1]], %[[INI2]] : vector<128xf32>, vector<128xf32>
-// CHECK: } {warp_size = 32 : i64}
+// CHECK: }
 // CHECK: %[[F:.*]]:2 = scf.for %{{.*}} = %{{.*}} to %{{.*}} step %{{.*}} iter_args(%[[FARG1:.*]] = %[[INI]]#0, %[[FARG2:.*]] = %[[INI]]#1) -> (vector<4xf32>, vector<4xf32>) {
-// CHECK:   %[[W:.*]]:2 = vector_ext.warp_execute_on_lane_0(%{{.*}}) args(%[[FARG1]], %[[FARG2]] : vector<4xf32>, vector<4xf32>) -> (vector<4xf32>, vector<4xf32>) {
+// CHECK:   %[[W:.*]]:2 = vector_ext.warp_execute_on_lane_0(%{{.*}})[32] args(%[[FARG1]], %[[FARG2]] : vector<4xf32>, vector<4xf32>) -> (vector<4xf32>, vector<4xf32>) {
 // CHECK:    ^bb0(%[[ARG1:.*]]: vector<128xf32>, %[[ARG2:.*]]: vector<128xf32>):
 // CHECK:      %[[ACC1:.*]] = "some_def"(%[[ARG1]]) : (vector<128xf32>) -> vector<128xf32>
 // CHECK:      %[[ACC2:.*]] = "some_def"(%[[ARG2]]) : (vector<128xf32>) -> vector<128xf32>
 // CHECK:      vector_ext.yield %[[ACC2]], %[[ACC1]] : vector<128xf32>, vector<128xf32>
-// CHECK:   } {warp_size = 32 : i64}
+// CHECK:   }
 // CHECK:   scf.yield %[[W]]#0, %[[W]]#1 : vector<4xf32>, vector<4xf32>
 // CHECK: }
 // CHECK: "some_use"(%[[F]]#0) : (vector<4xf32>) -> ()
@@ -341,7 +341,7 @@ func @warp_scf_for_swap(%arg0: index) {
   %c128 = arith.constant 128 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
-  %0:2 = vector_ext.warp_execute_on_lane_0(%arg0) -> (vector<4xf32>, vector<4xf32>) {
+  %0:2 = vector_ext.warp_execute_on_lane_0(%arg0)[32] -> (vector<4xf32>, vector<4xf32>) {
     %ini1 = "some_def"() : () -> (vector<128xf32>)
     %ini2 = "some_def"() : () -> (vector<128xf32>)
     %3:2 = scf.for %arg3 = %c0 to %c128 step %c1 iter_args(%arg4 = %ini1, %arg5 = %ini2) -> (vector<128xf32>, vector<128xf32>) {
@@ -350,7 +350,7 @@ func @warp_scf_for_swap(%arg0: index) {
       scf.yield %acc2, %acc1 : vector<128xf32>, vector<128xf32>
     }
     vector_ext.yield %3#0, %3#1 : vector<128xf32>, vector<128xf32>
-  } {warp_size = 32}
+  }
   "some_use"(%0#0) : (vector<4xf32>) -> ()
   "some_use"(%0#1) : (vector<4xf32>) -> ()
   return
@@ -363,10 +363,10 @@ func @warp_scf_for_swap(%arg0: index) {
 #map2 = affine_map<()[s0] -> (s0 * 4 + 128)>
 
 // CHECK-LABEL:   func @warp_scf_for_multiple_yield(
-//       CHECK:   vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>) {
+//       CHECK:   vector_ext.warp_execute_on_lane_0(%{{.*}})[32] -> (vector<1xf32>) {
 //  CHECK-NEXT:     "some_def"() : () -> vector<32xf32>
 //  CHECK-NEXT:     vector_ext.yield %{{.*}} : vector<32xf32>
-//  CHECK-NEXT:   } {warp_size = 32 : i64}
+//  CHECK-NEXT:   }
 //   CHECK-NOT:   vector_ext.warp_execute_on_lane_0
 //       CHECK:   vector.transfer_read {{.*}} : memref<?xf32>, vector<4xf32>
 //       CHECK:   vector.transfer_read {{.*}} : memref<?xf32>, vector<4xf32>
@@ -384,7 +384,7 @@ func @warp_scf_for_multiple_yield(%arg0: index, %arg1: memref<?xf32>, %arg2: mem
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %cst = arith.constant 0.000000e+00 : f32
-  %0:3 = vector_ext.warp_execute_on_lane_0(%arg0) ->
+  %0:3 = vector_ext.warp_execute_on_lane_0(%arg0)[32] ->
   (vector<1xf32>, vector<4xf32>, vector<4xf32>) {
     %def = "some_def"() : () -> (vector<32xf32>)
     %r1 = vector.transfer_read %arg2[%c0], %cst {in_bounds = [true]} : memref<?xf32>, vector<128xf32>
@@ -400,7 +400,7 @@ func @warp_scf_for_multiple_yield(%arg0: index, %arg1: memref<?xf32>, %arg2: mem
       scf.yield %6, %7 : vector<128xf32>, vector<128xf32>
     }
     vector_ext.yield %def, %3#0, %3#1 :  vector<32xf32>, vector<128xf32>, vector<128xf32>
-  } {warp_size = 32}
+  }
   %1 = affine.apply #map()[%arg0]
   vector.transfer_write %0#1, %arg2[%1] {in_bounds = [true]} : vector<4xf32>, memref<?xf32>
   %2 = affine.apply #map2()[%arg0]
@@ -412,12 +412,12 @@ func @warp_scf_for_multiple_yield(%arg0: index, %arg1: memref<?xf32>, %arg2: mem
 // -----
 
 // CHECK-LABEL: func @large_vector_reduction(
-//       CHECK:   vector_ext.warp_execute_on_lane_0(%{{.*}}) -> (vector<1xf32>, vector<1xf32>) {
+//       CHECK:   vector_ext.warp_execute_on_lane_0(%{{.*}})[32] -> (vector<1xf32>, vector<1xf32>) {
 //       CHECK:     %[[some_def:.*]] = "some_def"()
 //       CHECK:     %[[slice1:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [0], sizes = [32]
 //       CHECK:     %[[slice2:.*]] = vector.extract_strided_slice %[[some_def]] {offsets = [32], sizes = [32]
 //       CHECK:     vector_ext.yield %[[slice1]], %[[slice2]]
-//       CHECK:   } {warp_size = 32 : i64}
+//       CHECK:   }
 //       CHECK:   gpu.shuffle  down
 //  CHECK-NEXT:   arith.addf
 //  CHECK-NEXT:   gpu.shuffle  down
@@ -443,11 +443,11 @@ func @warp_scf_for_multiple_yield(%arg0: index, %arg1: memref<?xf32>, %arg2: mem
 //       CHECK:   %[[result:.*]] = arith.addf %[[r1]], %[[r0]] : f32
 //       CHECK:   vector.print %[[result]]
 func @large_vector_reduction(%laneid: index) {
-  %r = vector_ext.warp_execute_on_lane_0(%laneid) -> (f32) {
+  %r = vector_ext.warp_execute_on_lane_0(%laneid)[32] -> (f32) {
     %0 = "some_def"() : () -> (vector<64xf32>)
     %1 = vector.reduction <add>, %0 : vector<64xf32> into f32
     vector_ext.yield %1 : f32
-  } {warp_size = 32}
+  }
   vector.print %r : f32
   return
 }
