@@ -47,11 +47,15 @@ def Iterators_OpenOp : Iterators_Op<"open", [SameOperandsAndResultType]> {
   let results = (outs AnyIteratorState:$resultState);
 }
 
-def Iterators_NextOp : Iterators_Op<"next", [AllTypesMatch<["inputState", "resultState"]>]> {
+def Iterators_NextOp : Iterators_Op<"next",
+    [AllTypesMatch<["inputState", "resultState"]>,
+     TypesMatchWith<"returned element matches element type of state",
+                    "resultState", "nextElement",
+                    "$_self.cast<IteratorInterface>().getElementType()">
+    ]> {
   let summary = "Consumes the next element from the given operator";
   let arguments = (ins AnyIteratorState:$inputState);
   let results = (outs AnyIteratorState:$resultState, I1:$hasNext, AnyType:$nextElement);
-  let hasVerifier = true;
 }
 
 def Iterators_CloseOp : Iterators_Op<"close", [SameOperandsAndResultType]> {

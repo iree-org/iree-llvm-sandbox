@@ -46,22 +46,6 @@ void IteratorsDialect::initialize() {
 #define GET_OP_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
 
-LogicalResult NextOp::verify() {
-  // Check matching tuple type
-  IteratorInterface iteratorType =
-      inputState().getType().dyn_cast<IteratorInterface>();
-  assert(iteratorType);
-  if (iteratorType.getElementType() != nextElement().getType()) {
-    return emitOpError()
-           << "Type mismatch: Element returned by iterator of type "
-           << inputState().getType() << " should be "
-           << iteratorType.getElementType() << " but is "
-           << nextElement().getType();
-  }
-
-  return success();
-}
-
 LogicalResult CreateSampleInputStateOp::verify() {
   IteratorInterface iteratorType =
       createdState().getType().dyn_cast<IteratorInterface>();

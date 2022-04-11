@@ -58,7 +58,7 @@ func @testNextStateTypeMismatch() {
 func @testNextElementTypeMismatch() {
   %initialState = "iterators.createSampleInputState"() : () -> !sampleInputState
   %openedState = "iterators.open"(%initialState) : (!sampleInputState) -> !sampleInputState
-  // expected-error@+1 {{Type mismatch: Element returned by iterator of type '!iterators.sampleinputstate<i32>' should be 'i32' but is 'i64'}}
+  // expected-error@+1 {{'iterators.next' op failed to verify that returned element matches element type of state}}
   %consumedState, %hasNext, %nextElement = "iterators.next"(%openedState) : (!sampleInputState) -> (!sampleInputState, i1, i64)
   return
 }
