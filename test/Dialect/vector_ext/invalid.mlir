@@ -20,7 +20,7 @@ func @wrong_num_inputs(%laneid: index) {
 // -----
 
 func @warp_wrong_return_distribution(%laneid: index) {
-  // expected-error@+1 {{'vector_ext.warp_execute_on_lane_0' op incompatbile distribution dimensions from 'vector<128xi32>' to 'vector<4xi32>'}}
+  // expected-error@+1 {{'vector_ext.warp_execute_on_lane_0' op incompatible distribution dimensions from 'vector<128xi32>' to 'vector<4xi32>'}}
   %2 = vector_ext.warp_execute_on_lane_0(%laneid)[64] -> (vector<4xi32>) {
     %0 = arith.constant dense<2>: vector<128xi32>
     vector_ext.yield %0 : vector<128xi32>
@@ -32,7 +32,7 @@ func @warp_wrong_return_distribution(%laneid: index) {
 // -----
 
 func @warp_wrong_arg_distribution(%laneid: index, %v0 : vector<4xi32>) {
-  // expected-error@+1 {{'vector_ext.warp_execute_on_lane_0' op incompatbile distribution dimensions from 'vector<128xi32>' to 'vector<4xi32>'}}
+  // expected-error@+1 {{'vector_ext.warp_execute_on_lane_0' op incompatible distribution dimensions from 'vector<128xi32>' to 'vector<4xi32>'}}
   vector_ext.warp_execute_on_lane_0(%laneid)[64]
   args(%v0 : vector<4xi32>) {
    ^bb0(%arg0 : vector<128xi32>) :

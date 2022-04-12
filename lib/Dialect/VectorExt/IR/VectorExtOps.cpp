@@ -281,7 +281,7 @@ static LogicalResult verifyDistributedType(Type expanded, Type distributed,
       foundDistributedDim = true;
       continue;
     }
-    return op->emitOpError() << "incompatbile distribution dimensions from "
+    return op->emitOpError() << "incompatible distribution dimensions from "
                              << expandedVecType << " to " << distributedVecType;
   }
   return success();
