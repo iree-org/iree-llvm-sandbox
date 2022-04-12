@@ -142,8 +142,15 @@ void PredicateOp::getSuccessorRegions(
 // TODO: Implement me.
 bool WarpSingleLaneOp::areTypesCompatible(Type lhs, Type rhs) { return true; }
 
+constexpr StringRef getWarpSizeAttrName() { return "warp_size"; }
+
 void mlir::vector_ext::WarpSingleLaneOp::print(OpAsmPrinter &p) {
   p << "(" << laneid() << ")";
+
+  SmallVector<StringRef> coreAttr = {getWarpSizeAttrName()};
+  auto warpSizeAttr = getOperation()->getAttr(getWarpSizeAttrName());
+  p << "[" << warpSizeAttr.cast<IntegerAttr>().getInt() << "]";
+
   if (!args().empty())
     p << " args(" << args() << " : " << args().getTypes() << ")";
   if (!results().empty())
@@ -152,7 +159,7 @@ void mlir::vector_ext::WarpSingleLaneOp::print(OpAsmPrinter &p) {
   p.printRegion(getRegion(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/!results().empty());
-  p.printOptionalAttrDict(getOperation()->getAttrs());
+  p.printOptionalAttrDict(getOperation()->getAttrs(), coreAttr);
 }
 
 ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
@@ -168,6 +175,13 @@ ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
   if (parser.parseLParen() || parser.parseRegionArgument(laneId) ||
       parser.parseRParen())
     return failure();
+
+  int64_t warpSize;
+  if (parser.parseLSquare() || parser.parseInteger(warpSize) ||
+      parser.parseRSquare())
+    return failure();
+  result.addAttribute(getWarpSizeAttrName(),
+                      builder.getI64IntegerAttr(warpSize));
 
   if (parser.resolveOperand(laneId, builder.getIndexType(), result.operands))
     return failure();

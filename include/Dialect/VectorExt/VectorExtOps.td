@@ -97,7 +97,7 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
 
     Example:
     ```
-    vector_ext.warp_execute_on_lane_0 (%laneid) {
+    vector_ext.warp_execute_on_lane_0 (%laneid)[32] {
       ...
     }
     ```
@@ -112,7 +112,7 @@ def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
 
     When the region has operands and/or return values:
     ```
-    %0 = vector_ext.warp_execute_on_lane_0(%laneid)
+    %0 = vector_ext.warp_execute_on_lane_0(%laneid)[32]
     args(%v0 : vector<4xi32>) -> (vector<1xf32>) {
     ^bb0(%arg0 : vector<128xi32>) :
       ...
