@@ -10,8 +10,10 @@
 
 #include "../PassDetail.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Utils/StructuredOpsUtils.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/TypeRange.h"
@@ -20,6 +22,7 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Casting.h"
 
@@ -27,6 +30,7 @@
 
 using namespace mlir;
 using namespace mlir::iterators;
+using namespace mlir::LLVM;
 
 namespace {
 struct ConvertIteratorsToStandardPass
@@ -136,6 +140,45 @@ private:
   StringRef destructorName;
 };
 
+struct ConstantTupleLowering : public ConversionPattern {
+  ConstantTupleLowering(MLIRContext *context, PatternBenefit benefit = 1)
+      : ConversionPattern("iterators.constant", benefit, context) {}
+
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Create LLVM struct type.
+    assert(op->getNumResults() == 1);
+    TupleType resultType = op->getResult(0).getType().dyn_cast<TupleType>();
+    assert(resultType);
+    LLVMStructType structType = LLVMStructType::getNewIdentified(
+        getContext(), "tuple", resultType.getTypes());
+
+    // Undef.
+    Value structValue = rewriter.create<UndefOp>(op->getLoc(), structType);
+
+    // Insert values.
+    ArrayAttr values = op->getAttr("values").dyn_cast<ArrayAttr>();
+    assert(values);
+    for (int i = 0; i < static_cast<int>(values.size()); i++) {
+      // Create index attribute.
+      ArrayAttr indicesAttr = rewriter.getIndexArrayAttr({i});
+
+      // Create constant value op.
+      Value valueOp = rewriter.create<LLVM::ConstantOp>(
+          op->getLoc(), values[i].getType(), values[i]);
+
+      // Insert into struct.
+      structValue = rewriter.create<InsertValueOp>(op->getLoc(), structValue,
+                                                   valueOp, indicesAttr);
+    }
+
+    rewriter.replaceOp(op, structValue);
+
+    return success();
+  }
+};
+
 void mlir::iterators::populateIteratorsToStandardConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<IteratorConversionPattern>(
@@ -148,12 +191,14 @@ void mlir::iterators::populateIteratorsToStandardConversionPatterns(
   patterns.add<IteratorConversionPattern>(typeConverter, patterns.getContext(),
                                           "iterators.sink",
                                           "iteratorsComsumeAndPrint", "_dummy");
+  patterns.add<ConstantTupleLowering>(patterns.getContext());
 }
 
 void ConvertIteratorsToStandardPass::runOnOperation() {
   auto module = getOperation();
   ConversionTarget target(getContext());
-  target.addLegalDialect<func::FuncDialect, memref::MemRefDialect>();
+  target
+      .addLegalDialect<func::FuncDialect, memref::MemRefDialect, LLVMDialect>();
   target.addLegalOp<ModuleOp, FuncOp, func::ReturnOp>();
   RewritePatternSet patterns(&getContext());
   IteratorsTypeConverter typeConverter;
