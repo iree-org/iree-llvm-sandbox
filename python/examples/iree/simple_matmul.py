@@ -4,7 +4,7 @@
 #
 # We reproduce it here:
 # ```
-#    export PYTHONPATH=${PYTHONPATH}:${IREE_BUILD_DIR}/compiler-api/python_package:${IREE_BUILD_DIR}/bindings/python;
+#    PYTHONPATH=${PYTHONPATH}:${IREE_BUILD_DIR}/compiler-api/python_package:${IREE_BUILD_DIR}/bindings/python \
 #    python simple_matmul.py
 # ```
 
@@ -115,33 +115,35 @@ func @dot(%lhs: tensor<128x128xf32>, %rhs: tensor<128x128xf32>) -> tensor<128x12
 }
 """
 
-binary = iree.compiler.tools.compile_str(
-    DOT_ASM,
-    input_type="mhlo",
-    target_backends=["dylib"],
-    extra_args=[
-        '--iree-codegen-use-linalg-transform-interp',
-        '--linalg-transform-file-name=' + TRANSFORM_SPEC_FILE_NAME,
-        # '-print-ir-after-all',
-        # '-print-ir-after-change',
-    ])
-print(f'Flatbuffer size = {len(binary)}')
+# TODO: this is currently broken until IREE + transform dialect emit parallel code again.
+if False:
+  binary = iree.compiler.tools.compile_str(
+      DOT_ASM,
+      input_type="mhlo",
+      target_backends=["dylib"],
+      extra_args=[
+          '--iree-codegen-use-linalg-transform-interp',
+          '--linalg-transform-file-name=' + TRANSFORM_SPEC_FILE_NAME,
+          # '-print-ir-after-all',
+          # '-print-ir-after-change',
+      ])
+  print(f'Flatbuffer size = {len(binary)}')
 
-with open('/tmp/binary.vfmb', "wb") as f:
-  f.write(binary)
+  with open('/tmp/binary.vfmb', "wb") as f:
+    f.write(binary)
 
-# Register the module with a runtime context.
-# Use the CPU interpreter (which has the most implementation done):
-config = ireert.Config("dylib")
-ctx = ireert.SystemContext(config=config)
-vm_module = ireert.VmModule.from_flatbuffer(binary)
-ctx.add_vm_module(vm_module)
+  # Register the module with a runtime context.
+  # Use the CPU interpreter (which has the most implementation done):
+  config = ireert.Config("dylib")
+  ctx = ireert.SystemContext(config=config)
+  vm_module = ireert.VmModule.from_flatbuffer(binary)
+  ctx.add_vm_module(vm_module)
 
-# Invoke the function and print the result.
-lhs = np.full((128, 128), 1, dtype=np.float32)
-rhs = np.full((128, 128), 2, dtype=np.float32)
-dot = ctx.modules.module.dot
-res = dot(lhs, rhs)
+  # Invoke the function and print the result.
+  lhs = np.full((128, 128), 1, dtype=np.float32)
+  rhs = np.full((128, 128), 2, dtype=np.float32)
+  dot = ctx.modules.module.dot
+  res = dot(lhs, rhs)
 
-np.testing.assert_allclose(res, np.dot(lhs, rhs))
-print('SUCCESS')
+  np.testing.assert_allclose(res, np.dot(lhs, rhs))
+  print('SUCCESS')
