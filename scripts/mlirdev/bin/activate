@@ -1,15 +1,18 @@
 
-ROOT_DIR=${ROOT_DIR:=${HOME}}
-export LLVM_SOURCE_DIR=${ROOT_DIR}/github/llvm-project
-export LLVM_BUILD_DIR=${ROOT_DIR}/github/llvm-project/build
-export IREE_DIALECTS_BUILD_DIR=${ROOT_DIR}/github/llvm-project/build-iree-dialects
+
+ROOT_DIR=${ROOT_DIR:=${HOME}/github}
+
+export LLVM_SOURCE_DIR=${ROOT_DIR}/llvm-project
+export IREE_SOURCE_DIR=${ROOT_DIR}/iree
+export IREE_DIALECTS_SOURCE=${ROOT_DIR}/iree/llvm-external-projects/iree-dialects
+export IREE_LLVM_SANDBOX_SOURCE_DIR=${ROOT_DIR}/iree-llvm-sandbox
+
+export LLVM_BUILD_DIR=${ROOT_DIR}/llvm-project/build
+export IREE_DIALECTS_BUILD_DIR=${ROOT_DIR}/llvm-project/build-iree-dialects
+export IREE_LLVM_SANDBOX_BUILD_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR}/build
 #export CC=/usr/local/bin/clang-14
 #export CXX=/usr/local/bin/clang-14
 
-export IREE_SOURCE_DIR=${ROOT_DIR}/github/iree
-export IREE_DIALECTS_SOURCE=${ROOT_DIR}/github/iree/llvm-external-projects/iree-dialects
-export IREE_LLVM_SANDBOX_SOURCE_DIR=${ROOT_DIR}/github/iree-llvm-sandbox
-export IREE_LLVM_SANDBOX_BUILD_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR}/build
 export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so
 export MLIR_C_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_c_runner_utils.so
 export MLIR_RUNNER_EXTRA_LIBS=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_async_runtime_copy.so

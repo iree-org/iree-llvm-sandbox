@@ -4,13 +4,13 @@
 
 # MLIR dependencies.
 numpy
-pybind11
+pybind11>=2.8.0
 PyYAML
+dataclasses
 
-# IREE Python API.
-# TODO: Enable once available again.
-# iree-compiler-snapshot
-# iree-runtime-snapshot
+# IREE Python API (build from source).
+
+# Other.
 torch
 torchvision
 torchaudio

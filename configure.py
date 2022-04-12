@@ -27,7 +27,7 @@ def parse_arguments():
   parser.add_argument("--build-mode",
                       help="Build mode (Release, Debug or RelWithDebInfo)",
                       type=str,
-                      default="Release")
+                      default="RelWithDebInfo")
   # Boolean flags: all deactivated by default
   # Activate with e.g. --lld.
   # Also supports e.g. --no-lld.
