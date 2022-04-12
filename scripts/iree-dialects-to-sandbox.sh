@@ -57,3 +57,8 @@ git diff --name-only | egrep "*.(\.cpp|\.h)" | xargs -i clang-format --style=fil
 
 # Fix tests.
 git grep -l iree-dialects-opt | grep -v scripts | xargs sed -i "s:iree-dialects-opt:mlir-proto-opt:g"
+
+# Post-hoc removal of known not-sandbox files.
+rm test/Dialect/iree_linalg_ext/pad_contraction_to_block_size.mlir
+rm test/Dialect/iree_linalg_ext/convert_to_loops.mlir
+rm test/Dialect/linalg_transform/scoped.mlir
