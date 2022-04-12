@@ -136,15 +136,17 @@ void PredicateOp::getSuccessorRegions(
 }
 
 //===----------------------------------------------------------------------===//
-// WarpSingleLaneOp
+// WarpExecuteOnLane0Op
 //===----------------------------------------------------------------------===//
 
 // TODO: Implement me.
-bool WarpSingleLaneOp::areTypesCompatible(Type lhs, Type rhs) { return true; }
+bool WarpExecuteOnLane0Op::areTypesCompatible(Type lhs, Type rhs) {
+  return true;
+}
 
 constexpr StringRef getWarpSizeAttrName() { return "warp_size"; }
 
-void mlir::vector_ext::WarpSingleLaneOp::print(OpAsmPrinter &p) {
+void mlir::vector_ext::WarpExecuteOnLane0Op::print(OpAsmPrinter &p) {
   p << "(" << laneid() << ")";
 
   SmallVector<StringRef> coreAttr = {getWarpSizeAttrName()};
@@ -162,8 +164,9 @@ void mlir::vector_ext::WarpSingleLaneOp::print(OpAsmPrinter &p) {
   p.printOptionalAttrDict(getOperation()->getAttrs(), coreAttr);
 }
 
-ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
-                                                      OperationState &result) {
+ParseResult
+mlir::vector_ext::WarpExecuteOnLane0Op::parse(OpAsmParser &parser,
+                                              OperationState &result) {
   // Create the region.
   result.regions.reserve(1);
   Region *warpRegion = result.addRegion();
@@ -209,7 +212,7 @@ ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
   if (parser.parseRegion(*warpRegion, /*arguments=*/{},
                          /*argTypes=*/{}))
     return failure();
-  WarpSingleLaneOp::ensureTerminator(*warpRegion, builder, result.location);
+  WarpExecuteOnLane0Op::ensureTerminator(*warpRegion, builder, result.location);
 
   // Parse the optional attribute list.
   if (parser.parseOptionalAttrDict(result.attributes))
@@ -217,7 +220,7 @@ ParseResult mlir::vector_ext::WarpSingleLaneOp::parse(OpAsmParser &parser,
   return success();
 }
 
-void WarpSingleLaneOp::getSuccessorRegions(
+void WarpExecuteOnLane0Op::getSuccessorRegions(
     Optional<unsigned> index, ArrayRef<Attribute> operands,
     SmallVectorImpl<RegionSuccessor> &regions) {
   if (index.hasValue()) {
@@ -229,17 +232,17 @@ void WarpSingleLaneOp::getSuccessorRegions(
   regions.push_back(RegionSuccessor(&warpRegion()));
 }
 
-void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
-                             TypeRange resultTypes, Value laneId,
-                             int64_t warpSize) {
+void WarpExecuteOnLane0Op::build(OpBuilder &builder, OperationState &result,
+                                 TypeRange resultTypes, Value laneId,
+                                 int64_t warpSize) {
   build(builder, result, resultTypes, laneId, warpSize,
         /*operands=*/llvm::None, /*argTypes=*/llvm::None);
 }
 
-void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
-                             TypeRange resultTypes, Value laneId,
-                             int64_t warpSize, ValueRange args,
-                             TypeRange blockArgTypes) {
+void WarpExecuteOnLane0Op::build(OpBuilder &builder, OperationState &result,
+                                 TypeRange resultTypes, Value laneId,
+                                 int64_t warpSize, ValueRange args,
+                                 TypeRange blockArgTypes) {
   result.addOperands(laneId);
   result.addAttribute(getAttributeNames()[0],
                       builder.getI64IntegerAttr(warpSize));
@@ -287,7 +290,7 @@ static LogicalResult verifyDistributedType(Type expanded, Type distributed,
   return success();
 }
 
-LogicalResult WarpSingleLaneOp::verify() {
+LogicalResult WarpExecuteOnLane0Op::verify() {
   if (args().size() != warpRegion().getNumArguments())
     return emitOpError(
         "expected same number op arguments and block arguments.");
