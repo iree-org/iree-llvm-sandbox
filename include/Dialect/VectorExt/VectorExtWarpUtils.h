@@ -22,7 +22,18 @@ namespace vector_ext {
 /// Collect patterns to propagate warp distribution.
 void populatePropagateVectorDistributionPatterns(RewritePatternSet &pattern);
 
-void populateWarpSingleLaneOpToScfForPattern(RewritePatternSet &patterns);
+/// Lamdba function to let users allocate memory needed for the lowering of
+/// WarpSingleLaneOp.
+/// The function needs to return an allocation that the lowering can use as
+/// temporary memory. The allocation needs to match the shape of the type (the
+/// type may be VectorType or a scalar) and be availble for the current warp. If
+/// there are several warps running in parallel the allocation needs to be split
+/// so that each warp has its own allocation.
+using WarpAllocationFn =
+    std::function<Value(Location, OpBuilder &, WarpSingleLaneOp, Type)>;
+
+void populateWarpSingleLaneOpToScfForPattern(RewritePatternSet &patterns,
+                                             WarpAllocationFn allocationFn);
 
 using DistributionMapFn = std::function<AffineMap(vector::TransferWriteOp)>;
 
