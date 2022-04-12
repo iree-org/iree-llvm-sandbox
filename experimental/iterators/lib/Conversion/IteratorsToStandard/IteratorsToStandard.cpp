@@ -20,8 +20,10 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Casting.h"
@@ -73,6 +75,55 @@ FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
   FuncOp funcOp = rewriter.create<FuncOp>(op->getLoc(), fnName, fnType);
   funcOp.setPrivate();
   return funcOp;
+}
+
+/// Return a symbol reference to the printf function, inserting it into the
+/// module if necessary.
+static FlatSymbolRefAttr lookupOrInsertPrintf(PatternRewriter &rewriter,
+                                              ModuleOp module) {
+  if (module.lookupSymbol<LLVMFuncOp>("printf"))
+    return SymbolRefAttr::get(rewriter.getContext(), "printf");
+
+  // Create a function declaration for printf, the signature is:
+  //   * `i32 (i8*, ...)`
+  LLVMPointerType charPointerType = LLVMPointerType::get(rewriter.getI8Type());
+  LLVMFunctionType printfFunctionType =
+      LLVMFunctionType::get(rewriter.getI32Type(), charPointerType,
+                            /*isVarArg=*/true);
+
+  // Insert the printf function into the body of the parent module.
+  PatternRewriter::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  rewriter.create<LLVMFuncOp>(module.getLoc(), "printf", printfFunctionType);
+  return SymbolRefAttr::get(rewriter.getContext(), "printf");
+}
+
+/// Return a value representing an access into a global string with the given
+/// name, creating the string if necessary.
+static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
+                                     Twine value, ModuleOp module) {
+  Location loc = module->getLoc();
+
+  // Create the global at the entry of the module.
+  GlobalOp global;
+  StringAttr nameAttr = builder.getStringAttr(name);
+  if (!(global = module.lookupSymbol<GlobalOp>(nameAttr))) {
+    StringAttr valueAttr = builder.getStringAttr(value);
+    LLVMArrayType globalType =
+        LLVMArrayType::get(builder.getI8Type(), valueAttr.size());
+    OpBuilder::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToStart(module.getBody());
+    global = builder.create<GlobalOp>(loc, globalType, /*isConstant=*/true,
+                                      Linkage::Internal, nameAttr, valueAttr,
+                                      /*alignment=*/0);
+  }
+
+  // Get the pointer to the first character in the global string.
+  Value globalPtr = builder.create<AddressOfOp>(loc, global);
+  Value zero = builder.create<ConstantOp>(loc, builder.getI64Type(),
+                                          builder.getI64IntegerAttr(0));
+  return builder.create<GEPOp>(loc, LLVMPointerType::get(builder.getI8Type()),
+                               globalPtr, ArrayRef<Value>({zero, zero}));
 }
 
 /// Replaces an instance of a certain IteratorOp with a call to the given
@@ -179,6 +230,65 @@ struct ConstantTupleLowering : public ConversionPattern {
   }
 };
 
+struct PrintOpLowering : public ConversionPattern {
+  PrintOpLowering(MLIRContext *context, PatternBenefit benefit = 1)
+      : ConversionPattern("iterators.print", benefit, context) {}
+
+  LogicalResult
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override {
+    assert(op->getNumOperands() == 1);
+    TupleType tupleType = op->getOperand(0).getType().dyn_cast<TupleType>();
+    assert(tupleType);
+
+    assert(operands.size() == 1);
+    LLVMStructType structType =
+        operands[0].getType().dyn_cast<LLVMStructType>();
+    assert(structType);
+
+    // Assemble format string in the form `(%i, %i, ...)`.
+    SmallString<8> format("(");
+    for (auto const &type : tupleType.getTypes()) {
+      // TODO(ingomueller): add type switch for other number types.
+      assert(type == rewriter.getI32Type() && "Only I32 is supported for now");
+      format += "%i, ";
+    }
+    // Remove last ", " unless the format is empty
+    if (format.size() > 1) {
+      format.erase(format.end() - 2, format.end());
+    }
+    format += ")\n";
+    format.push_back('\0');
+
+    // Insert format string as global.
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    Value formatSpec = getOrCreateGlobalString(
+        rewriter, Twine("frmt_spec.") + structType.getName(), format, module);
+
+    // Assemble arguments to printf.
+    SmallVector<Value, 8> values = {formatSpec};
+    ArrayRef<Type> fieldTypes = structType.getBody();
+    for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
+      // Create index attribute.
+      ArrayAttr indicesAttr = rewriter.getIndexArrayAttr({i});
+
+      // Extract from struct.
+      Value value = rewriter.create<ExtractValueOp>(op->getLoc(), fieldTypes[i],
+                                                    operands[0], indicesAttr);
+
+      values.push_back(value);
+    }
+
+    // Generate call to printf.
+    FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
+    rewriter.create<LLVM::CallOp>(op->getLoc(), rewriter.getI32Type(),
+                                  printfRef, values);
+    rewriter.eraseOp(op);
+
+    return success();
+  }
+};
+
 void mlir::iterators::populateIteratorsToStandardConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<IteratorConversionPattern>(
@@ -191,7 +301,7 @@ void mlir::iterators::populateIteratorsToStandardConversionPatterns(
   patterns.add<IteratorConversionPattern>(typeConverter, patterns.getContext(),
                                           "iterators.sink",
                                           "iteratorsComsumeAndPrint", "_dummy");
-  patterns.add<ConstantTupleLowering>(patterns.getContext());
+  patterns.add<ConstantTupleLowering, PrintOpLowering>(patterns.getContext());
 }
 
 void ConvertIteratorsToStandardPass::runOnOperation() {
