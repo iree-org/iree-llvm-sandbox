@@ -3,18 +3,15 @@
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
 # Disable PyType, it does not seem to like the specialization pattern used in
 # MLIR.
 # pytype: skip-file
-
 try:
   from .. import ir
   from ..dialects import pdl
   from typing import Optional, Sequence, Union
 except ImportError as e:
   raise RuntimeError("Error loading imports from extension module") from e
-
 BoolArg = Optional[Union[bool, ir.BoolAttr]]
 IntArg = Optional[Union[int, ir.IntegerAttr]]
 IntListArg = Optional[Union[Sequence[int], ir.ArrayAttr]]
@@ -22,58 +19,48 @@ IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]],
                                 ir.ArrayAttr]]
 StringArg = Optional[Union[str, ir.StringAttr]]
 StringListArg = Optional[Union[Sequence[str], ir.ArrayAttr]]
-
-
 def _defaulted_ensure(f):
-
   def inner(value, default=None):
     assert value is not None or default is not None
     return f(default if value is None else value)
-
   return inner
-
-
 @_defaulted_ensure
 def _ensure_int_array_attr(value: IntListArg):
   i64 = ir.IntegerType.get_signless(64)
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([ir.IntegerAttr.get(i64, i) for i in value])
   return value
-
-
 @_defaulted_ensure
 def _ensure_string_array_attr(value: StringListArg):
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([ir.StringAttr.get(str(i)) for i in value])
   return value
-
-
 @_defaulted_ensure
 def _ensure_array_of_array_attr(value: IntListListArg):
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([_ensure_int_array_attr(inner) for inner in value])
   return value
-
-
 @_defaulted_ensure
 def _ensure_int_attr(value: IntArg):
   if isinstance(value, int):
     return ir.IntegerAttr.get(ir.IntegerType.get_signless(64), value)
   return value
-
-
 @_defaulted_ensure
 def _ensure_bool_attr(value: BoolArg):
   if isinstance(value, bool):
     return ir.BoolAttr.get(value)
   return value
-
-
 @_defaulted_ensure
 def _ensure_string_attr(value: StringArg):
   if isinstance(value, str):
     return ir.StringAttr.get(value)
   return value
+
+
+def _count_expected_loops(tile_sizes: ir.ArrayAttr) -> int:
+  # Number of loops = number of tile sizes != 0
+  zero = _ensure_int_attr(0)
+  return len(list(tile_sizes)) - list(tile_sizes).count(zero)
 
 
 class MatchOp:
@@ -82,14 +69,10 @@ class MatchOp:
   def __init__(self, target: Union[str, ir.FlatSymbolRefAttr]):
     if isinstance(target, str):
       target = ir.FlatSymbolRefAttr.get(target)
-
     operation_type = pdl.OperationType.get()
     super().__init__(operation_type, target)
-
-
 class LowerVectorsOp:
   """Specialization for the LowerVectorsOp class."""
-
   def __init__(self,
                *,
                stages: IntListArg = None,
@@ -110,7 +93,6 @@ class LowerVectorsOp:
     unroll_vector_transfers = _ensure_bool_attr(unroll_vector_transfers, True)
     transpose_lowering = _ensure_string_attr(transpose_lowering, "eltwise")
     transpose_avx2_lowering = _ensure_bool_attr(transpose_avx2_lowering, False)
-
     super().__init__(stages,
                      contraction_lowering,
                      multireduction_lowering,
@@ -120,11 +102,8 @@ class LowerVectorsOp:
                      transpose_avx2_lowering,
                      loc=loc,
                      ip=ip)
-
-
 class LowerToLLVMOp:
   """Specialization for the LowerToLLVMOp class."""
-
   def __init__(self,
                *,
                reassociate_fp_reductions: BoolArg = None,
@@ -145,11 +124,8 @@ class LowerToLLVMOp:
                      _ensure_bool_attr(enable_async, False),
                      loc=loc,
                      ip=ip)
-
-
 class FuseOp:
   """Specialization for the FuseOp class."""
-
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
@@ -161,17 +137,15 @@ class FuseOp:
     tile_interchange = _ensure_int_array_attr(tile_interchange, [])
     operation_type = pdl.OperationType.get()
 
-    super().__init__(operation_type,
+    num_loops = _count_expected_loops(tile_sizes)
+    super().__init__(operation_type, [operation_type] * num_loops,
                      target,
                      tile_sizes,
                      tile_interchange,
                      loc=loc,
                      ip=ip)
-
-
 class TileOp:
   """Specialization for the TileOp class."""
-
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
@@ -183,26 +157,21 @@ class TileOp:
     interchange = _ensure_int_array_attr(interchange, [])
     operation_type = pdl.OperationType.get()
     tile_size_zero = _ensure_int_attr(0)
-    # Number of loops = number of tile sizes != 0
-    num_loops = sum(1 for _ in filter(lambda i: i != tile_size_zero, sizes))
+    num_loops = _count_expected_loops(sizes)
     super().__init__(operation_type, [operation_type] * num_loops,
                      target,
                      sizes,
                      interchange,
                      loc=loc,
                      ip=ip)
-
-
 class ScalarizeOp:
   """Specialization for the ScalarizeOp class."""
-
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
                loc=None,
                ip=None):
     operation_type = pdl.OperationType.get()
-
     super().__init__(operation_type, target, loc=loc, ip=ip)
 
 
