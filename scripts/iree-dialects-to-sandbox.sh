@@ -53,7 +53,7 @@ git grep -l "add_subdirectory(Passes)" | grep LinalgExt | xargs sed -i "s:add_su
 git grep -l "from .._mlir_libs._ireeDialects" | grep -v scripts | xargs sed -i "s:from .._mlir:\# from .._mlir:g"
 
 # Run a formatting pass.
-git diff --name-only | egrep "*.(\.cpp|\.h)" | xargs -i clang-format --style=file -i {}
+git diff --name-only | egrep "*.(\.cpp|\.h)" | xargs -i clang-format --style=file -i {} || true
 
 # Fix tests.
 git grep -l iree-dialects-opt | grep -v scripts | xargs sed -i "s:iree-dialects-opt:mlir-proto-opt:g"
