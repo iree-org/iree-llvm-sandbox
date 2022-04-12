@@ -253,6 +253,65 @@ void WarpSingleLaneOp::build(OpBuilder &builder, OperationState &result,
     block->addArgument(std::get<0>(it), std::get<1>(it).getLoc());
 }
 
+/// Helper check if the distributed vector type is consistent with the expanded
+/// type and distributed size.
+static LogicalResult verifyDistributedType(Type expanded, Type distributed,
+                                           int64_t warpSize, Operation *op) {
+  // If the types matches there is no distribution.
+  if (expanded == distributed)
+    return success();
+  auto expandedVecType = expanded.dyn_cast<VectorType>();
+  auto distributedVecType = distributed.dyn_cast<VectorType>();
+  if (!expandedVecType || !distributedVecType)
+    return op->emitOpError("expected vector type for distributed operands.");
+  if (expandedVecType.getRank() != distributedVecType.getRank() ||
+      expandedVecType.getElementType() != distributedVecType.getElementType())
+    return op->emitOpError(
+        "expected distributed vectors to have same rank and element type.");
+  bool foundDistributedDim = false;
+  for (int64_t i = 0, e = expandedVecType.getRank(); i < e; i++) {
+    if (expandedVecType.getDimSize(i) == distributedVecType.getDimSize(i))
+      continue;
+    if (expandedVecType.getDimSize(i) ==
+        distributedVecType.getDimSize(i) * warpSize) {
+      if (foundDistributedDim)
+        return op->emitOpError()
+               << "expected only one dimension to be distributed from "
+               << expandedVecType << " to " << distributedVecType;
+      foundDistributedDim = true;
+      continue;
+    }
+    return op->emitOpError() << "incompatible distribution dimensions from "
+                             << expandedVecType << " to " << distributedVecType;
+  }
+  return success();
+}
+
+LogicalResult WarpSingleLaneOp::verify() {
+  if (args().size() != warpRegion().getNumArguments())
+    return emitOpError(
+        "expected same number op arguments and block arguments.");
+  auto yield = cast<vector_ext::YieldOp>(
+      warpRegion().getBlocks().begin()->getTerminator());
+  if (yield.getNumOperands() != getNumResults())
+    return emitOpError(
+        "expected same number of yield operands and return values.");
+  int64_t warpSize = warp_size();
+  for (auto it : llvm::zip(warpRegion().getArguments(), args())) {
+    if (failed(verifyDistributedType(std::get<0>(it).getType(),
+                                     std::get<1>(it).getType(), warpSize,
+                                     getOperation())))
+      return failure();
+  }
+  for (auto it : llvm::zip(yield.getOperands(), getResults())) {
+    if (failed(verifyDistributedType(std::get<0>(it).getType(),
+                                     std::get<1>(it).getType(), warpSize,
+                                     getOperation())))
+      return failure();
+  }
+  return success();
+}
+
 #define GET_OP_CLASSES
 #include "Dialect/VectorExt/VectorExtOps.cpp.inc"
 
