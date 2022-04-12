@@ -23,8 +23,6 @@ using namespace mlir;
 using namespace mlir::vector;
 using namespace mlir::vector_ext;
 
-static const int64_t kSharedMemorySpace = 3;
-
 // Clones `op` into a new operations that takes `operands` and returns
 // `resultTypes`.
 static Operation *cloneOpWithOperandsAndTypes(OpBuilder &builder, Location loc,
@@ -704,7 +702,8 @@ void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
 }
 
 static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
-                                           WarpSingleLaneOp warpOp) {
+                                           WarpSingleLaneOp warpOp,
+                                           WarpAllocationFn allocationFn) {
   assert(warpOp.getBodyRegion().hasOneBlock() &&
          "expected WarpOp with single block");
   Block *warpOpBody = &warpOp.getBodyRegion().front();
@@ -722,56 +721,16 @@ static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
                                          /*withElseRegion=*/false);
   rewriter.eraseOp(ifOp.thenBlock()->getTerminator());
 
-  // Allocate a shared memory buffer for the given type.
-  auto allocBuffer = [&](Type type) {
-    // Compute type of shared memory buffer.
-    MemRefType memrefType;
-    if (auto vectorType = type.dyn_cast<VectorType>()) {
-      memrefType = MemRefType::get(
-          vectorType.getShape(), vectorType.getElementType(), {},
-          kSharedMemorySpace);
-    } else {
-      memrefType = MemRefType::get({1}, type, {}, kSharedMemorySpace);
-    }
-
-    // Get symbol table holding all shared memory globals.
-    ModuleOp moduleOp = warpOp->getParentOfType<ModuleOp>();
-    SymbolTable symbolTable(moduleOp);
-
-    // Create a pretty name.
-    SmallString<64> buf;
-    llvm::raw_svector_ostream os(buf);
-    interleave(memrefType.getShape(), os, "x");
-    os << "x" << memrefType.getElementType();
-    std::string symbolName = (Twine("__shared_") + os.str()).str();
-
-    // Create the shared memory globa.
-    OpBuilder::InsertionGuard g(rewriter);
-    rewriter.setInsertionPoint(moduleOp);
-    auto global = rewriter.create<memref::GlobalOp>(
-        loc,
-        /*sym_name=*/symbolName,
-        /*sym_visibility=*/rewriter.getStringAttr("private"),
-        /*type=*/memrefType,
-        /*initial_value=*/Attribute(),
-        /*constant=*/false,
-        /*alignment=*/IntegerAttr());
-    symbolTable.insert(global);
-    // The symbol table inserts at the end of the module, but globals are a bit
-    // nicer if they are at the beginning.
-    global->moveBefore(&moduleOp.front());
-
-    rewriter.setInsertionPoint(ifOp);
-    return rewriter.create<memref::GetGlobalOp>(loc, memrefType, symbolName);
-  };
-
   // Store vectors that are defined outside of warpOp into the scratch pad
   // buffer.
   SmallVector<Value> bbArgReplacements;
   for (const auto &it : llvm::enumerate(warpOp.args())) {
     Value val = it.value();
     Value bbArg = warpOpBody->getArgument(it.index());
-    Value buffer = allocBuffer(bbArg.getType());
+
+    rewriter.setInsertionPoint(ifOp);
+    Value buffer =
+        allocationFn(warpOp->getLoc(), rewriter, warpOp, bbArg.getType());
 
     // Store arg vector into buffer.
     rewriter.setInsertionPoint(ifOp);
@@ -799,7 +758,9 @@ static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
   for (const auto &it : llvm::enumerate(yieldOp.operands())) {
     Value val = it.value();
     Type resultType = warpOp->getResultTypes()[it.index()];
-    Value buffer = allocBuffer(val.getType());
+    rewriter.setInsertionPoint(ifOp);
+    Value buffer =
+        allocationFn(warpOp->getLoc(), rewriter, warpOp, val.getType());
 
     // Store yielded value into buffer.
     rewriter.setInsertionPoint(yieldOp);
@@ -848,18 +809,25 @@ static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
 namespace {
 
 struct WarpOpToScfForPattern : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+  WarpOpToScfForPattern(MLIRContext *context, WarpAllocationFn allocationFn,
+                        PatternBenefit benefit = 1)
+      : OpRewritePattern<WarpSingleLaneOp>(context, benefit),
+        allocationFn(allocationFn) {}
+
   LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
                                 PatternRewriter &rewriter) const override {
-    return rewriteWarpOpToScfFor(rewriter, warpOp);
+    return rewriteWarpOpToScfFor(rewriter, warpOp, allocationFn);
   }
+
+private:
+  WarpAllocationFn allocationFn;
 };
 
 } // namespace
 
 void mlir::vector_ext::populateWarpSingleLaneOpToScfForPattern(
-    RewritePatternSet &patterns) {
-  patterns.add<WarpOpToScfForPattern>(patterns.getContext());
+    RewritePatternSet &patterns, WarpAllocationFn allocationFn) {
+  patterns.add<WarpOpToScfForPattern>(patterns.getContext(), allocationFn);
 }
 
 /// Helper to know if an op can be hoisted out of the region.

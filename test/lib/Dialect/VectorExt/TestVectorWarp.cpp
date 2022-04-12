@@ -9,6 +9,7 @@
 #include "Dialect/VectorExt/VectorExtOps.h"
 #include "Dialect/VectorExt/VectorExtWarpUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/Visitors.h"
@@ -18,6 +19,51 @@
 using namespace mlir;
 using namespace mlir::vector;
 using namespace mlir::vector_ext;
+
+static const int64_t kSharedMemorySpace = 3;
+
+/// Allocate shared memory for a single warp to test lowering of WarpSingleOp.
+static Value allocateGlobalSharedMemory(Location loc, OpBuilder &builder,
+                                        WarpSingleLaneOp warpOp, Type type) {
+  // Compute type of shared memory buffer.
+  MemRefType memrefType;
+  if (auto vectorType = type.dyn_cast<VectorType>()) {
+    memrefType =
+        MemRefType::get(vectorType.getShape(), vectorType.getElementType(), {},
+                        kSharedMemorySpace);
+  } else {
+    memrefType = MemRefType::get({1}, type, {}, kSharedMemorySpace);
+  }
+
+  // Get symbol table holding all shared memory globals.
+  ModuleOp moduleOp = warpOp->getParentOfType<ModuleOp>();
+  SymbolTable symbolTable(moduleOp);
+
+  // Create a pretty name.
+  SmallString<64> buf;
+  llvm::raw_svector_ostream os(buf);
+  interleave(memrefType.getShape(), os, "x");
+  os << "x" << memrefType.getElementType();
+  std::string symbolName = (Twine("__shared_") + os.str()).str();
+
+  auto ip = builder.saveInsertionPoint();
+  builder.setInsertionPoint(moduleOp);
+  auto global = builder.create<memref::GlobalOp>(
+      loc,
+      /*sym_name=*/symbolName,
+      /*sym_visibility=*/builder.getStringAttr("private"),
+      /*type=*/memrefType,
+      /*initial_value=*/Attribute(),
+      /*constant=*/false,
+      /*alignment=*/IntegerAttr());
+  symbolTable.insert(global);
+  // The symbol table inserts at the end of the module, but globals are a bit
+  // nicer if they are at the beginning.
+  global->moveBefore(&moduleOp.front());
+
+  builder.restoreInsertionPoint(ip);
+  return builder.create<memref::GetGlobalOp>(loc, memrefType, symbolName);
+}
 
 namespace {
 
@@ -85,7 +131,8 @@ struct TestVectorWarp
     }
     if (rewriteWarpOpsToScfIf) {
       RewritePatternSet patterns(ctx);
-      vector_ext::populateWarpSingleLaneOpToScfForPattern(patterns);
+      vector_ext::populateWarpSingleLaneOpToScfForPattern(
+          patterns, allocateGlobalSharedMemory);
       (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
     }
   }
