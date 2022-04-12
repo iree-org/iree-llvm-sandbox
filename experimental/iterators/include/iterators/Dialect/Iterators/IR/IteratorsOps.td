@@ -12,9 +12,35 @@
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/IR/OpBase.td"
 
 class Iterators_Op<string mnemonic, list<Trait> traits = []> :
     Op<Iterators_Dialect, mnemonic, traits> {
+}
+
+//===----------------------------------------------------------------------===//
+// Debugging/testing utilities
+//===----------------------------------------------------------------------===//
+
+def MatchingFieldCountsPred
+    : CPred<[{$tuple.getType().dyn_cast<TupleType>().size() ==
+              $values.dyn_cast<ArrayAttr>().size()}]>;
+def MatchingFieldCountsConstraint
+    : PredOpTrait<"number of values matches tuple size",
+                  MatchingFieldCountsPred>;
+
+def Iterators_ConstantTupleOp
+    : Iterators_Op<"constant", [MatchingFieldCountsConstraint]> {
+  let summary = "Creates a tuple from the given values";
+  // TODO(ingomueller): extend to more field types
+  let arguments = (ins I32ArrayAttr:$values);
+  let results = (outs TupleOf<[I32]>:$tuple);
+}
+
+def Iterators_PrintTupleOp : Iterators_Op<"print"> {
+  let summary = "Print the elements of a tuple";
+  // TODO(ingomueller): extend to all supported tuple types
+  let arguments = (ins TupleOf<[I32]>);
 }
 
 //===----------------------------------------------------------------------===//
