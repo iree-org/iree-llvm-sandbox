@@ -51,9 +51,11 @@ LogicalResult CreateSampleInputStateOp::verify() {
       createdState().getType().dyn_cast<IteratorInterface>();
   assert(iteratorType);
 
-  if (iteratorType.getElementType() != IntegerType::get(getContext(), 32)) {
+  TupleType tupleType =
+      TupleType::get(getContext(), {IntegerType::get(getContext(), 32)});
+  if (iteratorType.getElementType() != tupleType) {
     return emitOpError() << "Type mismatch: Sample input iterator (currently) "
-                            "has to return elements of type 'i32'";
+                            "has to return elements of type 'tuple<i32>'";
   }
 
   return success();
