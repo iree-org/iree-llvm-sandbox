@@ -10,9 +10,17 @@
 #define ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 
 #include "mlir/IR/Dialect.h"
+#include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/SymbolTable.h"
 
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
+
+namespace mlir {
+namespace iterators {
+#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.h.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.h.inc"
+} // namespace iterators
+} // namespace mlir
 
 #define GET_TYPEDEF_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.h.inc"

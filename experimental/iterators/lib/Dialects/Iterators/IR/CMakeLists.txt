@@ -6,4 +6,5 @@ add_mlir_library(MLIRIterators
 
   DEPENDS
   MLIRIteratorsOpsIncGen
+  MLIRIteratorsInterfacesIncGen
 )

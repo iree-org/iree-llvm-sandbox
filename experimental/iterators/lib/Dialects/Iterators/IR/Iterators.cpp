@@ -9,6 +9,7 @@
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 
 #include "mlir/IR/DialectImplementation.h"
+#include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -32,11 +33,51 @@ void IteratorsDialect::initialize() {
 }
 
 //===----------------------------------------------------------------------===//
+// Iterators interfaces
+//===----------------------------------------------------------------------===//
+
+#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.cpp.inc"
+
+//===----------------------------------------------------------------------===//
 // Iterators operations
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
+
+LogicalResult CreateSampleInputStateOp::verify() {
+  IteratorInterface iteratorType =
+      createdState().getType().dyn_cast<IteratorInterface>();
+  assert(iteratorType);
+
+  if (iteratorType.getElementType() != IntegerType::get(getContext(), 32)) {
+    return emitOpError() << "Type mismatch: Sample input iterator (currently) "
+                            "has to return elements of type 'i32'";
+  }
+
+  return success();
+}
+
+LogicalResult CreateReduceStateOp::verify() {
+  IteratorInterface iteratorType =
+      createdState().getType().dyn_cast<IteratorInterface>();
+  assert(iteratorType);
+
+  IteratorInterface upstreamIteratorType =
+      upstreamState().getType().dyn_cast<IteratorInterface>();
+  assert(upstreamIteratorType);
+
+  if (iteratorType.getElementType() != upstreamIteratorType.getElementType()) {
+    return emitOpError() << "Type mismatch: Upstream iterator of reduce "
+                            "iterator must produce elements of type "
+                         << iteratorType.getElementType()
+                         << " but produces elements of type "
+                         << upstreamIteratorType.getElementType();
+  }
+
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // Iterators types
