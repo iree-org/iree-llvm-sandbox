@@ -62,3 +62,21 @@ def tile_twice():
   assert "sizes = [32, 16]" in code
   assert "pad %" in code
   assert "vectorize" in code
+
+
+# CHECK-LABEL: TEST: fuse_once
+@run
+def fuse_once():
+  sequence = transform.SequenceOp()
+  with ir.InsertionPoint(sequence.body.blocks[0]):
+    target = transform.MatchOp("foo")
+    tiled = transform.FuseOp(target, tile_sizes=[16, 32])
+    transform.PeelLoopOp(tiled.results[1])
+    transform.PeelLoopOp(tiled.results[2])
+
+  code = str(sequence)
+  assert "match @foo" in code
+  assert "fuse %" in code
+  assert "tile_sizes = [16, 32]" in code
+  assert "peel_loop %" in code
+  assert "peel_loop %" in code
