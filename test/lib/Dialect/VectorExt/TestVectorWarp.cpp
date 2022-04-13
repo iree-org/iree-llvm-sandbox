@@ -69,6 +69,7 @@ namespace {
 
 struct TestVectorWarp
     : public PassWrapper<TestVectorWarp, OperationPass<FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestVectorWarp)
 
   TestVectorWarp() = default;
   TestVectorWarp(const TestVectorWarp &pass) {}

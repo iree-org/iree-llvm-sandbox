@@ -27,6 +27,7 @@ namespace {
 
 struct TestVectorMaskingUtils
     : public PassWrapper<TestVectorMaskingUtils, OperationPass<FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestVectorMaskingUtils)
 
   TestVectorMaskingUtils() = default;
   TestVectorMaskingUtils(const TestVectorMaskingUtils &pass) {}
