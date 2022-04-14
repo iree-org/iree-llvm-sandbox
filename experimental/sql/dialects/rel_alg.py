@@ -60,7 +60,6 @@ class String(DataType):
     return String([IntegerAttr.from_int_and_width(val, 1)])
 
 
-@irdl_op_definition
 class Expression(Operation):
   ...
 
@@ -138,7 +137,6 @@ class Compare(Expression):
         regions=[left, right])
 
 
-@irdl_op_definition
 class Operator(Operation):
   ...
 
