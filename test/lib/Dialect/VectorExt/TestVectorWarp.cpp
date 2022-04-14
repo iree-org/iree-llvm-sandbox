@@ -22,9 +22,11 @@ using namespace mlir::vector_ext;
 
 static const int64_t kSharedMemorySpace = 3;
 
-/// Allocate shared memory for a single warp to test lowering of WarpSingleOp.
+/// Allocate shared memory for a single warp to test lowering of
+/// WarpExecuteOnLane0Op.
 static Value allocateGlobalSharedMemory(Location loc, OpBuilder &builder,
-                                        WarpSingleLaneOp warpOp, Type type) {
+                                        WarpExecuteOnLane0Op warpOp,
+                                        Type type) {
   // Compute type of shared memory buffer.
   MemRefType memrefType;
   if (auto vectorType = type.dyn_cast<VectorType>()) {
@@ -102,7 +104,7 @@ struct TestVectorWarp
   void runOnOperation() override {
     FuncOp funcOp = getOperation();
     funcOp.walk([&](Operation *op) {
-      if (auto warpOp = dyn_cast<WarpSingleLaneOp>(op)) {
+      if (auto warpOp = dyn_cast<WarpExecuteOnLane0Op>(op)) {
         if (hoistUniform) {
           moveScalarUniformCode(warpOp);
         }
@@ -132,7 +134,7 @@ struct TestVectorWarp
     }
     if (rewriteWarpOpsToScfIf) {
       RewritePatternSet patterns(ctx);
-      vector_ext::populateWarpSingleLaneOpToScfForPattern(
+      vector_ext::populateWarpExecuteOnLane0OpToScfForPattern(
           patterns, allocateGlobalSharedMemory);
       (void)applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
     }

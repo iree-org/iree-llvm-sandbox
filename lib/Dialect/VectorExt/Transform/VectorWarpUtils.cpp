@@ -34,15 +34,15 @@ static Operation *cloneOpWithOperandsAndTypes(OpBuilder &builder, Location loc,
   return builder.create(res);
 }
 
-/// Helper to create a new WarpSingleLaneOp regions with different signature.
-static WarpSingleLaneOp
-moveRegionToNewWarpOpAndReplaceReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
-                                       ValueRange newYieldedValues,
-                                       TypeRange newReturnTypes) {
+/// Helper to create a new WarpExecuteOnLane0Op regions with different
+/// signature.
+static WarpExecuteOnLane0Op moveRegionToNewWarpOpAndReplaceReturns(
+    OpBuilder &b, WarpExecuteOnLane0Op warpOp, ValueRange newYieldedValues,
+    TypeRange newReturnTypes) {
   // Create a new op before the existing one, with the extra operands.
   OpBuilder::InsertionGuard g(b);
   b.setInsertionPoint(warpOp);
-  auto newWarpOp = b.create<WarpSingleLaneOp>(
+  auto newWarpOp = b.create<WarpExecuteOnLane0Op>(
       warpOp.getLoc(), newReturnTypes, warpOp.laneid(), warpOp.warp_size(),
       warpOp.args(), warpOp.getBody()->getArgumentTypes());
 
@@ -55,9 +55,9 @@ moveRegionToNewWarpOpAndReplaceReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
   return newWarpOp;
 }
 
-/// Helper to create a new WarpSingleLaneOp region with extra outputs.
-static WarpSingleLaneOp
-moveRegionToNewWarpOpAndAppendReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
+/// Helper to create a new WarpExecuteOnLane0Op region with extra outputs.
+static WarpExecuteOnLane0Op
+moveRegionToNewWarpOpAndAppendReturns(OpBuilder &b, WarpExecuteOnLane0Op warpOp,
                                       ValueRange newYieldedValues,
                                       TypeRange newReturnTypes) {
 
@@ -69,7 +69,7 @@ moveRegionToNewWarpOpAndAppendReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
   SmallVector<Value> yieldValues(yield.getOperands().begin(),
                                  yield.getOperands().end());
   yieldValues.append(newYieldedValues.begin(), newYieldedValues.end());
-  WarpSingleLaneOp newWarpOp =
+  WarpExecuteOnLane0Op newWarpOp =
       moveRegionToNewWarpOpAndReplaceReturns(b, warpOp, yieldValues, types);
   for (auto it :
        llvm::zip(warpOp.getResults(),
@@ -78,7 +78,7 @@ moveRegionToNewWarpOpAndAppendReturns(OpBuilder &b, WarpSingleLaneOp warpOp,
   return newWarpOp;
 }
 
-OpOperand *getWarpResult(WarpSingleLaneOp warpOp,
+OpOperand *getWarpResult(WarpExecuteOnLane0Op warpOp,
                          std::function<bool(Operation *)> fn) {
   auto yield = cast<vector_ext::YieldOp>(
       warpOp.getBodyRegion().getBlocks().begin()->getTerminator());
@@ -138,9 +138,9 @@ namespace {
 ///   vector<32xf32>
 /// }
 /// %0 = arith.addf %r#1, %r#2 : vector<1xf32>
-struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+struct WarpOpElementwise : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     OpOperand *yieldOperand = getWarpResult(warpOp, [](Operation *op) {
       return OpTrait::hasElementwiseMappableTraits(op);
@@ -168,7 +168,7 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
       retTypes.push_back(targetType);
       yieldValues.push_back(operand.get());
     }
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+    WarpExecuteOnLane0Op newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
     SmallVector<Value> newOperands(elementWise->getOperands().begin(),
                                    elementWise->getOperands().end());
@@ -186,7 +186,7 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
   }
 };
 
-/// A pattern that extracts vector.reduction ops from a WarpSingleLaneOp.
+/// A pattern that extracts vector.reduction ops from a WarpExecuteOnLane0Op.
 /// The vector is reduced in parallel. Currently limited to vector<32x...>
 /// values. Every lane reduces two scalars, 5 times in a row.
 /// E.g.:
@@ -213,10 +213,10 @@ struct WarpOpElementwise : public OpRewritePattern<WarpSingleLaneOp> {
 /// %a4 = arith.addf %a3, %r4 : f32
 /// %r = gpu.shuffle idx %a4, %c0, %c32 : f32
 /// ```
-struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
+struct WarpOpReduction : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     OpOperand *yieldOperand = getWarpResult(
         warpOp, [](Operation *op) { return isa<vector::ReductionOp>(op); });
@@ -239,13 +239,13 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
 
     Location yieldLoc = yieldOperand->getOwner()->getLoc();
 
-    // Return vector that will be reduced from the WarpSingleLaneOp.
+    // Return vector that will be reduced from the WarpExecuteOnLane0Op.
     unsigned operandIndex = yieldOperand->getOperandNumber();
     SmallVector<Value> yieldValues;
     SmallVector<Type> retTypes;
     yieldValues.push_back(reductionOp.getVector());
     retTypes.push_back(VectorType::get({1}, reductionOp->getResultTypes()[0]));
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+    WarpExecuteOnLane0Op newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
 
     // Every lane has one scalar value. These should be reduced.
@@ -293,9 +293,9 @@ struct WarpOpReduction : public OpRewritePattern<WarpSingleLaneOp> {
 ///   vector<32xf32> vector_ext.yield %2 : vector<32xf32>
 /// }
 /// %0 = vector.transfer_read %src[%c0], %cst : memref<1024xf32>, vector<1xf32>
-struct WarpOpTransferRead : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+struct WarpOpTransferRead : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     OpOperand *operand = getWarpResult(
         warpOp, [](Operation *op) { return isa<vector::TransferReadOp>(op); });
@@ -335,10 +335,10 @@ struct WarpOpTransferRead : public OpRewritePattern<WarpSingleLaneOp> {
 };
 
 /// Remove any result that has no use along with the matching yieldOp operand.
-// TODO: Move this in WarpSingleLaneOp canonicalization.
-struct WarpOpDeadResult : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+// TODO: Move this in WarpExecuteOnLane0Op canonicalization.
+struct WarpOpDeadResult : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     SmallVector<Type> resultTypes;
     SmallVector<Value> yieldValues;
@@ -352,7 +352,7 @@ struct WarpOpDeadResult : public OpRewritePattern<WarpSingleLaneOp> {
     }
     if (yield.getNumOperands() == yieldValues.size())
       return failure();
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndReplaceReturns(
+    WarpExecuteOnLane0Op newWarpOp = moveRegionToNewWarpOpAndReplaceReturns(
         rewriter, warpOp, yieldValues, resultTypes);
     unsigned resultIndex = 0;
     for (OpResult result : warpOp.getResults()) {
@@ -367,9 +367,9 @@ struct WarpOpDeadResult : public OpRewritePattern<WarpSingleLaneOp> {
 
 // If an operand is directly yielded out of the region we can forward it
 // directly and it doesn't need to go through the region.
-struct WarpOpForwardOperand : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+struct WarpOpForwardOperand : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     SmallVector<Type> resultTypes;
     SmallVector<Value> yieldValues;
@@ -407,9 +407,9 @@ struct WarpOpForwardOperand : public OpRewritePattern<WarpSingleLaneOp> {
   }
 };
 
-struct WarpOpBroadcast : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+struct WarpOpBroadcast : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     OpOperand *operand = getWarpResult(
         warpOp, [](Operation *op) { return isa<vector::BroadcastOp>(op); });
@@ -420,7 +420,7 @@ struct WarpOpBroadcast : public OpRewritePattern<WarpSingleLaneOp> {
 
     auto destVecType =
         warpOp->getResultTypes()[operandNumber].cast<VectorType>();
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+    WarpExecuteOnLane0Op newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, {broadcastOp.getSource()},
         {broadcastOp.getSource().getType()});
     Value broadcasted = rewriter.create<vector::BroadcastOp>(
@@ -461,7 +461,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
   /// are multiples of the distribution ratio are supported at the moment.
   LogicalResult tryDistributeOp(RewriterBase &rewriter,
                                 vector::TransferWriteOp writeOp,
-                                WarpSingleLaneOp warpOp) const {
+                                WarpExecuteOnLane0Op warpOp) const {
     AffineMap map = distributionMapFn(writeOp);
     SmallVector<int64_t> targetShape(writeOp.getVectorType().getShape().begin(),
                                      writeOp.getVectorType().getShape().end());
@@ -478,7 +478,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
 
     SmallVector<Value> yieldValues = {writeOp.getVector()};
     SmallVector<Type> retTypes = {targetType};
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+    WarpExecuteOnLane0Op newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
     rewriter.setInsertionPointAfter(newWarpOp);
 
@@ -516,7 +516,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
   /// Extract TransferWriteOps of vector<1x> into a separate warp op.
   LogicalResult tryExtractOp(RewriterBase &rewriter,
                              vector::TransferWriteOp writeOp,
-                             WarpSingleLaneOp warpOp) const {
+                             WarpExecuteOnLane0Op warpOp) const {
     Location loc = writeOp.getLoc();
     VectorType vecType = writeOp.getVectorType();
 
@@ -532,14 +532,13 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
 
     SmallVector<Value> yieldValues = {writeOp.getVector()};
     SmallVector<Type> retTypes = {vecType};
-    WarpSingleLaneOp newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
+    WarpExecuteOnLane0Op newWarpOp = moveRegionToNewWarpOpAndAppendReturns(
         rewriter, warpOp, yieldValues, retTypes);
     rewriter.setInsertionPointAfter(newWarpOp);
 
     // Create a second warp op that contains only writeOp.
-    auto secondWarpOp =
-        rewriter.create<WarpSingleLaneOp>(loc, TypeRange(), newWarpOp.laneid(),
-                                          newWarpOp.warp_size());
+    auto secondWarpOp = rewriter.create<WarpExecuteOnLane0Op>(
+        loc, TypeRange(), newWarpOp.laneid(), newWarpOp.warp_size());
     Block &body = secondWarpOp.getBodyRegion().front();
     rewriter.setInsertionPointToStart(&body);
     auto newWriteOp =
@@ -557,7 +556,7 @@ struct WarpOpTransferWrite : public OpRewritePattern<vector::TransferWriteOp> {
     if (writeOp.getMask())
       return failure();
 
-    auto warpOp = dyn_cast<WarpSingleLaneOp>(writeOp->getParentOp());
+    auto warpOp = dyn_cast<WarpExecuteOnLane0Op>(writeOp->getParentOp());
     if (!warpOp)
       return failure();
 
@@ -586,11 +585,11 @@ private:
   DistributionMapFn distributionMapFn;
 };
 
-/// Sink scf.for region out of WarpSingleOp. This can be done only if the
-/// scf.ForOp is the last operation in the region so that it doesn't change the
-/// order of execution. This creates a new scf.for region after the
-/// WarpSingleOp. The new scf.for region will contain a new WarpSingleLaneOp
-/// region. Example:
+/// Sink scf.for region out of WarpExecuteOnLane0Op. This can be done only if
+/// the scf.ForOp is the last operation in the region so that it doesn't change
+/// the order of execution. This creates a new scf.for region after the
+/// WarpExecuteOnLane0Op. The new scf.for region will contain a new
+/// WarpExecuteOnLane0Op region. Example:
 /// ```
 /// %w = vector_ext.warp_execute_on_lane_0(%laneid) -> (vector<4xf32>) {
 ///   ...
@@ -618,9 +617,9 @@ private:
 ///     scf.yield %iw : vector<4xf32>
 ///  }
 /// ```
-struct WarpOpScfForOp : public OpRewritePattern<WarpSingleLaneOp> {
-  using OpRewritePattern<WarpSingleLaneOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+struct WarpOpScfForOp : public OpRewritePattern<WarpExecuteOnLane0Op> {
+  using OpRewritePattern<WarpExecuteOnLane0Op>::OpRewritePattern;
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     auto yield = cast<vector_ext::YieldOp>(
         warpOp.getBodyRegion().getBlocks().begin()->getTerminator());
@@ -642,16 +641,17 @@ struct WarpOpScfForOp : public OpRewritePattern<WarpSingleLaneOp> {
     }
     OpBuilder::InsertionGuard g(rewriter);
     rewriter.setInsertionPointAfter(warpOp);
-    // Create a new for op outside the region with a WarpSingleOp region inside.
+    // Create a new for op outside the region with a WarpExecuteOnLane0Op region
+    // inside.
     auto newForOp = rewriter.create<scf::ForOp>(
         forOp.getLoc(), forOp.getLowerBound(), forOp.getUpperBound(),
         forOp.getStep(), newOperands);
     rewriter.setInsertionPoint(newForOp.getBody(), newForOp.getBody()->begin());
-    auto innerWarp = rewriter.create<WarpSingleLaneOp>(
+    auto innerWarp = rewriter.create<WarpExecuteOnLane0Op>(
         warpOp.getLoc(), newForOp.getResultTypes(), warpOp.laneid(),
         warpOp.warp_size(), newForOp.getRegionIterArgs(),
         forOp.getResultTypes());
-    // Move the loop region within the new WarpSingleLaneOp region.
+    // Move the loop region within the new WarpExecuteOnLane0Op region.
     BlockAndValueMapping mapping;
     mapping.map(forOp.getInductionVar(), newForOp.getInductionVar());
     for (auto args : llvm::zip(forOp.getRegionIterArgs(),
@@ -702,7 +702,7 @@ void mlir::vector_ext::populateDistributeTransferWriteOpPatterns(
 }
 
 static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
-                                           WarpSingleLaneOp warpOp,
+                                           WarpExecuteOnLane0Op warpOp,
                                            WarpAllocationFn allocationFn) {
   assert(warpOp.getBodyRegion().hasOneBlock() &&
          "expected WarpOp with single block");
@@ -808,13 +808,13 @@ static LogicalResult rewriteWarpOpToScfFor(RewriterBase &rewriter,
 
 namespace {
 
-struct WarpOpToScfForPattern : public OpRewritePattern<WarpSingleLaneOp> {
+struct WarpOpToScfForPattern : public OpRewritePattern<WarpExecuteOnLane0Op> {
   WarpOpToScfForPattern(MLIRContext *context, WarpAllocationFn allocationFn,
                         PatternBenefit benefit = 1)
-      : OpRewritePattern<WarpSingleLaneOp>(context, benefit),
+      : OpRewritePattern<WarpExecuteOnLane0Op>(context, benefit),
         allocationFn(allocationFn) {}
 
-  LogicalResult matchAndRewrite(WarpSingleLaneOp warpOp,
+  LogicalResult matchAndRewrite(WarpExecuteOnLane0Op warpOp,
                                 PatternRewriter &rewriter) const override {
     return rewriteWarpOpToScfFor(rewriter, warpOp, allocationFn);
   }
@@ -825,7 +825,7 @@ private:
 
 } // namespace
 
-void mlir::vector_ext::populateWarpSingleLaneOpToScfForPattern(
+void mlir::vector_ext::populateWarpExecuteOnLane0OpToScfForPattern(
     RewritePatternSet &patterns, WarpAllocationFn allocationFn) {
   patterns.add<WarpOpToScfForPattern>(patterns.getContext(), allocationFn);
 }
@@ -837,7 +837,7 @@ static bool canBeHoisted(Operation *op,
          !hasSideEffect(*op) && op->getNumRegions() == 0;
 }
 
-void mlir::vector_ext::moveScalarUniformCode(WarpSingleLaneOp warpOp) {
+void mlir::vector_ext::moveScalarUniformCode(WarpExecuteOnLane0Op warpOp) {
   Block *body = warpOp.getBody();
 
   // Keep track of the ops we want to hoist.

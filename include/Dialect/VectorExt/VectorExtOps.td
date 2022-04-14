@@ -59,7 +59,7 @@ def VectorExt_YieldOp : VectorExt_Op<"yield", [
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
-def VectorExt_WarpSingleLaneOp : VectorExt_Op<"warp_execute_on_lane_0",
+def VectorExt_WarpExecuteOnLane0Op : VectorExt_Op<"warp_execute_on_lane_0",
       [DeclareOpInterfaceMethods<RegionBranchOpInterface, ["areTypesCompatible"]>,
        SingleBlockImplicitTerminator<"vector_ext::YieldOp">,
        RecursiveSideEffects]> {
