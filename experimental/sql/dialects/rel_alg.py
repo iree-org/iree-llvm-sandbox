@@ -9,8 +9,11 @@ from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, D
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
 
-# This file contains the relational tree dialect. This dialect represents
-# relational queries in a tree form, simplifying certain optimizations.
+# This file contains the relational algebra dialect. This dialect represents
+# relational queries in a tree form, simplifying certain optimizations. Apart
+# form scalar datatypes, the dialect knows two different kinds of operations:
+# expressions that only have expressions in their subtrees and operators that
+# can have both operators and expressions in their subtrees.
 
 
 @irdl_attr_definition
@@ -18,7 +21,7 @@ class DataType(ParametrizedAttribute):
   """
   Models a datatype in a relational query.
   """
-  name = "rel_tree.datatype"
+  name = "rel_alg.datatype"
 
 
 @irdl_attr_definition
@@ -29,10 +32,10 @@ class Int32(DataType):
   Example:
 
   ```
-  !rel_tree.int32
+  !rel_alg.int32
   ```
   """
-  name = "rel_tree.int32"
+  name = "rel_alg.int32"
 
 
 @irdl_attr_definition
@@ -44,10 +47,10 @@ class String(DataType):
   Example:
 
   ```
-  !rel_tree.string<0: !i1>
+  !rel_alg.string<0: !i1>
   ```
   """
-  name = "rel_tree.string"
+  name = "rel_alg.string"
 
   nullable = ParameterDef(IntegerAttr)
 
@@ -58,17 +61,44 @@ class String(DataType):
 
 
 @irdl_op_definition
-class Column(Operation):
+class Expression(Operation):
+  ...
+
+
+@irdl_op_definition
+class Literal(Expression):
+  """
+  Defines a literal with value `val` and type `type`.
+
+  Example:
+
+  ```
+  rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.int32]
+  ```
+  """
+  name = "rel_alg.literal"
+
+  val = AttributeDef(AnyAttr())
+  type = AttributeDef(DataType)
+
+  @builder
+  @staticmethod
+  def get(val: Attribute, type: DataType) -> 'Literal':
+    return Literal.build(attributes={"val": val, "type": type})
+
+
+@irdl_op_definition
+class Column(Expression):
   """
   References a specific column with name `col_name`.
 
   Example:
 
   ```
-  rel_tree.column() ["col_name" = "a"]
+  rel_alg.column() ["col_name" = "a"]
   ```
   """
-  name = "rel_tree.column"
+  name = "rel_alg.column"
 
   col_name = AttributeDef(StringAttr)
 
@@ -80,21 +110,21 @@ class Column(Operation):
 
 
 @irdl_op_definition
-class Compare(Operation):
+class Compare(Expression):
   """
   Applies the `comparator` to `left` and `right`.
 
   Example:
 
   ```
-  rel_tree.compare() ["comparator" = "="] {
-    rel_tree.column() ...
+  rel_alg.compare() ["comparator" = "="] {
+    rel_alg.column() ...
   } {
-    rel_tree.literal() ...
+    rel_alg.literal() ...
   }
   ```
   """
-  name = "rel_tree.compare"
+  name = "rel_alg.compare"
 
   comparator = AttributeDef(StringAttr)
   left = SingleBlockRegionDef()
@@ -109,46 +139,51 @@ class Compare(Operation):
 
 
 @irdl_op_definition
-class Select(Operation):
+class Operator(Operation):
+  ...
+
+
+@irdl_op_definition
+class Select(Operator):
   """
   Selects all tuples from `table` that fulfill `predicates`.
 
   Example:
 
   ```
-  rel_tree.select() {
-    rel_tree.pandas_table() ...
+  rel_alg.select() {
+    rel_alg.pandas_table() ...
   } {
-    rel_tree.predicate() ...
+    rel_alg.compare() ...
   }
   ```
   """
-  name = "rel_tree.select"
+  name = "rel_alg.select"
 
-  table = SingleBlockRegionDef()
+  input = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(table: Region, predicates: Region) -> 'Select':
-    return Select.build(regions=[table, predicates])
+  def get(input: Region, predicates: Region) -> 'Select':
+    return Select.build(regions=[input, predicates])
 
 
 @irdl_op_definition
-class PandasTable(Operation):
+class PandasTable(Operator):
   """
   Defines a table with name `table_name` and schema `schema`.
 
   Example:
 
   ```
-  rel_tree.pandas_table() ["table_name" = "t"] {
-    rel_tree.schema_element() ...
+  rel_alg.pandas_table() ["table_name" = "t"] {
+    rel_alg.schema_element() ...
     ...
   }
   ```
   """
-  name = "rel_tree.pandas_table"
+  name = "rel_alg.pandas_table"
 
   table_name = AttributeDef(StringAttr)
   schema = SingleBlockRegionDef()
@@ -161,17 +196,17 @@ class PandasTable(Operation):
 
 
 @irdl_op_definition
-class SchemaElement(Operation):
+class SchemaElement(Operator):
   """
   Defines a schema element with name `elt_name` and type `elt_type`.
 
   Example:
 
   ```
-  rel_tree.schema_element() ["elt_name" = "id", "elt_type" = !rel_tree.int32]
+  rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
   ```
   """
-  name = "rel_tree.schema_element"
+  name = "rel_alg.schema_element"
 
   elt_name = AttributeDef(StringAttr)
   elt_type = AttributeDef(DataType)
@@ -184,33 +219,11 @@ class SchemaElement(Operation):
     })
 
 
-@irdl_op_definition
-class Literal(Operation):
-  """
-  Defines a literal with value `val` and type `type`.
-
-  Example:
-
-  ```
-  rel_tree.literal() ["val" = 5 : !i64, "type" = !rel_tree.int32]
-  ```
-  """
-  name = "rel_tree.literal"
-
-  val = AttributeDef(AnyAttr())
-  type = AttributeDef(DataType)
-
-  @builder
-  @staticmethod
-  def get(val: Attribute, type: DataType) -> 'Literal':
-    return Literal.build(attributes={"val": val, "type": type})
-
-
 @dataclass
-class RelationalTree:
+class RelationalAlg:
   ctx: MLContext
 
-  def __post_init__(self: 'RelationalTree'):
+  def __post_init__(self: 'RelationalAlg'):
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Int32)
