@@ -80,21 +80,21 @@ class Column(Operation):
 
 
 @irdl_op_definition
-class Predicate(Operation):
+class Compare(Operation):
   """
   Applies the `comparator` to `left` and `right`.
 
   Example:
 
   ```
-  rel_tree.predicate() ["comparator" = "="] {
+  rel_tree.compare() ["comparator" = "="] {
     rel_tree.column() ...
   } {
     rel_tree.literal() ...
   }
   ```
   """
-  name = "rel_tree.predicate"
+  name = "rel_tree.compare"
 
   comparator = AttributeDef(StringAttr)
   left = SingleBlockRegionDef()
@@ -102,8 +102,8 @@ class Predicate(Operation):
 
   @builder
   @staticmethod
-  def get(comparator: str, left: Region, right: Region) -> 'Predicate':
-    return Predicate.build(
+  def get(comparator: str, left: Region, right: Region) -> 'Compare':
+    return Compare.build(
         attributes={"comparator": StringAttr.from_str(comparator)},
         regions=[left, right])
 
@@ -220,4 +220,4 @@ class RelationalTree:
     self.ctx.register_op(Selection)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
-    self.ctx.register_op(Predicate)
+    self.ctx.register_op(Compare)
