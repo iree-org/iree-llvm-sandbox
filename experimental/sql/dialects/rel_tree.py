@@ -109,29 +109,29 @@ class Compare(Operation):
 
 
 @irdl_op_definition
-class Selection(Operation):
+class Select(Operation):
   """
   Selects all tuples from `table` that fulfill `predicates`.
 
   Example:
 
   ```
-  rel_tree.selection() {
+  rel_tree.select() {
     rel_tree.pandas_table() ...
   } {
     rel_tree.predicate() ...
   }
   ```
   """
-  name = "rel_tree.selection"
+  name = "rel_tree.select"
 
   table = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(table: Region, predicates: Region) -> 'Selection':
-    return Selection.build(regions=[table, predicates])
+  def get(table: Region, predicates: Region) -> 'Select':
+    return Select.build(regions=[table, predicates])
 
 
 @irdl_op_definition
@@ -217,7 +217,7 @@ class RelationalTree:
 
     self.ctx.register_op(PandasTable)
     self.ctx.register_op(SchemaElement)
-    self.ctx.register_op(Selection)
+    self.ctx.register_op(Select)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)

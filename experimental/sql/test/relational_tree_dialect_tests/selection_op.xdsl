@@ -1,7 +1,7 @@
 // RUN: rel_opt.py %s | filecheck %s
 
 module() {
-    rel_tree.selection() {
+    rel_tree.select() {
         rel_tree.pandas_table() ["table_name" = "t"] {
             rel_tree.schema_element() ["elt_name" = "id", "elt_type" = !rel_tree.int32]
         }
@@ -14,7 +14,7 @@ module() {
     }
 }
 
-//      CHECK: rel_tree.selection() {
+//      CHECK: rel_tree.select() {
 // CHECK-NEXT:         rel_tree.pandas_table() ["table_name" = "t"] {
 // CHECK-NEXT:             rel_tree.schema_element() ["elt_name" = "id", "elt_type" = !rel_tree.int32]
 // CHECK-NEXT:         }
