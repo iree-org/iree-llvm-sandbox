@@ -4,7 +4,8 @@
 
 from ast import Param
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Union
+from sqlalchemy import Integer
 from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, Data, MLContext, Attribute
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
@@ -56,7 +57,9 @@ class String(DataType):
 
   @staticmethod
   @builder
-  def get(val: int) -> 'String':
+  def get(val: Union[int, IntegerAttr]) -> 'String':
+    if isinstance(val, IntegerAttr):
+      return String([val])
     return String([IntegerAttr.from_int_and_width(val, 1)])
 
 
