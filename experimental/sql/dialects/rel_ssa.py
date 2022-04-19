@@ -8,10 +8,11 @@ from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, D
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
 
-# This file contains the relational dialect. It is currently
-# only aimed at the simple query and mirrors a lot of the
-# ibis dialect. This is subject to change, once the translation
-# to the iterator dialect starts getting in shape.
+# This file contains the relational ssa dialect, a dialect that expresses
+# relational queries using SSA. The dialect consists of two types of operations:
+# Expressions and Operators. Expressions work on single values, whereas
+# Operators work on Bags. The Column and Yield Expressions bridge the gap to
+# convert from one to the other.
 
 
 @irdl_attr_definition
@@ -55,8 +56,12 @@ class Bag(ParametrizedAttribute):
     return Bag([ArrayAttr.from_list(types)])  #type: ignore
 
 
+class Expression(Operation):
+  ...
+
+
 @irdl_op_definition
-class Column(Operation):
+class Column(Expression):
   name = "rel_ssa.column"
 
   col_name = AttributeDef(StringAttr)
@@ -64,7 +69,7 @@ class Column(Operation):
 
 
 @irdl_op_definition
-class Compare(Operation):
+class Compare(Expression):
   name = "rel_ssa.compare"
 
   left = OperandDef(AnyAttr())
@@ -83,7 +88,37 @@ class Compare(Operation):
 
 
 @irdl_op_definition
-class PandasTable(Operation):
+class Yield(Expression):
+  name = "rel_ssa.yield"
+
+  ops = VarOperandDef(AnyAttr())
+
+  @staticmethod
+  @builder
+  def get(ops: list[Operation]) -> 'Yield':
+    return Yield.build(operands=[ops])
+
+
+@irdl_op_definition
+class Literal(Expression):
+  name = "rel_ssa.literal"
+
+  # TODO: change IntegerAttr s.t. it can have type !rel.int32
+  value = AttributeDef(AnyAttr())
+  result = ResultDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(val: Attribute, res: DataType) -> 'Literal':
+    return Literal.build(attributes={"value": val}, result_types=[res])
+
+
+class Operator(Operation):
+  ...
+
+
+@irdl_op_definition
+class PandasTable(Operator):
   name = "rel_ssa.pandas_table"
 
   table_name = AttributeDef(StringAttr)
@@ -98,7 +133,7 @@ class PandasTable(Operation):
 
 
 @irdl_op_definition
-class Select(Operation):
+class Select(Operator):
   name = "rel_ssa.select"
 
   input = OperandDef(Bag)
@@ -112,32 +147,6 @@ class Select(Operation):
     return Select.build(operands=[table],
                         regions=[predicates],
                         result_types=[Bag()])
-
-
-@irdl_op_definition
-class Yield(Operation):
-  name = "rel_ssa.yield"
-
-  ops = VarOperandDef(AnyAttr())
-
-  @staticmethod
-  @builder
-  def get(ops: list[Operation]) -> 'Yield':
-    return Yield.build(operands=[ops])
-
-
-@irdl_op_definition
-class Literal(Operation):
-  name = "rel_ssa.literal"
-
-  # TODO: change IntegerAttr s.t. it can have type !rel.int32
-  value = AttributeDef(AnyAttr())
-  result = ResultDef(DataType)
-
-  @staticmethod
-  @builder
-  def get(val: Attribute, res: DataType) -> 'Literal':
-    return Literal.build(attributes={"value": val}, result_types=[res])
 
 
 @dataclass
