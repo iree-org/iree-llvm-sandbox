@@ -17,16 +17,38 @@ from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBloc
 
 @irdl_attr_definition
 class DataType(ParametrizedAttribute):
+  """
+  Models a datatype in a relational ssa query.
+  """
   name = "rel_ssa.datatype"
 
 
 @irdl_attr_definition
 class Int32(DataType):
+  """
+  Models a int32 type in a relational ssa query.
+
+  Example:
+
+  ```
+  !rel_ssa.int32
+  ```
+  """
   name = "rel_ssa.int32"
 
 
 @irdl_attr_definition
 class String(DataType):
+  """
+  Models a string type in a relational ssa query, that can be either nullable or
+  not.
+
+  Example:
+
+  ```
+  !rel_ssa.string<0: !i1>
+  ```
+  """
   name = "rel_ssa.string"
 
   nullable = ParameterDef(IntegerAttr)
@@ -41,11 +63,31 @@ class String(DataType):
 
 @irdl_attr_definition
 class Boolean(ParametrizedAttribute):
+  """
+  Models a type that can either be true or false to, e.g., show whether a tuple
+  is part of the result or not.
+
+  Example:
+
+  '''
+  !rel_ssa.bool
+  '''
+  """
   name = "rel_ssa.bool"
 
 
 @irdl_attr_definition
 class Bag(ParametrizedAttribute):
+  """
+  Models a bag in a relational ssa query. The exact schema of the bag is part of
+  the type itself.
+
+  Example:
+
+  '''
+  !rel_ssa.bag<[!rel_ssa.int32]>
+  '''
+  """
   name = "rel_ssa.bag"
 
   schema = ParameterDef(ArrayOfConstraint(DataType))
@@ -57,11 +99,24 @@ class Bag(ParametrizedAttribute):
 
 
 class Expression(Operation):
+  """
+  Interface class for all Expressions, i.e., operations that work on single
+  values.
+  """
   ...
 
 
 @irdl_op_definition
 class Column(Expression):
+  """
+  References a specific column with name `col_name` and returns its value.
+
+  Example:
+
+  '''
+  %0 : rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
+  '''
+  """
   name = "rel_ssa.column"
 
   col_name = AttributeDef(StringAttr)
@@ -70,13 +125,23 @@ class Column(Expression):
 
 @irdl_op_definition
 class Compare(Expression):
+  """
+  Returns `left` 'comparator' `right`.
+
+  Example:
+
+  '''
+  ...
+  %0 : !rel_ssa.bool = rel_ssa.compare(%a : !rel_ssa.int32, %b : !rel_ssa.int32) ["comparator" = "="]
+  '''
+  """
   name = "rel_ssa.compare"
 
-  left = OperandDef(AnyAttr())
-  right = OperandDef(AnyAttr())
+  left = OperandDef(DataType)
+  right = OperandDef(DataType)
   comparator = AttributeDef(StringAttr)
 
-  result = ResultDef(AnyAttr())
+  result = ResultDef(Boolean)
 
   @staticmethod
   @builder
@@ -84,11 +149,19 @@ class Compare(Expression):
           comparator: StringAttr) -> 'Compare':
     return Compare.build(operands=[left, right],
                          attributes={"comparator": comparator},
-                         result_types=[AnyAttr()])
+                         result_types=[Boolean])
 
 
 @irdl_op_definition
 class Yield(Expression):
+  """
+  Bridges the gap from expressions back to operators by yielding values.
+
+  Example:
+  '''
+  rel_ssa.yield(%0 : !rel_ssa.bool)
+  '''
+  """
   name = "rel_ssa.yield"
 
   ops = VarOperandDef(AnyAttr())
@@ -101,6 +174,15 @@ class Yield(Expression):
 
 @irdl_op_definition
 class Literal(Expression):
+  """
+  Creates a literal with value `value`.
+
+  Example:
+
+  '''
+  %0 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : i32]
+  '''
+  """
   name = "rel_ssa.literal"
 
   # TODO: change IntegerAttr s.t. it can have type !rel.int32
@@ -119,6 +201,15 @@ class Operator(Operation):
 
 @irdl_op_definition
 class PandasTable(Operator):
+  """
+  Defines a table with name `table_name`.
+
+  Example:
+
+  '''
+  %0 : rel_ssa.bag<[!rel_ssa.int32]> = rel_ssa.pandas_table() ["table_name" = "t"]
+  '''
+  """
   name = "rel_ssa.pandas_table"
 
   table_name = AttributeDef(StringAttr)
@@ -134,6 +225,18 @@ class PandasTable(Operator):
 
 @irdl_op_definition
 class Select(Operator):
+  """
+  Selects all tuples of `input` according to `predicates`.
+
+  Example:
+
+  '''
+  rel_ssa.select(%0: rel_ssa.bag<[!rel_ssa.int32]>) {
+    ...
+    rel_ssa.yield(%3 : rel_ssa.bool)
+  }
+  '''
+  """
   name = "rel_ssa.select"
 
   input = OperandDef(Bag)
