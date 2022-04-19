@@ -9,6 +9,7 @@ from io import IOBase
 from src.ibis_frontend import ibis_to_xdsl
 from dialects.ibis_dialect import Ibis
 from dialects.rel_alg import RelationalAlg
+from dialects.rel_ssa import RelSSA
 
 
 class RelOptMain(xDSLOptMain):
@@ -42,6 +43,7 @@ class RelOptMain(xDSLOptMain):
     """Register all dialects that can be used."""
     ibis = Ibis(self.ctx)
     rel_Alg = RelationalAlg(self.ctx)
+    rel_ssa = RelSSA(self.ctx)
 
 
 def __main__():

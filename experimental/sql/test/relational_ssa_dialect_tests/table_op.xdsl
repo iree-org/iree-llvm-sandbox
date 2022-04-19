@@ -1,0 +1,7 @@
+// RUN: rel_opt.py %s | filecheck %s
+
+module() {
+    %0 : !rel_ssa.bag<[!rel_ssa.int32]> = rel_ssa.pandas_table() ["table_name" = "some_name"]
+}
+
+// CHECK: %{{.*}} : !rel_ssa.bag<[!rel_ssa.int32]> = rel_ssa.pandas_table() ["table_name" = "some_name"]
