@@ -103,9 +103,8 @@ class Column(Expression):
 
   @builder
   @staticmethod
-  def get(table: Region, col_name: str) -> 'Column':
-    return Column.build(attributes={"col_name": StringAttr.from_str(col_name)},
-                        regions=[table])
+  def get(col_name: str) -> 'Column':
+    return Column.build(attributes={"col_name": StringAttr.from_str(col_name)})
 
 
 @irdl_op_definition
