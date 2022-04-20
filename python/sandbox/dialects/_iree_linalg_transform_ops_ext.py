@@ -144,6 +144,25 @@ class FuseOp:
                      tile_interchange,
                      loc=loc,
                      ip=ip)
+
+class FuseProducersOp:
+  """Specialization for the FuseProducersOp class."""
+
+  def __init__(self,
+               target: Union[ir.Value, ir.Operation, ir.OpView],
+               *,
+               operands_to_fuse: IntListArg = None,
+               loc=None,
+               ip=None):
+    operands_to_fuse = _ensure_int_array_attr(operands_to_fuse, [])
+    num_producers = len(operands_to_fuse)
+    operation_type = pdl.OperationType.get()
+    super().__init__(operation_type, [operation_type] * num_producers,
+                     target,
+                     operands_to_fuse,
+                     loc=loc,
+                     ip=ip)
+
 class TileOp:
   """Specialization for the TileOp class."""
   def __init__(self,
