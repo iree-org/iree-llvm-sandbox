@@ -19,8 +19,15 @@ class RelOptMain(xDSLOptMain):
       import ibis
       import pandas as pd
 
-      connection = ibis.pandas.connect(
-          {"t": pd.DataFrame({"a": ["AS", "EU", "NA"]})})
+      connection = ibis.pandas.connect({
+          "t":
+              pd.DataFrame({
+                  "a": ["AS", "EU", "NA"],
+                  "b": [2, 5, 4],
+                  "c": [3, 1, 18]
+              })
+      })
+
       table = connection.table('t')
       query = f.read()
       res = eval(query)

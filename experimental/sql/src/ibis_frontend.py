@@ -30,7 +30,9 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
   if isinstance(type_, ibis.expr.datatypes.String):
     return id.String.get(1 if type_.nullable else 0)
   if isinstance(type_, ibis.expr.datatypes.Int32):
-    return id.int32()
+    return id.Int32()
+  if isinstance(type_, ibis.expr.datatypes.Int64):
+    return id.Int64()
   raise KeyError(f"Unknown datatype: {type(type_)}")
 
 
@@ -51,9 +53,16 @@ def visit(  #type: ignore
     return new_op
   if isinstance(op, rels.Selection):
     table = Region.from_operation_list([visit(op.table)])
-    # TODO: handle multiple predicates
-    predicates = Region.from_operation_list([visit(op.predicates[0])])
-    new_op = id.Selection.get(table, predicates)
+    # TODO: handle multiple predicates and projections
+    predicate_ops = []
+    for pred in op.predicates:
+      predicate_ops.append(visit(pred))
+    predicates = Region.from_operation_list(predicate_ops)
+    projection_ops = []
+    for proj in op.selections:
+      projection_ops.append(visit(proj))
+    projections = Region.from_operation_list(projection_ops)
+    new_op = id.Selection.get(table, predicates, projections)
     return new_op
   raise KeyError(f"Unknown tableExpr: {type(op)}")
 
@@ -62,6 +71,17 @@ def visit(  #type: ignore
 def visit(  #type: ignore
     stringColumn: ibis.expr.types.StringColumn) -> Operation:
   op = stringColumn.op()
+  if isinstance(op, gen_types.TableColumn):
+    table = Region.from_operation_list([visit(op.table)])
+    new_op = id.TableColumn.get(table, op.name)
+    return new_op
+  raise Exception(f"Unknown stringcolumn: {type(op)}")
+
+
+@dispatch(ibis.expr.types.IntegerColumn)
+def visit(  #type: ignore
+    intColumn: ibis.expr.types.IntegerColumn) -> Operation:
+  op = intColumn.op()
   if isinstance(op, gen_types.TableColumn):
     table = Region.from_operation_list([visit(op.table)])
     new_op = id.TableColumn.get(table, op.name)

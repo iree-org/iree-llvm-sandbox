@@ -54,6 +54,22 @@ class Int32(DataType):
 
 
 @irdl_attr_definition
+class Int64(DataType):
+  """
+  Models the ibis int64 type.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/datatypes.py#L299
+
+  Example:
+
+  ```
+  !ibis.int64
+  ```
+  """
+  name = "ibis.int64"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models the ibis string type. The Parameter `nullable` defines whether the
@@ -126,11 +142,13 @@ class Selection(Operation):
 
   table = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
+  projections = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(table: Region, predicates: Region) -> 'Selection':
-    return Selection.build(regions=[table, predicates])
+  def get(table: Region, predicates: Region,
+          projections: Region) -> 'Selection':
+    return Selection.build(regions=[table, predicates, projections])
 
 
 @irdl_op_definition
@@ -250,6 +268,7 @@ class Ibis:
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Int32)
+    self.ctx.register_attr(Int64)
 
     self.ctx.register_op(PandasTable)
     self.ctx.register_op(SchemaElement)
