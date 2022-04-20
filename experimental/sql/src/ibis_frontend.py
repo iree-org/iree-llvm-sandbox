@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from dataclasses import dataclass
-from modulefinder import Module
-from unittest import result
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr
 from xdsl.ir import Operation, MLContext, Region, Block
 from typing import List, Type, Optional
