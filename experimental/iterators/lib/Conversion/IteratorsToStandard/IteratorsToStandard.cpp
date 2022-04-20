@@ -20,6 +20,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
@@ -27,12 +28,15 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <memory>
+#include <sstream>
 
 using namespace mlir;
 using namespace mlir::iterators;
 using namespace mlir::LLVM;
+using namespace std::string_literals;
 
 namespace {
 struct ConvertIteratorsToStandardPass
@@ -247,18 +251,13 @@ struct PrintOpLowering : public ConversionPattern {
     assert(structType);
 
     // Assemble format string in the form `(%i, %i, ...)`.
-    SmallString<8> format("(");
-    for (auto const &type : tupleType.getTypes()) {
-      // TODO(ingomueller): add type switch for other number types.
+    std::string format("(");
+    llvm::raw_string_ostream formatStream(format);
+    llvm::interleaveComma(tupleType.getTypes(), formatStream, [&](Type type) {
       assert(type == rewriter.getI32Type() && "Only I32 is supported for now");
-      format += "%i, ";
-    }
-    // Remove last ", " unless the format is empty
-    if (format.size() > 1) {
-      format.erase(format.end() - 2, format.end());
-    }
-    format += ")\n";
-    format.push_back('\0');
+      formatStream << "%i";
+    });
+    format += ")\n\0"s;
 
     // Insert format string as global.
     ModuleOp module = op->getParentOfType<ModuleOp>();
