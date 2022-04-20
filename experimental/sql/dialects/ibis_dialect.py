@@ -122,7 +122,8 @@ class TableColumn(Operation):
 @irdl_op_definition
 class Selection(Operation):
   """
-  Selects all tuples from `table` that fulfill `predicates`.
+  Selects all tuples from `table` that fulfill `predicates` and projects the
+  columns in `projections`. If `projections` is empty, all columns are part of the result.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L375
 
@@ -130,11 +131,9 @@ class Selection(Operation):
 
   ```
   ibis.selection() {
-    // table
-    ibis.table() ...
+    // table ibis.table() ...
   } {
-    // predicates
-    ibis.equals() ...
+    // predicates ibis.equals() ...
   }
   ```
   """
