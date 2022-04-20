@@ -12,13 +12,13 @@
 include "mlir/Pass/PassBase.td"
 
 //===----------------------------------------------------------------------===//
-// IteratorsToStandard
+// IteratorsToLLVM
 //===----------------------------------------------------------------------===//
 
-def ConvertIteratorsToStandard : Pass<"convert-iterators-to-std", "ModuleOp"> {
+def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
   let summary = "Convert the operations from the iterators dialect into the "
-                "Standard dialect";
-  let constructor = "mlir::createConvertIteratorsToStandardPass()";
+                "LLVM dialect";
+  let constructor = "mlir::createConvertIteratorsToLLVMPass()";
   let dependentDialects = ["func::FuncDialect", "memref::MemRefDialect"];
 }
 
