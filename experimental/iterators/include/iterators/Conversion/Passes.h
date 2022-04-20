@@ -9,7 +9,7 @@
 #ifndef ITERATORS_CONVERSION_PASSES_H
 #define ITERATORS_CONVERSION_PASSES_H
 
-#include "iterators/Conversion/IteratorsToStandard/IteratorsToStandard.h"
+#include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 
 namespace mlir {
 

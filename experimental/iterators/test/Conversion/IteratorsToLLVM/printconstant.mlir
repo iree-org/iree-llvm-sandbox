@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-iterators-to-std \
+// RUN: mlir-proto-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck %s
 
 // CHECK:      module {

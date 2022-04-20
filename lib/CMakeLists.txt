@@ -28,7 +28,7 @@ endif()
 if (SANDBOX_ENABLE_ITERATORS)
   list(APPEND dialect_libs
     MLIRIterators
-    MLIRIteratorsToStandard
+    MLIRIteratorsToLLVM
   )
 endif()
 

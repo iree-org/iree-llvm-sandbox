@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-iterators-to-std -convert-func-to-llvm | \
+// RUN: mlir-proto-opt %s -convert-iterators-to-llvm -convert-func-to-llvm | \
 // RUN: mlir-cpu-runner -e main -entry-point-result=void \
 // RUN:   -shared-libs=%mlir_runner_utils_dir/libruntime_utils%shlibext \
 // RUN: | FileCheck %s

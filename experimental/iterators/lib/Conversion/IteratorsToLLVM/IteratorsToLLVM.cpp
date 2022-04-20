@@ -1,4 +1,4 @@
-//===-- IteratorsToStandard.h - Conv. from Iterators to std -----*- C++ -*-===//
+//===-- IteratorsToLLVM.h - Conversion from Iterators to LLVM ---*- C++ -*-===//
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Conversion/IteratorsToStandard/IteratorsToStandard.h"
+#include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 
 #include "../PassDetail.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -39,8 +39,8 @@ using namespace mlir::LLVM;
 using namespace std::string_literals;
 
 namespace {
-struct ConvertIteratorsToStandardPass
-    : public ConvertIteratorsToStandardBase<ConvertIteratorsToStandardPass> {
+struct ConvertIteratorsToLLVMPass
+    : public ConvertIteratorsToLLVMBase<ConvertIteratorsToLLVMPass> {
   void runOnOperation() override;
 };
 } // namespace
@@ -288,7 +288,7 @@ struct PrintOpLowering : public ConversionPattern {
   }
 };
 
-void mlir::iterators::populateIteratorsToStandardConversionPatterns(
+void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<IteratorConversionPattern>(
       typeConverter, patterns.getContext(), "iterators.sampleInput",
@@ -303,7 +303,7 @@ void mlir::iterators::populateIteratorsToStandardConversionPatterns(
   patterns.add<ConstantTupleLowering, PrintOpLowering>(patterns.getContext());
 }
 
-void ConvertIteratorsToStandardPass::runOnOperation() {
+void ConvertIteratorsToLLVMPass::runOnOperation() {
   auto module = getOperation();
   ConversionTarget target(getContext());
   target
@@ -311,12 +311,12 @@ void ConvertIteratorsToStandardPass::runOnOperation() {
   target.addLegalOp<ModuleOp, FuncOp, func::ReturnOp>();
   RewritePatternSet patterns(&getContext());
   IteratorsTypeConverter typeConverter;
-  populateIteratorsToStandardConversionPatterns(patterns, typeConverter);
+  populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);
   if (failed(applyFullConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createConvertIteratorsToStandardPass() {
-  return std::make_unique<ConvertIteratorsToStandardPass>();
+mlir::createConvertIteratorsToLLVMPass() {
+  return std::make_unique<ConvertIteratorsToLLVMPass>();
 }

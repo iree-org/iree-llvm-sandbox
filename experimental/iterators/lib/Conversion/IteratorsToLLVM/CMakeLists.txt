@@ -1,5 +1,5 @@
-add_mlir_conversion_library(MLIRIteratorsToStandard
-  IteratorsToStandard.cpp
+add_mlir_conversion_library(MLIRIteratorsToLLVM
+  IteratorsToLLVM.cpp
 
   DEPENDS
   MLIRIteratorsConversionIncGen
