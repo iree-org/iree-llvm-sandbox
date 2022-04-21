@@ -131,9 +131,11 @@ class Selection(Operation):
 
   ```
   ibis.selection() {
-    // table ibis.table() ...
+    // table
+    ibis.table() ...
   } {
-    // predicates ibis.equals() ...
+    // predicates
+    ibis.equals() ...
   }
   ```
   """
