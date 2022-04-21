@@ -10,7 +10,7 @@ module() {
     // selection predicate
     ibis.equals() {
       // predicate column
-      ibis.table_column() ["col_name" = "a"] {
+      ibis.table_column() ["col_name" = "id"] {
         ibis.pandas_table() ["table_name" = "t"] {
           ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
         }
@@ -30,7 +30,7 @@ module() {
 // CHECK-NEXT:         }
 // CHECK-NEXT:     } {
 // CHECK-NEXT:         rel_alg.compare() ["comparator" = "="] {
-// CHECK-NEXT:             rel_alg.column() ["col_name" = "a"]
+// CHECK-NEXT:             rel_alg.column() ["col_name" = "id"]
 // CHECK-NEXT:         } {
 // CHECK-NEXT:             rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.int32]
 // CHECK-NEXT:         }
