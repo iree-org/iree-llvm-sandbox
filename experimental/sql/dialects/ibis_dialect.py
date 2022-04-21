@@ -38,7 +38,7 @@ class DataType(ParametrizedAttribute):
 
 
 @irdl_attr_definition
-class int32(DataType):
+class Int32(DataType):
   """
   Models the ibis int32 type.
 
@@ -249,7 +249,7 @@ class Ibis:
   def __post_init__(self: 'Ibis'):
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(String)
-    self.ctx.register_attr(int32)
+    self.ctx.register_attr(Int32)
 
     self.ctx.register_op(PandasTable)
     self.ctx.register_op(SchemaElement)
