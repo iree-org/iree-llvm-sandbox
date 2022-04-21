@@ -713,7 +713,7 @@ LogicalResult transform::BufferizeOp::apply(transform::TransformResults &result,
     return success(linalg::makeMemRefCopyOp(builder, loc, from, to));
   };
 
-  auto moduleOp = dyn_cast<ModuleOp>(state.getTopLevel());
+  auto moduleOp = cast<ModuleOp>(state.getTopLevel());
   applyBufferizationEnablingTransformations(moduleOp);
   if (failed(comprehensive_bufferize::runModuleBufferize(moduleOp, options)))
     return failure();
