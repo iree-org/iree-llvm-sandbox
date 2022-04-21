@@ -19,6 +19,8 @@ module() {
       // predicate literal
       ibis.literal() ["val" = 5, "type" = !ibis.int32]
     }
+  } {
+
   }
 }
 
