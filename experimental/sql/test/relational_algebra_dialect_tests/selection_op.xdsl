@@ -7,7 +7,7 @@ module() {
         }
     } {
         rel_alg.compare() ["comparator" = "="] {
-            rel_alg.column() ["col_name" = "a"]
+            rel_alg.column() ["col_name" = "id"]
         } {
             rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.int32]
         }
@@ -20,7 +20,7 @@ module() {
 // CHECK-NEXT:         }
 // CHECK-NEXT:     } {
 // CHECK-NEXT:         rel_alg.compare() ["comparator" = "="] {
-// CHECK-NEXT:             rel_alg.column() ["col_name" = "a"]
+// CHECK-NEXT:             rel_alg.column() ["col_name" = "id"]
 // CHECK-NEXT:         } {
 // CHECK-NEXT:             rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.int32]
 // CHECK-NEXT:         }
