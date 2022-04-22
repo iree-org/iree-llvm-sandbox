@@ -317,7 +317,7 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target
       .addLegalDialect<func::FuncDialect, memref::MemRefDialect, LLVMDialect>();
-  target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>();
+  target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
   IteratorsTypeConverter typeConverter;
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);
