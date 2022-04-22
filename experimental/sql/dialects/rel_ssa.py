@@ -8,17 +8,21 @@ from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, D
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
 
-# This file contains the relational ssa dialect, a dialect that expresses
+# This file contains the relational SSA dialect, a dialect that expresses
 # relational queries using SSA. The dialect consists of two types of operations:
-# Expressions and Operators. Expressions work on single values, whereas
-# Operators work on Bags. The Column and Yield Expressions bridge the gap to
-# convert from one to the other.
+# Expressions and Operators. Operators work on Bags whereas expressions work on
+# single values and are used to specify the exact behavior of operators. The
+# Column and Yield Expressions bridge the gap to convert from one to the other.
+
+#===------------------------------------------------------------------------===#
+# Data types
+#===------------------------------------------------------------------------===#
 
 
 @irdl_attr_definition
 class DataType(ParametrizedAttribute):
   """
-  Models a datatype in a relational ssa query.
+  Models a datatype in a relational SSA query.
   """
   name = "rel_ssa.datatype"
 
@@ -26,7 +30,7 @@ class DataType(ParametrizedAttribute):
 @irdl_attr_definition
 class Int32(DataType):
   """
-  Models a int32 type in a relational ssa query.
+  Models a int32 type in a relational SSA query.
 
   Example:
 
@@ -40,7 +44,7 @@ class Int32(DataType):
 @irdl_attr_definition
 class String(DataType):
   """
-  Models a string type in a relational ssa query, that can be either nullable or
+  Models a string type in a relational SSA query, that can be either nullable or
   not.
 
   Example:
@@ -51,6 +55,7 @@ class String(DataType):
   """
   name = "rel_ssa.string"
 
+  # TODO: redefine nullable as a property of all fields
   nullable = ParameterDef(IntegerAttr)
 
   @staticmethod
@@ -59,6 +64,11 @@ class String(DataType):
     if isinstance(val, IntegerAttr):
       return String([val])
     return String([IntegerAttr.from_int_and_width(val, 1)])
+
+
+#===------------------------------------------------------------------------===#
+# Query types
+#===------------------------------------------------------------------------===#
 
 
 @irdl_attr_definition
@@ -79,7 +89,7 @@ class Boolean(ParametrizedAttribute):
 @irdl_attr_definition
 class Bag(ParametrizedAttribute):
   """
-  Models a bag in a relational ssa query. The exact schema of the bag is part of
+  Models a bag in a relational SSA query. The exact schema of the bag is part of
   the type itself.
 
   Example:
@@ -98,6 +108,11 @@ class Bag(ParametrizedAttribute):
     return Bag([ArrayAttr.from_list(types)])  #type: ignore
 
 
+#===------------------------------------------------------------------------===#
+# Expressions
+#===------------------------------------------------------------------------===#
+
+
 class Expression(Operation):
   """
   Interface class for all Expressions, i.e., operations that work on single
@@ -109,7 +124,8 @@ class Expression(Operation):
 @irdl_op_definition
 class Column(Expression):
   """
-  References a specific column with name `col_name` and returns its value.
+  References a specific column with name `col_name` and returns its value. The
+  name 'col_name' must be part of the schema of an encompassing operator.
 
   Example:
 
@@ -155,9 +171,11 @@ class Compare(Expression):
 @irdl_op_definition
 class Yield(Expression):
   """
-  Bridges the gap from expressions back to operators by yielding values.
+  Bridges the gap from expressions back to operators by yielding the result of
+  an expression to the encompassing operator.
 
   Example:
+
   '''
   rel_ssa.yield(%0 : !rel_ssa.bool)
   '''
@@ -195,7 +213,15 @@ class Literal(Expression):
     return Literal.build(attributes={"value": val}, result_types=[res])
 
 
+#===------------------------------------------------------------------------===#
+# Operators
+#===------------------------------------------------------------------------===#
+
+
 class Operator(Operation):
+  """
+  Interface class for all Operators, i.e., operations that work on bags.
+  """
   ...
 
 
@@ -226,7 +252,7 @@ class PandasTable(Operator):
 @irdl_op_definition
 class Select(Operator):
   """
-  Selects all tuples of `input` according to `predicates`.
+  Selects all tuples of `input` according to the yielded expression in `predicates`.
 
   Example:
 
