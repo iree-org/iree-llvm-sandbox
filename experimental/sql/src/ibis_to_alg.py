@@ -12,6 +12,12 @@ from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, P
 import dialects.ibis_dialect as ibis
 import dialects.rel_alg as RelAlg
 
+# This file defines several `Rewriter`s that translate ibis dialect operations to
+# the corresponding constructs in the relational algebra dialect. The
+# `IbisRewriter` defines the parent class that contains all functions used by
+# several specific `Rewriter`s (like convert_datatype). All specific `Rewriter`s
+# inherit from the IbisRewriter.
+
 
 @dataclass
 class IbisRewriter(RewritePattern):
