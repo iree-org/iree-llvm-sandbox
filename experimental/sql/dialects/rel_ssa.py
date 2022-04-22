@@ -87,6 +87,27 @@ class Boolean(ParametrizedAttribute):
 
 
 @irdl_attr_definition
+class SchemaElement(ParametrizedAttribute):
+  """
+  Models an element of a schema with name `elt_name` and type `elt_type`.
+
+  Example:
+  '''
+  !rel_ssa.schema_element<"id", !rel_ssa.int32>
+  '''
+  """
+  name = "rel_ssa.schema_element"
+
+  elt_name = ParameterDef(StringAttr)
+  elt_type = ParameterDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(name: str, type_: DataType) -> 'SchemaElement':
+    return SchemaElement([StringAttr.from_str(name), type_])
+
+
+@irdl_attr_definition
 class Bag(ParametrizedAttribute):
   """
   Models a bag in a relational SSA query. The exact schema of the bag is part of
@@ -95,17 +116,18 @@ class Bag(ParametrizedAttribute):
   Example:
 
   '''
-  !rel_ssa.bag<[!rel_ssa.int32]>
+  !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>
   '''
   """
   name = "rel_ssa.bag"
 
-  schema = ParameterDef(ArrayOfConstraint(DataType))
+  schema = ParameterDef(ArrayOfConstraint(SchemaElement))
 
   @staticmethod
   @builder
-  def get(types: list[DataType]) -> 'Bag':
-    return Bag([ArrayAttr.from_list(types)])  #type: ignore
+  def get(types: list[DataType], names: list[str]) -> 'Bag':
+    schema_elts = [SchemaElement.get(n, t) for n, t in zip(names, types)]
+    return Bag([ArrayAttr.from_list(schema_elts)])
 
 
 #===------------------------------------------------------------------------===#
@@ -288,6 +310,7 @@ class RelSSA:
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
+    self.ctx.register_attr(SchemaElement)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(PandasTable)
