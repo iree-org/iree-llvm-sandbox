@@ -10,4 +10,5 @@ git show ${COMMIT} -- lib/Dialect/LinalgExt include/Dialect/LinalgExt test/Diale
 
 sed -i "s:include/Dialect:include/iree-dialects/Dialect:g" /tmp/patch.patch
 
-echo "Run: 'patch -p1 < /tmp/patch.patch from iree/llvm-external-projects/iree-dialects/'"
+echo "Run:"
+echo "cd ${IREE_SOURCE_DIR}/llvm-external-projects/iree-dialects/ && git status --porcelain && patch -p1 < /tmp/patch.patch"
