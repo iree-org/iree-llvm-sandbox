@@ -45,12 +45,13 @@ struct ConvertIteratorsToLLVMPass
 };
 } // namespace
 
-/// Maps StreamType to llvm.ptr<i8>.
+/// Maps types from the Iterators dialect to corresponding types in LLVM.
 class IteratorsTypeConverter : public TypeConverter {
 public:
   IteratorsTypeConverter() {
     addConversion([](Type type) { return type; });
     addConversion(convertStreamType);
+    addConversion(convertTupleType);
   }
 
 private:
@@ -58,6 +59,15 @@ private:
   static Optional<Type> convertStreamType(Type type) {
     if (type.isa<iterators::StreamType>())
       return LLVM::LLVMPointerType::get(IntegerType::get(type.getContext(), 8));
+    return llvm::None;
+  }
+
+  /// Maps a TupleType to a corresponding LLVMStructType
+  static Optional<Type> convertTupleType(Type type) {
+    if (TupleType tupleType = type.dyn_cast<TupleType>()) {
+      return LLVMStructType::getNewIdentified(type.getContext(), "tuple",
+                                              tupleType.getTypes());
+    }
     return llvm::None;
   }
 };
@@ -198,18 +208,17 @@ private:
 };
 
 struct ConstantTupleLowering : public ConversionPattern {
-  ConstantTupleLowering(MLIRContext *context, PatternBenefit benefit = 1)
-      : ConversionPattern("iterators.constant", benefit, context) {}
+  ConstantTupleLowering(TypeConverter &typeConverter, MLIRContext *context,
+                        PatternBenefit benefit = 1)
+      : ConversionPattern(typeConverter, "iterators.constant", benefit,
+                          context) {}
 
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
-    // Create LLVM struct type.
+    // Convert tuple type.
     assert(op->getNumResults() == 1);
-    TupleType resultType = op->getResult(0).getType().dyn_cast<TupleType>();
-    assert(resultType);
-    LLVMStructType structType = LLVMStructType::getNewIdentified(
-        getContext(), "tuple", resultType.getTypes());
+    Type structType = typeConverter->convertType(op->getResult(0).getType());
 
     // Undef.
     Value structValue = rewriter.create<UndefOp>(op->getLoc(), structType);
@@ -237,16 +246,13 @@ struct ConstantTupleLowering : public ConversionPattern {
 };
 
 struct PrintOpLowering : public ConversionPattern {
-  PrintOpLowering(MLIRContext *context, PatternBenefit benefit = 1)
-      : ConversionPattern("iterators.print", benefit, context) {}
+  PrintOpLowering(TypeConverter &typeConverter, MLIRContext *context,
+                  PatternBenefit benefit = 1)
+      : ConversionPattern(typeConverter, "iterators.print", benefit, context) {}
 
   LogicalResult
   matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
-    assert(op->getNumOperands() == 1);
-    TupleType tupleType = op->getOperand(0).getType().dyn_cast<TupleType>();
-    assert(tupleType);
-
     assert(operands.size() == 1);
     LLVMStructType structType =
         operands[0].getType().dyn_cast<LLVMStructType>();
@@ -255,7 +261,7 @@ struct PrintOpLowering : public ConversionPattern {
     // Assemble format string in the form `(%i, %i, ...)`.
     std::string format("(");
     llvm::raw_string_ostream formatStream(format);
-    llvm::interleaveComma(tupleType.getTypes(), formatStream, [&](Type type) {
+    llvm::interleaveComma(structType.getBody(), formatStream, [&](Type type) {
       assert(type == rewriter.getI32Type() && "Only I32 is supported for now");
       formatStream << "%i";
     });
@@ -302,7 +308,8 @@ void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
   patterns.add<IteratorConversionPattern>(typeConverter, patterns.getContext(),
                                           "iterators.sink",
                                           "iteratorsComsumeAndPrint", "_dummy");
-  patterns.add<ConstantTupleLowering, PrintOpLowering>(patterns.getContext());
+  patterns.add<ConstantTupleLowering, PrintOpLowering>(typeConverter,
+                                                       patterns.getContext());
 }
 
 void ConvertIteratorsToLLVMPass::runOnOperation() {
