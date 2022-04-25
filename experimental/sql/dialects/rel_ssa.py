@@ -160,6 +160,12 @@ class Column(Expression):
   col_name = AttributeDef(StringAttr)
   result = ResultDef(DataType)
 
+  @builder
+  @staticmethod
+  def get(name: str, res_type: DataType) -> 'Column':
+    return Column.build(result_types=[res_type],
+                        attributes={"col_name": StringAttr.from_str(name)})
+
 
 @irdl_op_definition
 class Compare(Expression):
@@ -187,7 +193,7 @@ class Compare(Expression):
           comparator: StringAttr) -> 'Compare':
     return Compare.build(operands=[left, right],
                          attributes={"comparator": comparator},
-                         result_types=[Boolean])
+                         result_types=[Boolean()])
 
 
 @irdl_op_definition
@@ -294,10 +300,10 @@ class Select(Operator):
 
   @builder
   @staticmethod
-  def get(table: Operation, predicates: Region) -> 'Select':
-    return Select.build(operands=[table],
+  def get(input: Operation, predicates: Region) -> 'Select':
+    return Select.build(operands=[input],
                         regions=[predicates],
-                        result_types=[Bag()])
+                        result_types=[input.results[0].typ])
 
 
 @dataclass
