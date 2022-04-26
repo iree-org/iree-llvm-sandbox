@@ -167,6 +167,27 @@ class Selection(Operation):
 
 
 @irdl_op_definition
+class Aggregation(Operation):
+  """
+  Models an ibis aggregation query
+  """
+  name = "ibis.aggregation"
+
+  table = SingleBlockRegionDef()
+  metrics = SingleBlockRegionDef()
+  # TODO: figure out what the rest of these two and model them
+  # by = SingleBlockRegionDef()
+  # having = SingleBlockRegionDef()
+  # predicates = SingleBlockRegionDef()
+  # sort_keys = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(table: Region, metrics: Region) -> 'Aggregation':
+    return Aggregation.build(regions=[table, metrics])
+
+
+@irdl_op_definition
 class Sum(Operation):
   """
   Sums up all the elements of the column given in arg.
@@ -184,12 +205,12 @@ class Sum(Operation):
 
   arg = SingleBlockRegionDef()
   # TODO: figure out what where does. Some sort of filter?
-  where = SingleBlockRegionDef()
+  # where = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(arg: Region, where: Region) -> 'Sum':
-    return Sum.build(regions=[arg, where])
+  def get(arg: Region) -> 'Sum':
+    return Sum.build(regions=[arg])
 
 
 @irdl_op_definition
@@ -318,3 +339,4 @@ class Ibis:
     self.ctx.register_op(TableColumn)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Sum)
+    self.ctx.register_op(Aggregation)
