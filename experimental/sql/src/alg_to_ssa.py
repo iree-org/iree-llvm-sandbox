@@ -34,15 +34,38 @@ class RelAlgRewriter(RewritePattern):
 
   def lookup_type_in_schema(self, name: str,
                             bag: RelSSA.Bag) -> Optional[RelSSA.DataType]:
+    """
+    Looks up the type of name in the schema of bag.
+    """
     for s in bag.schema.data:
       if s.elt_name.data == name:
         return s.elt_type
     return None
 
+  def lookup_type_in_parent_op(self, name: str, parent_op: Operation):
+    """
+    Crawls through all parent_ops until reaching either a ModuleOp, in which
+    case the lookup failed or reaching an operation with an input bag, that the
+    type can be looked up in.
+    """
+    if isinstance(parent_op, ModuleOp):
+      raise Exception(f"element not found in parent schema: {name}")
+    if isinstance(parent_op, RelAlg.Select):
+      type_ = self.lookup_type_in_schema(name,
+                                         parent_op.input.op.results[0].typ)
+      if type_:
+        return type_
+      raise Exception(f"element not found in parent schema: {name}")
+    return self.lookup_type_in_parent_op(name, parent_op.parent_op())
+
 
 #===------------------------------------------------------------------------===#
 # Expressions
 #===------------------------------------------------------------------------===#
+"""
+All expression rewriters implicitely assume that the last operation in a lock is
+the one to be yielded.
+"""
 
 
 @dataclass
@@ -61,9 +84,7 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
-    res_type = self.lookup_type_in_schema(
-        op.col_name.data,
-        op.parent_op().parent_op().input.op.results[0].typ)
+    res_type = self.lookup_type_in_parent_op(op.col_name.data, op.parent_op())
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
     rewriter.insert_op_before_matched_op([new_op])
     rewriter.erase_matched_op()
@@ -75,10 +96,11 @@ class CompareRewriter(RelAlgRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Compare, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.left.blocks[0])
+    left = rewriter.added_operations_before[-1]
     rewriter.inline_block_before_matched_op(op.right.blocks[0])
+    right = rewriter.added_operations_before[-1]
     rewriter.insert_op_before_matched_op(
-        RelSSA.Compare.get(rewriter.added_operations_before[0],
-                           rewriter.added_operations_before[1], op.comparator))
+        RelSSA.Compare.get(left, right, op.comparator))
     rewriter.erase_matched_op()
 
 
