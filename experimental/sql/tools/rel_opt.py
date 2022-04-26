@@ -12,6 +12,7 @@ from src.alg_to_ssa import alg_to_ssa
 from dialects.ibis_dialect import Ibis
 from dialects.rel_alg import RelationalAlg
 from dialects.rel_ssa import RelSSA
+from dialects.rel_impl import RelImpl
 
 
 class RelOptMain(xDSLOptMain):
@@ -50,6 +51,7 @@ class RelOptMain(xDSLOptMain):
     ibis = Ibis(self.ctx)
     rel_Alg = RelationalAlg(self.ctx)
     rel_ssa = RelSSA(self.ctx)
+    rel_impl = RelImpl(self.ctx)
 
 
 def __main__():
