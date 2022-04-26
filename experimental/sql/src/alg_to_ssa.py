@@ -138,6 +138,11 @@ class PandasTableRewriter(RelAlgRewriter):
     rewriter.erase_matched_op()
 
 
+#===------------------------------------------------------------------------===#
+# Conversion setup
+#===------------------------------------------------------------------------===#
+
+
 def alg_to_ssa(ctx: MLContext, query: ModuleOp):
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       PandasTableRewriter(),
