@@ -98,6 +98,7 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
 
   entry_point_name = 'main'
   fun_to_benchmark_name = 'fun_to_benchmark'
+  compile_error = False
 
   # Function called in the compilation thread.
   def compile():
@@ -106,14 +107,18 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       scheduler.schedule(module, proposal)
       # TODO: save and report on error.
 
-    problem.compile_with_schedule_builder( \
-      entry_point_name=entry_point_name,
-      fun_to_benchmark_name=fun_to_benchmark_name,
-      compile_time_problem_sizes_dict=scheduler.
-      build_compile_time_problem_sizes(),
-      schedule_builder=schedule_and_save)
-  throughputs_placeholder = []
+    try:
+      problem.compile_with_schedule_builder( \
+        entry_point_name=entry_point_name,
+        fun_to_benchmark_name=fun_to_benchmark_name,
+        compile_time_problem_sizes_dict=scheduler.
+        build_compile_time_problem_sizes(),
+        schedule_builder=schedule_and_save)
+    except Exception as e:
+      nonlocal compile_error
+      compile_error = True
 
+  throughputs_placeholder = []
   # Function called in the benchmark thread.
   def benchmark():
     throughputs_placeholder.append(
@@ -149,6 +154,13 @@ def compile_and_run_checked_mp(problem: ProblemInstance, \
       lock.release()
       if t.is_alive():
         kill_process()
+
+      if compile_error:
+        # Stop here if the compilation failed.
+        process_state.results_queue.put(
+            SearchJobResult(SearchJobResultStatus.FAILURE, proposal, None))
+        return
+
       # Acquire a write lock for benchmarking. No other compilation or benchmark
       # may run on this CPU range.
       lock.acquire_write()
