@@ -30,7 +30,7 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
   raise KeyError(f"Unknown datatype: {type(type_)}")
 
 
-def visit_schema(schema: ibis.expr.schema.Schema) -> Region:  #type: ignore
+def visit_schema(schema: ibis.expr.schema.Schema) -> Region:
   ops = []
   for n, t in zip(schema.names, schema.types):
     ops.append(id.SchemaElement.get(n, convert_datatype(t)))
@@ -52,7 +52,7 @@ def visit(  #type: ignore
 
 @dispatch(ibis.backends.pandas.client.PandasTable)
 def visit(  #type: ignore
-    op: ibis.backends.pandas.client.PandasTable) -> Operation:  #type: ignore
+    op: ibis.backends.pandas.client.PandasTable) -> Operation:
   schema = visit_schema(op.schema)
   new_op = id.PandasTable.get(op.name, schema)
   return new_op
@@ -62,7 +62,6 @@ def visit(  #type: ignore
 def visit(  #type: ignore
     op: ibis.expr.operations.relations.Selection) -> Operation:
   table = Region.from_operation_list([visit(op.table)])
-  # TODO: handle multiple predicates and projections
   predicates = visit_ibis_expr_list(op.predicates)
   projections = visit_ibis_expr_list(op.selections)
   new_op = id.Selection.get(table, predicates, projections)
