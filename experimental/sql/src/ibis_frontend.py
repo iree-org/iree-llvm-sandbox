@@ -43,6 +43,13 @@ def visit_schema(schema: ibis.expr.schema.Schema) -> Region:  #type: ignore
   return Region.from_operation_list(ops)
 
 
+def visit_ibis_expr_list(l: List[ibis.expr.types.Expr]) -> Region:
+  ops = []
+  for op in l:
+    ops.append(visit(op))
+  return Region.from_operation_list(ops)
+
+
 @dispatch(ibis.expr.types.TableExpr)
 def visit(  #type: ignore
     table: ibis.expr.types.TableExpr) -> Operation:  #type: ignore
@@ -63,6 +70,11 @@ def visit(  #type: ignore
       projection_ops.append(visit(proj))
     projections = Region.from_operation_list(projection_ops)
     new_op = id.Selection.get(table, predicates, projections)
+    return new_op
+  if isinstance(op, rels.Aggregation):
+    table = Region.from_operation_list([visit(op.table)])
+    metrics = visit_ibis_expr_list(op.metrics)
+    new_op = id.Aggregation.get(table, metrics)
     return new_op
   raise KeyError(f"Unknown tableExpr: {type(op)}")
 
@@ -121,9 +133,7 @@ def visit(  #type: ignore
   op = intScalar.op()
   if isinstance(op, ibis.expr.operations.reductions.Sum):
     arg = Region.from_operation_list([visit(op.arg)])
-    where = Region.from_operation_list([visit(
-        op.where)]) if op.where else Region.from_operation_list([])
-    new_op = id.Sum.get(arg, where)
+    new_op = id.Sum.get(arg)
     return new_op
   raise Exception(f"Unknown intScalar: {type(op)}")
 
