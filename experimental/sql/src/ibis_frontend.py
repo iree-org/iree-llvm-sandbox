@@ -54,8 +54,7 @@ def visit(  #type: ignore
 def visit(  #type: ignore
     op: ibis.backends.pandas.client.PandasTable) -> Operation:
   schema = visit_schema(op.schema)
-  new_op = id.PandasTable.get(op.name, schema)
-  return new_op
+  return id.PandasTable.get(op.name, schema)
 
 
 @dispatch(ibis.expr.operations.relations.Selection)
@@ -64,8 +63,7 @@ def visit(  #type: ignore
   table = Region.from_operation_list([visit(op.table)])
   predicates = visit_ibis_expr_list(op.predicates)
   projections = visit_ibis_expr_list(op.selections)
-  new_op = id.Selection.get(table, predicates, projections)
-  return new_op
+  return id.Selection.get(table, predicates, projections)
 
 
 @dispatch(ibis.expr.operations.relations.Aggregation)
@@ -73,16 +71,14 @@ def visit(  #type: ignore
     op: ibis.expr.operations.relations.Aggregation) -> Operation:
   table = Region.from_operation_list([visit(op.table)])
   metrics = visit_ibis_expr_list(op.metrics)
-  new_op = id.Aggregation.get(table, metrics)
-  return new_op
+  return id.Aggregation.get(table, metrics)
 
 
 @dispatch(ibis.expr.operations.generic.TableColumn)
 def visit(  #type: ignore
     op: ibis.expr.operations.generic.TableColumn) -> Operation:
   table = Region.from_operation_list([visit(op.table)])
-  new_op = id.TableColumn.get(table, op.name)
-  return new_op
+  return id.TableColumn.get(table, op.name)
 
 
 @dispatch(ibis.expr.operations.logical.Equals)
@@ -90,24 +86,21 @@ def visit(  #type: ignore
     op: ibis.expr.operations.logical.Equals) -> Operation:
   left_reg = Region.from_operation_list([visit(op.left)])
   right_reg = Region.from_operation_list([visit(op.right)])
-  new_op = id.Equals.get(left_reg, right_reg)
-  return new_op
+  return id.Equals.get(left_reg, right_reg)
 
 
 @dispatch(ibis.expr.operations.generic.Literal)
 def visit(  #type: ignore
     op: ibis.expr.operations.generic.Literal) -> Operation:
-  new_op = id.Literal.get(StringAttr.from_str(op.value),
-                          convert_datatype(op.dtype))
-  return new_op
+  return id.Literal.get(StringAttr.from_str(op.value),
+                        convert_datatype(op.dtype))
 
 
 @dispatch(ibis.expr.operations.reductions.Sum)
 def visit(  #type: ignore
     op: ibis.expr.operations.reductions.Sum) -> Operation:
   arg = Region.from_operation_list([visit(op.arg)])
-  new_op = id.Sum.get(arg)
-  return new_op
+  return id.Sum.get(arg)
 
 
 def ibis_to_xdsl(ctx: MLContext, query: ibis.expr.types.Expr) -> ModuleOp:
