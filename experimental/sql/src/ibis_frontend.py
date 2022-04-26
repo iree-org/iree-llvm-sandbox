@@ -115,5 +115,18 @@ def visit(  #type: ignore
   raise Exception(f"Unknown stringscalar: {type(op)}")
 
 
+@dispatch(ibis.expr.types.IntegerScalar)
+def visit(  #type: ignore
+    intScalar: ibis.expr.types.IntegerScalar) -> Operation:
+  op = intScalar.op()
+  if isinstance(op, ibis.expr.operations.reductions.Sum):
+    arg = Region.from_operation_list([visit(op.arg)])
+    where = Region.from_operation_list([visit(
+        op.where)]) if op.where else Region.from_operation_list([])
+    new_op = id.Sum.get(arg, where)
+    return new_op
+  raise Exception(f"Unknown intScalar: {type(op)}")
+
+
 def ibis_to_xdsl(ctx: MLContext, query: ibis.expr.types.Expr) -> ModuleOp:
   return ModuleOp.build(regions=[Region.from_operation_list([visit(query)])])

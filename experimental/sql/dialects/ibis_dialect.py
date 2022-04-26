@@ -167,6 +167,32 @@ class Selection(Operation):
 
 
 @irdl_op_definition
+class Sum(Operation):
+  """
+  Sums up all the elements of the column given in arg.
+
+  Example:
+  '''
+  ibis.sum() {
+    ibis.table_column() ["col_name" = "id"] {
+      ...
+    }
+  }
+  '''
+  """
+  name = "ibis.sum"
+
+  arg = SingleBlockRegionDef()
+  # TODO: figure out what where does. Some sort of filter?
+  where = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region, where: Region) -> 'Sum':
+    return Sum.build(regions=[arg, where])
+
+
+@irdl_op_definition
 class Equals(Operation):
   """
   Checks whether each entry of `left` is equal to `right`.
@@ -291,3 +317,4 @@ class Ibis:
     self.ctx.register_op(Equals)
     self.ctx.register_op(TableColumn)
     self.ctx.register_op(Literal)
+    self.ctx.register_op(Sum)
