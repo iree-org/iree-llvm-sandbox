@@ -250,6 +250,7 @@ class Operator(Operation):
   """
   Interface class for all Operators, i.e., operations that work on bags.
   """
+  result = ResultDef(Bag)
   ...
 
 
@@ -267,7 +268,6 @@ class PandasTable(Operator):
   name = "rel_ssa.pandas_table"
 
   table_name = AttributeDef(StringAttr)
-  result = ResultDef(Bag)
 
   @staticmethod
   @builder
@@ -295,8 +295,6 @@ class Select(Operator):
 
   input = OperandDef(Bag)
   predicates = SingleBlockRegionDef()
-
-  result = ResultDef(Bag)
 
   @builder
   @staticmethod

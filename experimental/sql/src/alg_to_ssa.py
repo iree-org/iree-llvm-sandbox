@@ -42,7 +42,7 @@ class RelAlgRewriter(RewritePattern):
         return s.elt_type
     return None
 
-  def find_type_in_parent_op(self, name: str, op: Operation):
+  def find_type_in_parent_operator(self, name: str, op: Operation):
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
     case the lookup failed or reaching an operator with an input bag, that the
@@ -51,13 +51,12 @@ class RelAlgRewriter(RewritePattern):
     parent_op = op.parent_op()
     if isinstance(parent_op, ModuleOp):
       raise Exception(f"element not found in parent schema: {name}")
-    if isinstance(parent_op, RelAlg.Select):
-      type_ = self.lookup_type_in_schema(name,
-                                         parent_op.input.op.results[0].typ)
+    if isinstance(parent_op, RelSSA.Operator):
+      type_ = self.lookup_type_in_schema(name, parent_op.results[0].typ)
       if type_:
         return type_
       raise Exception(f"element not found in parent schema: {name}")
-    return self.find_type_in_parent_op(name, parent_op)
+    return self.find_type_in_parent_operator(name, parent_op)
 
 
 #===------------------------------------------------------------------------===#
@@ -75,9 +74,7 @@ class LiteralRewriter(RelAlgRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Literal, rewriter: PatternRewriter):
     new_op = RelSSA.Literal.get(op.val, self.convert_datatype(op.type))
-    rewriter.insert_op_before_matched_op(
-        RelSSA.Literal.get(op.val, self.convert_datatype(op.type)))
-    rewriter.erase_matched_op()
+    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
 
 
 @dataclass
@@ -85,10 +82,9 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
-    res_type = self.find_type_in_parent_op(op.col_name.data, op)
+    res_type = self.find_type_in_parent_operator(op.col_name.data, op)
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
-    rewriter.insert_op_before_matched_op([new_op])
-    rewriter.erase_matched_op()
+    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
 
 
 @dataclass
@@ -96,13 +92,17 @@ class CompareRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Compare, rewriter: PatternRewriter):
+    # Remove the yield and inline the rest of the block.
+    rewriter.erase_op(op.left.blocks[0].ops[-1])
     rewriter.inline_block_before_matched_op(op.left.blocks[0])
     left = rewriter.added_operations_before[-1]
+
+    rewriter.erase_op(op.right.blocks[0].ops[-1])
     rewriter.inline_block_before_matched_op(op.right.blocks[0])
     right = rewriter.added_operations_before[-1]
-    rewriter.insert_op_before_matched_op(
-        RelSSA.Compare.get(left, right, op.comparator))
-    rewriter.erase_matched_op()
+
+    new_op = RelSSA.Compare.get(left, right, op.comparator)
+    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
 
 
 #===------------------------------------------------------------------------===#
@@ -117,8 +117,6 @@ class SelectRewriter(RelAlgRewriter):
   def match_and_rewrite(self, op: RelAlg.Select, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input)
     predicates = rewriter.move_region_contents_to_new_regions(op.predicates)
-    predicates.blocks[0].add_op(RelSSA.Yield.get([predicates.blocks[0].ops[-1]
-                                                 ]))
     rewriter.insert_op_before_matched_op(
         RelSSA.Select.get(rewriter.added_operations_before[0], predicates))
     rewriter.erase_matched_op()
@@ -142,16 +140,24 @@ class PandasTableRewriter(RelAlgRewriter):
 # Conversion setup
 #===------------------------------------------------------------------------===#
 
+# This pass first rewrites operators and then expressions, since the schema of
+# the encompassing operator needs to be known in order to know the type of an
+# expression.
+
 
 def alg_to_ssa(ctx: MLContext, query: ModuleOp):
-  walker = PatternRewriteWalker(GreedyRewritePatternApplier([
-      PandasTableRewriter(),
+  operator_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
+      [PandasTableRewriter(), SelectRewriter()]),
+                                         walk_regions_first=True,
+                                         apply_recursively=True,
+                                         walk_reverse=False)
+  operator_walker.rewrite_module(query)
+  expression_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       LiteralRewriter(),
       ColumnRewriter(),
       CompareRewriter(),
-      SelectRewriter()
   ]),
-                                walk_regions_first=True,
-                                apply_recursively=True,
-                                walk_reverse=True)
-  walker.rewrite_module(query)
+                                           walk_regions_first=True,
+                                           apply_recursively=True,
+                                           walk_reverse=False)
+  expression_walker.rewrite_module(query)
