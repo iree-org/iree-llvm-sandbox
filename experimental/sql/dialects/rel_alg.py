@@ -142,6 +142,40 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class Aggregate(Operator):
+  """
+  Aggregate the column `col_name` of `input` using `function`.
+
+  Example:
+
+  '''
+  rel_alg.aggregate() ["col_name" = "b", "function" = "sum"] {
+    rel_alg.pandas_table() ...
+  }
+  '''
+  """
+  name = "rel_alg.aggregate"
+
+  input = SingleBlockRegionDef()
+  col_name = AttributeDef(StringAttr)
+  function = AttributeDef(StringAttr)
+
+  def verify_(self) -> None:
+    if not self.function.data in ["sum"]:
+      raise Exception(
+          f"function {self.function.data} is not a supported function")
+
+  @staticmethod
+  @builder
+  def get(input: Region, col_name: str, function: str) -> 'Aggregate':
+    return Aggregate.build(regions=[input],
+                           attributes={
+                               "col_name": StringAttr.from_str(col_name),
+                               "function": StringAttr.from_str(function)
+                           })
+
+
+@irdl_op_definition
 class Select(Operator):
   """
   Selects all tuples from `table` that fulfill `predicates`.
@@ -232,3 +266,4 @@ class RelationalAlg:
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)
+    self.ctx.register_op(Aggregate)

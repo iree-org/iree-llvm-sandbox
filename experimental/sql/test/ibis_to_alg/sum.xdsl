@@ -1,0 +1,29 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+ibis.aggregation() {
+    ibis.pandas_table() ["table_name" = "t"] {
+      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
+      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int32]
+      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int32]
+    }
+  } {
+    ibis.sum() {
+      ibis.table_column() ["col_name" = "b"] {
+        ibis.pandas_table() ["table_name" = "t"] {
+          ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
+          ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int32]
+          ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int32]
+        }
+      }
+    }
+  }
+}
+
+//      CHECK: rel_alg.aggregate() ["col_name" = "b", "function" = "sum"] {
+// CHECK-NEXT:         rel_alg.pandas_table() ["table_name" = "t"] {
+// CHECK-NEXT:           rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.string<1 : !i1>]
+// CHECK-NEXT:           rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.int32]
+// CHECK-NEXT:           rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.int32]
+// CHECK-NEXT:         }
+// CHECK-NEXT:     }

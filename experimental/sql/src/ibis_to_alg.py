@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 from xdsl.ir import Operation, MLContext, Region, Block
-from typing import List, Type, Optional
+from typing import List, Type, Optional, Tuple
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr
 
 from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, PatternRewriteWalker, PatternRewriter, op_type_rewrite_pattern
@@ -92,6 +92,25 @@ class SelectionRewriter(IbisRewriter):
             rewriter.move_region_contents_to_new_regions(op.predicates)))
 
 
+@dataclass
+class AggregationRewriter(IbisRewriter):
+
+  def get_col_name_and_function(self, metric_op: Operation) -> Tuple[str, str]:
+    if isinstance(metric_op, ibis.Sum):
+      return "sum", metric_op.arg.op.attributes["col_name"].data
+    raise Exception(
+        f"aggregation function not yet implemented {type(metric_op)}")
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Aggregation, rewriter: PatternRewriter):
+    function, col_name = self.get_col_name_and_function(op.metrics.op)
+
+    rewriter.replace_matched_op(
+        RelAlg.Aggregate.get(
+            rewriter.move_region_contents_to_new_regions(op.table), col_name,
+            function))
+
+
 def ibis_to_alg(ctx: MLContext, query: ModuleOp):
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       PandasTableRewriter(),
@@ -99,6 +118,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       SelectionRewriter(),
       EqualsRewriter(),
       TableColumnRewriter(),
+      AggregationRewriter(),
       LiteralRewriter()
   ]),
                                 walk_regions_first=False,
