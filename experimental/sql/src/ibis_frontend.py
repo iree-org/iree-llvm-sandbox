@@ -9,12 +9,6 @@ from typing import List, Type, Optional
 from multipledispatch import dispatch
 
 import ibis
-import ibis.expr.types
-import ibis.expr.datatypes
-import ibis.expr.operations.relations as rels
-import ibis.expr.operations.generic as gen_types
-from ibis.expr.operations.logical import Equals as EQ
-import ibis.backends.pandas.client as PandasBackend
 
 import dialects.ibis_dialect as id
 
@@ -50,92 +44,71 @@ def visit_ibis_expr_list(l: List[ibis.expr.types.Expr]) -> Region:
   return Region.from_operation_list(ops)
 
 
-@dispatch(ibis.expr.types.TableExpr)
+@dispatch(ibis.expr.types.Expr)
 def visit(  #type: ignore
-    table: ibis.expr.types.TableExpr) -> Operation:  #type: ignore
-  op = table.op()
-  if isinstance(op, PandasBackend.PandasTable):
-    schema = visit_schema(op.schema)
-    new_op = id.PandasTable.get(op.name, schema)
-    return new_op
-  if isinstance(op, rels.Selection):
-    table = Region.from_operation_list([visit(op.table)])
-    # TODO: handle multiple predicates and projections
-    predicate_ops = []
-    for pred in op.predicates:
-      predicate_ops.append(visit(pred))
-    predicates = Region.from_operation_list(predicate_ops)
-    projection_ops = []
-    for proj in op.selections:
-      projection_ops.append(visit(proj))
-    projections = Region.from_operation_list(projection_ops)
-    new_op = id.Selection.get(table, predicates, projections)
-    return new_op
-  if isinstance(op, rels.Aggregation):
-    table = Region.from_operation_list([visit(op.table)])
-    metrics = visit_ibis_expr_list(op.metrics)
-    new_op = id.Aggregation.get(table, metrics)
-    return new_op
-  raise KeyError(f"Unknown tableExpr: {type(op)}")
+    op: ibis.expr.types.Expr) -> Operation:
+  return visit(op.op())
 
 
-@dispatch(ibis.expr.types.StringColumn)
+@dispatch(ibis.backends.pandas.client.PandasTable)
 def visit(  #type: ignore
-    stringColumn: ibis.expr.types.StringColumn) -> Operation:
-  op = stringColumn.op()
-  if isinstance(op, gen_types.TableColumn):
-    table = Region.from_operation_list([visit(op.table)])
-    new_op = id.TableColumn.get(table, op.name)
-    return new_op
-  raise Exception(f"Unknown stringcolumn: {type(op)}")
+    op: ibis.backends.pandas.client.PandasTable) -> Operation:  #type: ignore
+  schema = visit_schema(op.schema)
+  new_op = id.PandasTable.get(op.name, schema)
+  return new_op
 
 
-@dispatch(ibis.expr.types.IntegerColumn)
+@dispatch(ibis.expr.operations.relations.Selection)
 def visit(  #type: ignore
-    intColumn: ibis.expr.types.IntegerColumn) -> Operation:
-  op = intColumn.op()
-  if isinstance(op, gen_types.TableColumn):
-    table = Region.from_operation_list([visit(op.table)])
-    new_op = id.TableColumn.get(table, op.name)
-    return new_op
-  raise Exception(f"Unknown stringcolumn: {type(op)}")
+    op: ibis.expr.operations.relations.Selection) -> Operation:
+  table = Region.from_operation_list([visit(op.table)])
+  # TODO: handle multiple predicates and projections
+  predicates = visit_ibis_expr_list(op.predicates)
+  projections = visit_ibis_expr_list(op.selections)
+  new_op = id.Selection.get(table, predicates, projections)
+  return new_op
 
 
-@dispatch(ibis.expr.types.BooleanColumn)
+@dispatch(ibis.expr.operations.relations.Aggregation)
 def visit(  #type: ignore
-    boolColumn: ibis.expr.types.BooleanColumn) -> Operation:
-  op = boolColumn.op()
-  if isinstance(op, gen_types.TableColumn):
-    reg = Region.from_operation_list([visit(op.table)])
-    return id.TableColumn.get(reg, op.name)
-  if isinstance(op, EQ):
-    left_reg = Region.from_operation_list([visit(op.left)])
-    right_reg = Region.from_operation_list([visit(op.right)])
-    new_op = id.Equals.get(left_reg, right_reg)
-    return new_op
-  raise Exception(f"Unknown booleancolumn: {type(op)}")
+    op: ibis.expr.operations.relations.Aggregation) -> Operation:
+  table = Region.from_operation_list([visit(op.table)])
+  metrics = visit_ibis_expr_list(op.metrics)
+  new_op = id.Aggregation.get(table, metrics)
+  return new_op
 
 
-@dispatch(ibis.expr.types.StringScalar)
+@dispatch(ibis.expr.operations.generic.TableColumn)
 def visit(  #type: ignore
-    strScalar: ibis.expr.types.StringScalar) -> Operation:
-  op = strScalar.op()
-  if isinstance(op, gen_types.Literal):
-    new_op = id.Literal.get(StringAttr.from_str(op.value),
-                            convert_datatype(op.dtype))
-    return new_op
-  raise Exception(f"Unknown stringscalar: {type(op)}")
+    op: ibis.expr.operations.generic.TableColumn) -> Operation:
+  table = Region.from_operation_list([visit(op.table)])
+  new_op = id.TableColumn.get(table, op.name)
+  return new_op
 
 
-@dispatch(ibis.expr.types.IntegerScalar)
+@dispatch(ibis.expr.operations.logical.Equals)
 def visit(  #type: ignore
-    intScalar: ibis.expr.types.IntegerScalar) -> Operation:
-  op = intScalar.op()
-  if isinstance(op, ibis.expr.operations.reductions.Sum):
-    arg = Region.from_operation_list([visit(op.arg)])
-    new_op = id.Sum.get(arg)
-    return new_op
-  raise Exception(f"Unknown intScalar: {type(op)}")
+    op: ibis.expr.operations.logical.Equals) -> Operation:
+  left_reg = Region.from_operation_list([visit(op.left)])
+  right_reg = Region.from_operation_list([visit(op.right)])
+  new_op = id.Equals.get(left_reg, right_reg)
+  return new_op
+
+
+@dispatch(ibis.expr.operations.generic.Literal)
+def visit(  #type: ignore
+    op: ibis.expr.operations.generic.Literal) -> Operation:
+  new_op = id.Literal.get(StringAttr.from_str(op.value),
+                          convert_datatype(op.dtype))
+  return new_op
+
+
+@dispatch(ibis.expr.operations.reductions.Sum)
+def visit(  #type: ignore
+    op: ibis.expr.operations.reductions.Sum) -> Operation:
+  arg = Region.from_operation_list([visit(op.arg)])
+  new_op = id.Sum.get(arg)
+  return new_op
 
 
 def ibis_to_xdsl(ctx: MLContext, query: ibis.expr.types.Expr) -> ModuleOp:
