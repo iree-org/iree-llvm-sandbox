@@ -45,7 +45,7 @@ class RelAlgRewriter(RewritePattern):
   def find_type_in_parent_op(self, name: str, op: Operation):
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
-    case the lookup failed or reaching an operation with an input bag, that the
+    case the lookup failed or reaching an operator with an input bag, that the
     type can be looked up in.
     """
     parent_op = op.parent_op()
