@@ -169,7 +169,21 @@ class Selection(Operation):
 @irdl_op_definition
 class Aggregation(Operation):
   """
-  Models an ibis aggregation query
+  Models an ibis aggregation query where `metrics` defines the aggregation function.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L589
+
+  Example:
+
+  '''
+  ibis.aggregation() {
+    ibis.pandas_table() ...
+  } {
+    ibis.sum() {
+      ...
+    }
+  }
+  '''
   """
   name = "ibis.aggregation"
 
@@ -190,9 +204,13 @@ class Aggregation(Operation):
 @irdl_op_definition
 class Sum(Operation):
   """
-  Sums up all the elements of the column given in arg.
+  Sums up all the elements of the column given in arg based on the encompassing
+  aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L95
 
   Example:
+
   '''
   ibis.sum() {
     ibis.table_column() ["col_name" = "id"] {
