@@ -12,8 +12,8 @@ from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBloc
 # expresses relational queries using low-level concepts like tuples as block
 # arguments and specific join implementations. The dialect consists of two types
 # of operations: Expressions and Operators. Operators work on Bags whereas
-# expressions work on single values and are used to specify the exact behavior
-# of operators. The IndexByName and Yield Expressions bridge the gap to convert
+# expressions work on scalars and are used to specify the exact behavior of
+# operators. The IndexByName and Yield Expressions bridge the gap to convert
 # from one to the other.
 
 #===------------------------------------------------------------------------===#
@@ -171,7 +171,7 @@ class Expression(Operation):
 @irdl_op_definition
 class IndexByName(Expression):
   """
-  Indexes into `tuple` at the position of the filed `col_name` and returns its
+  Indexes into `tuple` at the position of the field `col_name` and returns its
   content.
 
   Example:
