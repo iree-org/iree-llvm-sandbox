@@ -160,6 +160,8 @@ class Aggregate(Operator):
   col_name = AttributeDef(StringAttr)
   function = AttributeDef(StringAttr)
 
+  # TODO: add support for grouping...
+
   def verify_(self) -> None:
     if not self.function.data in ["sum"]:
       raise Exception(
