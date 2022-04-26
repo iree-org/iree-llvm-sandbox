@@ -42,7 +42,7 @@ class RelAlgRewriter(RewritePattern):
         return s.elt_type
     return None
 
-  def lookup_type_in_parent_op(self, name: str, parent_op: Operation):
+  def find_type_in_parent_op(self, name: str, parent_op: Operation):
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
     case the lookup failed or reaching an operation with an input bag, that the
@@ -56,7 +56,7 @@ class RelAlgRewriter(RewritePattern):
       if type_:
         return type_
       raise Exception(f"element not found in parent schema: {name}")
-    return self.lookup_type_in_parent_op(name, parent_op.parent_op())
+    return self.find_type_in_parent_op(name, parent_op.parent_op())
 
 
 #===------------------------------------------------------------------------===#
@@ -84,7 +84,7 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
-    res_type = self.lookup_type_in_parent_op(op.col_name.data, op.parent_op())
+    res_type = self.find_type_in_parent_op(op.col_name.data, op.parent_op())
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
     rewriter.insert_op_before_matched_op([new_op])
     rewriter.erase_matched_op()
