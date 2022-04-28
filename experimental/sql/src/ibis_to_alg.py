@@ -103,12 +103,17 @@ class AggregationRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.Aggregation, rewriter: PatternRewriter):
-    function, col_name = self.get_col_name_and_function(op.metrics.op)
+    functions_and_col_names = [
+        self.get_col_name_and_function(o) for o in op.metrics.ops
+    ]
+
+    functions = [t[0] for t in functions_and_col_names]
+    col_names = [t[1] for t in functions_and_col_names]
 
     rewriter.replace_matched_op(
         RelAlg.Aggregate.get(
-            rewriter.move_region_contents_to_new_regions(op.table), col_name,
-            function))
+            rewriter.move_region_contents_to_new_regions(op.table), col_names,
+            functions))
 
 
 def ibis_to_alg(ctx: MLContext, query: ModuleOp):

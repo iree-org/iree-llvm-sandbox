@@ -157,24 +157,29 @@ class Aggregate(Operator):
   name = "rel_alg.aggregate"
 
   input = SingleBlockRegionDef()
-  col_name = AttributeDef(StringAttr)
-  function = AttributeDef(StringAttr)
+  col_names = AttributeDef(ArrayOfConstraint(StringAttr))
+  functions = AttributeDef(ArrayOfConstraint(StringAttr))
 
   # TODO: add support for grouping...
 
-  def verify_(self) -> None:
-    if not self.function.data in ["sum"]:
-      raise Exception(
-          f"function {self.function.data} is not a supported function")
+  #def verify_(self) -> None:
+  #  if not self.function.data in ["sum"]:
+  #    raise Exception(
+  #        f"function {self.function.data} is not a supported function")
 
   @staticmethod
   @builder
-  def get(input: Region, col_name: str, function: str) -> 'Aggregate':
-    return Aggregate.build(regions=[input],
-                           attributes={
-                               "col_name": StringAttr.from_str(col_name),
-                               "function": StringAttr.from_str(function)
-                           })
+  def get(input: Region, col_names: List[str],
+          functions: List[str]) -> 'Aggregate':
+    return Aggregate.build(
+        regions=[input],
+        attributes={
+            "col_names":
+                ArrayAttr.from_list([StringAttr.from_str(n) for n in col_names]
+                                   ),
+            "functions":
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+        })
 
 
 @irdl_op_definition
