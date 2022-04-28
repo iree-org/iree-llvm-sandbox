@@ -8,6 +8,7 @@ from io import IOBase
 
 from src.ibis_frontend import ibis_to_xdsl
 from src.ibis_to_alg import ibis_to_alg
+from src.alg_to_ssa import alg_to_ssa
 from dialects.ibis_dialect import Ibis
 from dialects.rel_alg import RelationalAlg
 from dialects.rel_ssa import RelSSA
@@ -17,6 +18,7 @@ class RelOptMain(xDSLOptMain):
 
   def register_all_passes(self):
     self.available_passes['ibis-to-alg'] = ibis_to_alg
+    self.available_passes['alg-to-ssa'] = alg_to_ssa
 
   def register_all_frontends(self):
     super().register_all_frontends()
