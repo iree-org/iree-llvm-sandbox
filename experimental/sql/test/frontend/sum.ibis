@@ -1,0 +1,21 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table.aggregate(table.b.sum())
+
+#      CHECK: ibis.aggregation() {
+# CHECK-NEXT:     ibis.pandas_table() ["table_name" = "t"] {
+# CHECK-NEXT:       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
+# CHECK-NEXT:       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
+# CHECK-NEXT:       ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+# CHECK-NEXT:     }
+# CHECK-NEXT:   } {
+# CHECK-NEXT:     ibis.sum() {
+# CHECK-NEXT:       ibis.table_column() ["col_name" = "b"] {
+# CHECK-NEXT:         ibis.pandas_table() ["table_name" = "t"] {
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+# CHECK-NEXT:         }
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:   }

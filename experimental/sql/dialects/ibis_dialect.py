@@ -167,6 +167,71 @@ class Selection(Operation):
 
 
 @irdl_op_definition
+class Aggregation(Operation):
+  """
+  Models an ibis aggregation query where `metrics` defines the aggregation function.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L589
+
+  Example:
+
+  '''
+  ibis.aggregation() {
+    ibis.pandas_table() ...
+  } {
+    ibis.sum() {
+      ...
+    }
+  }
+  '''
+  """
+  name = "ibis.aggregation"
+
+  table = SingleBlockRegionDef()
+  metrics = SingleBlockRegionDef()
+  # TODO: figure out what the rest of these two and model them
+  # by = SingleBlockRegionDef()
+  # having = SingleBlockRegionDef()
+  # predicates = SingleBlockRegionDef()
+  # sort_keys = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(table: Region, metrics: Region) -> 'Aggregation':
+    return Aggregation.build(regions=[table, metrics])
+
+
+@irdl_op_definition
+class Sum(Operation):
+  """
+  Sums up all the elements of the column given in arg based on the encompassing
+  aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L95
+
+  Example:
+
+  '''
+  ibis.sum() {
+    ibis.table_column() ["col_name" = "id"] {
+      ...
+    }
+  }
+  '''
+  """
+  name = "ibis.sum"
+
+  arg = SingleBlockRegionDef()
+  # TODO: figure out what where does. Some sort of filter?
+  # where = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region) -> 'Sum':
+    return Sum.build(regions=[arg])
+
+
+@irdl_op_definition
 class Equals(Operation):
   """
   Checks whether each entry of `left` is equal to `right`.
@@ -291,3 +356,5 @@ class Ibis:
     self.ctx.register_op(Equals)
     self.ctx.register_op(TableColumn)
     self.ctx.register_op(Literal)
+    self.ctx.register_op(Sum)
+    self.ctx.register_op(Aggregation)
