@@ -136,6 +136,20 @@ class PandasTableRewriter(RelAlgRewriter):
     rewriter.erase_matched_op()
 
 
+@dataclass
+class AggregateRewriter(RelAlgRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.Aggregate, rewriter: PatternRewriter):
+    rewriter.inline_block_before_matched_op(op.input.blocks[0])
+    rewriter.insert_op_before_matched_op([
+        RelSSA.Aggregate.get(rewriter.added_operations_before[0],
+                             [c.data for c in op.col_names.data],
+                             [f.data for f in op.functions.data])
+    ])
+    rewriter.erase_matched_op()
+
+
 #===------------------------------------------------------------------------===#
 # Conversion setup
 #===------------------------------------------------------------------------===#
@@ -147,7 +161,9 @@ class PandasTableRewriter(RelAlgRewriter):
 
 def alg_to_ssa(ctx: MLContext, query: ModuleOp):
   operator_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [PandasTableRewriter(), SelectRewriter()]),
+      [PandasTableRewriter(),
+       SelectRewriter(),
+       AggregateRewriter()]),
                                          walk_regions_first=True,
                                          apply_recursively=True,
                                          walk_reverse=False)
