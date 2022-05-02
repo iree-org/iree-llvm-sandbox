@@ -1,0 +1,20 @@
+// RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
+
+module() {
+    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.pandas_table() ["table_name" = "some_name"]
+    %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) {
+        %2 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i32]
+        %3 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
+        %4 : !rel_ssa.bool = rel_ssa.compare(%2 : !rel_ssa.int32, %3 : !rel_ssa.int32) ["comparator" = "="]
+        rel_ssa.yield(%4 : !rel_ssa.bool)
+    }
+}
+
+//      CHECK:    %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.pandas_table() ["table_name" = "some_name"]
+// CHECK-NEXT:    %1 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) {
+// CHECK-NEXT:      ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>):
+// CHECK-NEXT:        %3 : !rel_impl.int32 = rel_impl.literal() ["value" = 5 : !i32]
+// CHECK-NEXT:        %4 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_name" = "id"]
+// CHECK-NEXT:        %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.int32, %4 : !rel_impl.int32) ["comparator" = "="]
+// CHECK-NEXT:        rel_impl.yield(%5 : !rel_impl.bool)
+// CHECK-NEXT:    }
