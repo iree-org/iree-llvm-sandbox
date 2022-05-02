@@ -142,6 +142,48 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class Aggregate(Operator):
+  """
+  Applies the ith element of `functions` to the ith element of `col_names` of
+  the table `input`.
+
+  Example:
+
+  '''
+  rel_alg.aggregate() ["col_names = ["b"], "functions" = ["sum"]] {
+    rel_alg.pandas_table() ...
+  }
+  '''
+  """
+  name = "rel_alg.aggregate"
+
+  input = SingleBlockRegionDef()
+  col_names = AttributeDef(ArrayOfConstraint(StringAttr))
+  functions = AttributeDef(ArrayOfConstraint(StringAttr))
+
+  # TODO: add support for grouping...
+
+  def verify_(self) -> None:
+    for f in self.functions.data:
+      if not f.data in ["sum"]:
+        raise Exception(f"function {f.data} is not a supported function")
+
+  @staticmethod
+  @builder
+  def get(input: Region, col_names: List[str],
+          functions: List[str]) -> 'Aggregate':
+    return Aggregate.build(
+        regions=[input],
+        attributes={
+            "col_names":
+                ArrayAttr.from_list([StringAttr.from_str(n) for n in col_names]
+                                   ),
+            "functions":
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+        })
+
+
+@irdl_op_definition
 class Select(Operator):
   """
   Selects all tuples from `table` that fulfill `predicates`.
@@ -232,3 +274,4 @@ class RelationalAlg:
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)
+    self.ctx.register_op(Aggregate)
