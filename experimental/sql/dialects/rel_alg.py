@@ -144,12 +144,13 @@ class Operator(Operation):
 @irdl_op_definition
 class Aggregate(Operator):
   """
-  Aggregate the column `col_name` of `input` using `function`.
+  Applies the ith element of `functions` to the ith element of `col_names` of
+  the table `input`.
 
   Example:
 
   '''
-  rel_alg.aggregate() ["col_name" = "b", "function" = "sum"] {
+  rel_alg.aggregate() ["col_names = ["b"], "functions" = ["sum"]] {
     rel_alg.pandas_table() ...
   }
   '''
@@ -162,10 +163,10 @@ class Aggregate(Operator):
 
   # TODO: add support for grouping...
 
-  #def verify_(self) -> None:
-  #  if not self.function.data in ["sum"]:
-  #    raise Exception(
-  #        f"function {self.function.data} is not a supported function")
+  def verify_(self) -> None:
+    for f in self.functions.data:
+      if not f.data in ["sum"]:
+        raise Exception(f"function {f.data} is not a supported function")
 
   @staticmethod
   @builder
