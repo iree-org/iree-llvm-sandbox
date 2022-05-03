@@ -325,7 +325,10 @@ class Aggregate(Operator):
   result = ResultDef(Bag)
 
   def verify_(self) -> None:
-    # TODO: Check that the same number of col_names and functions are given?
+    if len(self.functions.data) != len(self.col_names.data):
+      raise Exception(
+          f"Number of functions and column names should match: {len(self.functions.data)} vs {len(self.col_names.data)}"
+      )
     for f in self.functions.data:
       if not f.data in ["sum"]:
         raise Exception(f"function {f.data} is not a supported function")
@@ -343,10 +346,7 @@ class Aggregate(Operator):
             "functions":
                 ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
         },
-        result_types=[
-            Bag.get([Int32()] * len(functions),
-                    ["a" + str(i) for i in range(len(functions))])
-        ])
+        result_types=[Bag.get([Int32()] * len(functions), col_names)])
 
 
 @dataclass
