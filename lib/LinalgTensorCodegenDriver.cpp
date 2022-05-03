@@ -143,13 +143,6 @@ struct OutlineOneParentLoopPass
   void runOnOperation() override;
 };
 
-struct PipelineOneParentLoopPass
-    : public PipelineOneParentLoopBase<PipelineOneParentLoopPass> {
-  PipelineOneParentLoopPass() = default;
-  PipelineOneParentLoopPass(const PipelineOneParentLoopPass &pass) {}
-  void runOnOperation() override;
-};
-
 } // namespace
 
 void LLVMLoweringPass::runOnOperation() {
@@ -547,33 +540,6 @@ loopScheduling(scf::ForOp forOp,
   }
 }
 
-void PipelineOneParentLoopPass::runOnOperation() {
-  if (getOperation().getName() != anchorFuncOpName)
-    return;
-
-  // Poor man's op targeting.
-  getOperation().walk([&](Operation *op) {
-    if (op->getName().getStringRef() != anchorOpName)
-      return WalkResult::advance();
-    SmallVector<scf::ForOp> reverseEnclosingLoops;
-    getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
-
-    scf::ForOp loopToPipeline = reverseEnclosingLoops.back();
-    scf::PipeliningOption schedule;
-    schedule.getScheduleFn =
-        [&](scf::ForOp forOp,
-            std::vector<std::pair<Operation *, unsigned>> &order) {
-          if (forOp != loopToPipeline)
-            return;
-          return loopScheduling(forOp, order, II, readLatency);
-        };
-    RewritePatternSet patterns(op->getContext());
-    scf::populateSCFLoopPipeliningPatterns(patterns, schedule);
-    (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
-    return WalkResult::interrupt();
-  });
-}
-
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
@@ -616,10 +582,6 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
   return std::make_unique<OutlineOneParentLoopPass>();
-}
-
-std::unique_ptr<OperationPass<FuncOp>> mlir::createPipelineOneParentLoopPass() {
-  return std::make_unique<PipelineOneParentLoopPass>();
 }
 
 //===----------------------------------------------------------------------===//

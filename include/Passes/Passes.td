@@ -256,30 +256,6 @@ def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "FuncOp"> {
   ];
 }
 
-def PipelineOneParentLoop : Pass<"pipeline-one-parent-loop", "FuncOp"> {
-  let summary = "Pass to pipeline the k^th parent loop of an op by some amount.";
-  let constructor = "mlir::createPipelineOneParentLoopPass()";
-  let options = [
-    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
-      "Which func op is the anchor to latch on.">,
-    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
-      "Which unique op within the func is the anchor to latch on.">,
-
-    // PipelineOneParentLoop options.
-    Option<"parentLoopNum", "parent-loop-num", "unsigned", /*default=*/"1",
-      "Number of the parent loop to latch on.">,
-    Option<"II", "II", "unsigned", /*default=*/"1", "Iteration Interval.">,
-    Option<"readLatency", "read-latency", "unsigned", /*default=*/"1",
-    "Read latency">,
-  ];
-  let dependentDialects = [
-    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
-    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
-    "::mlir::func::FuncDialect", "::mlir::tensor::TensorDialect",
-    "::mlir::vector::VectorDialect"
-  ];
-}
-
 def UnrollOneParentLoop : Pass<"unroll-one-parent-loop", "FuncOp"> {
   let summary = "Pass to unroll the k^th parent loop of an op by some amount.";
   let constructor = "mlir::createUnrollOneParentLoopPass()";
