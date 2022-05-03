@@ -1,6 +1,5 @@
 add_mlir_library(MLIRVectorExtTestPasses
   TestVectorMaskingUtils.cpp
-  TestVectorWarp.cpp
 
   EXCLUDE_FROM_LIBMLIR
 
