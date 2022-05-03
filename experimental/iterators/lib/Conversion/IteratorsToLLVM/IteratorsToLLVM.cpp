@@ -315,8 +315,7 @@ void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
 void ConvertIteratorsToLLVMPass::runOnOperation() {
   auto module = getOperation();
   ConversionTarget target(getContext());
-  target
-      .addLegalDialect<func::FuncDialect, memref::MemRefDialect, LLVMDialect>();
+  target.addLegalDialect<func::FuncDialect, LLVMDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
   IteratorsTypeConverter typeConverter;
