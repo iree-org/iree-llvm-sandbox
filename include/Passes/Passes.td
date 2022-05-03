@@ -11,27 +11,6 @@
 
 include "mlir/Pass/PassBase.td"
 
-def LinalgFuseOutputIntoReduction
-    : Pass<"linalg-fuse-fill-into-reduction", "FuncOp"> {
-  let summary = "Pass to fuse output into tiled reductions.";
-  let constructor = "mlir::createLinalgFuseOutputIntoReductionPass()";
-  let dependentDialects = [
-    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
-    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
-    "::mlir::func::FuncDialect", "::mlir::tensor::TensorDialect"
-  ];
-  let options = [
-    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
-      "Which func op is the anchor to latch on.">,
-    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
-      "Which linalg op within the func is the anchor to latch on.">,
-
-    // Tiling options.
-    ListOption<"tileSizes", "tile-sizes", "int64_t", "Tile sizes",
-               "llvm::cl::ZeroOrMore">
-  ];
-}
-
 def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "FuncOp"> {
   let summary = "Pass to unroll a vector op to a target size.";
   let constructor = "mlir::createUnrollOneVectorOpPass()";

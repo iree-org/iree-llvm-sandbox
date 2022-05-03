@@ -71,15 +71,6 @@ getAtMostNEnclosingLoops(Operation *op, int64_t nLoops,
   }
 }
 
-struct LinalgFuseOutputIntoReductionPass
-    : public LinalgFuseOutputIntoReductionBase<
-          LinalgFuseOutputIntoReductionPass> {
-  LinalgFuseOutputIntoReductionPass() = default;
-  LinalgFuseOutputIntoReductionPass(
-      const LinalgFuseOutputIntoReductionPass &pass) {}
-  void runOnOperation() override;
-};
-
 struct UnrollOneVectorOpPass
     : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
   UnrollOneVectorOpPass() = default;
@@ -88,16 +79,6 @@ struct UnrollOneVectorOpPass
 };
 
 } // namespace
-
-void LinalgFuseOutputIntoReductionPass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  if (funcOp.getName() != anchorFuncOpName)
-    return;
-
-  mlir::RewritePatternSet patterns(funcOp.getContext());
-  populateFuseFillIntoReductionPatterns(patterns);
-  (void)mlir::applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
-}
 
 void UnrollOneVectorOpPass::runOnOperation() {
   if (getOperation().getName() != anchorFuncOpName)
@@ -187,11 +168,6 @@ loopScheduling(scf::ForOp forOp,
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
-
-std::unique_ptr<OperationPass<FuncOp>>
-mlir::createLinalgFuseOutputIntoReductionPass() {
-  return std::make_unique<LinalgFuseOutputIntoReductionPass>();
-}
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
   return std::make_unique<UnrollOneVectorOpPass>();

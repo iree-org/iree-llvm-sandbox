@@ -19,10 +19,6 @@
 
 namespace mlir {
 
-/// Creates a pass to driver fuse output into reduction transformations.
-std::unique_ptr<OperationPass<FuncOp>>
-createLinalgFuseOutputIntoReductionPass();
-
 /// Create a pass to drive the unrolling of a single vector op.
 std::unique_ptr<OperationPass<FuncOp>> createUnrollOneVectorOpPass();
 
