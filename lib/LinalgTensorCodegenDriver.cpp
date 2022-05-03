@@ -103,18 +103,6 @@ struct LinalgBufferizationDriverPass
   void runOnOperation() override;
 };
 
-struct LinalgVectorLoweringPass
-    : public LinalgVectorLoweringBase<LinalgVectorLoweringPass> {
-  LinalgVectorLoweringPass(int64_t vectorLoweringStage = 0) {
-    this->vectorLoweringStage.setValue(vectorLoweringStage);
-  }
-  LinalgVectorLoweringPass(const LinalgVectorLoweringPass &pass) {
-    this->vectorLoweringStage.setValue(pass.vectorLoweringStage);
-  }
-
-  void runOnOperation() override;
-};
-
 struct UnrollOneVectorOpPass
     : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
   UnrollOneVectorOpPass() = default;
@@ -274,86 +262,6 @@ void LinalgBufferizationDriverPass::runOnOperation() {
       [&](FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
 }
 
-void LinalgVectorLoweringPass::runOnOperation() {
-  vector::VectorTransposeLowering vectorTransposeLowering =
-      llvm::StringSwitch<vector::VectorTransposeLowering>(
-          lowerVectorTransposeTo.getValue())
-          .Case("eltwise", vector::VectorTransposeLowering::EltWise)
-          .Case("flat_transpose", vector::VectorTransposeLowering::Flat)
-          .Case("shuffle", vector::VectorTransposeLowering::Shuffle)
-          .Default(vector::VectorTransposeLowering::EltWise);
-  vector::VectorMultiReductionLowering vectorMultiReductionLowering =
-      llvm::StringSwitch<vector::VectorMultiReductionLowering>(
-          lowerVectorMultiReductionTo.getValue())
-          .Case("innerreduction",
-                vector::VectorMultiReductionLowering::InnerReduction)
-          .Default(vector::VectorMultiReductionLowering::InnerParallel);
-  vector::VectorContractLowering vectorContractLowering =
-      llvm::StringSwitch<vector::VectorContractLowering>(
-          lowerVectorContractionTo.getValue())
-          .Case("matrixintrinsics", vector::VectorContractLowering::Matmul)
-          .Case("dot", vector::VectorContractLowering::Dot)
-          .Case("outerproduct", vector::VectorContractLowering::OuterProduct)
-          .Default(vector::VectorContractLowering::OuterProduct);
-  vector::VectorTransferSplit vectorTransferSplit =
-      llvm::StringSwitch<vector::VectorTransferSplit>(
-          splitVectorTransfersTo.getValue())
-          .Case("none", vector::VectorTransferSplit::None)
-          .Case("linalg-copy", vector::VectorTransferSplit::LinalgCopy)
-          .Case("vector-transfers", vector::VectorTransferSplit::VectorTransfer)
-          .Default(vector::VectorTransferSplit::None);
-
-  // Per-function lowering pipeline.
-  vector::VectorTransformsOptions vectorTransformOptions =
-      vector::VectorTransformsOptions()
-          .setVectorTransposeLowering(vectorTransposeLowering)
-          .setVectorTransformsOptions(vectorContractLowering)
-          .setVectorMultiReductionLowering(vectorMultiReductionLowering)
-          .setVectorTransferSplit(vectorTransferSplit);
-  VectorTransferToSCFOptions vectorTransferToSCFOptions =
-      VectorTransferToSCFOptions()
-          .enableFullUnroll(unrollVectorTransfers)
-          .enableLowerPermutationMaps();
-
-  LinalgVectorLoweringOptions vectorLoweringOptions =
-      LinalgVectorLoweringOptions()
-          // Lowering of vector contractions.
-          .enableContractionLowering(vectorLoweringStage >= 0)
-          // Lowering of vector multi_reduction.
-          .enableMultiReductionLowering(vectorLoweringStage >= 1)
-          // Whether to split full/partial vector.transfer ops.
-          .enableTransferPartialRewrite(vectorLoweringStage >= 2 &&
-                                        vectorTransferSplit !=
-                                            vector::VectorTransferSplit::None)
-          // Set the maximum vector load / store rank.
-          .setMaxTransferRank(maxTransferRank)
-          // Lower vector.transfer to vector.transfer of max rank.
-          .enableTransferLowering(vectorLoweringStage >= 3)
-          // Conversion to scf.
-          .enableTransferToSCFConversion(vectorLoweringStage >= 4)
-          .setVectorTransferToSCFOptions(vectorTransferToSCFOptions)
-          // Lowering of vector.shape_cast.
-          .enableShapeCastLowering(vectorLoweringStage >= 5)
-          // Lowering of vector.transpose.
-          .enableVectorTransposeLowering(vectorLoweringStage >= 6)
-          .setVectorTransformsOptions(vectorTransformOptions)
-          .enableAVX2Lowering(lowerVectorTransposeToAVX2)
-          .setAVX2LoweringOptions(
-              x86vector::avx2::LoweringOptions().setTransposeOptions(
-                  x86vector::avx2::TransposeLoweringOptions()
-                      .lower4x8xf32(lowerVectorTransposeToAVX2)
-                      .lower8x8xf32(lowerVectorTransposeToAVX2)));
-
-  CodegenStrategy strategy;
-  strategy.vectorLowering(vectorLoweringOptions);
-  // Created a nested OpPassManager and run.
-  OpPassManager dynamicPM(FuncOp::getOperationName());
-  FuncOp funcOp = getOperation();
-  strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-  if (failed(runPipeline(dynamicPM, funcOp)))
-    return signalPassFailure();
-}
-
 void UnrollOneVectorOpPass::runOnOperation() {
   if (getOperation().getName() != anchorFuncOpName)
     return;
@@ -462,25 +370,6 @@ mlir::createLinalgBufferizationDriverPass() {
   return std::make_unique<LinalgBufferizationDriverPass>();
 }
 
-std::unique_ptr<OperationPass<FuncOp>>
-mlir::createLinalgVectorLoweringPass(int64_t vectorLoweringStage) {
-  return std::make_unique<LinalgVectorLoweringPass>(vectorLoweringStage);
-}
-
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
   return std::make_unique<UnrollOneVectorOpPass>();
-}
-
-//===----------------------------------------------------------------------===//
-// Transforms
-//===----------------------------------------------------------------------===//
-
-void mlir::addLowerToVectorTransforms(OpPassManager &passManager) {
-  passManager.addPass(createLinalgVectorLoweringPass(0));
-  passManager.addPass(createLinalgVectorLoweringPass(1));
-  passManager.addPass(createLinalgVectorLoweringPass(2));
-  passManager.addPass(createLinalgVectorLoweringPass(3));
-  passManager.addPass(createLinalgVectorLoweringPass(4));
-  passManager.addPass(createLinalgVectorLoweringPass(5));
-  passManager.addPass(createLinalgVectorLoweringPass(6));
 }
