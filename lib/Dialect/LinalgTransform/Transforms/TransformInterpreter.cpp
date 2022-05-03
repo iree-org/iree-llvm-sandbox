@@ -11,18 +11,20 @@
 #include "Dialect/LinalgTransform/TrackingRewriteDriver.h"
 #include "Dialect/LinalgTransform/TransformOpInterface.h"
 #include "Dialect/LinalgTransform/TransformOpMapping.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/LoopUtils.h"
 #include "mlir/Dialect/Arithmetic/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/Linalg/ComprehensiveBufferize/ModuleBufferization.h"
 #include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Linalg/Transforms/Hoisting.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Dialect/SCF/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Transforms.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
@@ -59,7 +61,7 @@ static llvm::cl::opt<std::string> clTransformFileName(
 /// Run enabling transformations (LICM and its variants, single-iteration loop
 /// removal, CSE) on the given function.
 static LogicalResult performEnablerTransformations(
-    FuncOp func, RewriteListener &listener,
+    func::FuncOp func, RewriteListener &listener,
     linalg::LinalgEnablingOptions options = linalg::LinalgEnablingOptions()) {
   MLIRContext *ctx = func->getContext();
   RewritePatternSet patterns(ctx);
@@ -95,7 +97,7 @@ static LogicalResult performEnablerTransformations(
 static LogicalResult performEnablerTransformations(
     Operation *containerOp, RewriteListener &listener,
     linalg::LinalgEnablingOptions options = linalg::LinalgEnablingOptions()) {
-  auto res = containerOp->walk([&](FuncOp func) {
+  auto res = containerOp->walk([&](func::FuncOp func) {
     if (failed(performEnablerTransformations(func, listener, options)))
       return WalkResult::interrupt();
     return WalkResult::advance();
@@ -256,8 +258,8 @@ struct InterpreterPass : public PassWrapper<InterpreterPass, Pass> {
     arith::registerBufferizableOpInterfaceExternalModels(registry);
     linalg::registerBufferizableOpInterfaceExternalModels(registry);
     scf::registerBufferizableOpInterfaceExternalModels(registry);
-    linalg::comprehensive_bufferize::std_ext::
-        registerModuleBufferizationExternalModels(registry);
+    bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
+        registry);
     tensor::registerBufferizableOpInterfaceExternalModels(registry);
     vector::registerBufferizableOpInterfaceExternalModels(registry);
   }
