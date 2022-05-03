@@ -49,10 +49,12 @@ static void registerIreeDialects(DialectRegistry &registry) {
 
 #ifdef SANDBOX_ENABLE_ITERATORS
 #include "iterators/Conversion/Passes.h"
+#include "iterators/Dialect/DataFlow/IR/DataFlow.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<mlir::iterators::IteratorsDialect>();
+  registry.insert<mlir::dataflow::DataFlowDialect>();
   registerIteratorsConversionPasses();
 }
 #else

@@ -12,6 +12,17 @@
 include "mlir/Pass/PassBase.td"
 
 //===----------------------------------------------------------------------===//
+// DataFlowToIterators
+//===----------------------------------------------------------------------===//
+
+def ConvertDataFlowToIterators
+    : Pass<"convert-dataflow-to-iterators", "ModuleOp"> {
+  let summary = "Convert the operations from the DataFlow dialect into the "
+                "Iterators dialect";
+  let constructor = "mlir::createConvertDataFlowToIteratorsPass()";
+  let dependentDialects = ["func::FuncDialect", "LLVM::LLVMDialect"];
+}
+//===----------------------------------------------------------------------===//
 // IteratorsToLLVM
 //===----------------------------------------------------------------------===//
 

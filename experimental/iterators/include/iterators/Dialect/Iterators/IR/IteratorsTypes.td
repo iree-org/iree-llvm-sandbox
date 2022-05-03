@@ -20,12 +20,6 @@ class Iterators_Type<string name, string typeMnemonic, list<Trait> traits = []>
   let mnemonic = typeMnemonic;
 }
 
-def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
-  let summary = "Stream of elements of the given type";
-  let parameters = (ins "Type":$elementType);
-  let assemblyFormat = "`<` qualified($elementType) `>`";
-}
-
 //===----------------------------------------------------------------------===//
 // State of low-level iterators
 //===----------------------------------------------------------------------===//

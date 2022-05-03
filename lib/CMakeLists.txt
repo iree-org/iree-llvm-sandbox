@@ -25,6 +25,8 @@ endif()
 
 if (SANDBOX_ENABLE_ITERATORS)
   list(APPEND dialect_libs
+    MLIRDataFlow
+    MLIRDataFlowToIterators
     MLIRIterators
     MLIRIteratorsToLLVM
   )

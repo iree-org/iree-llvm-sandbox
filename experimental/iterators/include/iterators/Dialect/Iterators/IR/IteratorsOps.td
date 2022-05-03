@@ -44,26 +44,6 @@ def Iterators_PrintTupleOp : Iterators_Op<"print"> {
 }
 
 //===----------------------------------------------------------------------===//
-// High-level iterators
-//===----------------------------------------------------------------------===//
-
-def Iterators_SampleInputOp : Iterators_Op<"sampleInput"> {
-  let summary = "Create some sample input";
-  let results = (outs Iterators_Stream);
-}
-
-def Iterators_ReduceOp : Iterators_Op<"reduce"> {
-  let summary = "Reduce the input to a single tuple";
-  let arguments = (ins Iterators_Stream);
-  let results = (outs Iterators_Stream);
-}
-
-def Iterators_SinkOp : Iterators_Op<"sink"> {
-  let summary = "Consume tuples from an iterator";
-  let arguments = (ins Iterators_Stream);
-}
-
-//===----------------------------------------------------------------------===//
 // Create/Open/Next/Close interface of low-level iterators
 //===----------------------------------------------------------------------===//
 
