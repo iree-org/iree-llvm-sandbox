@@ -86,15 +86,6 @@ struct LinalgFuseOutputIntoReductionPass
   void runOnOperation() override;
 };
 
-struct LinalgSingleTilingExpertPass
-    : public LinalgSingleTilingExpertBase<LinalgSingleTilingExpertPass> {
-  LinalgSingleTilingExpertPass() = default;
-  LinalgSingleTilingExpertPass(const LinalgSingleTilingExpertPass &pass) {}
-
-  /// Function pass entry point.
-  void runOnOperation() override;
-};
-
 struct UnrollOneVectorOpPass
     : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
   UnrollOneVectorOpPass() = default;
@@ -167,71 +158,6 @@ void LinalgFuseOutputIntoReductionPass::runOnOperation() {
   mlir::RewritePatternSet patterns(funcOp.getContext());
   populateFuseFillIntoReductionPatterns(patterns);
   (void)mlir::applyPatternsAndFoldGreedily(funcOp, std::move(patterns));
-}
-
-void LinalgSingleTilingExpertPass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-
-  // Set up tiling and vectorization options.
-  LinalgTilingOptions tilingOptions;
-  bool doTiling = false;
-  if (!tileSizes.empty()) {
-    doTiling = true;
-    tilingOptions = tilingOptions.setTileSizes(tileSizes);
-  }
-  if (!tileInterchange.empty())
-    tilingOptions = tilingOptions.setInterchange(
-        SmallVector<unsigned>(tileInterchange.begin(), tileInterchange.end()));
-  if (scalarizeDynamicDims) {
-    doTiling = true;
-    tilingOptions = tilingOptions.scalarizeDynamicDims();
-  }
-  tilingOptions = tilingOptions.setPeeledLoops(peeledLoops);
-
-  // Parse the padding values.
-  SmallVector<Attribute> paddingValueAttributes;
-  for (const std::string &paddingValue : paddingValues) {
-    paddingValueAttributes.push_back(
-        parseAttribute(paddingValue, &getContext()));
-  }
-
-  // Set up padding options.
-  SmallVector<SmallVector<int64_t>> transposePaddingVectors;
-  for (const std::string &transposePadding : transposePaddings) {
-    SmallVector<int64_t> transposeVector = {};
-    SmallVector<StringRef> tokens;
-    StringRef(transposePadding).split(tokens, ':');
-    for (StringRef token : tokens)
-      transposeVector.push_back(std::stoi(token.str()));
-    transposePaddingVectors.push_back(transposeVector);
-  }
-
-  LinalgPaddingOptions paddingOptions;
-  paddingOptions.setPaddingValues(paddingValueAttributes);
-  paddingOptions.setPackPaddings(
-      SmallVector<bool>{packPaddings.begin(), packPaddings.end()});
-  paddingOptions.setHoistPaddings(
-      SmallVector<int64_t>{hoistPaddings.begin(), hoistPaddings.end()});
-  paddingOptions.setTransposePaddings(transposePaddingVectors);
-
-  auto vectorizeFilter = [&](mlir::Operation *op) {
-    return success(!vectorizeOnlyTiled || op->getParentOfType<scf::ForOp>());
-  };
-  CodegenStrategy strategy;
-  StringRef genericOpName = GenericOp::getOperationName();
-  strategy.tileIf(doTiling, anchorOpName, tilingOptions)
-      .padIf(pad, anchorOpName, paddingOptions)
-      .decomposeIf(decomposeToLowerDimOp)
-      .generalizeIf(generalize, anchorOpName)
-      .interchangeIf(!iteratorInterchange.empty(), iteratorInterchange)
-      .vectorizeIf(vectorize, generalize ? genericOpName : anchorOpName,
-                   vectorizeFilter, vectorizePadding);
-
-  // Created a nested OpPassManager and run.
-  OpPassManager dynamicPM(FuncOp::getOperationName());
-  strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-  if (failed(runPipeline(dynamicPM, funcOp)))
-    return signalPassFailure();
 }
 
 void UnrollOneVectorOpPass::runOnOperation() {
@@ -330,11 +256,6 @@ std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgFusePass() {
 std::unique_ptr<OperationPass<FuncOp>>
 mlir::createLinalgFuseOutputIntoReductionPass() {
   return std::make_unique<LinalgFuseOutputIntoReductionPass>();
-}
-
-std::unique_ptr<OperationPass<FuncOp>>
-mlir::createLinalgSingleTilingExpertPass() {
-  return std::make_unique<LinalgSingleTilingExpertPass>();
 }
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {

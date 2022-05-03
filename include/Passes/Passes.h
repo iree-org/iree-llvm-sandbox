@@ -26,9 +26,6 @@ std::unique_ptr<OperationPass<FuncOp>> createLinalgFusePass();
 std::unique_ptr<OperationPass<FuncOp>>
 createLinalgFuseOutputIntoReductionPass();
 
-/// Creates a pass to drive one-level tile + vectorization.
-std::unique_ptr<OperationPass<FuncOp>> createLinalgSingleTilingExpertPass();
-
 /// Create a pass to drive the unrolling of a single vector op.
 std::unique_ptr<OperationPass<FuncOp>> createUnrollOneVectorOpPass();
 
