@@ -95,14 +95,6 @@ struct LinalgSingleTilingExpertPass
   void runOnOperation() override;
 };
 
-struct LinalgBufferizationDriverPass
-    : public LinalgBufferizationDriverBase<LinalgBufferizationDriverPass> {
-  LinalgBufferizationDriverPass() = default;
-  LinalgBufferizationDriverPass(const LinalgBufferizationDriverPass &pass) {}
-
-  void runOnOperation() override;
-};
-
 struct UnrollOneVectorOpPass
     : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
   UnrollOneVectorOpPass() = default;
@@ -242,26 +234,6 @@ void LinalgSingleTilingExpertPass::runOnOperation() {
     return signalPassFailure();
 }
 
-void LinalgBufferizationDriverPass::runOnOperation() {
-  OpPassManager dynamicPM(ModuleOp::getOperationName());
-  dynamicPM.addPass(createCanonicalizerPass());
-  dynamicPM.addPass(createCSEPass());
-
-  bufferization::OneShotBufferizationOptions options;
-  options.memCpyFn = [](OpBuilder &b, Location loc, Value from, Value to) {
-    if (linalg::makeMemRefCopyOp(b, loc, from, to))
-      return success();
-    return failure();
-  };
-  dynamicPM.addPass(createLinalgComprehensiveModuleBufferizePass(options));
-
-  if (failed(runPipeline(dynamicPM, getOperation())))
-    return signalPassFailure();
-  // Perform buffer-level hoistings.
-  getOperation().walk(
-      [&](FuncOp funcOp) { hoistRedundantVectorTransfers(funcOp); });
-}
-
 void UnrollOneVectorOpPass::runOnOperation() {
   if (getOperation().getName() != anchorFuncOpName)
     return;
@@ -363,11 +335,6 @@ mlir::createLinalgFuseOutputIntoReductionPass() {
 std::unique_ptr<OperationPass<FuncOp>>
 mlir::createLinalgSingleTilingExpertPass() {
   return std::make_unique<LinalgSingleTilingExpertPass>();
-}
-
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::createLinalgBufferizationDriverPass() {
-  return std::make_unique<LinalgBufferizationDriverPass>();
 }
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {

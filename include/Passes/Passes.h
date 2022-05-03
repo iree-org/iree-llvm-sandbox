@@ -19,9 +19,6 @@
 
 namespace mlir {
 
-/// Creates a pass to drive bufferization.
-std::unique_ptr<OperationPass<ModuleOp>> createLinalgBufferizationDriverPass();
-
 /// Creates a pass to drive tile + fuse transformations.
 std::unique_ptr<OperationPass<FuncOp>> createLinalgFusePass();
 
