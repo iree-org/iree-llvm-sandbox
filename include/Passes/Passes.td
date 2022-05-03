@@ -256,27 +256,4 @@ def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "FuncOp"> {
   ];
 }
 
-def OutlineOneParentLoop : Pass<"outline-one-parent-loop", "FuncOp"> {
-  let summary = "Pass to outline the k^th parent loop of an op.";
-  let constructor = "mlir::createOutlineOneParentLoopPass()";
-  let options = [
-    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
-      "Which func op is the anchor to latch on.">,
-    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
-      "Which unique op within the func is the anchor to latch on.">,
-
-    // OutlineOneParentLoop options.
-    Option<"parentLoopNum", "parent-loop-num", "unsigned", /*default=*/"1",
-      "Number of the parent loop to latch on.">,
-    Option<"resultFuncName", "result-func-name", "std::string", /*default=*/"",
-      "Name of the func op produced by outlining.">,
-  ];
-  let dependentDialects = [
-    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
-    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
-    "::mlir::func::FuncDialect", "::mlir::tensor::TensorDialect",
-    "::mlir::vector::VectorDialect"
-  ];
-}
-
 #endif // IREE_LLVM_SANDBOX_PASSES
