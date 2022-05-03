@@ -1,7 +1,6 @@
 
 add_mlir_library(IREESandboxTransforms
   FuseFillIntoReduction.cpp
-  VectorDistribution.cpp
 
   LINK_LIBS PRIVATE
   MLIRGPUOps

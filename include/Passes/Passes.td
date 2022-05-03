@@ -326,10 +326,4 @@ def OutlineOneParentLoop : Pass<"outline-one-parent-loop", "FuncOp"> {
   ];
 }
 
-def VectorPropagateDistribution
-    : Pass<"vector-propagate-distribution", "FuncOp"> {
-  let summary = "Pass propagate insert_map/extract_map.";
-  let constructor = "mlir::createPropagateVectorDistribution()";
-}
-
 #endif // IREE_LLVM_SANDBOX_PASSES

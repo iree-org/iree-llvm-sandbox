@@ -25,7 +25,6 @@ using namespace mlir;
 namespace mlir {
 namespace test_ext {
 void registerTestVectorMaskingUtils();
-void registerTestVectorWarps();
 } // namespace test_ext
 } // namespace mlir
 
@@ -35,7 +34,6 @@ int main(int argc, char **argv) {
   registerOutsideOfDialectRegistry();
 
   mlir::test_ext::registerTestVectorMaskingUtils();
-  mlir::test_ext::registerTestVectorWarps();
 
   // TODO: Find a way to register test passes here.
 
