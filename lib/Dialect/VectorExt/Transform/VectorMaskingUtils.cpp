@@ -8,6 +8,7 @@
 
 #include "Dialect/VectorExt/VectorMaskingUtils.h"
 #include "Dialect/VectorExt/VectorExtOps.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
