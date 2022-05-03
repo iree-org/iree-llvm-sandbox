@@ -115,13 +115,6 @@ struct LinalgVectorLoweringPass
   void runOnOperation() override;
 };
 
-struct LLVMLoweringPass : public LLVMLoweringBase<LLVMLoweringPass> {
-  LLVMLoweringPass() = default;
-  LLVMLoweringPass(const LLVMLoweringPass &pass) {}
-
-  void runOnOperation() override;
-};
-
 struct UnrollOneVectorOpPass
     : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
   UnrollOneVectorOpPass() = default;
@@ -130,50 +123,6 @@ struct UnrollOneVectorOpPass
 };
 
 } // namespace
-
-void LLVMLoweringPass::runOnOperation() {
-  OpPassManager dynamicPM(ModuleOp::getOperationName());
-  // This is a failsafe catchall, if it does something performance opportunities
-  // have been missed previously.
-  dynamicPM.addNestedPass<FuncOp>(createConvertVectorToSCFPass());
-  dynamicPM.addNestedPass<FuncOp>(createConvertLinalgToLoopsPass());
-  dynamicPM.addPass(createAsyncToAsyncRuntimePass());
-  dynamicPM.addPass(createAsyncRuntimeRefCountingPass());
-  dynamicPM.addPass(createAsyncRuntimeRefCountingOptPass());
-  dynamicPM.addPass(createCanonicalizerPass());
-  dynamicPM.addPass(createLowerAffinePass());
-  dynamicPM.addPass(createConvertSCFToCFPass());
-  dynamicPM.addPass(createConvertLinalgToLLVMPass());
-  dynamicPM.addPass(createConvertVectorToLLVMPass(
-      // clang-format off
-      LowerVectorToLLVMOptions()
-        .enableReassociateFPReductions(reassociateFPReductions)
-        .enableIndexOptimizations(indexOptimizations)
-        .enableArmNeon(armNeon)
-        .enableArmSVE(armSVE)
-        .enableAMX(amx)
-        .enableX86Vector(x86Vector)));
-  // clang-format on
-  dynamicPM.addNestedPass<FuncOp>(createConvertMathToLLVMPass());
-  dynamicPM.addPass(createMemRefToLLVMPass());
-  dynamicPM.addPass(createConvertAsyncToLLVMPass());
-  dynamicPM.addPass(createConvertFuncToLLVMPass());
-  dynamicPM.addPass(createCanonicalizerPass());
-  dynamicPM.addPass(createCSEPass());
-  if (failed(runPipeline(dynamicPM, getOperation())))
-    return signalPassFailure();
-
-  // Make all arguments noalias for now.
-  getOperation().walk([](LLVM::LLVMFuncOp funcOp) {
-    for (int64_t i = 0; i < funcOp.getNumArguments(); ++i) {
-      if (!funcOp.getFunctionType()
-               .getParamType(i)
-               .isa<LLVM::LLVMPointerType>())
-        continue;
-      funcOp.setArgAttr(i, "llvm.noalias", UnitAttr::get(funcOp.getContext()));
-    }
-  });
-}
 
 /// Collect all Linalg ops, they must all have tensor semantics.
 /// For now this just fuses everything.
@@ -516,10 +465,6 @@ mlir::createLinalgBufferizationDriverPass() {
 std::unique_ptr<OperationPass<FuncOp>>
 mlir::createLinalgVectorLoweringPass(int64_t vectorLoweringStage) {
   return std::make_unique<LinalgVectorLoweringPass>(vectorLoweringStage);
-}
-
-std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
-  return std::make_unique<LLVMLoweringPass>();
 }
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
