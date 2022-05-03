@@ -30,6 +30,8 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
   raise KeyError(f"Unknown datatype: {type(type_)}")
 
 
+# The first two functions work on multiple parts of the ibis tree, so they
+# return `Region`s and cannot be written using multipledispatch.
 def visit_schema(schema: ibis.expr.schema.Schema) -> Region:
   ops = []
   for n, t in zip(schema.names, schema.types):
