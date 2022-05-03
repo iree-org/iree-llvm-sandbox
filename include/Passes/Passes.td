@@ -256,29 +256,6 @@ def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "FuncOp"> {
   ];
 }
 
-def UnrollOneParentLoop : Pass<"unroll-one-parent-loop", "FuncOp"> {
-  let summary = "Pass to unroll the k^th parent loop of an op by some amount.";
-  let constructor = "mlir::createUnrollOneParentLoopPass()";
-  let options = [
-    Option<"anchorFuncOpName", "anchor-func", "std::string", /*default=*/"",
-      "Which func op is the anchor to latch on.">,
-    Option<"anchorOpName", "anchor-op", "std::string", /*default=*/"",
-      "Which unique op within the func is the anchor to latch on.">,
-
-    // UnrollOneParentLoop options.
-    Option<"parentLoopNum", "parent-loop-num", "unsigned", /*default=*/"1",
-      "Number of the parent loop to latch on.">,
-    Option<"unrollFactor", "unroll-factor", "unsigned", /*default=*/"1",
-      "Unroll factor.">,
-  ];
-  let dependentDialects = [
-    "::mlir::arith::ArithmeticDialect", "::mlir::AffineDialect",
-    "::mlir::linalg::LinalgDialect", "::mlir::scf::SCFDialect",
-    "::mlir::func::FuncDialect", "::mlir::tensor::TensorDialect",
-    "::mlir::vector::VectorDialect"
-  ];
-}
-
 def OutlineOneParentLoop : Pass<"outline-one-parent-loop", "FuncOp"> {
   let summary = "Pass to outline the k^th parent loop of an op.";
   let constructor = "mlir::createOutlineOneParentLoopPass()";

@@ -129,13 +129,6 @@ struct UnrollOneVectorOpPass
   void runOnOperation() override;
 };
 
-struct UnrollOneParentLoopPass
-    : public UnrollOneParentLoopBase<UnrollOneParentLoopPass> {
-  UnrollOneParentLoopPass() = default;
-  UnrollOneParentLoopPass(const UnrollOneParentLoopPass &pass) {}
-  void runOnOperation() override;
-};
-
 struct OutlineOneParentLoopPass
     : public OutlineOneParentLoopBase<OutlineOneParentLoopPass> {
   OutlineOneParentLoopPass() = default;
@@ -448,22 +441,6 @@ void UnrollOneVectorOpPass::runOnOperation() {
   (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
 }
 
-void UnrollOneParentLoopPass::runOnOperation() {
-  if (getOperation().getName() != anchorFuncOpName)
-    return;
-
-  // Poor man's op targeting.
-  getOperation().walk([&](Operation *op) {
-    if (op->getName().getStringRef() != anchorOpName)
-      return WalkResult::advance();
-    SmallVector<scf::ForOp> reverseEnclosingLoops;
-    getAtMostNEnclosingLoops(op, parentLoopNum, reverseEnclosingLoops);
-    if (failed(loopUnrollByFactor(reverseEnclosingLoops.back(), unrollFactor)))
-      signalPassFailure();
-    return WalkResult::interrupt();
-  });
-}
-
 static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
                                                    Operation *op) {
   if (op->getNumRegions() != 1)
@@ -574,10 +551,6 @@ std::unique_ptr<OperationPass<ModuleOp>> mlir::createLLVMLoweringPass() {
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
   return std::make_unique<UnrollOneVectorOpPass>();
-}
-
-std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneParentLoopPass() {
-  return std::make_unique<UnrollOneParentLoopPass>();
 }
 
 std::unique_ptr<OperationPass<FuncOp>> mlir::createOutlineOneParentLoopPass() {
