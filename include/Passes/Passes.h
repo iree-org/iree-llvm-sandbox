@@ -23,14 +23,6 @@ namespace mlir {
 std::unique_ptr<OperationPass<FuncOp>> createUnrollOneVectorOpPass();
 
 //===----------------------------------------------------------------------===//
-// Transforms
-//===----------------------------------------------------------------------===//
-
-/// Add staged lowering of vector ops. `passManager` is expected to be a
-/// `func.func` op pass manager.
-void addLowerToVectorTransforms(OpPassManager &passManager);
-
-//===----------------------------------------------------------------------===//
 // Registration
 //===----------------------------------------------------------------------===//
 

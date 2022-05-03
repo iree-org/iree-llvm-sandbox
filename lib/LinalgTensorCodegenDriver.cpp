@@ -59,18 +59,6 @@ using namespace mlir::linalg;
 
 namespace {
 
-static void
-getAtMostNEnclosingLoops(Operation *op, int64_t nLoops,
-                         SmallVector<scf::ForOp> &reverseEnclosingLoops) {
-  scf::ForOp outermostEnclosingForOp = nullptr;
-  Operation *nextEnclosingOp = op->getParentOp();
-  while (nLoops-- > 0 &&
-         (outermostEnclosingForOp = dyn_cast<scf::ForOp>(nextEnclosingOp))) {
-    reverseEnclosingLoops.push_back(outermostEnclosingForOp);
-    nextEnclosingOp = outermostEnclosingForOp->getParentOp();
-  }
-}
-
 struct UnrollOneVectorOpPass
     : public UnrollOneVectorOpBase<UnrollOneVectorOpPass> {
   UnrollOneVectorOpPass() = default;
@@ -107,62 +95,6 @@ void UnrollOneVectorOpPass::runOnOperation() {
                     }));
   vector::populateVectorToVectorCanonicalizationPatterns(patterns);
   (void)applyPatternsAndFoldGreedily(getOperation(), std::move(patterns));
-}
-
-static scf::ExecuteRegionOp outlineInExecuteRegion(RewriterBase &b,
-                                                   Operation *op) {
-  if (op->getNumRegions() != 1)
-    return nullptr;
-  OpBuilder::InsertionGuard g(b);
-  b.setInsertionPoint(op);
-  scf::ExecuteRegionOp executeRegionOp =
-      b.create<scf::ExecuteRegionOp>(op->getLoc(), op->getResultTypes());
-  {
-    OpBuilder::InsertionGuard g(b);
-    b.setInsertionPointToStart(&executeRegionOp.getRegion().emplaceBlock());
-    Operation *clonedOp = b.cloneWithoutRegions(*op);
-    Region &clonedRegion = clonedOp->getRegions().front();
-    assert(clonedRegion.empty() && "expected empty region");
-    b.inlineRegionBefore(op->getRegions().front(), clonedRegion,
-                         clonedRegion.end());
-    b.create<scf::YieldOp>(op->getLoc(), clonedOp->getResults());
-  }
-  b.replaceOp(op, executeRegionOp.getResults());
-  return executeRegionOp;
-}
-
-// Naive schedule: Schedule ops as early as possible.
-static void
-loopScheduling(scf::ForOp forOp,
-               std::vector<std::pair<Operation *, unsigned>> &schedule,
-               unsigned II, unsigned readLatency) {
-  auto getLatency = [&](Operation *op) {
-    if (isa<vector::TransferReadOp>(op))
-      return readLatency;
-    return unsigned(1);
-  };
-
-  DenseMap<Operation *, unsigned> opCycles;
-  std::map<unsigned, std::vector<Operation *>> wrappedSchedule;
-  for (Operation &op : forOp.getBody()->getOperations()) {
-    if (isa<scf::YieldOp>(op))
-      continue;
-    unsigned earlyCycle = 0;
-    for (Value operand : op.getOperands()) {
-      Operation *def = operand.getDefiningOp();
-      if (!def)
-        continue;
-      earlyCycle = std::max(earlyCycle, opCycles[def] + getLatency(def));
-    }
-    opCycles[&op] = earlyCycle;
-    wrappedSchedule[earlyCycle % II].push_back(&op);
-  }
-  for (auto it : wrappedSchedule) {
-    for (Operation *op : it.second) {
-      unsigned cycle = opCycles[op];
-      schedule.push_back(std::make_pair(op, cycle / II));
-    }
-  }
 }
 
 //===----------------------------------------------------------------------===//
