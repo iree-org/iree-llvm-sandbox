@@ -19,9 +19,6 @@
 
 namespace mlir {
 
-/// Creates a pass to drive tile + fuse transformations.
-std::unique_ptr<OperationPass<FuncOp>> createLinalgFusePass();
-
 /// Creates a pass to driver fuse output into reduction transformations.
 std::unique_ptr<OperationPass<FuncOp>>
 createLinalgFuseOutputIntoReductionPass();

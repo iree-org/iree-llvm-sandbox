@@ -71,12 +71,6 @@ getAtMostNEnclosingLoops(Operation *op, int64_t nLoops,
   }
 }
 
-struct LinalgFusePass : public LinalgFuseBase<LinalgFusePass> {
-  LinalgFusePass() = default;
-  LinalgFusePass(const LinalgFusePass &pass) {}
-  void runOnOperation() override;
-};
-
 struct LinalgFuseOutputIntoReductionPass
     : public LinalgFuseOutputIntoReductionBase<
           LinalgFuseOutputIntoReductionPass> {
@@ -94,61 +88,6 @@ struct UnrollOneVectorOpPass
 };
 
 } // namespace
-
-/// Collect all Linalg ops, they must all have tensor semantics.
-/// For now this just fuses everything.
-// TODO: finer control.
-void LinalgFusePass::runOnOperation() {
-  FuncOp funcOp = getOperation();
-  if (anchorOpName.empty())
-    return;
-
-  // Set up tiling and vectorization options.
-  LinalgTilingAndFusionOptions tilingOptions;
-  tilingOptions.tileSizes = {tileSizes.begin(), tileSizes.end()};
-  tilingOptions.tileInterchange = {tileInterchange.begin(),
-                                   tileInterchange.end()};
-
-  // Parse the padding values.
-  SmallVector<Attribute> paddingValueAttributes;
-  for (const std::string &paddingValue : paddingValues) {
-    paddingValueAttributes.push_back(
-        parseAttribute(paddingValue, &getContext()));
-  }
-
-  // Set up padding options.
-  SmallVector<SmallVector<int64_t>> transposePaddingVectors;
-  for (const std::string &transposePadding : transposePaddings) {
-    SmallVector<int64_t> transposeVector = {};
-    SmallVector<StringRef> tokens;
-    StringRef(transposePadding).split(tokens, ':');
-    for (StringRef token : tokens)
-      transposeVector.push_back(std::stoi(token.str()));
-    transposePaddingVectors.push_back(transposeVector);
-  }
-
-  LinalgPaddingOptions paddingOptions;
-  paddingOptions.setPaddingValues(paddingValueAttributes);
-  paddingOptions.setPaddingDimensions(
-      SmallVector<int64_t>{paddingDimensions.begin(), paddingDimensions.end()});
-  paddingOptions.setPackPaddings(
-      SmallVector<bool>{packPaddings.begin(), packPaddings.end()});
-  paddingOptions.setHoistPaddings(
-      SmallVector<int64_t>{hoistPaddings.begin(), hoistPaddings.end()});
-  paddingOptions.setTransposePaddings(transposePaddingVectors);
-
-  CodegenStrategy strategy;
-  strategy.tileAndFuseIf(!tileSizes.empty(), anchorOpName, tilingOptions)
-      .padIf(pad, "", paddingOptions)
-      .vectorizeIf(vectorize, "", nullptr, vectorizePadding);
-
-  // Created a nested OpPassManager and run.
-  OpPassManager dynamicPM(FuncOp::getOperationName());
-  strategy.configurePassPipeline(dynamicPM, funcOp.getContext());
-
-  if (failed(runPipeline(dynamicPM, funcOp)))
-    return signalPassFailure();
-}
 
 void LinalgFuseOutputIntoReductionPass::runOnOperation() {
   FuncOp funcOp = getOperation();
@@ -248,10 +187,6 @@ loopScheduling(scf::ForOp forOp,
 //===----------------------------------------------------------------------===//
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
-
-std::unique_ptr<OperationPass<FuncOp>> mlir::createLinalgFusePass() {
-  return std::make_unique<LinalgFusePass>();
-}
 
 std::unique_ptr<OperationPass<FuncOp>>
 mlir::createLinalgFuseOutputIntoReductionPass() {
