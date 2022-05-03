@@ -333,6 +333,51 @@ class Select(Operator):
                         result_types=[input.results[0].typ])
 
 
+@irdl_op_definition
+class Aggregate(Operator):
+  """
+  Applies the ith function of `functions` to the ith column name of `col_names`
+  of `input`.
+
+
+  Example:
+
+  '''
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
+  '''
+  """
+  name = "rel_impl.aggregate"
+
+  input = OperandDef(Bag)
+  col_names = AttributeDef(ArrayOfConstraint(StringAttr))
+  functions = AttributeDef(ArrayOfConstraint(StringAttr))
+  result = ResultDef(Bag)
+
+  def verify_(self) -> None:
+    if len(self.functions.data) != len(self.col_names.data):
+      raise Exception(
+          f"Number of functions and column names should match: {len(self.functions.data)} vs {len(self.col_names.data)}"
+      )
+    for f in self.functions.data:
+      if not f.data in ["sum"]:
+        raise Exception(f"function {f.data} is not a supported function")
+
+  @builder
+  @staticmethod
+  def get(input: Operation, col_names: List[str],
+          functions: List[str]) -> 'Aggregate':
+    return Aggregate.build(
+        operands=[input],
+        attributes={
+            "col_names":
+                ArrayAttr.from_list([StringAttr.from_str(c) for c in col_names]
+                                   ),
+            "functions":
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+        },
+        result_types=[Bag.get([Int32()] * len(functions), col_names)])
+
+
 @dataclass
 class RelImpl:
   ctx: MLContext
@@ -347,6 +392,7 @@ class RelImpl:
     self.ctx.register_attr(Tuple)
 
     self.ctx.register_op(Select)
+    self.ctx.register_op(Aggregate)
     self.ctx.register_op(PandasTable)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
