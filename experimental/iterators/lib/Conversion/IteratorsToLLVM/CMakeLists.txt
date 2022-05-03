@@ -8,7 +8,6 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
   MLIRFunc
   MLIRIterators
   MLIRLLVMIR
-  MLIRMemRef
   MLIRPass
   MLIRTransforms
   )
