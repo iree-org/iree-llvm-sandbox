@@ -10,6 +10,8 @@
 #include "Dialect/LinalgExt/IR/LinalgExtOps.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 
@@ -90,7 +92,7 @@ struct InParallelOpInterface
       // should not be inside terminator (which would be the default insertion
       // point).
       Value buffer = *state.getBuffer(b, *insertDestOperands.front(),
-                                      /*forceInPlace=*/false,
+                                      /*forceInPlace=*/llvm::None,
                                       /*customCopyInsertionPoint=*/op);
       newResults.push_back(buffer);
     }

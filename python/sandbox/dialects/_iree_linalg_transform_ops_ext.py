@@ -19,37 +19,53 @@ IntListListArg = Optional[Union[Sequence[Union[Sequence[int], ir.ArrayAttr]],
                                 ir.ArrayAttr]]
 StringArg = Optional[Union[str, ir.StringAttr]]
 StringListArg = Optional[Union[Sequence[str], ir.ArrayAttr]]
+
+
 def _defaulted_ensure(f):
+
   def inner(value, default=None):
     assert value is not None or default is not None
     return f(default if value is None else value)
+
   return inner
+
+
 @_defaulted_ensure
 def _ensure_int_array_attr(value: IntListArg):
   i64 = ir.IntegerType.get_signless(64)
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([ir.IntegerAttr.get(i64, i) for i in value])
   return value
+
+
 @_defaulted_ensure
 def _ensure_string_array_attr(value: StringListArg):
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([ir.StringAttr.get(str(i)) for i in value])
   return value
+
+
 @_defaulted_ensure
 def _ensure_array_of_array_attr(value: IntListListArg):
   if isinstance(value, Sequence):
     return ir.ArrayAttr.get([_ensure_int_array_attr(inner) for inner in value])
   return value
+
+
 @_defaulted_ensure
 def _ensure_int_attr(value: IntArg):
   if isinstance(value, int):
     return ir.IntegerAttr.get(ir.IntegerType.get_signless(64), value)
   return value
+
+
 @_defaulted_ensure
 def _ensure_bool_attr(value: BoolArg):
   if isinstance(value, bool):
     return ir.BoolAttr.get(value)
   return value
+
+
 @_defaulted_ensure
 def _ensure_string_attr(value: StringArg):
   if isinstance(value, str):
@@ -71,8 +87,11 @@ class MatchOp:
       target = ir.FlatSymbolRefAttr.get(target)
     operation_type = pdl.OperationType.get()
     super().__init__(operation_type, target)
+
+
 class LowerVectorsOp:
   """Specialization for the LowerVectorsOp class."""
+
   def __init__(self,
                *,
                stages: IntListArg = None,
@@ -102,8 +121,11 @@ class LowerVectorsOp:
                      transpose_avx2_lowering,
                      loc=loc,
                      ip=ip)
+
+
 class LowerToLLVMOp:
   """Specialization for the LowerToLLVMOp class."""
+
   def __init__(self,
                *,
                reassociate_fp_reductions: BoolArg = None,
@@ -124,8 +146,11 @@ class LowerToLLVMOp:
                      _ensure_bool_attr(enable_async, False),
                      loc=loc,
                      ip=ip)
+
+
 class FuseOp:
   """Specialization for the FuseOp class."""
+
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
@@ -145,6 +170,7 @@ class FuseOp:
                      loc=loc,
                      ip=ip)
 
+
 class FuseProducersOp:
   """Specialization for the FuseProducersOp class."""
 
@@ -163,8 +189,10 @@ class FuseProducersOp:
                      loc=loc,
                      ip=ip)
 
+
 class TileOp:
   """Specialization for the TileOp class."""
+
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,
@@ -183,8 +211,11 @@ class TileOp:
                      interchange,
                      loc=loc,
                      ip=ip)
+
+
 class ScalarizeOp:
   """Specialization for the ScalarizeOp class."""
+
   def __init__(self,
                target: Union[ir.Value, ir.Operation, ir.OpView],
                *,

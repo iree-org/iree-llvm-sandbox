@@ -9,12 +9,10 @@ list(APPEND dialect_libs
   IREELinalgTransformDialectTransforms
   MLIRVectorExt
   MLIRVectorExtTransforms
-  IREESandboxTransforms
 )
 
 add_subdirectory(Dialect)
 add_subdirectory(ExecutionEngine)
-add_subdirectory(Passes)
 if (NOT SANDBOX_ENABLE_IREE_DIALECTS)
   add_subdirectory(Transforms)
 endif()

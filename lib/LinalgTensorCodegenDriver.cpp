@@ -101,6 +101,7 @@ void UnrollOneVectorOpPass::runOnOperation() {
 // Pass creation entry points.
 //===----------------------------------------------------------------------===//
 
-std::unique_ptr<OperationPass<FuncOp>> mlir::createUnrollOneVectorOpPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::createUnrollOneVectorOpPass() {
   return std::make_unique<UnrollOneVectorOpPass>();
 }

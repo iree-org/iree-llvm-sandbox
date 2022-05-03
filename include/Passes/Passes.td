@@ -11,7 +11,7 @@
 
 include "mlir/Pass/PassBase.td"
 
-def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "FuncOp"> {
+def UnrollOneVectorOp : Pass<"unroll-one-vector-op", "func::FuncOp"> {
   let summary = "Pass to unroll a vector op to a target size.";
   let constructor = "mlir::createUnrollOneVectorOpPass()";
   let options = [

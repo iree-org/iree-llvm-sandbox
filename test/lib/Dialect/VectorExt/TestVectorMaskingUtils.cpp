@@ -26,7 +26,7 @@ using namespace mlir::vector_ext;
 namespace {
 
 struct TestVectorMaskingUtils
-    : public PassWrapper<TestVectorMaskingUtils, OperationPass<FuncOp>> {
+    : public PassWrapper<TestVectorMaskingUtils, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(TestVectorMaskingUtils)
 
   TestVectorMaskingUtils() = default;
@@ -55,7 +55,7 @@ struct TestVectorMaskingUtils
 
     // Test function body predication.
     if (!predicationSucceeded) {
-      FuncOp funcOp = getOperation();
+      func::FuncOp funcOp = getOperation();
       ValueRange funcArgs = funcOp.getBody().getArguments();
 
       if (funcArgs.size() >= 3) {
@@ -89,7 +89,7 @@ struct TestVectorMaskingUtils
   }
 
   void testMasking() {
-    FuncOp funcOp = getOperation();
+    func::FuncOp funcOp = getOperation();
     OpBuilder builder(funcOp);
     if (failed(maskVectorPredicateOps(builder, funcOp,
                                       maskGenericOpWithSideEffects)))

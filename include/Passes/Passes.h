@@ -20,7 +20,7 @@
 namespace mlir {
 
 /// Create a pass to drive the unrolling of a single vector op.
-std::unique_ptr<OperationPass<FuncOp>> createUnrollOneVectorOpPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createUnrollOneVectorOpPass();
 
 //===----------------------------------------------------------------------===//
 // Registration
