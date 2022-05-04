@@ -114,8 +114,8 @@ if False:
       extra_args=[
           '--iree-codegen-use-linalg-transform-interp',
           '--linalg-transform-file-name=' + TRANSFORM_SPEC_FILE_NAME,
-          # '-print-ir-after-all',
-          # '-print-ir-after-change',
+          #'-mlir-print-ir-after-all',
+          #'-mlir-print-ir-after-change',
       ])
   print(f'Flatbuffer size = {len(binary)}')
 
