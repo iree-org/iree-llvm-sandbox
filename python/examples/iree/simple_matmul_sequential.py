@@ -1,13 +1,3 @@
-# This file assumes that IREE has been built with python extensions.
-# Assuming the IREE build directory is ${IREE_BUILD_DIR}, one would export the
-# PYTHONPATH command in ${IREE_BUILD_DIR}/.env
-#
-# We reproduce it here:
-# ```
-#    PYTHONPATH=${PYTHONPATH}:${IREE_BUILD_DIR}/compiler-api/python_package:${IREE_BUILD_DIR}/bindings/python \
-#    python simple_matmul.py
-# ```
-
 import numpy as np
 
 import logging

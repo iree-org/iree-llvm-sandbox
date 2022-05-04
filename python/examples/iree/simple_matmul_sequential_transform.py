@@ -1,13 +1,3 @@
-# This file assumes that IREE has been built with python extensions.
-# Assuming the IREE build directory is ${IREE_BUILD_DIR}, one would export the
-# PYTHONPATH command in ${IREE_BUILD_DIR}/.env
-#
-# We reproduce it here:
-# ```
-#    PYTHONPATH=${PYTHONPATH}:${IREE_BUILD_DIR}/compiler-api/python_package:${IREE_BUILD_DIR}/bindings/python \
-#    python simple_matmul.py
-# ```
-
 import numpy as np
 
 import logging
@@ -91,7 +81,7 @@ binary = iree.compiler.tools.compile_str(
     extra_args=[
         '--iree-codegen-use-linalg-transform-interp',
         '--linalg-transform-file-name=' + TRANSFORM_SPEC_FILE_NAME,
-        #'-print-after-all',
+        # '-print-after-all',
         # '-print-ir-after-change',
     ])
 print(f'Flatbuffer size = {len(binary)}')
@@ -110,7 +100,7 @@ ctx.add_vm_module(vm_module)
 lhs = np.full((127, 128), 1, dtype=np.float32)
 rhs = np.full((128, 129), 2, dtype=np.float32)
 dot = ctx.modules.module.dot
-res = dot(lhs, rhs)
+res = dot()
 
 np.testing.assert_allclose(res, np.dot(lhs, rhs))
 print('SUCCESS')
