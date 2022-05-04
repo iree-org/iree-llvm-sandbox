@@ -64,19 +64,20 @@ private:
 
 /// Returns or creates a function declaration at the module of the provided
 /// original op.
-FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
-                            Operation *op, PatternRewriter &rewriter) {
+func::FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
+                                  Operation *op, PatternRewriter &rewriter) {
   ModuleOp module = op->getParentOfType<ModuleOp>();
   assert(module);
 
   // Return function if already declared.
-  if (FuncOp funcOp = module.lookupSymbol<mlir::FuncOp>(fnName))
+  if (func::FuncOp funcOp = module.lookupSymbol<mlir::func::FuncOp>(fnName))
     return funcOp;
 
   // Add new declaration at the start of the module.
   OpBuilder::InsertionGuard guard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
-  FuncOp funcOp = rewriter.create<FuncOp>(op->getLoc(), fnName, fnType);
+  func::FuncOp funcOp =
+      rewriter.create<func::FuncOp>(op->getLoc(), fnName, fnType);
   funcOp.setPrivate();
   return funcOp;
 }
@@ -156,7 +157,8 @@ struct IteratorConversionPattern : public ConversionPattern {
     // Look up or declare function symbol.
     auto const fnType =
         FunctionType::get(getContext(), TypeRange(operands), resultTypes);
-    FuncOp funcOp = lookupOrCreateFuncOp(constructorName, fnType, op, rewriter);
+    func::FuncOp funcOp =
+        lookupOrCreateFuncOp(constructorName, fnType, op, rewriter);
 
     // Replace op with call to function.
     func::CallOp callOp =
@@ -178,7 +180,7 @@ struct IteratorConversionPattern : public ConversionPattern {
       // Look up or declare function symbol.
       auto const fnType =
           FunctionType::get(getContext(), TypeRange(resultTypes), TypeRange());
-      FuncOp funcOp =
+      func::FuncOp funcOp =
           lookupOrCreateFuncOp(destructorName, fnType, op, rewriter);
 
       // Add call to destructor to the end of the block.
@@ -308,7 +310,7 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target
       .addLegalDialect<func::FuncDialect, memref::MemRefDialect, LLVMDialect>();
-  target.addLegalOp<ModuleOp, FuncOp, func::ReturnOp>();
+  target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>();
   RewritePatternSet patterns(&getContext());
   IteratorsTypeConverter typeConverter;
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);
