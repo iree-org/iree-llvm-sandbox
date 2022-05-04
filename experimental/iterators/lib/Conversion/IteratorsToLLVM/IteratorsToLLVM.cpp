@@ -36,6 +36,7 @@
 using namespace mlir;
 using namespace mlir::iterators;
 using namespace mlir::LLVM;
+using namespace mlir::func;
 using namespace std::string_literals;
 
 namespace {
@@ -70,7 +71,7 @@ FuncOp lookupOrCreateFuncOp(llvm::StringRef fnName, FunctionType fnType,
   assert(module);
 
   // Return function if already declared.
-  if (FuncOp funcOp = module.lookupSymbol<mlir::FuncOp>(fnName))
+  if (FuncOp funcOp = module.lookupSymbol<FuncOp>(fnName))
     return funcOp;
 
   // Add new declaration at the start of the module.
@@ -124,8 +125,8 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
 
   // Get the pointer to the first character in the global string.
   Value globalPtr = builder.create<AddressOfOp>(loc, global);
-  Value zero = builder.create<ConstantOp>(loc, builder.getI64Type(),
-                                          builder.getI64IntegerAttr(0));
+  Value zero = builder.create<LLVM::ConstantOp>(loc, builder.getI64Type(),
+                                                builder.getI64IntegerAttr(0));
   return builder.create<GEPOp>(loc, LLVMPointerType::get(builder.getI8Type()),
                                globalPtr, ArrayRef<Value>({zero, zero}));
 }
