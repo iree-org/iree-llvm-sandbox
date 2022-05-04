@@ -4,7 +4,7 @@
 func @matmul_tensors(
   %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32>,
   %arg3: tensor<128x128xf32>, %arg4: tensor<128x128xf32>, %arg5: tensor<128x128xf32>,
-  %arg6: tensor<128x128xf32> {linalg.inplaceable = true})
+  %arg6: tensor<128x128xf32> {bufferization.writable = true})
     -> tensor<128x128xf32> {
   // This operation is marked for tiling only.
   // CHECK-COUNT-3: scf.for
@@ -82,7 +82,7 @@ iree_linalg_transform.sequence {
 // CHECK-LABEL: @vectorize_one
 func @vectorize_one(
   %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32>,
-  %arg3: tensor<128x128xf32> {linalg.inplaceable = true})
+  %arg3: tensor<128x128xf32> {bufferization.writable = true})
     -> tensor<128x128xf32> {
   // CHECK: vector.contract
   %0 = linalg.matmul {test.attrA}
@@ -118,7 +118,7 @@ iree_linalg_transform.sequence {
 // CHECK-LABEL: @vectorize_all
 func @vectorize_all(
   %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32>,
-  %arg3: tensor<128x128xf32> {linalg.inplaceable = true})
+  %arg3: tensor<128x128xf32> {bufferization.writable = true})
     -> tensor<128x128xf32> {
   // CHECK: vector.contract
   %0 = linalg.matmul {test.attrA}

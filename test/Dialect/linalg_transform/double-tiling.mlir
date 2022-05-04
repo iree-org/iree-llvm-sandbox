@@ -4,7 +4,7 @@
 
 // CHECK-LABEL: func @matmul_tensors(
 func @matmul_tensors(
-  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { linalg.inplaceable = true})
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { bufferization.writable = true})
     -> tensor<128x128xf32> {
   // Pack transposed padding of 1st operand.
   //      CHECK:    tensor.pad
