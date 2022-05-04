@@ -6,7 +6,7 @@
 // CHECK-SAME:    %[[TC:[0-9a-z]+]]: tensor<128x128xf32>
 // CHECK-SAME:  -> tensor<128x128xf32> {
 func @matmul_tensors(
-  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { linalg.inplaceable = true})
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { bufferization.writable = true})
     -> tensor<128x128xf32> {
   // CHECK: %[[VA:.*]] = vector.transfer_read %[[TA]]
   // CHECK: %[[VB:.*]] = vector.transfer_read %[[TB]]

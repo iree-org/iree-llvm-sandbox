@@ -43,8 +43,8 @@ def attach_inplaceable_attributes(func: func.FuncOp,
       continue
     attrs.append(
         DictAttr.get({
-            "linalg.inplaceable": BoolAttr.get(flag),
-            "linalg.buffer_layout": AffineMapAttr.get(map0),
+            "bufferization.writable": BoolAttr.get(flag),
+            "bufferization.buffer_layout": AffineMapAttr.get(map0),
         }))
   func.arg_attrs = attrs
 

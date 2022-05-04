@@ -75,8 +75,8 @@ def attach_inplaceable_attributes(func: func.FuncOp,
         AffineMap.get_identity(RankedTensorType(t).rank))
     attrs.append(
         DictAttr.get({
-            "linalg.inplaceable": BoolAttr.get(flag),
-            "linalg.buffer_layout": identity_map
+            "bufferization.writable": BoolAttr.get(flag),
+            "bufferization.buffer_layout": identity_map
         }))
   func.arg_attrs = attrs
 

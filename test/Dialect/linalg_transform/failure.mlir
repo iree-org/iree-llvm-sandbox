@@ -104,7 +104,7 @@ iree_linalg_transform.sequence {
 
 func @no_replacement(
   %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>,
-  %arg2: tensor<128x128xf32> {linalg.inplaceable = true})
+  %arg2: tensor<128x128xf32> {bufferization.writable = true})
     -> tensor<128x128xf32> {
   // expected-error @below {{could not find replacement for tracked op}}
   %0 = linalg.matmul {test.attrA}
@@ -135,7 +135,7 @@ iree_linalg_transform.sequence {
 
 func @repeated_match(
   %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>,
-  %arg2: tensor<128x128xf32> {linalg.inplaceable = true})
+  %arg2: tensor<128x128xf32> {bufferization.writable = true})
     -> tensor<128x128xf32> {
   // expected-error @below {{operation tracked by two handles}}
   %0 = linalg.matmul {test.attrA}

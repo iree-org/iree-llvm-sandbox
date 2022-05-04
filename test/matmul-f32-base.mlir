@@ -6,9 +6,9 @@
 !row_major_C = type tensor<${M}x${N}x!elem_type_c>
 
 func @init_and_matmul(
-  %a: !row_major_A {linalg.buffer_layout = affine_map<(i, j)[s0, s1] -> (i, j)>},
-  %b: !row_major_B {linalg.buffer_layout = affine_map<(i, j)[s0, s1] -> (i, j)>},
-  %c: !row_major_C {linalg.buffer_layout = affine_map<(i, j)[s0, s1] -> (i, j)>}) -> !row_major_C
+  %a: !row_major_A {bufferization.buffer_layout = affine_map<(i, j)[s0, s1] -> (i, j)>},
+  %b: !row_major_B {bufferization.buffer_layout = affine_map<(i, j)[s0, s1] -> (i, j)>},
+  %c: !row_major_C {bufferization.buffer_layout = affine_map<(i, j)[s0, s1] -> (i, j)>}) -> !row_major_C
 // TODO: activate manually for now.
 // attributes { passthrough = [["target-cpu", "skylake-avx512"], ["prefer-vector-width", "512"]]}
 {

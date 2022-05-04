@@ -4,7 +4,7 @@
 // CHECK-NOT: linalg
 // CHECK: llvm
 func @matmul_tensors(
-  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { linalg.inplaceable = true})
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { bufferization.writable = true})
     -> tensor<128x128xf32> {
   %0 = linalg.matmul  ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
                      outs(%arg2: tensor<128x128xf32>)

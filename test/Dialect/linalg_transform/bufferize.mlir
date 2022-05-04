@@ -6,7 +6,7 @@
 // CHECK-SAME:    %[[TC:[0-9a-z]+]]: memref<128x128xf32
 // CHECK-NOT:   -> tensor
 func @matmul_tensors(
-  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { linalg.inplaceable = true})
+  %arg0: tensor<128x128xf32>, %arg1: tensor<128x128xf32>, %arg2: tensor<128x128xf32> { bufferization.writable = true})
     -> tensor<128x128xf32> {
   // CHECK: linalg.matmul ins(%[[TA]], %[[TB]] : memref{{.*}}, memref{{.*}} outs(%[[TC]] : memref{{.*}})
   %0 = linalg.matmul  ins(%arg0, %arg1: tensor<128x128xf32>, tensor<128x128xf32>)
