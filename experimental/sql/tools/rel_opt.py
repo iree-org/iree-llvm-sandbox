@@ -14,6 +14,7 @@ from dialects.ibis_dialect import Ibis
 from dialects.rel_alg import RelationalAlg
 from dialects.rel_ssa import RelSSA
 from dialects.rel_impl import RelImpl
+from dialects.iterators import Iterators
 
 
 class RelOptMain(xDSLOptMain):
@@ -54,6 +55,7 @@ class RelOptMain(xDSLOptMain):
     rel_Alg = RelationalAlg(self.ctx)
     rel_ssa = RelSSA(self.ctx)
     rel_impl = RelImpl(self.ctx)
+    dataflow = Iterators(self.ctx)
 
 
 def __main__():
