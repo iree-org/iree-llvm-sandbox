@@ -1,7 +1,7 @@
 # pytype: skip-file
 
-from mlir.ir import *
-from mlir.dialects.linalg.opdsl.lang import *
+from iree.compiler.ir import *
+from iree.compiler.dialects.linalg.opdsl.lang import *
 
 
 @linalg_structured_op

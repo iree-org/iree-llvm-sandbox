@@ -4,10 +4,10 @@ from typing import Any, List, NewType, Optional, Sequence, Type
 
 import numpy as np
 
-from mlir.ir import *
-from mlir.dialects import arith, func, linalg, memref, scf, func, vector
-from mlir.execution_engine import *
-from mlir.runtime import *
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, func, linalg, memref, scf, func, vector
+from iree.compiler.execution_engine import *
+from iree.compiler.runtime import *
 
 from ..core.experts import *
 from ..core.harness import *

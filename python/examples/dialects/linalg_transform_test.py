@@ -1,13 +1,13 @@
 import mlir.iree_sandbox as sandbox
-import mlir.ir as ir
-import mlir.dialects.iree_linalg_transform as transform
+import iree.compiler.ir as ir
+import iree.compiler.dialects.iree_linalg_transform as transform
 
 
 def run(f):
   print(f"TEST: {f.__name__}")
   with ir.Context() as ctx, ir.Location.unknown(ctx):
-    import mlir.dialects.iree_linalg_ext as linalg_ext
-    import mlir.dialects.iree_linalg_transform as transform
+    import iree.compiler.dialects.iree_linalg_ext as linalg_ext
+    import iree.compiler.dialects.iree_linalg_transform as transform
     from mlir.iree_sandbox import register_sandbox_passes_and_dialects
     linalg_ext.register_dialect(ctx)
     transform.register_dialect(ctx)

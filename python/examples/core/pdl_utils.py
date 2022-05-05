@@ -1,7 +1,7 @@
 from typing import Callable, Sequence
 
-import mlir.dialects.pdl as pdl
-import mlir.ir as ir
+import iree.compiler.dialects.pdl as pdl
+import iree.compiler.ir as ir
 
 
 def make_single_op_pdl_pattern(

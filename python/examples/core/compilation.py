@@ -11,11 +11,11 @@ from typing import Sequence, Optional
 
 import numpy as np
 
-from mlir.ir import *
-from mlir.dialects import arith, func, linalg, memref, scf, func
-from mlir.dialects.linalg.opdsl.lang import OperandKind
-from mlir.execution_engine import *
-from mlir.runtime import *
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, func, linalg, memref, scf, func
+from iree.compiler.dialects.linalg.opdsl.lang import OperandKind
+from iree.compiler.execution_engine import *
+from iree.compiler.runtime import *
 
 from .transforms import *
 

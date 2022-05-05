@@ -12,8 +12,8 @@ from .transforms import Pipeline, ExtractKernel, ConvertLoops
 
 # Sandbox imports
 import mlir.iree_sandbox as sandbox
-import mlir.ir as ir
-import mlir.dialects.linalg_transform as transform
+import iree.compiler.ir as ir
+import iree.compiler.dialects.linalg_transform as transform
 from mlir.iree_sandbox import register_sandbox_passes_and_dialects
 from examples.core.transforms import *
 from examples.core.transform import (
@@ -24,9 +24,9 @@ from examples.core.transform import (
 )
 
 # Standalone
-from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, tensor, scf, func, memref
-from mlir.dialects.linalg.opdsl.lang import *
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, builtin, linalg, tensor, scf, func, memref
+from iree.compiler.dialects.linalg.opdsl.lang import *
 
 Tiling = Tile.then(Tile).then(Vectorize).then(Bufferize)
 

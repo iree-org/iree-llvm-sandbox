@@ -3,8 +3,8 @@
 # This file contains small benchmarks with reasonably-sized problem/tiling sizes
 # and codegen options.
 
-import mlir.ir as ir
-import mlir.dialects.linalg_transform as transform
+import iree.compiler.ir as ir
+import iree.compiler.dialects.linalg_transform as transform
 
 from ..core.experts import *
 from ..core.harness import *

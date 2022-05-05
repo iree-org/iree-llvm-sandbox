@@ -1,7 +1,7 @@
-from mlir.ir import *
-from mlir.passmanager import PassManager
-import mlir.dialects.iree_linalg_transform as tx
-from mlir.dialects import builtin, pdl
+from iree.compiler.ir import *
+from iree.compiler.passmanager import PassManager
+import iree.compiler.dialects.iree_linalg_transform as tx
+from iree.compiler.dialects import builtin, pdl
 
 from .variables import *
 from .transform import Transform

@@ -3,8 +3,8 @@ import numpy as np
 
 from typing import Any, List, Mapping, Sequence, Tuple, Union
 
-from mlir.ir import *
-from mlir.dialects import arith, builtin, linalg, func
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, builtin, linalg, func
 
 from .einsum import EinsumSpecification, make_einsum
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough

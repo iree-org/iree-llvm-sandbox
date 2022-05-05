@@ -2,7 +2,7 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Type
 
 import numpy as np
 
-from mlir.ir import *
+from iree.compiler.ir import *
 
 
 ################################################################################

@@ -9,8 +9,8 @@ from ..core.transforms import *
 from ..contraction.definitions import *
 
 from mlir.iree_sandbox import *
-from mlir.dialects.linalg_ext import *
-from mlir.dialects.linalg_transform import *
+from iree.compiler.dialects.linalg_ext import *
+from iree.compiler.dialects.linalg_transform import *
 
 import typing as tp
 
