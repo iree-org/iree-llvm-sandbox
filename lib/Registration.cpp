@@ -36,8 +36,7 @@ using namespace mlir::linalg;
 using namespace mlir::iree_compiler::IREE;
 
 static void registerIreeDialects(DialectRegistry &registry) {
-  registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect>();
-  registry.insert<mlir::linalg::transform::LinalgTransformDialect>();
+  // TODO: move this registration to IREE.
   mlir::linalg::transform::registerLinalgTransformInterpreterPass();
   mlir::linalg::transform::registerLinalgTransformExpertExpansionPass();
   mlir::linalg::transform::registerDropSchedulePass();

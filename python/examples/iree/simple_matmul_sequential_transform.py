@@ -15,7 +15,6 @@ import iree.compiler.ir as ir
 module_str = None
 with ir.Context() as ctx, ir.Location.unknown(ctx):
   transform.register_dialect(ctx)
-  ctx.dialects["iree_linalg_transform"]
   module = ir.Module.create()
   with ir.InsertionPoint(module.body):
     isa_matmul = pdl.PatternOp(benefit = 1, name = "isa_matmul")

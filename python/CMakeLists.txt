@@ -1,12 +1,10 @@
 include(AddMLIRPython)
 
 set(_addl_sources)
-if(SANDBOX_ENABLE_IREE_DIALECTS)
-  list(APPEND _addl_sources
-    IREEDialectsPythonSources
-    IREEDialectsPythonExtensions
-  )
-endif()
+list(APPEND _addl_sources
+  IREEDialectsPythonSources
+  IREEDialectsPythonExtensions
+)
 
 ################################################################################
 # Sources

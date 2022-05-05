@@ -15,9 +15,8 @@ import pandas
 from mlir.execution_engine import *
 from mlir.ir import *
 from mlir.runtime import *
-from mlir.iree_sandbox import register_sandbox_passes_and_dialects
 from mlir.dialects.builtin import ModuleOp
-import mlir.dialects.iree_linalg_transform as tx
+import mlir.dialects.iree_linalg_transform as transform
 
 from ..core.compilation import compile_to_execution_engine, \
     emit_benchmarking_function, mlir_type
@@ -208,13 +207,8 @@ def compiled_function_element_types_mlir_builder(
 
 def emit_schedule_dialect(module: ModuleOp,
                           transformations: TransformationList):
-  # TODO: this is necessary to force-load the dialect, otherwise op creation
-  # complains about "unregistered dialect" despite the registration being called.
-  register_sandbox_passes_and_dialects(module.context)
-  module.context.dialects["iree_linalg_ext"]
-  module.context.dialects["iree_linalg_transform"]
   with InsertionPoint(module.body):
-    sequence = tx.SequenceOp()
+    sequence = transform.SequenceOp()
     with InsertionPoint(sequence.body.blocks[0]):
       for t in transformations.transforms:
         t.build_transform_ir()
@@ -257,7 +251,6 @@ class ProblemInstance:
                                           module,
                                           zero_at_each_iteration: bool = False):
     ctx = module.context
-    register_sandbox_passes_and_dialects(ctx)
     with InsertionPoint(module.body):
       types = self.problem_definition.types_mlir_builder(
           self.compile_time_problem_sizes_dict,
@@ -292,15 +285,18 @@ class ProblemInstance:
       dump_ir_to_file: str = '',
       zero_at_each_iteration: bool = False):
     with ir.Context() as ctx, ir.Location.unknown() as loc:
+      import mlir.dialects.iree_linalg_ext as linalg_ext
+      import mlir.dialects.iree_linalg_transform as transform
+      from mlir.iree_sandbox import register_sandbox_passes_and_dialects
+      linalg_ext.register_dialect(ctx)
+      transform.register_dialect(ctx)
+      register_sandbox_passes_and_dialects(ctx)
+
       self.mlir_module = Module.create()
       self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict
       self.build_problem_under_context_manager(entry_point_name,
                                                fun_to_benchmark_name,
                                                self.mlir_module)
-      # TODO: this is necessary to force-load the dialect, otherwise op creation
-      # complains about "unregistered dialect" despite the registration call just
-      # above.
-      ctx.dialects["iree_linalg_transform"]
       schedule_builder(self.mlir_module)
       return self._compile_to_execution_engine(self.mlir_module,
                                                ApplySchedule(),
@@ -609,17 +605,17 @@ def test_harness(problem_factory: Callable[
         print(f'\nCompilation expert {expert_name}')
 
         print("xxxxxxxxxx: Dialect:")
-        problem_tx = ProblemInstance(problem_definition, np_types)
+        problem_transform = ProblemInstance(problem_definition, np_types)
         start = time.time()
-        problem_tx.compile_with_schedule_builder(
+        problem_transform.compile_with_schedule_builder(
             entry_point_name='main',
             fun_to_benchmark_name=function_name,
             compile_time_problem_sizes_dict=compile_time_problem_sizes_dict,
             schedule_builder=lambda m: emit_schedule_dialect(m, expert),
-            dump_ir_to_file=kwargs.get('dump_tx_ir_to_file', ''),
+            dump_ir_to_file=kwargs.get('dump_transform_ir_to_file', ''),
             zero_at_each_iteration=kwargs.get('zero_at_each_iteration', False))
         print(f'Compile time {time.time() - start}')
-        run_problem_instance(problem_tx, expert_name + '_dialect')
+        run_problem_instance(problem_transform, expert_name + '_dialect')
 
       if 'numpy_benchmark' in kwargs and os.environ.get('BENCHMARK_NUMPY'):
         print('\nNumPy reference\n')
