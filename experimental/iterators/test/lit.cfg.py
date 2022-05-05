@@ -15,7 +15,7 @@ config.name = "Iterators MLIR"
 config.test_format = lit.formats.ShTest(execute_external=True)
 
 # suffixes: A list of file extensions to treat as test files.
-config.suffixes = [".mlir"]
+config.suffixes = [".mlir", ".py"]
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
@@ -46,4 +46,5 @@ if "LLVM_SYMBOLIZER_PATH" in os.environ:
 sys.path.append(os.path.join(build_dir, "bin"))
 config.environment["PYTHONPATH"] = ":".join(sys.path)
 config.environment["PATH"] = ":".join(sys.path)
+config.environment["RUNTIMELIB"] = os.path.join(lib_dir, 'libruntime_utils.so')
 project_root = os.path.dirname(os.path.dirname(__file__))
