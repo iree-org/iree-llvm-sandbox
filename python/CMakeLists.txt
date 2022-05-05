@@ -22,8 +22,9 @@ declare_mlir_python_extension(IREELLVMSandboxSources.API
   ADD_TO_PARENT IREELLVMSandboxSources
   SOURCES
     PythonAPI.cpp
-  EMBED_CAPI_LINK_LIBS
-    IREESandboxCAPI
+  PRIVATE_LINK_LIBS
+    LLVMSupport
+    IREESandboxRegistration
 )
 
 ################################################################################
@@ -45,22 +46,22 @@ add_mlir_python_common_capi_library(IREELLVMSandboxCAPI
 
 # If we are not reusing iree-dialects as is, export our own.
 if (NOT SANDBOX_ENABLE_IREE_DIALECTS)
-  declare_mlir_dialect_python_bindings(
-    ADD_TO_PARENT IREELLVMSandboxSources
-    ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sandbox"
-    TD_FILE dialects/IreeLinalgExtBinding.td
-    SOURCES
-      dialects/iree_linalg_ext.py
-    DIALECT_NAME iree_linalg_ext)
-
-  declare_mlir_dialect_python_bindings(
-    ADD_TO_PARENT IREELLVMSandboxSources
-    ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sandbox"
-    TD_FILE dialects/LinalgTransformBinding.td
-    SOURCES
-      dialects/iree_linalg_transform.py
-      dialects/_iree_linalg_transform_ops_ext.py
-    DIALECT_NAME iree_linalg_transform)
+   declare_mlir_dialect_python_bindings(
+ ADD_TO_PARENT IREELLVMSandboxSources
+     ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sandbox"
+     TD_FILE dialects/IreeLinalgExtBinding.td
+     SOURCES
+       dialects/iree_linalg_ext.py
+     DIALECT_NAME iree_linalg_ext)
+ 
+   declare_mlir_dialect_python_bindings(
+     ADD_TO_PARENT IREELLVMSandboxSources
+     ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/sandbox"
+     TD_FILE dialects/LinalgTransformBinding.td
+     SOURCES
+       dialects/iree_linalg_transform.py
+       dialects/_iree_linalg_transform_ops_ext.py
+     DIALECT_NAME iree_linalg_transform)
 endif()
 
 ################################################################################

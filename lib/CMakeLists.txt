@@ -82,23 +82,3 @@ add_mlir_library(IREESandboxRegistration
   ${IREE_DIALECTS_DEPENDS}
   MLIRLinalgOpsIncGen
 )
-
-add_mlir_public_c_api_library(IREESandboxCAPI
-  CAPI.cpp
-
-  PARTIAL_SOURCES_INTENDED
-
-  DEPENDS
-  mlir-headers
-
-  LINK_LIBS PRIVATE
-  MLIRCAPIRegistration
-  MLIRIR
-  MLIRPass
-
-  ${dialect_libs}
-  
-  # Sandbox libraries
-  IREESandboxDriver
-  IREESandboxRegistration
-)
