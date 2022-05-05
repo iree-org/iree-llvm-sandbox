@@ -1,10 +1,10 @@
 from __future__ import annotations
 import functools
 
-from mlir.ir import Module
-from mlir.passmanager import PassManager
+from iree.compiler.ir import Module
+from iree.compiler.passmanager import PassManager
 import typing as tp
-import mlir.dialects.iree_linalg_transform as tx
+import iree.compiler.dialects.iree_linalg_transform as tx
 from copy import deepcopy
 
 from .variables import Variable

@@ -4,9 +4,9 @@ import nevergrad as ng
 import numpy as np
 
 import mlir.iree_sandbox as sandbox
-import mlir.ir as ir
-import mlir.dialects.pdl as pdl
-import mlir.dialects.iree_linalg_transform as transform
+import iree.compiler.ir as ir
+import iree.compiler.dialects.pdl as pdl
+import iree.compiler.dialects.iree_linalg_transform as transform
 
 from ..core.experts import *
 from ..core.harness import *

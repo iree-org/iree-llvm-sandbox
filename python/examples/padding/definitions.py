@@ -4,8 +4,8 @@ from typing import Any, List, Mapping, Optional, Sequence
 
 import numpy as np
 
-from mlir.ir import *
-from mlir.dialects import arith, func, linalg, scf, func, tensor
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, func, linalg, scf, func, tensor
 
 from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
 from ..core.problem_definition import *

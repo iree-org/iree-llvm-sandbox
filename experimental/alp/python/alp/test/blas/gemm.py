@@ -6,9 +6,9 @@ import os
 import argparse
 
 # MLIR imports
-from mlir.ir import *
-from mlir.dialects import arith, func, linalg, tensor, scf, func, memref
-from mlir.dialects.linalg.opdsl.lang import *
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, func, linalg, tensor, scf, func, memref
+from iree.compiler.dialects.linalg.opdsl.lang import *
 
 # Sandbox imports
 from examples.core.problem_definition import *

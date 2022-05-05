@@ -8,9 +8,9 @@ from typing import Any, List, Mapping, Optional, Sequence
 import numpy as np
 import argparse
 
-from mlir.ir import *
-from mlir.dialects import arith, func, linalg, tensor, scf, func, memref
-from mlir.dialects.linalg.opdsl.lang import *
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, func, linalg, tensor, scf, func, memref
+from iree.compiler.dialects.linalg.opdsl.lang import *
 
 from examples.core.problem_definition import *
 
