@@ -15,18 +15,6 @@ message(STATUS "iree_llvm_sandbox build directory: ${IREE_LLVM_SANDBOX_BINARY_DI
 
 set(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR "" CACHE PATH "Path to iree-dialects project")
 
-set(SANDBOX_ENABLE_IREE_DIALECTS OFF)
-
-if(LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR)
-  message(STATUS "Enabling iree-dialects in sandbox")
-  set(SANDBOX_ENABLE_IREE_DIALECTS ON)
-  add_compile_definitions("SANDBOX_ENABLE_IREE_DIALECTS")
-else()
-  # Disable this IREE-defined function when not using IREE.
-  function(iree_dialects_target_includes target)
-  endfunction()
-endif()
-
 ################################################################################
 # Set some variables
 ################################################################################
@@ -68,16 +56,13 @@ include_directories(${PROJECT_BINARY_DIR}/include)
 include_directories(include)
 include_directories(${IREE_LLVM_SANDBOX_BINARY_DIR}/include)
 
-if (SANDBOX_ENABLE_IREE_DIALECTS)
-  # TODO: For finding iree-dialects-c. Should not be necessary.
-  include_directories(SYSTEM ${LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR}/include)
-  # Our local files reference a local copy of iree-dialects.
-  # To work with the actual iree-dialects, drop the need for prefixing.
-  include_directories(SYSTEM ${LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR}/include/iree-dialects)
-  # This is the place where Tablegen puts stuff from iree-dialects.
-  # TODO: find the right env var and avoid the relative path.
-  include_directories(SYSTEM ${IREE_LLVM_SANDBOX_BINARY_DIR}/../iree-dialects/include/iree-dialects)
-endif()
+# TODO: For finding iree-dialects-c. Should not be necessary.
+include_directories(SYSTEM ${LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR}/include)
+# To work with the actual iree-dialects, drop the need for prefixing.
+include_directories(SYSTEM ${LLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR}/include/iree-dialects)
+# This is the place where Tablegen puts stuff from iree-dialects.
+# TODO: find the right env var and avoid the relative path.
+include_directories(SYSTEM ${IREE_LLVM_SANDBOX_BINARY_DIR}/../iree-dialects/include/iree-dialects)
 
 ################################################################################
 # Enable python (assumes enabled MLIR bindings via MLIR_ENABLE_BINDINGS_PYTHON)

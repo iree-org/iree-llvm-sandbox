@@ -43,6 +43,13 @@ class NGSchedulerInterface:
                               module_save_filename,
                               benefit: int = 1):
     with ir.Context() as ctx, ir.Location.unknown() as loc:
+      import mlir.dialects.iree_linalg_ext as linalg_ext
+      import mlir.dialects.iree_linalg_transform as transform
+      from mlir.iree_sandbox import register_sandbox_passes_and_dialects
+      linalg_ext.register_dialect(ctx)
+      transform.register_dialect(ctx)
+      register_sandbox_passes_and_dialects(ctx)
+      
       module = ir.Module.create()
       self.schedule(module, proposal, benefit)
       save_module(module, module_save_filename)

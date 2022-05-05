@@ -13,9 +13,6 @@ list(APPEND dialect_libs
 
 add_subdirectory(Dialect)
 add_subdirectory(ExecutionEngine)
-if (NOT SANDBOX_ENABLE_IREE_DIALECTS)
-  add_subdirectory(Transforms)
-endif()
 
 if (SANDBOX_ENABLE_ALP)
   list(APPEND dialect_libs
@@ -81,24 +78,4 @@ add_mlir_library(IREESandboxRegistration
   mlir-headers
   ${IREE_DIALECTS_DEPENDS}
   MLIRLinalgOpsIncGen
-)
-
-add_mlir_public_c_api_library(IREESandboxCAPI
-  CAPI.cpp
-
-  PARTIAL_SOURCES_INTENDED
-
-  DEPENDS
-  mlir-headers
-
-  LINK_LIBS PRIVATE
-  MLIRCAPIRegistration
-  MLIRIR
-  MLIRPass
-
-  ${dialect_libs}
-  
-  # Sandbox libraries
-  IREESandboxDriver
-  IREESandboxRegistration
 )
