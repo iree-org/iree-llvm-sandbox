@@ -35,13 +35,6 @@ using namespace mlir::linalg;
 
 using namespace mlir::iree_compiler::IREE;
 
-static void registerIreeDialects(DialectRegistry &registry) {
-  // TODO: move this registration to IREE.
-  mlir::linalg::transform::registerLinalgTransformInterpreterPass();
-  mlir::linalg::transform::registerLinalgTransformExpertExpansionPass();
-  mlir::linalg::transform::registerDropSchedulePass();
-}
-
 //===----------------------------------------------------------------------===//
 // Optional dialects and projects.
 //===----------------------------------------------------------------------===//
@@ -79,13 +72,12 @@ void mlir::registerOutsideOfDialectRegistry() {
 
 void mlir::registerIntoDialectRegistry(DialectRegistry &registry) {
   registerAllDialects(registry);
-  registerIreeDialects(registry);
   registry.insert<vector_ext::VectorExtDialect>();
   registerIteratorDialects(registry);
 
   // Tiling external models.
   LinalgExt::registerTilingInterfaceExternalModels(registry);
-
+  // Bufferize external models.
   arith::registerBufferizableOpInterfaceExternalModels(registry);
   linalg::registerBufferizableOpInterfaceExternalModels(registry);
   scf::registerBufferizableOpInterfaceExternalModels(registry);
