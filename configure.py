@@ -15,7 +15,7 @@ def parse_arguments():
                       type=str,
                       default=os.path.abspath(os.path.dirname(__file__)))
   parser.add_argument("--llvm-path", help="Path to llvm-project sources")
-  parser.add_argument("--iree-path", help="Path to IREE (used if enabled)")
+  parser.add_argument("--iree-path", help="Path to IREE")
   parser.add_argument(
       "--target",
       help="Semicolumn-separated list of targets to build with LLVM",
@@ -110,23 +110,25 @@ def main(args):
 
   # Detect IREE (defaults LLVM path as well).
   iree_path = args.iree_path
-  if iree_path:
-    iree_path = os.path.abspath(iree_path)
-    print(f"-- Enabling IREE from {iree_path}")
-    if not os.path.exists(os.path.join(iree_path, "CMakeLists.txt")):
-      print(f"ERROR: Could not find iree at {iree_path}")
-      return 1
-    llvm_path = os.path.join(iree_path, "third_party", "llvm-project")
-    iree_dialects_path = os.path.join(iree_path, "llvm-external-projects",
-                                      "iree-dialects")
-    if not os.path.exists(os.path.join(iree_dialects_path, "CMakeLists.txt")):
-      print(f"ERROR: Cannot find iree-dialects project at {iree_dialects_path}")
-      return 1
-    # Must come before the sandbox project.
-    llvm_projects.insert(0, "iree-dialects")
-    #llvm_projects.append("iree-dialects")
-    llvm_configure_args.append(
-        f"-DLLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR={iree_dialects_path}")
+  if not os.path.exists(iree_path):
+    print(f"ERROR: Could not find IREE at {iree_path}")
+    return 1
+  iree_path = os.path.abspath(iree_path)
+  print(f"-- Enabling IREE from {iree_path}")
+  if not os.path.exists(os.path.join(iree_path, "CMakeLists.txt")):
+    print(f"ERROR: Could not find iree at {iree_path}")
+    return 1
+  llvm_path = os.path.join(iree_path, "third_party", "llvm-project")
+  iree_dialects_path = os.path.join(iree_path, "llvm-external-projects",
+                                    "iree-dialects")
+  if not os.path.exists(os.path.join(iree_dialects_path, "CMakeLists.txt")):
+    print(f"ERROR: Cannot find iree-dialects project at {iree_dialects_path}")
+    return 1
+  # Must come before the sandbox project.
+  llvm_projects.insert(0, "iree-dialects")
+  #llvm_projects.append("iree-dialects")
+  llvm_configure_args.append(
+      f"-DLLVM_EXTERNAL_IREE_DIALECTS_SOURCE_DIR={iree_dialects_path}")
 
   # Detect LLVM.
   if args.llvm_path:

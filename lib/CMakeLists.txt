@@ -13,9 +13,6 @@ list(APPEND dialect_libs
 
 add_subdirectory(Dialect)
 add_subdirectory(ExecutionEngine)
-if (NOT SANDBOX_ENABLE_IREE_DIALECTS)
-  add_subdirectory(Transforms)
-endif()
 
 if (SANDBOX_ENABLE_ALP)
   list(APPEND dialect_libs
