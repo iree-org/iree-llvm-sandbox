@@ -5,6 +5,7 @@ module() {
     %input : !iterators.stream<!tuple<[!i32]>> = iterators.sampleInput()
     %reduce : !iterators.stream<!tuple<[!i32]>> = iterators.reduce(%input : !iterators.stream<!tuple<[!i32]>>)
     iterators.sink(%reduce : !iterators.stream<!tuple<[!i32]>>)
+    func.return()
   }
 }
 
@@ -12,4 +13,5 @@ module() {
 // CHECK-NEXT:    %input : !iterators.stream<!tuple<[!i32]>> = iterators.sampleInput()
 // CHECK-NEXT:    %reduce : !iterators.stream<!tuple<[!i32]>> = iterators.reduce(%input : !iterators.stream<!tuple<[!i32]>>)
 // CHECK-NEXT:    iterators.sink(%reduce : !iterators.stream<!tuple<[!i32]>>)
+// CHECK-NEXT:    func.return()
 // CHECK-NEXT:  }

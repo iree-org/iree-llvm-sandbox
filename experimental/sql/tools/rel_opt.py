@@ -5,6 +5,7 @@
 
 from xdsl.xdsl_opt_main import xDSLOptMain
 from io import IOBase
+from xdsl.dialects.builtin import ModuleOp
 
 from src.ibis_frontend import ibis_to_xdsl
 from src.ibis_to_alg import ibis_to_alg
@@ -56,6 +57,21 @@ class RelOptMain(xDSLOptMain):
     rel_ssa = RelSSA(self.ctx)
     rel_impl = RelImpl(self.ctx)
     dataflow = Iterators(self.ctx)
+
+  def register_all_targets(self):
+    super().register_all_targets()
+
+    def _output_mlir(prog: ModuleOp, output: IOBase):
+      converter = IteratorsMlirConverter(self.ctx)
+      mlir_module = converter.convert_module(prog)
+      print(mlir_module, file=output)
+
+    try:
+      from tools.IteratorsMlirConverter import IteratorsMlirConverter
+      self.available_targets['mlir'] = _output_mlir
+    except ImportError as ex:
+      # do not add mlir as target if import does not work
+      pass
 
 
 def __main__():
