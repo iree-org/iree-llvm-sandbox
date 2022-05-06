@@ -10,7 +10,7 @@
 #define EXPERIMENTAL_ITERATORS_LIB_CONVERSION_PASSDETAIL_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Pass/Pass.h"
 
 namespace mlir {
