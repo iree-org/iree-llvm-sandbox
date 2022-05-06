@@ -26,9 +26,6 @@ declare_mlir_python_extension(SandboxSandboxSources.API
   ADD_TO_PARENT SandboxSandboxSources
   SOURCES
     PythonAPI.cpp
-  PRIVATE_LINK_LIBS
-    LLVMSupport
-    IREESandboxRegistration
 )
 
 ################################################################################
