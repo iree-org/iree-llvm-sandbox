@@ -55,13 +55,10 @@ python -m pip install -r requirements.txt
 
 ## Configure and build
 
-The sandbox can be optionally built with or without IREE integration (for
-accessing IREE specific IR and evaluating on IREE compatible targets):
+The sandbox must be built with IREE integration.
 
 Note that useful python environment `activate` scripts for `mlirdev` and
 `mlirdev-debug` are provided in the `scripts` directory.
-
-### Building with IREE
 
 Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
 directory and initialize submodules:
@@ -87,29 +84,13 @@ Note that the `third_party/llvm-project` bundled with IREE will be used.
 The `sandbox` branch often runs ahead of the IREE integration and should
 generally be used.
 
-### Building without IREE
-
-You must checkout [llvm-project](https://github.com/llvm/llvm-project) at a
-compatible commit.
-
-```
-(cd .. && git clone https://github.com/llvm/llvm-project.git)
-```
-
-And configure/build the project. By default the `configure.py` script will look in `${IREE_LLVM_SANDBOX_SOURCE_DIR}/../llvm-project` (this can also
-be overridden with `--llvm-path`):
-
-```
-python configure.py
-```
-
 ## Using the Python API
 
 ```
 source .env && export PYTHONPATH
 
 # Sanity check (should not error).
-python -c "import mlir.iree_sandbox"
+python -c "import mlir.sandbox.iree_sandbox"
 
 # Run a matmul.
 export MLIR_RUNNER_UTILS_LIB=${IREE_LLVM_SANDBOX_BUILD_DIR}/lib/libmlir_runner_utils.so; \
@@ -122,14 +103,9 @@ python -m python.examples.matmul.test
 
 ```
 "${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/mlir-proto-opt \
-  ../iree-llvm-sandbox/test/constant.mlir \
-  -linalg-comprehensive-module-bufferize
+  test/Dialect/vector_ext/vector_masking.mlir \
+  -test-vector-masking-utils=masking -split-input-file
 ```
-
-TODOs:
-
-1. hook up a lit test target.
-2. re-add npcomp instructions once it is upgraded to use the same build setup.
 
 ## Running tests
 
