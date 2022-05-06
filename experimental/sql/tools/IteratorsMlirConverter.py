@@ -12,8 +12,7 @@ from importlib import import_module
 class IteratorsMlirConverter(MLIRConverter):
 
   def __init__(self, ctx):
-    super().__init__(ctx)
-    self.mlir = import_module("mlir_iterators.ir")
+    super().__init__(ctx, import_module("mlir_iterators.ir"))
 
   def register_external_dialects(self):
     it.register_dialect()
