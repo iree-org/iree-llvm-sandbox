@@ -1,8 +1,7 @@
-from mlir.ir import *
-from mlir.dialects.linalg.opdsl.lang import *
+from iree.compiler.ir import *
+from iree.compiler.dialects.linalg.opdsl.lang import *
 
 import itertools
-
 
 class EinsumSpecification:
   """Structured representation of a string einsum specification."""

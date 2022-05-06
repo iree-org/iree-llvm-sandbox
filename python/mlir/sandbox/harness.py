@@ -12,18 +12,18 @@ from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence
 import numpy
 import pandas
 
-from mlir.execution_engine import *
-from mlir.ir import *
-from mlir.runtime import *
-from mlir.dialects.builtin import ModuleOp
-import mlir.dialects.iree_linalg_transform as transform
+from iree.compiler.execution_engine import *
+from iree.compiler.ir import *
+from iree.compiler.runtime import *
+from iree.compiler.dialects.builtin import ModuleOp
+import iree.compiler.dialects.iree_linalg_transform as transform
 
-from ..core.compilation import compile_to_execution_engine, \
+from mlir.sandbox.compilation import compile_to_execution_engine, \
     emit_benchmarking_function, mlir_type
-from ..core.experts import TransformationList
-from ..core.problem_definition import *
-from ..core.transforms import ApplySchedule
-from ..core.utils import *
+from mlir.sandbox.problem_definition import *
+from mlir.sandbox.transform import TransformationList
+from mlir.sandbox.transforms import ApplySchedule
+from mlir.sandbox.utils import *
 
 
 # Log everything to stderr and flush so that we have a unified stream to match
@@ -285,12 +285,10 @@ class ProblemInstance:
       dump_ir_to_file: str = '',
       zero_at_each_iteration: bool = False):
     with ir.Context() as ctx, ir.Location.unknown() as loc:
-      import mlir.dialects.iree_linalg_ext as linalg_ext
-      import mlir.dialects.iree_linalg_transform as transform
-      from mlir.iree_sandbox import register_sandbox_passes_and_dialects
+      import iree.compiler.dialects.iree_linalg_ext as linalg_ext
+      import iree.compiler.dialects.iree_linalg_transform as transform
       linalg_ext.register_dialect(ctx)
       transform.register_dialect(ctx)
-      register_sandbox_passes_and_dialects(ctx)
 
       self.mlir_module = Module.create()
       self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict

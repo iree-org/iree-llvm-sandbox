@@ -4,12 +4,12 @@ from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
-from mlir.ir import *
-from mlir.dialects import arith, func, linalg, scf, func, tensor
+from iree.compiler.ir import *
+from iree.compiler.dialects import arith, func, linalg, scf, func, tensor
 
-from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
-from ..core.problem_definition import *
-from ..core.utils import *
+from mlir.sandbox.compilation import attach_inplaceable_attributes, attach_passthrough
+from mlir.sandbox.problem_definition import *
+from mlir.sandbox.utils import *
 
 from . import ops
 

@@ -3,20 +3,20 @@ import multiprocessing as mp
 import nevergrad as ng
 import numpy as np
 
-import mlir.iree_sandbox as sandbox
-import mlir.ir as ir
-import mlir.dialects.pdl as pdl
-import mlir.dialects.iree_linalg_transform as transform
+import mlir.sandbox.iree_sandbox as sandbox
+import iree.compiler.ir as ir
+import iree.compiler.dialects.pdl as pdl
+import iree.compiler.dialects.iree_linalg_transform as transform
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.nevergrad_parallel_utils import *
-from ..core.nevergrad_tuner_utils import *
-from ..core import nevergrad_searchable_strategies as strategies
-from ..core.pdl_utils import *
-from ..core.problem_definition import ProblemDefinition
-from ..core.transforms import *
-from ..core.utils import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.nevergrad_parallel_utils import *
+from mlir.sandbox.nevergrad_tuner_utils import *
+from mlir.sandbox import nevergrad_searchable_strategies as strategies
+from mlir.sandbox.pdl_utils import *
+from mlir.sandbox.problem_definition import ProblemDefinition
+from mlir.sandbox.transforms import *
+from mlir.sandbox.utils import *
 
 from ..contraction.definitions import EinsumProblem
 

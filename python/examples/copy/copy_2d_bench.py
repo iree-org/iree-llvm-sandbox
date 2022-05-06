@@ -3,10 +3,10 @@
 # This file contains small benchmarks with reasonably-sized problem/tiling sizes
 # and codegen options.
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.transforms import *
-from ..core.utils import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.transforms import *
+from mlir.sandbox.utils import *
 
 from .definitions import CopyProblem
 

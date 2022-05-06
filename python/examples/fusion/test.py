@@ -2,10 +2,10 @@
 
 # This file contains test to compile fusion examples.
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.transforms import *
-from ..core.transform import PrintIR
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.transforms import *
+from mlir.sandbox.transform import PrintIR
 
 from .definitions import *
 

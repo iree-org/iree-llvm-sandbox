@@ -14,11 +14,11 @@ import time
 import traceback
 import typing as tp
 
-from ..core.harness import *
-from ..core.nevergrad_tuner_utils import NGSchedulerInterface
-from ..core.plotting import Plotting
-from ..core.problem_definition import ProblemDefinition
-from ..core.utils import compute_quantiles
+from mlir.sandbox.harness import *
+from mlir.sandbox.nevergrad_tuner_utils import NGSchedulerInterface
+from mlir.sandbox.plotting import Plotting
+from mlir.sandbox.problem_definition import ProblemDefinition
+from mlir.sandbox.utils import compute_quantiles
 
 
 class SearchJobResultStatus(Enum):

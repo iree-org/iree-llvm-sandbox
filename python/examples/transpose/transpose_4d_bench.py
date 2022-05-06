@@ -1,8 +1,8 @@
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.transforms import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.transforms import *
 
 from ..contraction.definitions import EinsumProblem
 

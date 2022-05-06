@@ -3,13 +3,13 @@
 # This file contains small benchmarks with reasonably-sized problem/tiling sizes
 # and codegen options.
 
-import mlir.ir as ir
-import mlir.dialects.linalg_transform as transform
+import iree.compiler.ir as ir
+import iree.compiler.dialects.linalg_transform as transform
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.pdl_utils import *
-from ..core.transforms import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.pdl_utils import *
+from mlir.sandbox.transforms import *
 
 from ..contraction.definitions import EinsumProblem
 

@@ -2,15 +2,15 @@
 
 # This file contains simple test cases that combine various codegen options.
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.transforms import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.transforms import *
 
 from ..contraction.definitions import *
 
-from mlir.iree_sandbox import *
-from mlir.dialects.linalg_ext import *
-from mlir.dialects.linalg_transform import *
+from mlir.sandbox.iree_sandbox import *
+from iree.compiler.dialects.linalg_ext import *
+from iree.compiler.dialects.linalg_transform import *
 
 import typing as tp
 

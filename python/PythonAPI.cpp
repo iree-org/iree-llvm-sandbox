@@ -14,13 +14,6 @@
 
 #include <pybind11/pybind11.h>
 
-#include "Registration.h"
-
-#include "mlir-c/Dialect/Linalg.h"
-#include "mlir/Bindings/Python/PybindAdaptors.h"
-#include "mlir/CAPI/IR.h"
-#include "mlir/CAPI/Registration.h"
-
 namespace py = pybind11;
 
 // -----------------------------------------------------------------------------
@@ -30,15 +23,5 @@ namespace py = pybind11;
 PYBIND11_MODULE(_ireeSandbox, m) {
   m.doc() = "IREE LLVM Sandbox Module";
 
-  m.def(
-      "register_sandbox_passes_and_dialects",
-      [](MlirContext context) {
-        mlir::registerOutsideOfDialectRegistry();
-
-        mlir::DialectRegistry registry;
-        unwrap(context)->getDialectRegistry().appendTo(registry);
-        mlir::registerIntoDialectRegistry(registry);
-        unwrap(context)->appendDialectRegistry(registry);
-      },
-      py::arg("context"));
+  // TODO: Add required registrations for sandbox-specific dialects.
 }
