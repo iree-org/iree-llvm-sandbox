@@ -4,10 +4,10 @@
 # and codegen options.
 
 from numpy.testing._private.utils import KnownFailureException
-from ..core.experts import *
-from ..core.harness import *
-from ..core.transforms import *
-from ..core.transform import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.sandbox.transforms import *
+from mlir.sandbox.transform import *
 
 from ..contraction.definitions import *
 

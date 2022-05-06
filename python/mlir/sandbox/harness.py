@@ -18,12 +18,12 @@ from iree.compiler.runtime import *
 from iree.compiler.dialects.builtin import ModuleOp
 import iree.compiler.dialects.iree_linalg_transform as transform
 
-from ..core.compilation import compile_to_execution_engine, \
+from mlir.sandbox.compilation import compile_to_execution_engine, \
     emit_benchmarking_function, mlir_type
-from ..core.experts import TransformationList
-from ..core.problem_definition import *
-from ..core.transforms import ApplySchedule
-from ..core.utils import *
+from mlir.sandbox.problem_definition import *
+from mlir.sandbox.transform import TransformationList
+from mlir.sandbox.transforms import ApplySchedule
+from mlir.sandbox.utils import *
 
 
 # Log everything to stderr and flush so that we have a unified stream to match

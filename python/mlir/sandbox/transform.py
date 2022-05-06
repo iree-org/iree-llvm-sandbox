@@ -7,7 +7,7 @@ import typing as tp
 import iree.compiler.dialects.iree_linalg_transform as tx
 from copy import deepcopy
 
-from .variables import Variable
+from mlir.sandbox.variables import Variable
 
 
 class _TransformThenDescriptor:

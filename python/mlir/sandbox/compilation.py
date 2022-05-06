@@ -17,7 +17,7 @@ from iree.compiler.dialects.linalg.opdsl.lang import OperandKind
 from iree.compiler.execution_engine import *
 from iree.compiler.runtime import *
 
-from .transforms import *
+from mlir.sandbox.transforms import *
 
 f16 = "f16"
 f32 = "f32"

@@ -18,7 +18,21 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=iree.compiler.")
 
 declare_mlir_python_sources(SandboxSandboxSources
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir"
-  SOURCES iree_sandbox.py
+  SOURCES
+    sandbox/compilation.py
+    sandbox/experts.py
+    sandbox/harness.py
+    sandbox/iree_sandbox.py
+    sandbox/nevergrad_parallel_utils.py
+    sandbox/nevergrad_searchable_strategies.py
+    sandbox/nevergrad_tuner_utils.py
+    sandbox/pdl_utils.py
+    sandbox/plotting.py
+    sandbox/problem_definition.py
+    sandbox/transform.py
+    sandbox/transforms.py
+    sandbox/utils.py
+    sandbox/variables.py
 )
     
 declare_mlir_python_extension(SandboxSandboxSources.API

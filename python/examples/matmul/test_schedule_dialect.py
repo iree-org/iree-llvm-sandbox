@@ -6,10 +6,10 @@
 import iree.compiler.ir as ir
 import iree.compiler.dialects.linalg_transform as transform
 
-from ..core.experts import *
-from ..core.harness import *
-from ..core.pdl_utils import *
-from ..core.transforms import *
+from mlir.sandbox.experts import *
+from mlir.sandbox.harness import *
+from mlir.pdl_utils import *
+from mlir.sandbox.transforms import *
 
 from ..contraction.definitions import EinsumProblem
 

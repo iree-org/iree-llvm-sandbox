@@ -8,10 +8,10 @@ from iree.compiler.passmanager import PassManager
 import iree.compiler.dialects.iree_linalg_transform as tx
 from iree.compiler.dialects import builtin, pdl
 
-from .variables import *
-from .transform import Transform
+from mlir.sandbox.variables import *
+from mlir.sandbox.transform import Transform
 
-import mlir.all_passes_registration
+# import mlir.all_passes_registration
 
 
 class Searchable:

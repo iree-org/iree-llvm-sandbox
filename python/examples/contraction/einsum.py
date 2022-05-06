@@ -3,7 +3,6 @@ from iree.compiler.dialects.linalg.opdsl.lang import *
 
 import itertools
 
-
 class EinsumSpecification:
   """Structured representation of a string einsum specification."""
 

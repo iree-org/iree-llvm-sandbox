@@ -8,9 +8,9 @@ from iree.compiler.ir import *
 from iree.compiler.dialects import arith, func, linalg, tensor, scf, func
 from iree.compiler.dialects.linalg.opdsl.lang import *
 
-from ..core.compilation import attach_inplaceable_attributes, attach_passthrough
-from ..core.problem_definition import *
-from ..core.utils import *
+from mlir.sandbox.compilation import attach_inplaceable_attributes, attach_passthrough
+from mlir.sandbox.problem_definition import *
+from mlir.sandbox.utils import *
 
 # TODO: Orthogonal configuration object.
 avx512 = True

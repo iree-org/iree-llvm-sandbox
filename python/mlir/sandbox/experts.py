@@ -1,5 +1,4 @@
-from .transforms import *
-from .transform import TransformListFactory, TransformationList
+from mlir.sandbox.transforms import Bufferize, LowerToLLVM, LowerVectors
 
 # TODO: After DecomposeToLowerDimensionalNamedOp the op_name to anchor on
 # changes: we need a better control mechanism.

@@ -1,4 +1,4 @@
-import mlir.iree_sandbox as sandbox
+import mlir.sandbox.iree_sandbox as sandbox
 import iree.compiler.ir as ir
 import iree.compiler.dialects.iree_linalg_transform as transform
 
