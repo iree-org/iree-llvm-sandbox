@@ -1,6 +1,6 @@
 include(AddMLIRPython)
 
-# Specifies that all MLIR packages are co-located under npcomp.
+# Specifies that all MLIR packages are co-located under iree.compiler.
 # TODO: Add an upstream cmake param for this vs having a global here.
 add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=iree.compiler.")
 
@@ -16,7 +16,7 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=iree.compiler.")
 # Sources
 ################################################################################
 
-declare_mlir_python_sources(SandboxSandboxSources
+declare_mlir_python_sources(SandboxSources
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir"
   SOURCES
     sandbox/compilation.py
@@ -35,9 +35,9 @@ declare_mlir_python_sources(SandboxSandboxSources
     sandbox/variables.py
 )
     
-declare_mlir_python_extension(SandboxSandboxSources.API
+declare_mlir_python_extension(SandboxSources.API
   MODULE_NAME _ireeSandbox
-  ADD_TO_PARENT SandboxSandboxSources
+  ADD_TO_PARENT SandboxSources
   SOURCES
     PythonAPI.cpp
 )
@@ -55,7 +55,7 @@ add_mlir_python_common_capi_library(SandboxSandboxCAPI
   DECLARED_SOURCES
     MLIRPythonSources
     MLIRPythonExtension.AllPassesRegistration
-    SandboxSandboxSources
+    SandboxSources
 )
 
 ################################################################################
@@ -70,7 +70,7 @@ add_mlir_python_modules(SandboxSandboxPythonModules
   DECLARED_SOURCES
     MLIRPythonSources
     MLIRPythonExtension.AllPassesRegistration
-    SandboxSandboxSources
+    SandboxSources
   COMMON_CAPI_LINK_LIBS
     SandboxSandboxCAPI
   )
