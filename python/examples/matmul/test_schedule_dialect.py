@@ -8,7 +8,7 @@ import iree.compiler.dialects.linalg_transform as transform
 
 from mlir.sandbox.experts import *
 from mlir.sandbox.harness import *
-from mlir.pdl_utils import *
+from mlir.sandbox.pdl_utils import *
 from mlir.sandbox.transforms import *
 
 from ..contraction.definitions import EinsumProblem

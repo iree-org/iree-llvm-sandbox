@@ -7,7 +7,7 @@ import numpy as np
 from iree.compiler.ir import *
 from iree.compiler.dialects import arith, func, linalg, scf, func, tensor
 
-from mlir.compilation import attach_inplaceable_attributes, attach_passthrough
+from mlir.sandbox.compilation import attach_inplaceable_attributes, attach_passthrough
 from mlir.sandbox.problem_definition import *
 from mlir.sandbox.utils import *
 

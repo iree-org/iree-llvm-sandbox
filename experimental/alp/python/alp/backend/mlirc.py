@@ -11,10 +11,10 @@ from .codegen import codegen
 from .transforms import Pipeline, ExtractKernel, ConvertLoops
 
 # Sandbox imports
-import mlir.iree_sandbox as sandbox
+import mlir.sandbox.iree_sandbox as sandbox
 import iree.compiler.ir as ir
 import iree.compiler.dialects.linalg_transform as transform
-from mlir.iree_sandbox import register_sandbox_passes_and_dialects
+from mlir.sandbox.iree_sandbox import register_sandbox_passes_and_dialects
 from examples.core.transforms import *
 from examples.core.transform import (
     TransformListFactory,

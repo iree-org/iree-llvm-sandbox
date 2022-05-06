@@ -8,7 +8,7 @@ from mlir.sandbox.transforms import *
 
 from ..contraction.definitions import *
 
-from mlir.iree_sandbox import *
+from mlir.sandbox.iree_sandbox import *
 from iree.compiler.dialects.linalg_ext import *
 from iree.compiler.dialects.linalg_transform import *
 

@@ -6,7 +6,7 @@ from typing import Any, List, Mapping, Sequence, Tuple, Union
 from iree.compiler.ir import *
 from iree.compiler.dialects import arith, builtin, linalg, func
 
-from mlir.compilation import attach_inplaceable_attributes, attach_passthrough
+from mlir.sandbox.compilation import attach_inplaceable_attributes, attach_passthrough
 from mlir.sandbox.problem_definition import *
 from mlir.sandbox.utils import *
 
