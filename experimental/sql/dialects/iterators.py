@@ -28,7 +28,7 @@ class Stream(ParametrizedAttribute):
 
   @builder
   @staticmethod
-  def get(elem_type: List[TupleType]) -> 'Stream':
+  def get(elem_type: TupleType) -> 'Stream':
     return Stream([elem_type])  #type: ignore
 
 
@@ -48,8 +48,8 @@ class SampleInputOp(Operation):
 
   @builder
   @staticmethod
-  def get(input: Operation) -> 'SampleInputOp':
-    return SampleInputOp.build(operands=[input])
+  def get(type: Attribute) -> 'SampleInputOp':
+    return SampleInputOp.build(result_types=[type])
 
 
 @irdl_op_definition
@@ -66,8 +66,13 @@ class ReduceOp(Operation):
   @builder
   @staticmethod
   def get(argument: Operation) -> 'ReduceOp':
-    return ReduceOp.build(operands=[argument],
-                          result_types=[Stream([IntegerType.from_width(32)])])
+    return ReduceOp.build(
+        operands=[argument],
+        result_types=[
+            Stream([
+                TupleType([ArrayAttr.from_list([IntegerType.from_width(32)])])
+            ])
+        ])
 
 
 @irdl_op_definition
