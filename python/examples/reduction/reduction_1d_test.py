@@ -14,8 +14,7 @@ from ..contraction.definitions import *
 ################################################################################
 
 # No tiling.
-expert_no_tiling = LoweringOnlyExpert(
-    'reduction_1d', 'linalg.generic').print_ir(after_all=False)
+expert_no_tiling = LoweringOnlyExpert('reduction_1d', 'linalg.generic')
 
 all_experts = [expert_no_tiling]
 

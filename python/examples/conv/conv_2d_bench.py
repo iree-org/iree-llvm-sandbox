@@ -26,62 +26,59 @@ all_names = [ \
     "DoubleTile3DPad",
             ]
 
-all_experts = [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  H  W  C  KH  KW  F
-             tile_sizes=[1, 1, 8, 32, 1, 1, 8],
-             peel=[0, 1, 2, 3, 4, 5, 6])
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '', transpose_lowering='shuffle')),
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  H  W  C  KH  KW  F
-             tile_sizes=[1, 1, 8, 32, 1, 1, 8])
-          .then(Pad(fun_name=fun_name,
-                    op_name=op_name,
-                    padding_values=[0.0, 0.0, 0.0],
-                    padding_dimensions=[0, 1, 2, 3, 4, 5, 6],
-                    hoist_paddings=[5, 0, 0]))
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '', transpose_lowering='shuffle')),
-        Tile(fun_name,
-             op_name,
-             #           N  H  W  C  KH  KW  F
-             tile_sizes=[1, 32, 32, 32, 1, 3, 64],
-             peel=[0, 1, 2, 3, 4, 5, 6])
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[1, 1, 8, 32, 1, 1, 8],
-                     peel=[0, 1, 2, 3, 4, 5, 6]))
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '')),
-        Tile(fun_name,
-             op_name,
-             #           N  H  W  C  KH  KW  F
-             tile_sizes=[1, 32, 32, 32, 3, 3, 64])
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[1, 1, 8, 32, 1, 1, 8]))
-          .then(Pad(fun_name,
-                    op_name,
-                    padding_values=[0.0, 0.0, 0.0],
-                    padding_dimensions=[0, 1, 2, 3, 4, 5, 6],
-                    pack_paddings=[1, 0, 0],
-                    hoist_paddings=[4, 0, 0]))
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   split_transfers='none',
-                                   transpose_lowering='shuffle',
-                                   unroll_vector_transfers=False)),
-    ]
+all_experts = [ \
+    Tile(fun_name=fun_name,
+          op_name=op_name,
+          #           N  H  W  C  KH  KW  F
+          tile_sizes=[1, 1, 8, 32, 1, 1, 8],
+          peel=[0, 1, 2, 3, 4, 5, 6])
+      .then(DecomposeToLowerDimensionalNamedOp())
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert('', '', transpose_lowering='shuffle')),
+    Tile(fun_name=fun_name,
+          op_name=op_name,
+          #           N  H  W  C  KH  KW  F
+          tile_sizes=[1, 1, 8, 32, 1, 1, 8])
+      .then(Pad(fun_name=fun_name,
+                op_name=op_name,
+                padding_values=[0.0, 0.0, 0.0],
+                padding_dimensions=[0, 1, 2, 3, 4, 5, 6],
+                hoist_paddings=[5, 0, 0]))
+      .then(DecomposeToLowerDimensionalNamedOp())
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert('', '', transpose_lowering='shuffle')),
+    Tile(fun_name,
+          op_name,
+          #           N  H  W  C  KH  KW  F
+          tile_sizes=[1, 32, 32, 32, 1, 3, 64],
+          peel=[0, 1, 2, 3, 4, 5, 6])
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[1, 1, 8, 32, 1, 1, 8],
+                  peel=[0, 1, 2, 3, 4, 5, 6]))
+      .then(DecomposeToLowerDimensionalNamedOp())
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert('', '')),
+    Tile(fun_name,
+          op_name,
+          #           N  H  W  C  KH  KW  F
+          tile_sizes=[1, 32, 32, 32, 3, 3, 64])
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[1, 1, 8, 32, 1, 1, 8]))
+      .then(Pad(fun_name,
+                op_name,
+                padding_values=[0.0, 0.0, 0.0],
+                padding_dimensions=[0, 1, 2, 3, 4, 5, 6],
+                pack_paddings=[1, 0, 0],
+                hoist_paddings=[4, 0, 0]))
+      .then(DecomposeToLowerDimensionalNamedOp())
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert(fun_name,
+                                op_name,
+                                split_transfers='none',
+                                transpose_lowering='shuffle',
+                                unroll_vector_transfers=False)),
 ]
 
 ################################################################################

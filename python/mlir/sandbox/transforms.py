@@ -403,6 +403,18 @@ class ApplySchedule(Transform):
     pass
 
   def __call__(self, module: Module, **kwargs):
+    # Passing a file path to SANDBOX_DUMP_MODULE_TO dumps the module to the file.
+    # This is useful for further debugging with iree-dialects-opt via:
+    # ```
+    #   cmake --build ${IREE_BUILD_DIR} --target iree-dialects-opt && \
+    #   ${IREE_BUILD_DIR}/third_party/llvm-project/llvm/bin/iree-dialects-opt \
+    #     ${SANDBOX_DUMP_MODULE_TO}
+    # ```
+    from os import environ
+    module_file = environ.get('SANDBOX_DUMP_MODULE_TO')
+    if module_file is not None:
+      with open(module_file, "w") as f:
+        f.write(str(module))
     PassManager.parse('linalg-interp-transforms').run(module)
     PassManager.parse('linalg-drop-schedule').run(module)
     return module

@@ -22,50 +22,48 @@ all_names = [                                  \
   "DoubleTileAndDecompose8x16x32then8x32x1x3", \
   ]
 
-all_experts = [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [        \
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  H   W   C   KH, KW
-             tile_sizes=[1, 8, 14, 32],
-             peel=[0, 1, 2])
-          .then(Tile(fun_name=fun_name,
-                     op_name=op_name,
-                     #            N  H  W   C KH, KW
-                     tile_sizes=[1, 1, 7, 32, 1, 3],
-                     peel=[0, 1, 2]))
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  H   W   C   KH, KW
-             tile_sizes=[1, 4, 14, 32],
-             peel=[0, 1, 2])
-          .then(Tile(fun_name=fun_name,
-                     op_name=op_name,
-                     #            N  H  W   C KH, KW
-                     tile_sizes=[1, 1, 7, 32, 1, 3],
-                     peel=[0, 1, 2]))
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  H   W   C   KH, KW
-             tile_sizes=[1, 8, 16, 32],
-             peel=[0, 1, 2])
-          .then(Tile(fun_name=fun_name,
-                     op_name=op_name,
-                     #            N  H  W   C KH, KW
-                     tile_sizes=[1, 1, 8, 32, 1, 3],
-                     peel=[0, 1, 2]))
-          .then(DecomposeToLowerDimensionalNamedOp())
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-    ]
-]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_experts = [ \
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  H   W   C   KH, KW
+            tile_sizes=[1, 8, 14, 32],
+            peel=[0, 1, 2])
+        .then(Tile(fun_name=fun_name,
+                    op_name=op_name,
+                    #            N  H  W   C KH, KW
+                    tile_sizes=[1, 1, 7, 32, 1, 3],
+                    peel=[0, 1, 2]))
+        .then(DecomposeToLowerDimensionalNamedOp())
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  H   W   C   KH, KW
+            tile_sizes=[1, 4, 14, 32],
+            peel=[0, 1, 2])
+        .then(Tile(fun_name=fun_name,
+                    op_name=op_name,
+                    #            N  H  W   C KH, KW
+                    tile_sizes=[1, 1, 7, 32, 1, 3],
+                    peel=[0, 1, 2]))
+        .then(DecomposeToLowerDimensionalNamedOp())
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  H   W   C   KH, KW
+            tile_sizes=[1, 8, 16, 32],
+            peel=[0, 1, 2])
+        .then(Tile(fun_name=fun_name,
+                    op_name=op_name,
+                    #            N  H  W   C KH, KW
+                    tile_sizes=[1, 1, 8, 32, 1, 3],
+                    peel=[0, 1, 2]))
+        .then(DecomposeToLowerDimensionalNamedOp())
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+  ]
 
 ################################################################################
 # Problem instantiation

@@ -5,7 +5,6 @@
 from mlir.sandbox.experts import *
 from mlir.sandbox.harness import *
 from mlir.sandbox.transforms import *
-from mlir.sandbox.transform import PrintIR
 
 from .definitions import *
 
@@ -34,7 +33,7 @@ def fill_matmul_fusion():
   problem_size_list = [[61, 33, 54]]
   test_harness(lambda s, t: MatmulProblem(), [[np.float32] * 3],
                test_sizes(keys, problem_size_list),
-               [expert.print_ir(after_all=False, at_begin=False, llvm=False)],
+               [expert],
                n_iters=n_iters,
                function_name=fun_name,
                zero_at_each_iteration=False)
@@ -75,7 +74,7 @@ def fill_matmul_bias_add_fusion():
   problem_size_list = [[61, 33, 54]]
   test_harness(lambda s, t: MatmulBiasAddProblem(), [[np.float32] * 4],
                test_sizes(keys, problem_size_list),
-               [expert.print_ir(after_all=False, at_begin=False, llvm=False)],
+               [expert],
                n_iters=n_iters,
                function_name=fun_name,
                zero_at_each_iteration=True)

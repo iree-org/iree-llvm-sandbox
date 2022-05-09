@@ -172,22 +172,20 @@ expert_fuse_and_pad_and_pipeline = \
                                 read_latency=20))          \
     .then(LoweringOnlyExpert('', ''))
 
-all_experts = [
-    e.print_ir(after_all=False) for e in [ \
-        expert_no_tiling,
-        expert_tile_1,
-        expert_tile_and_interchange_1,
-        expert_tile_1_peel_scalarize,
-        expert_tile_1_pad,
-        expert_tile_1_pad_hoist,
-        expert_tile_2_pad_hoist,
-        # Input size is too small for 3 levels of tiling.
-        #expert_tile_3_pad_hoist_peel,
-        #expert_tile_3_pad_hoist_peel_scalarize,
-        expert_fuse_2_tile_1,
-        expert_fuse_and_pad,
-        expert_fuse_and_pad_and_pipeline
-    ]
+all_experts = [ \
+    expert_no_tiling,
+    expert_tile_1,
+    expert_tile_and_interchange_1,
+    expert_tile_1_peel_scalarize,
+    expert_tile_1_pad,
+    expert_tile_1_pad_hoist,
+    expert_tile_2_pad_hoist,
+    # Input size is too small for 3 levels of tiling.
+    #expert_tile_3_pad_hoist_peel,
+    #expert_tile_3_pad_hoist_peel_scalarize,
+    expert_fuse_2_tile_1,
+    expert_fuse_and_pad,
+    expert_fuse_and_pad_and_pipeline
 ]
 
 ################################################################################

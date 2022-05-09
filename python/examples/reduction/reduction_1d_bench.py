@@ -25,19 +25,17 @@ all_names = [         \
 
 
 def all_experts(problem_sizes: List[int]):
-  return [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-      Tile(fun_name=fun_name,
-           op_name=op_name,
-           tile_sizes=[512],
-           peel=[0])
-      .then(Vectorize(fun_name, ''))
-      .then(LoweringOnlyExpert(fun_name,
-                               op_name,
-                               multi_reduction_lowering='innerreduction',
-                               reassociate_fp_reductions=True)),
-    ]
+  # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+  return [ \
+    Tile(fun_name=fun_name,
+          op_name=op_name,
+          tile_sizes=[512],
+          peel=[0])
+    .then(Vectorize(fun_name, ''))
+    .then(LoweringOnlyExpert(fun_name,
+                              op_name,
+                              multi_reduction_lowering='innerreduction',
+                              reassociate_fp_reductions=True)),
   ]
 
 

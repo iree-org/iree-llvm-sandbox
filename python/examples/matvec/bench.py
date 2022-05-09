@@ -22,36 +22,34 @@ all_names = [     \
   "DoubleTiling", \
             ]
 
-all_experts = [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False) for e in [ \
-        Tile(fun_name,
-             op_name,
-             tile_sizes=[12, 32],
-             tile_interchange=[0, 1])
-          .then(Pad(fun_name,
-                    op_name,
-                    padding_values=[0.0, 0.0, 0.0],
-                    padding_dimensions=[0, 1],
-                    pack_paddings=[1, 1, 0],
-                    hoist_paddings=[2, 3, 0]))
-          .then(LoweringOnlyExpert(fun_name, op_name,)),
-        Tile(fun_name,
-             op_name,
-             tile_sizes=[128, 128],
-             tile_interchange=[0, 1])
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[12, 32],
-                     tile_interchange=[0, 1]))
-          .then(Pad(fun_name,
-                    op_name,
-                    padding_values=[0.0, 0.0, 0.0],
-                    padding_dimensions=[0, 1],
-                    pack_paddings=[1, 1, 0],
-                    hoist_paddings=[4, 3, 0]))
-          .then(LoweringOnlyExpert(fun_name, op_name,)),
-    ]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_experts = [ \
+    Tile(fun_name,
+          op_name,
+          tile_sizes=[12, 32],
+          tile_interchange=[0, 1])
+      .then(Pad(fun_name,
+                op_name,
+                padding_values=[0.0, 0.0, 0.0],
+                padding_dimensions=[0, 1],
+                pack_paddings=[1, 1, 0],
+                hoist_paddings=[2, 3, 0]))
+      .then(LoweringOnlyExpert(fun_name, op_name,)),
+    Tile(fun_name,
+          op_name,
+          tile_sizes=[128, 128],
+          tile_interchange=[0, 1])
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[12, 32],
+                  tile_interchange=[0, 1]))
+      .then(Pad(fun_name,
+                op_name,
+                padding_values=[0.0, 0.0, 0.0],
+                padding_dimensions=[0, 1],
+                pack_paddings=[1, 1, 0],
+                hoist_paddings=[4, 3, 0]))
+      .then(LoweringOnlyExpert(fun_name, op_name,)),
 ]
 
 ################################################################################
