@@ -89,6 +89,9 @@ set(_addl_sources)
 list(APPEND _addl_sources
   IREEDialectsPythonSources
   IREEDialectsPythonExtensions
+  # TODO: Properly auto-generate dialect extensions with Tablegen and avoid 
+  # manual exporting.
+  ${TmpTransformDialect}
 )
 
 ################################################################################
