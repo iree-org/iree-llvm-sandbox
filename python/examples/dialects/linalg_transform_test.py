@@ -1,34 +1,38 @@
 import mlir.sandbox.iree_sandbox as sandbox
 import iree.compiler.ir as ir
-import iree.compiler.dialects.iree_linalg_transform as transform
+import iree.compiler.dialects.transform as transform
 
 
 def run(f):
   print(f"TEST: {f.__name__}")
   with ir.Context() as ctx, ir.Location.unknown(ctx):
     import iree.compiler.dialects.iree_linalg_ext as linalg_ext
-    import iree.compiler.dialects.iree_linalg_transform as transform
+    import iree.compiler.dialects.transform as transform
     linalg_ext.register_dialect(ctx)
-    transform.register_dialect(ctx)
+    # TODO: this fails!
+    # transform.register_dialect(ctx)
 
     module = ir.Module.create()
     with ir.InsertionPoint(module.body):
-      f()
+      f(module)
     print(module)
 
 
 # CHECK-LABEL: TEST: tile_once
 @run
-def tile_once():
-  sequence = transform.SequenceOp()
-  with ir.InsertionPoint(sequence.body.blocks[0]):
-    target = transform.MatchOp("foo")
-    tiled = transform.TileOp(target, sizes=[32, 16])
-    padded = transform.PadOp(tiled.results[0])
-    transform.VectorizeOp(padded, vectorize_padding=True)
-    transform.BufferizeOp()
-    transform.LowerVectorsOp(multireduction_lowering="innerreduce")
-    transform.LowerToLLVMOp()
+def tile_once(module):
+  root = transform.WithPDLPatternsOp(root=None)
+  with ir.InsertionPoint(root.body.blocks[0]):
+    sequence = transform.CanonicalizedSequenceOp(root.body.blocks[0].arguments[0])
+    with ir.InsertionPoint(sequence.body.blocks[0]):
+      target = transform.PDLMatchOp(sequence.body.blocks[0].arguments[0], "foo")
+      tiled = transform.TileOp(target, sizes=[32, 16])
+      padded = transform.PadOp(tiled.results[0])
+      transform.VectorizeOp(padded, vectorize_padding=True)
+      transform.BufferizeOp()
+      transform.LowerVectorsOp(multireduction_lowering="innerreduce")
+      transform.LowerToLLVMOp()
+      print(module)
 
   code = str(sequence)
   assert "match @foo" in code
