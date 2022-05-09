@@ -27,56 +27,54 @@ all_names = [ \
 
 
 def all_experts(fun_name):
-  return [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, llvm=False) for e in [ \
-        Tile(fun_name,
-             op_name,
-             #           N  W   C  KW  F
-             tile_sizes=[1, 8, 32, 1, 8],
-             peel=[0, 1, 2, 3, 4])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '')),
-        Tile(fun_name,
-             op_name,
-             #           N  W   C  KW  F
-             tile_sizes=[1, 8, 32, 1, 8])
-          .then(Pad(fun_name,
-                     op_name,
-                     padding_values=[0.0, 0.0, 0.0],
-                     padding_dimensions=[0, 1, 2, 3, 4],
-                     pack_paddings=[1, 1, 0],
-                     hoist_paddings=[3, 0, 0]))
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '')),
-        Tile(fun_name,
-                   op_name,
-                   #           N    W    C KW    F
-                   tile_sizes=[1,  32, 128, 3,  32])
-          .then(Tile(fun_name,
-                     op_name,
-                     #           N    W    C KW    F
-                     tile_sizes=[1,   8,  32, 1,   8],
-                     peel=[0, 1, 2, 3, 4]))
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '')),
-        Tile(fun_name,
-             op_name,
-             #           N    W    C KW    F
-             tile_sizes=[1,  32, 128, 3,  32])
-          .then(Tile(fun_name,
-                     op_name,
-                     #           N    W    C KW    F
-                     tile_sizes=[1,   8,  32, 1,   8]))
-          .then(Pad(fun_name,
-                     op_name,
-                     padding_values=[0.0, 0.0, 0.0],
-                     padding_dimensions=[0, 1, 2, 3, 4],
-                     pack_paddings=[1, 1, 0],
-                     hoist_paddings=[3, 0, 0]))
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert('', '')),
-    ]
+  # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+  return [                                                                    \
+      Tile(fun_name,
+            op_name,
+            #           N  W   C  KW  F
+            tile_sizes=[1, 8, 32, 1, 8],
+            peel=[0, 1, 2, 3, 4])
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert('', '')),
+      Tile(fun_name,
+            op_name,
+            #           N  W   C  KW  F
+            tile_sizes=[1, 8, 32, 1, 8])
+        .then(Pad(fun_name,
+                    op_name,
+                    padding_values=[0.0, 0.0, 0.0],
+                    padding_dimensions=[0, 1, 2, 3, 4],
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[3, 0, 0]))
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert('', '')),
+      Tile(fun_name,
+                  op_name,
+                  #           N    W    C KW    F
+                  tile_sizes=[1,  32, 128, 3,  32])
+        .then(Tile(fun_name,
+                    op_name,
+                    #           N    W    C KW    F
+                    tile_sizes=[1,   8,  32, 1,   8],
+                    peel=[0, 1, 2, 3, 4]))
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert('', '')),
+      Tile(fun_name,
+            op_name,
+            #           N    W    C KW    F
+            tile_sizes=[1,  32, 128, 3,  32])
+        .then(Tile(fun_name,
+                    op_name,
+                    #           N    W    C KW    F
+                    tile_sizes=[1,   8,  32, 1,   8]))
+        .then(Pad(fun_name,
+                    op_name,
+                    padding_values=[0.0, 0.0, 0.0],
+                    padding_dimensions=[0, 1, 2, 3, 4],
+                    pack_paddings=[1, 1, 0],
+                    hoist_paddings=[3, 0, 0]))
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert('', '')),
   ]
 
 

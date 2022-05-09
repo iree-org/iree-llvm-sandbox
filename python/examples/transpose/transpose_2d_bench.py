@@ -24,64 +24,62 @@ all_names = [  \
   "TripleTile4x8Shuffle", \
   ]
 
-all_experts = [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[8, 8],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_avx2_lowering=True)),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[4, 8],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='shuffle')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[8, 8],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='shuffle')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[16, 16],
-             peel=[0, 1])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='shuffle')),
-        Tile(fun_name,
-             op_name,
-             #           M  N
-             tile_sizes=[32, 512],
-             peel=[0, 1])
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[32, 32],
-                     peel=[0, 1]))
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[4, 8],
-                     tile_interchange=[1, 0],
-                     peel=[0, 1],))
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name,
-                                   op_name,
-                                   transpose_lowering='shuffle')),
-    ]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_experts = [ \
+    Tile(fun_name,
+          op_name,
+          #           M  N
+          tile_sizes=[8, 8],
+          peel=[0, 1])
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert(fun_name,
+                                op_name,
+                                transpose_avx2_lowering=True)),
+    Tile(fun_name,
+          op_name,
+          #           M  N
+          tile_sizes=[4, 8],
+          peel=[0, 1])
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert(fun_name,
+                                op_name,
+                                transpose_lowering='shuffle')),
+    Tile(fun_name,
+          op_name,
+          #           M  N
+          tile_sizes=[8, 8],
+          peel=[0, 1])
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert(fun_name,
+                                op_name,
+                                transpose_lowering='shuffle')),
+    Tile(fun_name,
+          op_name,
+          #           M  N
+          tile_sizes=[16, 16],
+          peel=[0, 1])
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert(fun_name,
+                                op_name,
+                                transpose_lowering='shuffle')),
+    Tile(fun_name,
+          op_name,
+          #           M  N
+          tile_sizes=[32, 512],
+          peel=[0, 1])
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[32, 32],
+                  peel=[0, 1]))
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[4, 8],
+                  tile_interchange=[1, 0],
+                  peel=[0, 1],))
+      .then(Vectorize(fun_name, ''))
+      .then(LoweringOnlyExpert(fun_name,
+                                op_name,
+                                transpose_lowering='shuffle')),
 ]
 
 ################################################################################

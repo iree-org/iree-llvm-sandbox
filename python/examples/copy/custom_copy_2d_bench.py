@@ -35,17 +35,15 @@ def all_experts(fun_name: str, problem_sizes: List[int]):
   # linalg.generic)
   # We want to make more these copies more efficient.
   # In the case of a single copy benchmark it is the one true thing to optimize.
-  return [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
-      Tile(fun_name=fun_name,
-            op_name=op_name,
-            tile_sizes=sizes2)
-      .then(Bufferize())
-      .then(Vectorize(fun_name=fun_name, op_name=''))
-      .then(LowerVectors())
-      .then(LowerToLLVM())
-    ]
+  # Note: `\` char at the end of next line prevents formatter reflows, keep it.
+  return [ \
+    Tile(fun_name=fun_name,
+          op_name=op_name,
+          tile_sizes=sizes2)
+    .then(Bufferize())
+    .then(Vectorize(fun_name=fun_name, op_name=''))
+    .then(LowerVectors())
+    .then(LowerToLLVM())
   ]
 
 

@@ -19,19 +19,17 @@ op_name = 'linalg.copy'
 ### Compilation strategies.
 ################################################################################
 
-all_experts = [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [         \
-      Tile(fun_name=fun_name,
-            op_name=op_name,
-            tile_sizes=[16],
-            peel=[0])
-      .then(Bufferize())
-      .then(Vectorize(fun_name=fun_name, op_name=''))
-      .then(LowerVectors())
-      .then(LowerToLLVM())
-    ]
-]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_experts = [ \
+    Tile(fun_name=fun_name,
+          op_name=op_name,
+          tile_sizes=[16],
+          peel=[0])
+    .then(Bufferize())
+    .then(Vectorize(fun_name=fun_name, op_name=''))
+    .then(LowerVectors())
+    .then(LowerToLLVM())
+  ]
 
 ################################################################################
 ### Problem instantiations.

@@ -36,39 +36,35 @@ total_problem_size_1 = \
 
 def all_experts(fun_name: str):
   return [
-    e.print_pipeline(before_all=False) for e in [                             \
-      e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [      \
-        LinalgExtTile(fun_name,
-                      op_name,
-                      tile_sizes=[parallel_tile_size_per_async_thread])
-          .then(LinalgExtTileToInParallel(fun_name))
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[parallel_tile_size_1,
-                                  parallel_tile_size_2,
-                                  parallel_tile_size_3],
-                     tile_interchange=[0, 2, 1]))
-          .then(Tile(fun_name,
-                     op_name,
-                     tile_sizes=[12, 32, 1],
-                     tile_interchange=[1, 0, 2]))
-          # In the parallel case, peeling performs quite better atm.
-          # TODO: Investigate inefficiencies in padding/packing.
-          # peel=[0, 1, 2],
-          .then(Pad(fun_name,
-                    op_name,
-                    padding_values=[0.0, 0.0, 0.0],
-                    padding_dimensions=[0, 1, 2],
-                    pack_paddings=[1, 1, 0],
-                    hoist_paddings=[1, 2, 0],
-                    transpose_paddings=[[1, 0], [0, 1], [0, 1]],))
-          .then(Vectorize(fun_name, ''))
-          .then(Bufferize())
-          .then(LinalgExtInParallelToAsync(fun_name))
-          .then(LowerVectors())
-          .then(LowerToLLVM(enable_async=True))
-        ]
-    ]
+    LinalgExtTile(fun_name,
+                  op_name,
+                  tile_sizes=[parallel_tile_size_per_async_thread])
+      .then(LinalgExtTileToInParallel(fun_name))
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[parallel_tile_size_1,
+                              parallel_tile_size_2,
+                              parallel_tile_size_3],
+                  tile_interchange=[0, 2, 1]))
+      .then(Tile(fun_name,
+                  op_name,
+                  tile_sizes=[12, 32, 1],
+                  tile_interchange=[1, 0, 2]))
+      # In the parallel case, peeling performs quite better atm.
+      # TODO: Investigate inefficiencies in padding/packing.
+      # peel=[0, 1, 2],
+      .then(Pad(fun_name,
+                op_name,
+                padding_values=[0.0, 0.0, 0.0],
+                padding_dimensions=[0, 1, 2],
+                pack_paddings=[1, 1, 0],
+                hoist_paddings=[1, 2, 0],
+                transpose_paddings=[[1, 0], [0, 1], [0, 1]],))
+      .then(Vectorize(fun_name, ''))
+      .then(Bufferize())
+      .then(LinalgExtInParallelToAsync(fun_name))
+      .then(LowerVectors())
+      .then(LowerToLLVM(enable_async=True))
   ]
 
 

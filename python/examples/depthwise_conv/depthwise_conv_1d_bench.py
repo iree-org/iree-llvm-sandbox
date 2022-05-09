@@ -23,39 +23,37 @@ all_names = [                 \
   "SingleTiling3D8x16x3Peel", \
 ]
 
-all_experts = [
-    # Note: `\` char at the end of next line prevents formatter reflows, keep it.
-    e.print_ir(after_all=False, at_begin=False, llvm=False) for e in [ \
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  W   C  KW
-             tile_sizes=[1, 4, 16, 3],
-             peel=[0,1,2,3])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  W   C  KW
-             tile_sizes=[1, 5, 16, 3],
-             peel=[0,1,2,3])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  W   C  KW
-             tile_sizes=[1, 6, 16, 3],
-             peel=[0,1,2,3])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-        Tile(fun_name=fun_name,
-             op_name=op_name,
-             #           N  W   C  KW
-             tile_sizes=[1, 8, 16, 3],
-             peel=[0,1,2,3])
-          .then(Vectorize(fun_name, ''))
-          .then(LoweringOnlyExpert(fun_name, op_name)),
-    ]
-]
+# Note: `\` char at the end of next line prevents formatter reflows, keep it.
+all_experts = [ \
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  W   C  KW
+            tile_sizes=[1, 4, 16, 3],
+            peel=[0,1,2,3])
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  W   C  KW
+            tile_sizes=[1, 5, 16, 3],
+            peel=[0,1,2,3])
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  W   C  KW
+            tile_sizes=[1, 6, 16, 3],
+            peel=[0,1,2,3])
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+      Tile(fun_name=fun_name,
+            op_name=op_name,
+            #           N  W   C  KW
+            tile_sizes=[1, 8, 16, 3],
+            peel=[0,1,2,3])
+        .then(Vectorize(fun_name, ''))
+        .then(LoweringOnlyExpert(fun_name, op_name)),
+  ]
 
 ################################################################################
 # Problem instantiation

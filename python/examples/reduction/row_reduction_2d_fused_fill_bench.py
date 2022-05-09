@@ -58,7 +58,7 @@ def all_experts(problem_sizes: List[int]):
                                  op_name,
                                  multi_reduction_lowering='innerreduction')),
     )
-  return [e.print_ir(after_all=False, at_begin=False, llvm=False) for e in res]
+  return res
 
 
 ################################################################################
