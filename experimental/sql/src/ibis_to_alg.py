@@ -27,6 +27,8 @@ class IbisRewriter(RewritePattern):
       return RelAlg.String.get(type_.nullable)
     if isinstance(type_, ibis.Int32):
       return RelAlg.Int32()
+    if isinstance(type_, ibis.Int64):
+      return RelAlg.Int64()
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 

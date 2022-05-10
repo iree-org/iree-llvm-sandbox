@@ -42,6 +42,20 @@ class Int32(DataType):
 
 
 @irdl_attr_definition
+class Int64(DataType):
+  """
+  Models a int64 type in a relational SSA query.
+
+  Example:
+
+  ```
+  !rel_ssa.int64
+  ```
+  """
+  name = "rel_ssa.int64"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models a string type in a relational SSA query, that can be either nullable or
@@ -357,6 +371,7 @@ class RelSSA:
     self.ctx.register_attr(Bag)
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(Int32)
+    self.ctx.register_attr(Int64)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)

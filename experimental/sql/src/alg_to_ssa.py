@@ -29,6 +29,8 @@ class RelAlgRewriter(RewritePattern):
       return RelSSA.String.get(type_.nullable)
     if isinstance(type_, RelAlg.Int32):
       return RelSSA.Int32()
+    if isinstance(type_, RelAlg.Int64):
+      return RelSSA.Int64()
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
