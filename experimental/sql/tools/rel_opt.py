@@ -38,12 +38,17 @@ class RelOptMain(xDSLOptMain):
           "t":
               pd.DataFrame({
                   "a": ["AS", "EU", "NA"],
-                  "b": [2, 5, 4],
+                  "b": [1, 2, 3],
                   "c": [3, 1, 18]
+              }),
+          "u":
+              pd.DataFrame({
+                  "b": [1, 2, 3],
               })
       })
 
       table = connection.table('t')
+      sum_table = connection.table('u')
       query = f.read()
       res = eval(query)
 

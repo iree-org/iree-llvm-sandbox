@@ -1,0 +1,10 @@
+# RUN: rel_opt.py -f ibis -p ibis-to-alg,alg-to-ssa,ssa-to-impl,impl-to-iterators %s | filecheck %s
+
+sum_table.aggregate(sum_table.b.sum())
+
+#      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "private"] {
+# CHECK-NEXT:    %0 : !iterators.stream<!tuple<[!i32]>> = iterators.sampleInput()
+# CHECK-NEXT:    %1 : !iterators.stream<!tuple<[!i32]>> = iterators.reduce(%0 : !iterators.stream<!tuple<[!i32]>>)
+# CHECK-NEXT:    iterators.sink(%1 : !iterators.stream<!tuple<[!i32]>>)
+# CHECK-NEXT:    func.return()
+# CHECK-NEXT:  }

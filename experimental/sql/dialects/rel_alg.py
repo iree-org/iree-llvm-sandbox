@@ -38,6 +38,20 @@ class Int32(DataType):
 
 
 @irdl_attr_definition
+class Int64(DataType):
+  """
+  Models a int64 type in a relational query.
+
+  Example:
+
+  ```
+  !rel_alg.int64
+  ```
+  """
+  name = "rel_alg.int64"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models a string type in a relational query, that can be either nullable or
@@ -267,6 +281,7 @@ class RelationalAlg:
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Int32)
+    self.ctx.register_attr(Int64)
 
     self.ctx.register_op(PandasTable)
     self.ctx.register_op(SchemaElement)

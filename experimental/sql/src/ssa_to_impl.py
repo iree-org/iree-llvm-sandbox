@@ -26,6 +26,8 @@ class RelSSARewriter(RewritePattern):
       return RelImpl.String.get(type_.nullable)
     if isinstance(type_, RelSSA.Int32):
       return RelImpl.Int32()
+    if isinstance(type_, RelSSA.Int64):
+      return RelImpl.Int64()
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
