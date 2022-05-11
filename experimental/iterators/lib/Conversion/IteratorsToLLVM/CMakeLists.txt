@@ -1,5 +1,6 @@
 add_mlir_conversion_library(MLIRIteratorsToLLVM
   IteratorsToLLVM.cpp
+  IteratorAnalysis.cpp
 
   DEPENDS
   MLIRIteratorsConversionIncGen
@@ -9,5 +10,6 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
   MLIRIterators
   MLIRLLVMIR
   MLIRPass
+  MLIRSCF
   MLIRTransforms
   )

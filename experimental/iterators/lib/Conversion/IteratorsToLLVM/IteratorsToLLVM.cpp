@@ -9,27 +9,60 @@
 #include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 
 #include "../PassDetail.h"
+#include "IteratorAnalysis.h"
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/IR/Attributes.h"
+#include "mlir/IR/Block.h"
+#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Location.h"
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/Operation.h"
+#include "mlir/IR/OperationSupport.h"
+#include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/Region.h"
+#include "mlir/IR/TypeRange.h"
+#include "mlir/IR/Types.h"
+#include "mlir/IR/Value.h"
+#include "mlir/IR/Visitors.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <assert.h>
+
+#include <algorithm>
+#include <iterator>
 #include <memory>
-#include <sstream>
+#include <string>
+#include <type_traits>
+#include <utility>
+
+namespace mlir {
+class MLIRContext;
+} // namespace mlir
 
 using namespace mlir;
 using namespace mlir::iterators;
 using namespace mlir::LLVM;
+using namespace mlir::func;
 using namespace std::string_literals;
 
 namespace {
@@ -60,7 +93,7 @@ private:
 
 /// Return a symbol reference to the printf function, inserting it into the
 /// module if necessary.
-static FlatSymbolRefAttr lookupOrInsertPrintf(PatternRewriter &rewriter,
+static FlatSymbolRefAttr lookupOrInsertPrintf(RewriterBase &rewriter,
                                               ModuleOp module) {
   if (module.lookupSymbol<LLVMFuncOp>("printf"))
     return SymbolRefAttr::get(rewriter.getContext(), "printf");
@@ -101,8 +134,8 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
 
   // Get the pointer to the first character in the global string.
   Value globalPtr = builder.create<AddressOfOp>(loc, global);
-  Value zero = builder.create<ConstantOp>(loc, builder.getI64Type(),
-                                          builder.getI64IntegerAttr(0));
+  Value zero = builder.create<LLVM::ConstantOp>(loc, builder.getI64Type(),
+                                                builder.getI64IntegerAttr(0));
   return builder.create<GEPOp>(loc, LLVMPointerType::get(builder.getI8Type()),
                                globalPtr, ArrayRef<Value>({zero, zero}));
 }
@@ -196,6 +229,530 @@ struct PrintOpLowering : public ConversionPattern {
   }
 };
 
+//===----------------------------------------------------------------------===//
+// Helpers for creating Open/Next/Close functions
+//===----------------------------------------------------------------------===//
+
+/// Creates a new function at the parent module of originalOp with the given
+/// types and name and initializes the function body with a first block.
+FuncOp createOpenNextCloseFunc(Operation *originalOp, RewriterBase &rewriter,
+                               TypeRange inputTypes, TypeRange returnTypes,
+                               SymbolRefAttr funcNameAttr) {
+  StringRef funcName = funcNameAttr.getLeafReference();
+  ModuleOp module = originalOp->getParentOfType<ModuleOp>();
+  assert(module);
+  MLIRContext *context = rewriter.getContext();
+
+  // Create function op.
+  OpBuilder::InsertionGuard guard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+
+  FunctionType funcType = FunctionType::get(context, inputTypes, returnTypes);
+  FuncOp funcOp =
+      rewriter.create<FuncOp>(originalOp->getLoc(), funcName, funcType);
+  funcOp.setPrivate();
+
+  // Create initial block.
+  SmallVector<Location, 4> locs(inputTypes.size(), originalOp->getLoc());
+  rewriter.createBlock(&funcOp.getBody(), funcOp.begin(), inputTypes, locs);
+
+  return funcOp;
+}
+
+/// Creates an Open function for originalOp given the provided opInfo.
+FuncOp createOpenFunc(Operation *originalOp, RewriterBase &rewriter,
+                      const IteratorAnalysis::IteratorInfo &opInfo) {
+  return createOpenNextCloseFunc(originalOp, rewriter, opInfo.stateType,
+                                 opInfo.stateType, opInfo.openFunc);
+}
+
+/// Creates an Next function for originalOp given the provided opInfo.
+FuncOp createNextFunc(Operation *originalOp, RewriterBase &rewriter,
+                      const IteratorAnalysis::IteratorInfo &opInfo,
+                      Type elementType) {
+  return createOpenNextCloseFunc(
+      originalOp, rewriter, opInfo.stateType,
+      {opInfo.stateType, rewriter.getI1Type(), elementType}, opInfo.nextFunc);
+}
+
+/// Creates an Close function for originalOp given the provided opInfo.
+FuncOp createCloseFunc(Operation *originalOp, RewriterBase &rewriter,
+                       const IteratorAnalysis::IteratorInfo &opInfo) {
+  return createOpenNextCloseFunc(originalOp, rewriter, opInfo.stateType,
+                                 opInfo.stateType, opInfo.closeFunc);
+}
+
+//===----------------------------------------------------------------------===//
+// Conversion of iterator ops to LLVM
+//===----------------------------------------------------------------------===//
+
+/// Converts the given SampleInputOp to LLVM using the converted operands from
+/// the upstream iterator.
+FailureOr<Optional<Value>>
+convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
+                  RewriterBase &rewriter,
+                  const IteratorAnalysis &typeAnalysis) {
+  assert(op->getNumResults() == 1);
+  StreamType streamType = op->getResult(0).getType().dyn_cast<StreamType>();
+  assert(streamType);
+  Type elementType = streamType.getElementType();
+
+  auto maybeOpInfo = typeAnalysis.getIteratorInfo(op);
+  assert(maybeOpInfo.hasValue());
+  auto opInfo = maybeOpInfo.getValue();
+
+  // Create converted state.
+  Value convertedState =
+      rewriter.create<UndefOp>(op->getLoc(), opInfo.stateType);
+
+  // Create Open function. --------------------------------------------------
+  {
+    FuncOp funcOp = createOpenFunc(op, rewriter, opInfo);
+
+    Block *block = &funcOp.getBody().front();
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(block);
+
+    // Insert constant zero into state.
+    Value zero = rewriter.create<LLVM::ConstantOp>(
+        op->getLoc(), rewriter.getI32Type(), rewriter.getI32IntegerAttr(0));
+    Value updatedState =
+        rewriter.create<InsertValueOp>(op->getLoc(), block->getArgument(0),
+                                       zero, rewriter.getIndexArrayAttr({0}));
+
+    // Return.
+    rewriter.create<func::ReturnOp>(op->getLoc(), updatedState);
+  }
+
+  // Create Next function. --------------------------------------------------
+  {
+    FuncOp funcOp = createNextFunc(op, rewriter, opInfo, elementType);
+
+    Block *block = &funcOp.getBody().front();
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(block);
+
+    Value originalState = block->getArgument(0);
+    Value currentIndex = rewriter.create<ExtractValueOp>(
+        op->getLoc(), rewriter.getI32Type(), originalState,
+        rewriter.getIndexArrayAttr({0}));
+
+    // Test if we have reached the end of the range.
+    Value three =
+        rewriter.create<arith::ConstantIntOp>(op->getLoc(), /*value=*/3,
+                                              /*width=*/32);
+    Value hasNext = rewriter.create<arith::CmpIOp>(
+        op->getLoc(), arith::CmpIPredicate::sle, currentIndex, three);
+    scf::IfOp ifOp =
+        rewriter.create<scf::IfOp>(op->getLoc(), opInfo.stateType, hasNext,
+                                   /*withElseRegion=*/true);
+
+    // Fill "then" region of ifOp.
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+
+      Value one =
+          rewriter.create<arith::ConstantIntOp>(op->getLoc(), /*value=*/1,
+                                                /*width=*/32);
+      Value updatedCurrentIndex = rewriter.create<arith::AddIOp>(
+          op->getLoc(), currentIndex.getType(), currentIndex, one);
+      Value updatedState = rewriter.create<InsertValueOp>(
+          op->getLoc(), originalState, updatedCurrentIndex,
+          rewriter.getIndexArrayAttr({0}));
+      rewriter.create<scf::YieldOp>(op->getLoc(), updatedState);
+    }
+
+    // Fill "else" region of ifOp.
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
+      rewriter.create<scf::YieldOp>(op->getLoc(), originalState);
+    }
+
+    // Assemble element that will be returned.
+    Value emptyNextElement =
+        rewriter.create<UndefOp>(op->getLoc(), elementType);
+    Value nextElement = rewriter.create<InsertValueOp>(
+        op->getLoc(), emptyNextElement, currentIndex,
+        rewriter.getIndexArrayAttr({0}));
+
+    // Return.
+    rewriter.create<func::ReturnOp>(
+        op->getLoc(), ValueRange{ifOp->getResult(0), hasNext, nextElement});
+  }
+
+  // Create Close function. -------------------------------------------------
+  {
+    FuncOp funcOp = createCloseFunc(op, rewriter, opInfo);
+
+    Block *block = &funcOp.getBody().front();
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(block);
+
+    // Nothing to do, return.
+    rewriter.create<func::ReturnOp>(op->getLoc(), block->getArgument(0));
+  }
+
+  return {convertedState};
+}
+
+/// Converts the given ReduceOp to LLVM using the converted operands from the
+/// upstream iterator.
+FailureOr<Optional<Value>>
+convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
+                  const IteratorAnalysis &typeAnalysis) {
+  // Convert upstream operation.
+  Value upstreamState = operands[0];
+
+  // Collect types.
+  assert(op->getNumResults() == 1);
+  StreamType streamType = op.result().getType().dyn_cast<StreamType>();
+  assert(streamType);
+  Type elementType = streamType.getElementType();
+
+  auto maybeUpstreamInfo =
+      typeAnalysis.getIteratorInfo(op->getOperand(0).getDefiningOp());
+  assert(maybeUpstreamInfo.hasValue());
+  auto upstreamInfo = maybeUpstreamInfo.getValue();
+
+  auto maybeOpInfo = typeAnalysis.getIteratorInfo(op);
+  assert(maybeOpInfo.hasValue());
+  auto opInfo = maybeOpInfo.getValue();
+
+  // Create converted state.
+  Value undefState = rewriter.create<UndefOp>(op->getLoc(), opInfo.stateType);
+  Value convertedState = rewriter.create<InsertValueOp>(
+      op.getLoc(), undefState, upstreamState, rewriter.getIndexArrayAttr({0}));
+
+  // Create Open function. --------------------------------------------------
+  {
+    FuncOp funcOp = createOpenFunc(op, rewriter, opInfo);
+    Block *block = &funcOp.getBody().front();
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(block);
+
+    // Extract upstream state.
+    Value initialState = block->getArgument(0);
+    Value initialUpstreamState = rewriter.create<ExtractValueOp>(
+        op->getLoc(), upstreamInfo.stateType, initialState,
+        rewriter.getIndexArrayAttr({0}));
+
+    // Call Open on upstream.
+    func::CallOp openCallOp = rewriter.create<func::CallOp>(
+        op->getLoc(), upstreamInfo.openFunc, upstreamInfo.stateType,
+        initialUpstreamState);
+
+    // Update upstream state.
+    Value updatedState = rewriter.create<InsertValueOp>(
+        op->getLoc(), initialState, openCallOp->getResult(0),
+        rewriter.getIndexArrayAttr({0}));
+
+    // Return.
+    rewriter.create<func::ReturnOp>(op->getLoc(), updatedState);
+  }
+
+  // Create Next function. --------------------------------------------------
+  {
+    FuncOp funcOp = createNextFunc(op, rewriter, opInfo, elementType);
+    Block *block = &funcOp.getBody().front();
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(block);
+
+    // Extract upstream state.
+    Value initialState = block->getArgument(0);
+    Value initialUpstreamState = rewriter.create<ExtractValueOp>(
+        op->getLoc(), upstreamInfo.stateType, initialState,
+        rewriter.getIndexArrayAttr({0}));
+
+    // Get first result from upstream.
+    SmallVector<Type> nextResultTypes = {upstreamInfo.stateType,
+                                         rewriter.getI1Type(), elementType};
+    func::CallOp firstNextCall =
+        rewriter.create<func::CallOp>(op->getLoc(), upstreamInfo.nextFunc,
+                                      nextResultTypes, initialUpstreamState);
+
+    // Check for empty upstream.
+    scf::IfOp ifOp = rewriter.create<scf::IfOp>(op->getLoc(), nextResultTypes,
+                                                firstNextCall->getResult(1),
+                                                /*withElseRegion=*/true);
+
+    {
+      // Fill "then" region of ifOp.
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+
+      // Create while loop.
+      SmallVector<Value> whileInputs = {firstNextCall->getResult(0),
+                                        firstNextCall->getResult(2)};
+      SmallVector<Type> whileInputTypes = {
+          firstNextCall->getResult(0).getType(),
+          firstNextCall->getResult(2).getType()};
+      SmallVector<Type> whileResultTypes = {upstreamInfo.stateType, elementType,
+                                            elementType};
+      SmallVector<Location> whileResultLocs = {op->getLoc(), op->getLoc(),
+                                               op->getLoc()};
+      scf::WhileOp whileOp = rewriter.create<scf::WhileOp>(
+          op->getLoc(), whileResultTypes, whileInputs);
+
+      // Fill the "before" region of whileOp.
+      {
+        OpBuilder::InsertionGuard guard(rewriter);
+        Block *before =
+            rewriter.createBlock(&whileOp.getBefore(), {}, whileInputTypes,
+                                 {op->getLoc(), op->getLoc()});
+        Value currentState = before->getArgument(0);
+        Value currentAggregate = before->getArgument(1);
+        func::CallOp nextCall = rewriter.create<func::CallOp>(
+            op->getLoc(), upstreamInfo.nextFunc, nextResultTypes, currentState);
+        rewriter.create<scf::ConditionOp>(op->getLoc(), nextCall->getResult(1),
+                                          ValueRange{nextCall->getResult(0),
+                                                     nextCall->getResult(2),
+                                                     currentAggregate});
+      } // "before" region
+
+      // Fill the "after" region of whileOp.
+      {
+        OpBuilder::InsertionGuard guard(rewriter);
+        Block *after = rewriter.createBlock(&whileOp.getAfter(), {},
+                                            whileResultTypes, whileResultLocs);
+
+        Value currentState = after->getArgument(0);
+        Value currentAggregate = after->getArgument(1);
+        Value nextElement = after->getArgument(2);
+
+        // TODO(ingomueller): extend to arbitrary functions
+        ArrayAttr indicesAttr = rewriter.getIndexArrayAttr(0);
+        Value nextValue = rewriter.create<ExtractValueOp>(
+            op->getLoc(), rewriter.getI32Type(), nextElement,
+            rewriter.getIndexArrayAttr(0));
+        Value aggregateValue = rewriter.create<ExtractValueOp>(
+            op->getLoc(), rewriter.getI32Type(), currentAggregate, indicesAttr);
+        Value newAggregateValue = rewriter.create<arith::AddIOp>(
+            op->getLoc(), aggregateValue.getType(), aggregateValue, nextValue);
+        Value newAggregate = rewriter.create<InsertValueOp>(
+            op->getLoc(), currentAggregate, newAggregateValue, indicesAttr);
+
+        rewriter.create<scf::YieldOp>(op->getLoc(),
+                                      ValueRange{currentState, newAggregate});
+      } // "after" region
+
+      // The "then" branch of ifOp returns the result of whileOp.
+      Value constTrue = rewriter.create<arith::ConstantIntOp>(
+          op->getLoc(), /*value=*/1, /*width=*/1);
+      rewriter.create<scf::YieldOp>(
+          op->getLoc(),
+          ValueRange{whileOp->getResult(0), constTrue, whileOp->getResult(2)});
+    } // "then" branch
+
+    // Fill "else" region of ifOp. This branch is taken when the first call to
+    // upstream's next does not return anything. In this case, that
+    // "end-of-stream" signal is the result of the reduction and the upstream
+    // state is final, so we just forward the results of the call to next.
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
+      rewriter.create<scf::YieldOp>(op->getLoc(), firstNextCall->getResults());
+    }
+
+    // Update state.
+    Value finalUpstreamState = ifOp->getResult(0);
+    Value finalState = rewriter.create<InsertValueOp>(
+        op->getLoc(), opInfo.stateType, initialState, finalUpstreamState,
+        rewriter.getIndexArrayAttr({0}));
+
+    // Return.
+    rewriter.create<func::ReturnOp>(
+        op->getLoc(),
+        ValueRange{finalState, ifOp->getResult(1), ifOp->getResult(2)});
+  }
+
+  // Create Close function. -------------------------------------------------
+  {
+    FuncOp funcOp = createCloseFunc(op, rewriter, opInfo);
+    Block *block = &funcOp.getBody().front();
+    OpBuilder::InsertionGuard guard(rewriter);
+    rewriter.setInsertionPointToStart(block);
+
+    // Extract upstream state.
+    Value initialState = block->getArgument(0);
+    Value initialUpstreamState = rewriter.create<ExtractValueOp>(
+        op->getLoc(), upstreamInfo.stateType, initialState,
+        rewriter.getIndexArrayAttr({0}));
+
+    // Call Open on upstream.
+    func::CallOp closeCallOp = rewriter.create<func::CallOp>(
+        op->getLoc(), upstreamInfo.closeFunc, upstreamInfo.stateType,
+        initialUpstreamState);
+
+    // Update upstream state.
+    Value updatedState = rewriter.create<InsertValueOp>(
+        op->getLoc(), initialState, closeCallOp->getResult(0),
+        rewriter.getIndexArrayAttr({0}));
+
+    // Return.
+    rewriter.create<func::ReturnOp>(op->getLoc(), updatedState);
+  }
+
+  return {convertedState};
+}
+
+/// Converts the given sink to LLVM using the converted operands from the root
+/// iterator.
+FailureOr<Optional<Value>>
+convertIteratorOp(SinkOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
+                  const IteratorAnalysis &typeAnalysis) {
+  // Convert upstream operation.
+  Value initialRootState = operands[0];
+
+  assert(operands.size() == 1);
+  auto maybeUpstreamInfo =
+      typeAnalysis.getIteratorInfo(op->getOperand(0).getDefiningOp());
+  assert(maybeUpstreamInfo.hasValue());
+  auto upstreamInfo = maybeUpstreamInfo.getValue();
+
+  // Open root iterator. -----------------------------------------------------
+  func::CallOp openCallOp =
+      rewriter.create<func::CallOp>(op->getLoc(), upstreamInfo.openFunc,
+                                    upstreamInfo.stateType, initialRootState);
+
+  // Consume root operator in while loop -------------------------------------
+  // Input and return types.
+  Type elementType =
+      op->getOperand(0).getType().dyn_cast<StreamType>().getElementType();
+  SmallVector<Type> nextResultTypes = {upstreamInfo.stateType,
+                                       rewriter.getI1Type(), elementType};
+  SmallVector<Location> whileResultLocs = {op->getLoc(), op->getLoc(),
+                                           op->getLoc()};
+
+  scf::WhileOp whileOp = rewriter.create<scf::WhileOp>(
+      op->getLoc(), nextResultTypes, openCallOp->getOpResult(0));
+
+  // Before region.
+  {
+    OpBuilder::InsertionGuard guard(rewriter);
+    Block *before = rewriter.createBlock(&whileOp.getBefore(), {},
+                                         upstreamInfo.stateType, op->getLoc());
+    Value currentState = before->getArgument(0);
+    func::CallOp nextCallOp = rewriter.create<func::CallOp>(
+        op->getLoc(), upstreamInfo.nextFunc, nextResultTypes, currentState);
+    // TODO: Don't pass the boolean to "after"
+    rewriter.create<scf::ConditionOp>(op->getLoc(), nextCallOp->getResult(1),
+                                      nextCallOp->getResults());
+  }
+
+  // After region.
+  {
+    OpBuilder::InsertionGuard guard(rewriter);
+    Block *after = rewriter.createBlock(&whileOp.getAfter(), {},
+                                        nextResultTypes, whileResultLocs);
+
+    LLVMStructType structType = elementType.dyn_cast<LLVMStructType>();
+    assert(structType && "Only struct types supported for now");
+
+    // Assemble format string in the form `(%i, %i, ...)`.
+    std::string format("(%i)\n\0"s);
+
+    // Insert format string as global.
+    ModuleOp module = op->getParentOfType<ModuleOp>();
+    StringRef tupleName =
+        (structType.isIdentified() ? structType.getName() : "anonymous_tuple");
+    Value formatSpec = getOrCreateGlobalString(
+        rewriter, Twine("frmt_spec.") + tupleName, format, module);
+
+    // Assemble arguments to printf.
+    SmallVector<Value, 8> values = {formatSpec};
+    ArrayRef<Type> fieldTypes = structType.getBody();
+    for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
+      // Create index attribute.
+      ArrayAttr indicesAttr = rewriter.getIndexArrayAttr({i});
+
+      // Extract from into struct.
+      Value value = rewriter.create<ExtractValueOp>(
+          op->getLoc(), fieldTypes[i], after->getArgument(2), indicesAttr);
+
+      values.push_back(value);
+    }
+
+    // Generate call to printf.
+    FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
+    rewriter.create<LLVM::CallOp>(op->getLoc(), rewriter.getI32Type(),
+                                  printfRef, values);
+
+    Value currentState = after->getArgument(0);
+    rewriter.create<scf::YieldOp>(op->getLoc(), currentState);
+  }
+
+  Value consumedState = whileOp.getResult(0);
+
+  // Close root iterator. ----------------------------------------------------
+  rewriter.create<func::CallOp>(op->getLoc(), upstreamInfo.closeFunc,
+                                upstreamInfo.stateType, consumedState);
+
+  return Optional<Value>();
+}
+
+/// Converts the given op to LLVM using the converted operands from the upstream
+/// iterator. This function is essentially a type switch to op-specific
+/// conversion functions.
+FailureOr<Optional<Value>>
+convertIteratorOp(Operation *op, ArrayRef<Value> operands,
+                  RewriterBase &rewriter,
+                  const IteratorAnalysis &typeAnalysis) {
+  return TypeSwitch<Operation *, FailureOr<Optional<Value>>>(op)
+      .Case<SampleInputOp, ReduceOp, SinkOp>([&](auto op) {
+        return convertIteratorOp(op, operands, rewriter, typeAnalysis);
+      });
+}
+
+//===----------------------------------------------------------------------===//
+// Pass driver
+//===----------------------------------------------------------------------===//
+
+/// Converts all iterator ops of a module to LLVM using a custom walker.
+void convertIteratorOps(ModuleOp module) {
+  IRRewriter rewriter(module.getContext());
+  IteratorAnalysis typeAnalysis(module);
+  BlockAndValueMapping mapping;
+
+  // Collect all iterator ops in a worklist. Within each block, the iterator ops
+  // are seen by the walker in sequential order, so each iterator is added to
+  // the worklist *after* all of its upstream iterators.
+  SmallVector<Operation *, 16> workList;
+  module->walk<WalkOrder::PreOrder>([&](Operation *op) {
+    TypeSwitch<Operation *, void>(op).Case<SampleInputOp, ReduceOp, SinkOp>(
+        [&](Operation *op) { workList.push_back(op); });
+  });
+
+  // Convert iterator ops in worklist order.
+  for (Operation *op : workList) {
+    // Look up converted operands. The worklist order guarantees that they
+    // exist.
+    SmallVector<Value, 4> operands;
+    for (Value operand : op->getOperands()) {
+      Value convertedOperand = mapping.lookup(operand);
+      assert(convertedOperand);
+      operands.push_back(convertedOperand);
+    }
+
+    // Convert this op.
+    rewriter.setInsertionPointAfter(op);
+    FailureOr<Optional<Value>> conversionResult =
+        convertIteratorOp(op, operands, rewriter, typeAnalysis);
+    assert(succeeded(conversionResult));
+
+    // Save converted result.
+    if (conversionResult->hasValue()) {
+      mapping.map(op->getResult(0), conversionResult->getValue());
+    }
+  }
+
+  // Delete the original, now-converted iterator ops.
+  for (auto it = workList.rbegin(); it != workList.rend(); it++) {
+    rewriter.eraseOp(*it);
+  }
+}
+
 void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<ConstantTupleLowering, PrintOpLowering>(typeConverter,
@@ -204,8 +761,14 @@ void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
 
 void ConvertIteratorsToLLVMPass::runOnOperation() {
   auto module = getOperation();
+
+  // Convert iterator ops with custom walker.
+  convertIteratorOps(module);
+
+  // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<func::FuncDialect, LLVMDialect>();
+  target.addLegalDialect<arith::ArithmeticDialect, FuncDialect, LLVMDialect,
+                         scf::SCFDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
   IteratorsTypeConverter typeConverter;
