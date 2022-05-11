@@ -12,6 +12,8 @@
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "mlir/Transforms/DialectConversion.h"
 
+#include <memory>
+
 namespace mlir {
 class ModuleOp;
 template <typename T>
