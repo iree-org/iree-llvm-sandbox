@@ -5,7 +5,7 @@ from iree import runtime as ireert
 from iree.compiler import compile_str
 
 import iree.compiler.tools
-import iree.compiler.dialects.iree_linalg_transform as transform
+import iree.compiler.dialects.transform as transform
 import iree.compiler.dialects.pdl as pdl
 import iree.compiler.ir as ir
 
@@ -24,11 +24,11 @@ with ir.Context() as ctx, ir.Location.unknown(ctx):
       pdl_op = pdl.OperationOp(args=[args], types=[types])
       op_name = pdl.AttributeOp(value=ir.StringAttr.get("linalg.matmul"))
       pdl.ApplyNativeConstraintOp("isEquivalentToOp", args=[pdl_op, op_name])
-      pdl.RewriteOp(pdl_op, "iree_linalg_transform.apply")
+      pdl.RewriteOp(pdl_op, "transform.apply")
 
     transform_sequence = transform.SequenceOp()
     with ir.InsertionPoint(transform_sequence.body.blocks[0]):
-      ir.Operation.create(name="iree_linalg_transform.iree_set_num_workgroups_to_one")
+      ir.Operation.create(name="transform.iree.set_num_workgroups_to_one")
       target_match = transform.MatchOp(ir.FlatSymbolRefAttr.get('isa_matmul'))
       # TODO: fuse...
       tiled = transform.TileOp(target=target_match,
@@ -38,7 +38,7 @@ with ir.Context() as ctx, ir.Location.unknown(ctx):
       transform.PeelLoopOp(tiled.results[2])
       # TODO: Match dynamic matmul and scalarize.
       transform.VectorizeOp(vectorize_padding=False)
-      ir.Operation.create(name="iree_linalg_transform.iree_bufferize")
+      ir.Operation.create(name="transform.iree.bufferize")
 
       stages = []
       for i in range(1, 8):
