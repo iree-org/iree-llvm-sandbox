@@ -208,7 +208,7 @@ def compiled_function_element_types_mlir_builder(
 def emit_schedule_dialect(module: ModuleOp,
                           transformations: TransformationList):
   with InsertionPoint(module.body):
-    sequence = transform.SequenceOp()
+    sequence = transform.CanonicalizedSequenceOp()
     with InsertionPoint(sequence.body.blocks[0]):
       for t in transformations.transforms:
         t.build_transform_ir()
