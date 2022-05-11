@@ -65,7 +65,8 @@ directory and initialize submodules:
 
 ```
 (cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project && \
- git checkout sandbox)
+ git checkout ntv-sandbox && \
+ git submodule update --init --recursive)
 ```
 
 And configure/build the project:
@@ -80,8 +81,8 @@ Or if using `scripts/mlirdev/bin/activate`:
 sandbox-configure-and-build-iree
 ```
 
-Note that the `third_party/llvm-project` bundled with IREE will be used.
-The `sandbox` branch often runs ahead of the IREE integration and should
+Note that the `third_party/llvm-project` bundled with IREE is used.
+The `IREE` `ntv-sandbox` branch often runs ahead of the IREE integration and should
 generally be used.
 
 ## Using the Python API
