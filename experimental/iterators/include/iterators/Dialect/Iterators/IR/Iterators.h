@@ -9,9 +9,9 @@
 #ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 #define ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/OpImplementation.h"
-#include "mlir/IR/SymbolTable.h"
+#include "mlir/IR/Dialect.h"          // IWYU pragma: keep
+#include "mlir/IR/OpImplementation.h" // IWYU pragma: keep
+#include "mlir/IR/SymbolTable.h"      // IWYU pragma: keep
 
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
 

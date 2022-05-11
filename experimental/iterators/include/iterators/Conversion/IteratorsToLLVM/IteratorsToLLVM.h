@@ -9,7 +9,6 @@
 #ifndef ITERATORS_CONVERSION_ITERATORSTOLLVM_ITERATORSTOLLVM_H
 #define ITERATORS_CONVERSION_ITERATORSTOLLVM_ITERATORSTOLLVM_H
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "mlir/Transforms/DialectConversion.h"
 
 #include <memory>

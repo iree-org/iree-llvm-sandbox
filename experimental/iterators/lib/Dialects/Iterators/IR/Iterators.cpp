@@ -8,9 +8,9 @@
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 
-#include "mlir/IR/DialectImplementation.h"
+#include "mlir/IR/DialectImplementation.h" // IWYU pragma: keep
 #include "mlir/Support/LogicalResult.h"
-#include "llvm/ADT/TypeSwitch.h"
+#include "llvm/ADT/TypeSwitch.h" // IWYU pragma: keep
 
 using namespace mlir;
 using namespace mlir::iterators;
