@@ -3,6 +3,8 @@ from mlir.execution_engine import ExecutionEngine
 from mlir.passmanager import PassManager
 import numpy as np
 import ctypes
+from mlir.conversions import _cextConversions
+import mlir.dialects.memref as memref
 
 
 def make_zero_d_memref_descriptor(dtype):
@@ -25,26 +27,18 @@ with Context() as ctx, Location.unknown() as loc:
 
   mod = Module.parse("""
 module attributes {llvm.data_layout = ""} {
-  llvm.func @_mlir__mlir_ciface_store(%arg0: !llvm.ptr<i64>, %arg1: !llvm.ptr<i64>, %arg2: i64) attributes {llvm.emit_c_interface} {
-    %0 = llvm.mlir.undef : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    %1 = llvm.insertvalue %arg0, %0[0] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    %2 = llvm.insertvalue %arg1, %1[1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    %3 = llvm.insertvalue %arg2, %2[2] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    %4 = llvm.mlir.constant(42 : i64) : i64
-    %5 = llvm.extractvalue %3[1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    llvm.store %4, %5 : !llvm.ptr<i64>
-    llvm.return
-  }
-  llvm.func @_mlir_ciface__mlir__mlir_ciface_store(%arg0: !llvm.ptr<struct<(ptr<i64>, ptr<i64>, i64)>>) attributes {llvm.emit_c_interface} {
-    %0 = llvm.load %arg0 : !llvm.ptr<struct<(ptr<i64>, ptr<i64>, i64)>>
-    %1 = llvm.extractvalue %0[0] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    %2 = llvm.extractvalue %0[1] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    %3 = llvm.extractvalue %0[2] : !llvm.struct<(ptr<i64>, ptr<i64>, i64)>
-    llvm.call @_mlir__mlir_ciface_store(%1, %2, %3) : (!llvm.ptr<i64>, !llvm.ptr<i64>, i64) -> ()
-    llvm.return
+func.func @store(%arg1 : memref<i64>) attributes { llvm.emit_c_interface} {
+  %c0 = arith.constant 42 : i64
+  memref.store %c0, %arg1[] : memref<i64>
+  return
   }
 }
       """)
+  print(mod)
+
+  PassManager.parse('convert-memref-to-llvm').run(mod)
+  PassManager.parse('convert-func-to-llvm').run(mod)
+  PassManager.parse('reconcile-unrealized-casts').run(mod)
   print(mod)
 
   shared_libs = ["build/lib/libruntime_utils.so"]
@@ -65,7 +59,7 @@ module attributes {llvm.data_layout = ""} {
   output_ptr = ctypes.pointer(ctypes.pointer(output_memref))
 
   exec_eng = ExecutionEngine(mod, shared_libs=shared_libs)
-  exec_eng.invoke("_mlir__mlir_ciface_store", output_ptr)
+  exec_eng.invoke("store", output_ptr)
   print(output)
 
 # run configure with llvm path to proper llvm commit folder
