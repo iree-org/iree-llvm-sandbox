@@ -1,10 +1,12 @@
-from mlir.ir import Context, Module, Location
-from mlir.execution_engine import ExecutionEngine
-from mlir.passmanager import PassManager
+from mlir_iterators.ir import Context, Module, Location
+from mlir_iterators.execution_engine import ExecutionEngine
+from mlir_iterators.passmanager import PassManager
 import numpy as np
 import ctypes
+from mlir_iterators.dialects import iterators as it
+from mlir_iterators.dialects.iterators import _cextIteratorsPasses
 from mlir.conversions import _cextConversions
-import mlir.dialects.memref as memref
+#import mlir_iterators.dialects.memref as memref
 
 
 def make_zero_d_memref_descriptor(dtype):
