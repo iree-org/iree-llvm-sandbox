@@ -7,23 +7,7 @@ from mlir_iterators.dialects import iterators as it
 from mlir_iterators.dialects.iterators import _cextIteratorsPasses
 from mlir.conversions import _cextConversions
 #import mlir_iterators.dialects.memref as memref
-
-
-def make_zero_d_memref_descriptor(dtype):
-
-  class MemRefDescriptor(ctypes.Structure):
-    """
-        Build an empty descriptor for the given dtype, where rank=0.
-        """
-
-    _fields_ = [
-        ("allocated", ctypes.c_longlong),
-        ("aligned", ctypes.POINTER(dtype)),
-        ("offset", ctypes.c_longlong),
-    ]
-
-  return MemRefDescriptor
-
+from mlir_iterators.runtime import np_to_memref
 
 with Context() as ctx, Location.unknown() as loc:
 
@@ -47,16 +31,7 @@ func.func @store(%arg1 : memref<i64>) attributes { llvm.emit_c_interface} {
 
   output = np.array(1)
 
-  def make_memref_from_arr(nparray):
-    x = make_zero_d_memref_descriptor(np.ctypeslib.as_ctypes_type(
-        nparray.dtype))()
-    x.allocated = nparray.ctypes.data
-    x.aligned = nparray.ctypes.data_as(
-        ctypes.POINTER(np.ctypeslib.as_ctypes_type(nparray.dtype)))
-    x.offset = ctypes.c_longlong(0)
-    return x
-
-  output_memref = make_memref_from_arr(output)
+  output_memref = np_to_memref.get_ranked_memref_descriptor(output)
 
   output_ptr = ctypes.pointer(ctypes.pointer(output_memref))
 
