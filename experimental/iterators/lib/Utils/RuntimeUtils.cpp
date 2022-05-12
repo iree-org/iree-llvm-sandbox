@@ -9,10 +9,12 @@
 #include "iterators/Utils/RuntimeUtils.h"
 
 #include <cstdint>
-#include <cstdio>
+
 #include <iostream>
-#include <memory>
+#include <optional>
 #include <tuple>
+#include <type_traits>
+#include <vector>
 
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/ReduceOperator.h"

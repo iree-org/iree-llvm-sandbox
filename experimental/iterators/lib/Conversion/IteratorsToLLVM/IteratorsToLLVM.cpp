@@ -8,6 +8,13 @@
 
 #include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 
+#include <assert.h>
+
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <utility>
+
 #include "../PassDetail.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -20,15 +27,17 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <memory>
-#include <sstream>
+namespace mlir {
+class MLIRContext;
+} // namespace mlir
 
 using namespace mlir;
 using namespace mlir::iterators;
