@@ -12,6 +12,7 @@
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/SymbolTable.h"
+#include "mlir/Interfaces/InferTypeOpInterface.h"
 
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
 
