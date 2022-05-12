@@ -6,9 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstdint>
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <optional>
 #include <vector>
 
 #include "iterators/Operators/ColumnScanOperator.h"
