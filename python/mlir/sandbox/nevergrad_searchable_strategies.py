@@ -5,7 +5,7 @@ import typing as tp
 
 from iree.compiler.ir import *
 from iree.compiler.passmanager import PassManager
-import iree.compiler.dialects.iree_linalg_transform as tx
+import iree.compiler.dialects.transform as transform
 from iree.compiler.dialects import builtin, pdl
 
 class Searchable:
@@ -180,7 +180,7 @@ class Tile:
     self.tile_peel = tile_peel
     self.scalarize_dyn_dims = scalarize_dyn_dims
 
-  def build_transform_ir_under_insertion_point(self, target: tx.MatchOp,
+  def build_transform_ir_under_insertion_point(self, target: transform.PDLMatchOp,
                                                proposal):
     sizes = self.tile_sizes.extract_from_proposal(proposal)
     interchange = self.tile_interchange.extract_from_proposal(proposal) \
@@ -188,25 +188,25 @@ class Tile:
     peel = self.tile_peel.extract_from_proposal(proposal) \
       if self.tile_peel is not None else []
     peel_indices = [i for i, x in enumerate(peel, start=0) if x is True]
-    tiled = tx.TileOp(
+    tiled = transform.TileOp(
         target,
         sizes=sizes,
         interchange=interchange,
     )
 
     for loop_index in peel_indices:
-      tx.PeelLoopOp(tiled.results[1 + loop_index])
+      transform.PeelLoopOp(tiled.results[1 + loop_index])
 
     # self.scalarize_dyn_dims is a BoolChoice of length 1.
     if self.scalarize_dyn_dims is not None and \
        self.scalarize_dyn_dims.extract_from_proposal(proposal)[0]:
-      return tx.ScalarizeOp(tiled.results[0])
+      return transform.ScalarizeOp(tiled.results[0])
 
     return tiled
 
 
 def lowering_transform_ir_under_insertion_point():
-  tx.BufferizeOp()
+  transform.BufferizeOp()
   for i in range(7):
-    tx.LowerVectorsOp(stages=list(j + 1 for j in range(i + 1)))
-  tx.LowerToLLVMOp()
+    transform.LowerVectorsOp(stages=list(j + 1 for j in range(i + 1)))
+  transform.LowerToLLVMOp()

@@ -22,6 +22,7 @@ assert hasattr(linalg_ext, 'InParallelOp'), 'Could not load linalg_ext.InParalle
 #       3. move the stale *ops_ext.py version to the correct place.
 #
 # Alternatively, we could use a custom op to get started:
+#   ir.Operation.create(name="transform.iree.bufferize")
 #
 # import iree.compiler.dialects.iree_linalg_transform as linalg_transform
 # assert hasattr(linalg_transform, 'TileToLinalgExtTileOp'), \

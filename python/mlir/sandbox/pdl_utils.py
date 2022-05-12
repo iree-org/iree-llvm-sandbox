@@ -5,14 +5,14 @@ import iree.compiler.ir as ir
 
 
 def make_single_op_pdl_pattern(
-    module,
     pdl_pattern_name: str,
     op_to_match_name: str,
     constraints_builder_list: Sequence[Callable[
         [pdl.OperationOp, pdl.OperandsOp, pdl.TypesOp], None]],
     benefit: int = 1):
-  """Given a module, create a new pdl.PatternOp @ module.body insertion point.
+  """Create a new pdl.PatternOp @ the current insertion point.
 
+  The current insertion point is expected to be a transform.WithPDLPatternsOp.
   The pdl.PatternOp is additionally populated with constraints created from the
   constraints_builder_list. Each such builder takes as arguments:
     - the pdl.OperationOp of `op_to_match_name` that we are trying to match
@@ -23,9 +23,8 @@ def make_single_op_pdl_pattern(
   into the proper C++ implementation.
   """
 
-  with ir.InsertionPoint(module.body):
-    pdl_pattern = pdl.PatternOp(benefit=benefit, name=pdl_pattern_name)
-    with ir.InsertionPoint(pdl_pattern.body):
+  pdl_pattern = pdl.PatternOp(benefit=benefit, name=pdl_pattern_name)
+  with ir.InsertionPoint(pdl_pattern.body):
       operands = pdl.OperandsOp()
       result_types = pdl.TypesOp()
       pdl_op = pdl.OperationOp(op_to_match_name,
@@ -34,7 +33,7 @@ def make_single_op_pdl_pattern(
       for constraints_builder in constraints_builder_list:
         constraints_builder(pdl_op, operands, result_types)
       # TODO: we don't want this, but it is the required terminator for pdl.pattern
-      pdl.RewriteOp(pdl_op, 'iree_linalg_transform.apply')
+      pdl.RewriteOp(pdl_op, 'transform.dialect')
 
 
 ###############################################################################
@@ -172,7 +171,6 @@ def make_constraint_is_equivalent_to_op(op_name: str):
 
 
 def match_op_with_sizes_multiple_of(
-    module,
     equivalent_op_name: str,
     divisors_list: Sequence[int] = [],
     op_dim_spec_list: Sequence[Sequence[int]] = [],
@@ -211,15 +209,13 @@ def match_op_with_sizes_multiple_of(
                                                  divisor=sz))
     match_name = match_name + '_x' + str(sz)
 
-  make_single_op_pdl_pattern(module,
-                             match_name,
+  make_single_op_pdl_pattern(match_name,
                              op_to_match_name,
                              constraints_builder_list=constraints_builder_list)
   return match_name
 
 
 def match_op_with_dynamic_or_static_sizes(
-    module,
     equivalent_op_name: str,
     dynamic_spec_list: Sequence[str] = [],
     op_dim_spec_list: Sequence[Sequence[int]] = [],
@@ -261,8 +257,7 @@ def match_op_with_dynamic_or_static_sizes(
     else:
       raise Exception(f'Not a valid static or dynamic specifier: {sp}')
 
-  make_single_op_pdl_pattern(module,
-                             match_name,
+  make_single_op_pdl_pattern(match_name,
                              op_to_match_name,
                              constraints_builder_list=constraints_builder_list)
   return match_name
