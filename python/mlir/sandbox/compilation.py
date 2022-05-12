@@ -114,7 +114,7 @@ def emit_benchmarking_function(name: str,
   its last argument.
   """
   i64_type = IntegerType.get_signless(64)
-  nano_time = func.FuncOp("nano_time", ([], [i64_type]),
+  nano_time = func.FuncOp("nanoTime", ([], [i64_type]),
                              visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 

@@ -89,21 +89,25 @@ class NGScheduler(NGSchedulerInterface):
         f' {self.register_scalarize_dyn_dims.extract_from_proposal(proposal)}')
 
     with InsertionPoint(module.body):
-      # TODO: Evolve to python-metaprogrammed PDLL constraints.
-      matcher = match_op_with_sizes_multiple_of(
-          module, equivalent_op_name='linalg.matmul')
-      sequence = transform.SequenceOp()
-      with ir.InsertionPoint(sequence.body.blocks[0]) as ip:
-        tile_strategy = strategies.Tile(self.register_tile_sizes,
-                                        self.register_interchange,
-                                        self.register_peel,
-                                        self.register_scalarize_dyn_dims)
-        tile_strategy.build_transform_ir_under_insertion_point(\
-          target=transform.MatchOp(matcher),
-          proposal=proposal)
+      root = transform.WithPDLPatternsOp(root=None)
+      root_block = root.body.blocks[0]
+      with ir.InsertionPoint(root_block):
+        # TODO: Evolve to python-metaprogrammed PDLL constraints.
+        matcher = match_op_with_sizes_multiple_of(equivalent_op_name='linalg.matmul')
+        sequence = transform.CanonicalizedSequenceOp(root_block.arguments[0])
+        sequence_block = sequence.body.blocks[0]
+        with ir.InsertionPoint(sequence_block) as ip:
+          tile_strategy = strategies.Tile(self.register_tile_sizes,
+                                          self.register_interchange,
+                                          self.register_peel,
+                                          self.register_scalarize_dyn_dims)
+          tile_strategy.build_transform_ir_under_insertion_point(\
+            target=transform.PDLMatchOp(sequence_block.arguments[0], matcher),
+            proposal=proposal)
 
-        transform.VectorizeOp()
-        strategies.lowering_transform_ir_under_insertion_point()
+          transform.VectorizeOp()
+          strategies.lowering_transform_ir_under_insertion_point()
+          transform.YieldOp([])
 
 
 def make_optimizer(scheduler: NGSchedulerInterface, search_strategy: str,

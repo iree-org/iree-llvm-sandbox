@@ -63,10 +63,10 @@ ParseResult mlir::vector_ext::PredicateOp::parse(OpAsmParser &parser,
   OpAsmParser::UnresolvedOperand predicateMask;
   OpAsmParser::UnresolvedOperand incomingMask;
   SmallVector<OpAsmParser::UnresolvedOperand> indices;
-  if (parser.parseLParen() || parser.parseRegionArgument(predicateMask) ||
+  if (parser.parseLParen() || parser.parseOperand(predicateMask) ||
       parser.parseComma() ||
       parser.parseOperandList(indices, AsmParser::Delimiter::Square) ||
-      parser.parseComma() || parser.parseRegionArgument(incomingMask) ||
+      parser.parseComma() || parser.parseOperand(incomingMask) ||
       parser.parseRParen())
     return failure();
 

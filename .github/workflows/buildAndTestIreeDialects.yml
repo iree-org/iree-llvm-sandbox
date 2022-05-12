@@ -49,11 +49,11 @@ jobs:
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
         # Always build with iree/iree-dialects on the iree/ntv-sandbox branch.
-        python configure.py --iree-path=../iree --iterators
+        python configure.py --iree-path=../iree
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
 
     - name: Test
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
-        python run_tests.py --iterators-tests
+        python run_tests.py

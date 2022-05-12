@@ -6,7 +6,7 @@ list(APPEND dialect_libs
   IREELinalgExtDialect
   IREELinalgExtOpInterfaceImpl
   IREELinalgTransformDialect
-  IREELinalgTransformDialectTransforms
+  IREELinalgTransformDialectPasses
   MLIRVectorExt
   MLIRVectorExtTransforms
 )

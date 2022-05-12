@@ -16,7 +16,7 @@ from iree.compiler.execution_engine import *
 from iree.compiler.ir import *
 from iree.compiler.runtime import *
 from iree.compiler.dialects.builtin import ModuleOp
-import iree.compiler.dialects.iree_linalg_transform as transform
+import iree.compiler.dialects.transform as transform
 
 from mlir.sandbox.compilation import compile_to_execution_engine, \
     emit_benchmarking_function, mlir_type
@@ -208,10 +208,15 @@ def compiled_function_element_types_mlir_builder(
 def emit_schedule_dialect(module: ModuleOp,
                           transformations: TransformationList):
   with InsertionPoint(module.body):
-    sequence = transform.SequenceOp()
-    with InsertionPoint(sequence.body.blocks[0]):
-      for t in transformations.transforms:
-        t.build_transform_ir()
+    root = transform.WithPDLPatternsOp(root=None)
+    root_block = root.body.blocks[0]
+    with ir.InsertionPoint(root_block):
+      sequence = transform.CanonicalizedSequenceOp(root_block.arguments[0])
+      sequence_block = sequence.body.blocks[0]
+      with InsertionPoint(sequence_block):
+        for t in transformations.transforms:
+          t.build_transform_ir(sequence_block.arguments[0])
+        transform.YieldOp([])
 
 
 class ProblemInstance:
@@ -286,7 +291,7 @@ class ProblemInstance:
       zero_at_each_iteration: bool = False):
     with ir.Context() as ctx, ir.Location.unknown() as loc:
       import iree.compiler.dialects.iree_linalg_ext as linalg_ext
-      import iree.compiler.dialects.iree_linalg_transform as transform
+      import iree.compiler.dialects.transform as transform
       linalg_ext.register_dialect(ctx)
       transform.register_dialect(ctx)
 

@@ -7,6 +7,6 @@ export the `PYTHONPATH` command in `${IREE_BUILD_DIR}/.env`.
 We reproduce it here:
 
 ```
-PYTHONPATH=${PYTHONPATH}:${IREE_BUILD_DIR}/compiler/bindings/python::${IREE_BUILD_DIR}/runtime/bindings/python \
+PYTHONPATH=${PYTHONPATH}:${IREE_BUILD_DIR}/compiler/bindings/python:${IREE_BUILD_DIR}/runtime/bindings/python \
 python <filename.py>
 ```
