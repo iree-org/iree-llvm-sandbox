@@ -47,6 +47,11 @@ config.substitutions.extend([
     ("%shlibext", ".so"),
 ])
 
+# Pass through LLVM_SYMBOLIZER_PATH from environment
+if "LLVM_SYMBOLIZER_PATH" in os.environ:
+  config.environment["LLVM_SYMBOLIZER_PATH"] = \
+      os.environ["LLVM_SYMBOLIZER_PATH"]
+
 # Add the build/bin directory to the path.
 sys.path.append(os.path.join(build_dir, "bin"))
 config.environment["PYTHONPATH"] = ":".join(sys.path)
