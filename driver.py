@@ -4,8 +4,7 @@ from mlir_iterators.passmanager import PassManager
 import numpy as np
 import ctypes
 from mlir_iterators.dialects import iterators as it
-from mlir_iterators.dialects.iterators import _cextIteratorsPasses
-from mlir.conversions import _cextConversions
+import mlir_iterators.all_passes_registration
 #import mlir_iterators.dialects.memref as memref
 from mlir_iterators.runtime import np_to_memref
 
