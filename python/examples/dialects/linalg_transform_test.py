@@ -27,6 +27,7 @@ def tile_once(module):
     with ir.InsertionPoint(foo_pattern.body):
       pdl_op = pdl.OperationOp()
       pdl.RewriteOp(pdl_op, "transform.dialect")
+
     sequence = transform.CanonicalizedSequenceOp(root.body.blocks[0].arguments[0])
     sequence_block = sequence.body.blocks[0]
     with ir.InsertionPoint(sequence_block):
