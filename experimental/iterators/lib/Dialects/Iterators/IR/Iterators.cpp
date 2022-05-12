@@ -8,8 +8,16 @@
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 
+#include <assert.h>
+
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/DialectImplementation.h" // IWYU pragma: keep
+#include "mlir/IR/Types.h"
+#include "mlir/IR/Value.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Support/LogicalResult.h"
+#include "llvm/ADT/StringRef.h"  // IWYU pragma: keep
 #include "llvm/ADT/TypeSwitch.h" // IWYU pragma: keep
 
 using namespace mlir;
@@ -19,16 +27,16 @@ using namespace mlir::iterators;
 // Iterators dialect
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.cpp.inc" // IWYU pragma: keep
 
 void IteratorsDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
-#include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc" // IWYU pragma: keep
       >();
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc" // IWYU pragma: keep
       >();
 }
 
@@ -36,15 +44,15 @@ void IteratorsDialect::initialize() {
 // Iterators interfaces
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.cpp.inc"
-#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.cpp.inc" // IWYU pragma: keep
+#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.cpp.inc" // IWYU pragma: keep
 
 //===----------------------------------------------------------------------===//
 // Iterators operations
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc" // IWYU pragma: keep
 
 LogicalResult CreateSampleInputStateOp::verify() {
   IteratorInterface iteratorType =
@@ -86,4 +94,4 @@ LogicalResult CreateReduceStateOp::verify() {
 //===----------------------------------------------------------------------===//
 
 #define GET_TYPEDEF_CLASSES
-#include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
+#include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc" // IWYU pragma: keep

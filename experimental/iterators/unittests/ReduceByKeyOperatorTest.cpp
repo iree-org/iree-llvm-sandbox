@@ -6,14 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstdint>
 #include <gtest/gtest.h>
 
 #include <map>
+#include <optional>
 #include <tuple>
 #include <vector>
 
 #include "iterators/Operators/ColumnScanOperator.h"
 #include "iterators/Operators/ReduceByKeyOperator.h"
+#include "iterators/Utils/Tuple.h"
 
 using namespace mlir::iterators::operators;
 using namespace mlir::iterators::utils;

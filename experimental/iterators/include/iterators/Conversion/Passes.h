@@ -9,13 +9,14 @@
 #ifndef ITERATORS_CONVERSION_PASSES_H
 #define ITERATORS_CONVERSION_PASSES_H
 
-#include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
+#include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h" // IWYU pragma: keep
+#include "mlir/Pass/Pass.h" // IWYU pragma: keep
 
 namespace mlir {
 
 /// Generate the code for registering conversion passes.
 #define GEN_PASS_REGISTRATION
-#include "iterators/Conversion/Passes.h.inc"
+#include "iterators/Conversion/Passes.h.inc" // IWYU pragma: export
 
 } // namespace mlir
 

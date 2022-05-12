@@ -6,7 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstdint>
+
 #include <iostream>
+#include <optional>
 #include <vector>
 
 #include "iterators/Operators/ColumnScanOperator.h"

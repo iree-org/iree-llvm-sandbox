@@ -6,10 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstdint>
 #include <gtest/gtest.h>
 
+#include <functional>
+#include <memory>
 #include <sstream>
 #include <tuple>
+#include <type_traits>
 
 #include "iterators/Utils/Tuple.h"
 

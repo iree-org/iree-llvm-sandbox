@@ -6,9 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstdint>
 #include <gtest/gtest.h>
 
-#include <tuple>
+#include <optional>
 #include <vector>
 
 #include "iterators/Operators/ColumnScanOperator.h"
