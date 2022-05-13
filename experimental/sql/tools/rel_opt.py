@@ -3,6 +3,12 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+try:
+  from tools.IteratorsMlirConverter import IteratorsMlirConverter
+  mlir_loaded = True
+except ImportError:
+  mlir_loaded = False
+
 from xdsl.xdsl_opt_main import xDSLOptMain
 from io import IOBase
 from xdsl.dialects.builtin import ModuleOp
@@ -73,12 +79,8 @@ class RelOptMain(xDSLOptMain):
       mlir_module = converter.convert_module(prog)
       print(mlir_module, file=output)
 
-    try:
-      from tools.IteratorsMlirConverter import IteratorsMlirConverter
+    if mlir_loaded:
       self.available_targets['mlir'] = _output_mlir
-    except ImportError as ex:
-      # do not add mlir as target if import does not work
-      pass
 
 
 def __main__():

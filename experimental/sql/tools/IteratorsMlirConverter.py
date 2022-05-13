@@ -1,4 +1,8 @@
-import mlir_iterators.ir as ir
+import mlir_iterators.ir
+from xdsl import load_mlir_module
+
+ir = mlir_iterators.ir
+load_mlir_module(mlir_iterators)
 from mlir_iterators.dialects import iterators as it
 from xdsl.mlir_converter import MLIRConverter
 from xdsl.ir import Attribute
@@ -12,7 +16,7 @@ from importlib import import_module
 class IteratorsMlirConverter(MLIRConverter):
 
   def __init__(self, ctx):
-    super().__init__(ctx, import_module("mlir_iterators.ir"))
+    super().__init__(ctx)
 
   def register_external_dialects(self):
     it.register_dialect()
