@@ -8,6 +8,10 @@ from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, D
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr, IntegerType, TupleType
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
 
+# This mirrors a subset of the MLIR iterators dialect in a one to one way
+#
+# (https://github.com/google/iree-llvm-sandbox/tree/main/experimental/iterators)
+
 #===------------------------------------------------------------------------===#
 # Data types
 #===------------------------------------------------------------------------===#
