@@ -10,6 +10,7 @@
 #define ITERATORS_CONVERSION_PASSES_H
 
 #include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
+#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 
