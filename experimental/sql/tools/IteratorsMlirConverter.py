@@ -1,8 +1,4 @@
-import mlir_iterators.ir
-from xdsl import load_mlir_module
-
-ir = mlir_iterators.ir
-load_mlir_module(mlir_iterators)
+import mlir_iterators.ir as ir
 from mlir_iterators.dialects import iterators as it
 from xdsl.mlir_converter import MLIRConverter
 from xdsl.ir import Attribute
