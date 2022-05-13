@@ -164,56 +164,58 @@ def benchmark_dispatch_region(
 def make_strategy_as_serialized_mlir(strategy_filename : str):
   """Create a fixed strategy with the transform dialect and save it to file."""
 
-  import iree.compiler.dialects.iree_linalg_transform as transform
+  import iree.compiler.dialects.transform as transform
   import iree.compiler.dialects.pdl as pdl
   import iree.compiler.ir as ir
 
   with ir.Context() as ctx, ir.Location.unknown(ctx):
     transform.register_dialect(ctx)
+
     module = ir.Module.create()
     with ir.InsertionPoint(module.body):
-      isa_matmul = pdl.PatternOp(benefit = 1, name = "isa_matmul")
-      with ir.InsertionPoint(isa_matmul.body):
-        args = pdl.OperandsOp()
-        types = pdl.TypesOp()
-        pdl_op = pdl.OperationOp(args=[args], types=[types])
-        op_name = pdl.AttributeOp(value=ir.StringAttr.get("linalg.matmul"))
-        pdl.ApplyNativeConstraintOp("isEquivalentToOp", args=[pdl_op, op_name])
-        pdl.RewriteOp(pdl_op, "iree_linalg_transform.apply")
+      root = transform.WithPDLPatternsOp(root=None)
+      with ir.InsertionPoint(root.body.blocks[0]):
+        isa_matmul = pdl.PatternOp(benefit = 1, name = "isa_matmul")
+        with ir.InsertionPoint(isa_matmul.body):
+          args = pdl.OperandsOp()
+          types = pdl.TypesOp()
+          pdl_op = pdl.OperationOp(args=[args], types=[types])
+          op_name = pdl.AttributeOp(value=ir.StringAttr.get("linalg.matmul"))
+          pdl.ApplyNativeConstraintOp("isEquivalentToOp", args=[pdl_op, op_name])
+          pdl.RewriteOp(pdl_op, "transform.dialect")
 
-      transform_sequence = transform.SequenceOp()
-      with ir.InsertionPoint(transform_sequence.body.blocks[0]):
-        ir.Operation.create(name="iree_linalg_transform.iree_set_num_workgroups_to_one")
-        # transform.PrintOp(None, name="Initial IR")
+        sequence = transform.CanonicalizedSequenceOp(root.body.blocks[0].arguments[0])
+        sequence_block = sequence.body.blocks[0]
+        with ir.InsertionPoint(sequence_block):
+          # transform.PrintOp(None, name="Initial IR")
+          # ir.Operation.create(name="transform.iree.set_num_workgroups_to_one")
+          target_match = transform.PDLMatchOp(sequence_block.arguments[0], "isa_matmul")
+          # TODO: fuse...
+          tiled = transform.TileOp(target=target_match, sizes=[0, 0, 1])
+          # transform.PrintOp(None, name="After tiling")
 
-        target_match = transform.MatchOp(ir.FlatSymbolRefAttr.get('isa_matmul'))
-        # TODO: fuse...
-        tiled = transform.TileOp(target=target_match,
-                                sizes=[0, 0, 1],
-                                interchange=[0, 1, 2])
-        # transform.PrintOp(None, name="After tiling")
+          # TODO: peeling is disabled for now
+          # transform.PeelLoopOp(tiled.results[1])
+          # transform.PeelLoopOp(tiled.results[2])
+          # TODO: Match dynamic matmul and scalarize.
+          transform.VectorizeOp(vectorize_padding=False)
+          # transform.PrintOp(None, name="After vectorization")
 
-        # TOD: peeling is disabled for now
-        # transform.PeelLoopOp(tiled.results[1])
-        # transform.PeelLoopOp(tiled.results[2])
-        # TODO: Match dynamic matmul and scalarize.
-        transform.VectorizeOp(vectorize_padding=False)
-        # transform.PrintOp(None, name="After vectorization")
-
-        ir.Operation.create(name="iree_linalg_transform.iree_bufferize")
-        # transform.PrintOp(None, name="After bufferization")
-        
-        stages = []
-        for i in range(1, 8):
-          stages.append(i)
-          transform.LowerVectorsOp(contraction_lowering="outerproduct",
-                                  multireduction_lowering="innerparallel",
-                                  split_transfers="linalg-copy",
-                                  stages=stages,
-                                  transpose_avx2_lowering=False,
-                                  transpose_lowering="shuffle",
-                                  unroll_vector_transfers=True)
-        transform.PrintOp(None, name="After lowering vectors")
+          ir.Operation.create(name="transform.iree.bufferize")
+          # transform.PrintOp(None, name="After bufferization")
+          
+          stages = []
+          for i in range(1, 8):
+            stages.append(i)
+            transform.LowerVectorsOp(contraction_lowering="outerproduct",
+                                    multireduction_lowering="innerparallel",
+                                    split_transfers="linalg-copy",
+                                    stages=stages,
+                                    transpose_avx2_lowering=False,
+                                    transpose_lowering="shuffle",
+                                    unroll_vector_transfers=True)
+          transform.PrintOp(None, name="After lowering vectors")
+          transform.YieldOp([])
 
     with open(strategy_filename, "w") as f:
       f.write(str(module))
