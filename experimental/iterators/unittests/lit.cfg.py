@@ -20,5 +20,10 @@ config.test_exec_root = os.path.join(
     build_dir, 'tools/sandbox/experimental/iterators/unittests')
 config.test_source_root = config.test_exec_root
 
+# Pass through LLVM_SYMBOLIZER_PATH from environment
+if "LLVM_SYMBOLIZER_PATH" in os.environ:
+  config.environment["LLVM_SYMBOLIZER_PATH"] = \
+      os.environ["LLVM_SYMBOLIZER_PATH"]
+
 # testFormat: The test format to use to interpret tests.
 config.test_format = lit.formats.GoogleTest('.', 'Tests')

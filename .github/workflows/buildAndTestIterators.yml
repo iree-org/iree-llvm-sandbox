@@ -13,6 +13,8 @@ jobs:
   build:
     name: Iterators Build and Test (Release Asserts)
     runs-on: ubuntu-20.04
+    env:
+      LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
     steps:
     - name: Set up Python
       uses: actions/setup-python@v2
