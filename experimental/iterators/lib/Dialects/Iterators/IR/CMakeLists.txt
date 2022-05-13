@@ -3,6 +3,7 @@ add_mlir_library(MLIRIterators
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRInferTypeOpInterface
 
   DEPENDS
   MLIRIteratorsOpsIncGen

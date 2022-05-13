@@ -1,0 +1,59 @@
+name: Iterators Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Iterators Build and Test (Release Asserts)
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Checkout project
+      uses: actions/checkout@v2
+      with:
+        path: sandbox
+    - name: Checkout IREE
+      uses: actions/checkout@v2
+      with:
+        path: iree
+        repository: nicolasvasilache/iree
+        # Always build with iree/iree-dialects on the nicolasvasilache/iree/ntv-sandbox branch.
+        ref: ntv-sandbox
+        # Use the LLVM version bundled with IREE and coming from iree-llvm-fork.
+        submodules: recursive
+
+    - name: Install Python depends
+      run: |
+        python -m pip install -r ${GITHUB_WORKSPACE}/sandbox/requirements.txt
+    - name: Install Ninja
+      uses: llvm/actions/install-ninja@55d844821959226fab4911f96f37071c1d4c3268
+    - name: Ccache for C++ compilation
+      uses: hendrikmuhs/ccache-action@4687d037e4d7cf725512d9b819137a3af34d39b3
+      with:
+        key: ${{ runner.os }}-buildtestasserts
+        # LLVM needs serious cache size
+        max-size: 6G
+
+    - name: Build
+      run: |
+        cd ${GITHUB_WORKSPACE}/sandbox
+        # Always build with iree/iree-dialects on the iree/ntv-sandbox branch.
+        python configure.py --iree-path=../iree --iterators
+        ccache -s
+        echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
+
+    - name: Test
+      run: |
+        cd ${GITHUB_WORKSPACE}/sandbox
+        python run_tests.py --iterators-tests
