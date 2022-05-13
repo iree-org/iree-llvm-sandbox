@@ -1,0 +1,17 @@
+// RUN: rel_opt.py %s | filecheck %s
+
+module() {
+  func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+    %input : !iterators.stream<!tuple<[!i32]>> = iterators.sampleInput()
+    %reduce : !iterators.stream<!tuple<[!i32]>> = iterators.reduce(%input : !iterators.stream<!tuple<[!i32]>>)
+    iterators.sink(%reduce : !iterators.stream<!tuple<[!i32]>>)
+    func.return()
+  }
+}
+
+//      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+// CHECK-NEXT:    %input : !iterators.stream<!tuple<[!i32]>> = iterators.sampleInput()
+// CHECK-NEXT:    %reduce : !iterators.stream<!tuple<[!i32]>> = iterators.reduce(%input : !iterators.stream<!tuple<[!i32]>>)
+// CHECK-NEXT:    iterators.sink(%reduce : !iterators.stream<!tuple<[!i32]>>)
+// CHECK-NEXT:    func.return()
+// CHECK-NEXT:  }
