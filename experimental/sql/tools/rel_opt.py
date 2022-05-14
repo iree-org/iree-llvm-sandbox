@@ -3,8 +3,15 @@
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
+try:
+  from tools.IteratorsMlirConverter import IteratorsMlirConverter
+  mlir_loaded = True
+except ImportError:
+  mlir_loaded = False
+
 from xdsl.xdsl_opt_main import xDSLOptMain
 from io import IOBase
+from xdsl.dialects.builtin import ModuleOp
 
 from src.ibis_frontend import ibis_to_xdsl
 from src.ibis_to_alg import ibis_to_alg
@@ -35,12 +42,17 @@ class RelOptMain(xDSLOptMain):
           "t":
               pd.DataFrame({
                   "a": ["AS", "EU", "NA"],
-                  "b": [2, 5, 4],
+                  "b": [1, 2, 3],
                   "c": [3, 1, 18]
+              }),
+          "u":
+              pd.DataFrame({
+                  "b": [1, 2, 3],
               })
       })
 
       table = connection.table('t')
+      sum_table = connection.table('u')
       query = f.read()
       res = eval(query)
 
@@ -56,6 +68,17 @@ class RelOptMain(xDSLOptMain):
     rel_ssa = RelSSA(self.ctx)
     rel_impl = RelImpl(self.ctx)
     dataflow = Iterators(self.ctx)
+
+  def register_all_targets(self):
+    super().register_all_targets()
+
+    def _output_mlir(prog: ModuleOp, output: IOBase):
+      converter = IteratorsMlirConverter(self.ctx)
+      mlir_module = converter.convert_module(prog)
+      print(mlir_module, file=output)
+
+    if mlir_loaded:
+      self.available_targets['mlir'] = _output_mlir
 
 
 def __main__():
