@@ -33,7 +33,7 @@ In your `$HOME/src` directory, check out each project:
 
 Required:
 
-* `git clone https://github.com/google/iree-llvm-sandbox`
+* `git clone --recursive https://github.com/google/iree-llvm-sandbox`
 
 We use the following environment variables defaults in these instructions:
 
@@ -45,7 +45,7 @@ We use the following environment variables defaults in these instructions:
 Follow the instructions for
 [MLIR Python Bindings](https://mlir.llvm.org/docs/Bindings/Python/):
 
-```
+```bash
 which python
 python -m venv ~/.venv/mlirdev
 source ~/.venv/mlirdev/bin/activate
@@ -53,31 +53,20 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Configure and build
-
-The sandbox must be built with IREE integration.
-
 Note that useful python environment `activate` scripts for `mlirdev` and
 `mlirdev-debug` are provided in the `scripts` directory.
 
-Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
-directory and initialize submodules:
+## Configure and build
 
-```
-(cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project && \
- git checkout ntv-sandbox && \
- git submodule update --init --recursive)
-```
+Configure the project:
 
-And configure/build the project:
-
-```
-python configure.py --iree-path=../iree
+```bash
+python configure.py
 ```
 
 Or if using `scripts/mlirdev/bin/activate`:
 
-```
+```bash
 sandbox-configure-and-build-iree
 ```
 
