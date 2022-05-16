@@ -321,15 +321,15 @@ class Select(Operator):
 @irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith function of `functions` to the ith column name fo `col_names`
-  of `input`.
+  Applies the ith function of `functions` to the ith column name of `col_names`
+  of `input`. The ith resulting column has the same name as the ith input column
+  to the uniqueness of names.
 
 
   Example:
 
   '''
-  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a0", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
-  '''
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]] '''
   """
   name = "rel_ssa.aggregate"
 
