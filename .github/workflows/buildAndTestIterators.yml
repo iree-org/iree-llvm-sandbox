@@ -83,7 +83,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: build-result
-        path: ${{ github.workspace }}/artifact.tar.gz
+        path: ${{ github.workspace }}
 
     - name: Unpack build result
       run: |
