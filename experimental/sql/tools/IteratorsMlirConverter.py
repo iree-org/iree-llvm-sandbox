@@ -5,9 +5,6 @@ from xdsl.ir import Attribute
 from dialects.iterators import Stream
 from importlib import import_module
 
-# PYTHONPATH:
-# /home/michel/opencompl/MLIR-lite/ChocoPyCompiler/:/home/michel/MasterThesis/iree-llvm-sandbox/build/tools/sandbox/python_packages/:/home/michel/opencompl/MLIR-lite/xdsl/src:/home/michel/MasterThesis/iree-llvm-sandbox/experimental/sql:/home/michel/opencompl/llvm-project/build/tools/mlir/python_packages/mlir_core
-
 
 class IteratorsMlirConverter(MLIRConverter):
 
