@@ -78,6 +78,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: build-result
+        path: ${{ env.IREE_LLVM_SANDBOX_BUILD_DIR }}
 
     - name: Run iterators tests
       run: |
