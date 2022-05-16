@@ -44,21 +44,22 @@ class RelAlgRewriter(RewritePattern):
         return s.elt_type
     return None
 
-  def find_type_in_parent_operator(self, name: str, op: Operation):
+  def find_type_in_parent_operator(self, name: str,
+                                   op: Operation) -> Optional[RelSSA.DataType]:
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
     case the lookup failed or reaching an operator with an input bag, that the
     type can be looked up in.
     """
     parent_op = op.parent_op()
-    if isinstance(parent_op, ModuleOp):
-      raise Exception(f"element not found in parent schema: {name}")
-    if isinstance(parent_op, RelSSA.Operator):
-      type_ = self.lookup_type_in_schema(name, parent_op.results[0].typ)
-      if type_:
-        return type_
-      raise Exception(f"element not found in parent schema: {name}")
-    return self.find_type_in_parent_operator(name, parent_op)
+    while (parent_op and not isinstance(parent_op, ModuleOp)):
+      if isinstance(parent_op, RelSSA.Operator):
+        type_ = self.lookup_type_in_schema(name, parent_op.results[0].typ)
+        if type_:
+          return type_
+        raise Exception(f"element not found in parent schema: {name}")
+      parent_op = parent_op.parent_op()
+    raise Exception(f"element not found in parent schema: {name}")
 
 
 #===------------------------------------------------------------------------===#

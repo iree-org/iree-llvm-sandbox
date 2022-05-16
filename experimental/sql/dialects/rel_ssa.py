@@ -135,6 +135,8 @@ class Bag(ParametrizedAttribute):
   """
   name = "rel_ssa.bag"
 
+  # TODO: add more verification
+  # TODO: add DictionaryAttr to xDSL
   schema = ParameterDef(ArrayOfConstraint(SchemaElement))
 
   @staticmethod
