@@ -67,6 +67,6 @@ def testEndToEnd():
   pm = PassManager.parse('convert-iterators-to-llvm,convert-func-to-llvm,' +
                          'convert-scf-to-cf,convert-cf-to-llvm')
   pm.run(mod)
-  engine = ExecutionEngine(mod, shared_libs=[os.environ['RUNTIMELIB']])
+  engine = ExecutionEngine(mod)
   # CHECK: (6)
   engine.invoke('main')

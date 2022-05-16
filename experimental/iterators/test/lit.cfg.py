@@ -33,8 +33,6 @@ config.excludes = [
 
 config.substitutions.extend([
     ("%PYTHON", sys.executable),
-    ("%mlir_runner_utils_dir", lib_dir),
-    ("%shlibext", ".so"),
 ])
 
 # Pass through LLVM_SYMBOLIZER_PATH from environment
