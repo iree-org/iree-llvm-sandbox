@@ -81,5 +81,6 @@ jobs:
 
     - name: Run iterators tests
       run: |
+        find ${GITHUB_WORKSPACE}
         cd ${GITHUB_WORKSPACE}/sandbox
         python run_tests.py --iterators-tests
