@@ -10,6 +10,7 @@ class IteratorsMlirConverter(MLIRConverter):
 
   def register_external_dialects(self):
     it.register_dialect()
+    super().register_external_dialects()
 
   def convert_type(self, typ: Attribute) -> ir.Type:
     if isinstance(typ, Stream):
