@@ -26,7 +26,7 @@ class RelAlgRewriter(RewritePattern):
 
   def convert_datatype(self, type_: RelAlg.DataType) -> RelSSA.DataType:
     if isinstance(type_, RelAlg.String):
-      return RelSSA.String.get(type_.nullable)
+      return RelSSA.String.from_attr(type_.nullable)
     if isinstance(type_, RelAlg.Int32):
       return RelSSA.Int32()
     if isinstance(type_, RelAlg.Int64):
@@ -133,7 +133,7 @@ class PandasTableRewriter(RelAlgRewriter):
                         rewriter: PatternRewriter):
     schema_names = [s.elt_name.data for s in op.schema.ops]
     schema_types = [self.convert_datatype(s.elt_type) for s in op.schema.ops]
-    result_type = RelSSA.Bag.get(schema_types, schema_names)
+    result_type = RelSSA.Bag.get(schema_names, schema_types)
     new_op = RelSSA.PandasTable.get(op.table_name.data, result_type)
     rewriter.insert_op_before_matched_op(new_op)
     rewriter.erase_matched_op()
