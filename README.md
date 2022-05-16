@@ -45,7 +45,7 @@ We use the following environment variables defaults in these instructions:
 Follow the instructions for
 [MLIR Python Bindings](https://mlir.llvm.org/docs/Bindings/Python/):
 
-```
+```bash
 which python
 python -m venv ~/.venv/mlirdev
 source ~/.venv/mlirdev/bin/activate
@@ -101,7 +101,7 @@ python configure --llvm-path=../llvm --iree-path=../iree  # Both custom
 
 ## Using the Python API
 
-```
+```bash
 source .env && export PYTHONPATH
 
 # Sanity check (should not error).
@@ -116,7 +116,7 @@ python -m python.examples.matmul.test
 
 ## Using mlir-proto-opt
 
-```
+```bash
 "${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/mlir-proto-opt \
   test/Dialect/vector_ext/vector_masking.mlir \
   -test-vector-masking-utils=masking -split-input-file
@@ -126,7 +126,7 @@ python -m python.examples.matmul.test
 
 The following commands either run the lit tests only or all tests:
 
-```
+```bash
 # Run lit tests
 lit -v test
 # Run python and lit tests
@@ -142,7 +142,7 @@ to display as-you-type diagnostics, code navigation, and similar features. In
 order to extend this functionality to the dialects from this repository, use
 the following LSP server binary:
 
-```
+```bash
 /path/to/iree-llvm-sandbox/build/bin/mlir-proto-lsp-server
 ```
 
@@ -154,7 +154,7 @@ In VS Code, this is done via the `mlir.server_path` property in
 The following command runs a simple search of 1000 iterations distributed across
 all processors of the machine, for a matmul of fixed size `40x50x60`:
 
-```
+```bash
 iree-llvm-sandbox# python -m python.examples.tuning.test_nevergrad_small_matmul \
 --search-budget 1000 --n_iters 100 --num-parallel-tasks $(nproc --all) \
 --num-cpus-per-benchmark 1 --timeout-per-compilation 1 --timeout-per-benchmark 1 \
@@ -166,7 +166,7 @@ iree-llvm-sandbox# python -m python.examples.tuning.test_nevergrad_small_matmul 
 Adaptation of recommended benchmark instructions found [here](https://llvm.org/docs/Benchmarking.html).
 Run the following as root.
 
-```
+```bash
 # Basic info
 numactl --hardware
 
@@ -237,14 +237,14 @@ PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_packages cset pro
 
 Repro for experimental results described in [arxiv paper](https://arxiv.org/abs/2202.03293):
 
-```
+```bash
 git checkout 680c8160edb7aa13b621b28c221288624ebc37e4
 echo Please update LLVM to $(cat pinned-llvm-version)
 ```
 
 Hash before transitioning to schedule dialect only:
 
-```
+```bash
 git checkout ea0e5ec37a4d73808e16926c0335cc21fde0286c
 echo Please update LLVM to $(cat pinned-llvm-version)
 ```
