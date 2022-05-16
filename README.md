@@ -33,7 +33,7 @@ In your `$HOME/src` directory, check out each project:
 
 Required:
 
-* `git clone https://github.com/google/iree-llvm-sandbox`
+* `git clone --recursive https://github.com/google/iree-llvm-sandbox`
 
 We use the following environment variables defaults in these instructions:
 
@@ -53,37 +53,51 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Configure and build
-
-The sandbox must be built with IREE integration.
-
 Note that useful python environment `activate` scripts for `mlirdev` and
 `mlirdev-debug` are provided in the `scripts` directory.
 
-Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
-directory and initialize submodules:
+## Configure and build
 
-```
-(cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project && \
- git checkout ntv-sandbox && \
- git submodule update --init --recursive)
-```
+### Default IREE and LLVM versions
 
-And configure/build the project:
+Make sure that the git submodules are clone and up to date:
 
-```
-python configure.py --iree-path=../iree
+```bash
+git submodule update --recursive --init
 ```
 
-Or if using `scripts/mlirdev/bin/activate`:
+Configure the project and run an initial build:
 
+```bash
+python configure.py
 ```
+
+Run subsequent builds with:
+
+```bash
+cd ${IREE_LLVM_SANDBOX_BUILD_DIR}
+ninja
+```
+
+If using using `scripts/mlirdev/bin/activate`, the above steps can be run as:
+
+```bash
+sandbox-update-dependencies
 sandbox-configure-and-build-iree
+sandbox-build
 ```
 
-Note that the `third_party/llvm-project` bundled with IREE is used.
-The `IREE` `ntv-sandbox` branch often runs ahead of the IREE integration and should
-generally be used.
+### Custom IREE and LLVM versions
+
+Instead of using the versions of IREE and (transitively) LLVM as described
+above, i.e., by using the git submodules referenced by this repository, you
+can provide paths for custom locations of these dependencies:
+
+```bash
+python configure --iree-path=../iree  # Custom IREE with IREE-provided LLVM
+python configure --llvm-path=../llvm  # Default IREE but custom LLVM
+python configure --llvm-path=../llvm --iree-path=../iree  # Both custom
+```
 
 ## Using the Python API
 

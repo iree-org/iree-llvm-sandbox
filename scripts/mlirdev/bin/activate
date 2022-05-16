@@ -22,6 +22,11 @@ export CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:${ROOT_DIR}/.venv/mlirdev/lib/pyth
 
 export PYTHONPATH=${PYTHONPATH}:${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_packages/
 
+sandbox-update-dependencies() {
+    cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
+    git submodule update --recursive --init
+}
+
 sandbox-build() {
     cd ${IREE_LLVM_SANDBOX_SOURCE_DIR}
     (cd ${IREE_LLVM_SANDBOX_BUILD_DIR} && ninja tools/sandbox/all)

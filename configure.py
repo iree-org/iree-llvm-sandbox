@@ -109,12 +109,16 @@ def main(args):
   llvm_builtin_projects = ["mlir", "clang", "clang-tools-extra"]
 
   # Detect IREE (defaults LLVM path as well).
-  iree_path = args.iree_path
+  if args.iree_path:
+    iree_path = os.path.abspath(args.iree_path)
+    print(f"-- Using explicit IREE path: {iree_path}")
+  else:
+    iree_path = os.path.abspath(
+        os.path.join(args.repo_root, 'third_party', 'iree'))
+    print(f"-- Using default IREE path at {iree_path}")
   if not os.path.exists(iree_path):
     print(f"ERROR: Could not find IREE at {iree_path}")
     return 1
-  iree_path = os.path.abspath(iree_path)
-  print(f"-- Enabling IREE from {iree_path}")
   if not os.path.exists(os.path.join(iree_path, "CMakeLists.txt")):
     print(f"ERROR: Could not find iree at {iree_path}")
     return 1
