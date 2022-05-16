@@ -8,9 +8,6 @@ from importlib import import_module
 
 class IteratorsMlirConverter(MLIRConverter):
 
-  def __init__(self, ctx):
-    super().__init__(ctx)
-
   def register_external_dialects(self):
     it.register_dialect()
 
