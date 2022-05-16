@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 try:
-  from tools.IteratorsMlirConverter import IteratorsMlirConverter
+  from tools.IteratorsMlirConverter import IteratorsMLIRConverter
   mlir_loaded = True
 except ImportError:
   mlir_loaded = False
@@ -73,7 +73,7 @@ class RelOptMain(xDSLOptMain):
     super().register_all_targets()
 
     def _output_mlir(prog: ModuleOp, output: IOBase):
-      converter = IteratorsMlirConverter(self.ctx)
+      converter = IteratorsMLIRConverter(self.ctx)
       mlir_module = converter.convert_module(prog)
       print(mlir_module, file=output)
 

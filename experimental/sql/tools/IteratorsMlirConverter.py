@@ -4,8 +4,13 @@ from xdsl.mlir_converter import MLIRConverter
 from xdsl.ir import Attribute
 from dialects.iterators import Stream
 
+# This MLIRConverter enriches the standard xdsl MLIRConverter
+# (https://github.com/xdslproject/xdsl/blob/main/src/xdsl/mlir_converter.py) by
+# adding the types of the iterators dialect
+# (https://github.com/google/iree-llvm-sandbox/tree/main/experimental/iterators).
 
-class IteratorsMlirConverter(MLIRConverter):
+
+class IteratorsMLIRConverter(MLIRConverter):
 
   def register_external_dialects(self):
     it.register_dialect()
