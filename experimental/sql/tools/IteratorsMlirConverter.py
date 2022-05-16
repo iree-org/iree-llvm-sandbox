@@ -3,7 +3,6 @@ from mlir_iterators.dialects import iterators as it
 from xdsl.mlir_converter import MLIRConverter
 from xdsl.ir import Attribute
 from dialects.iterators import Stream
-from importlib import import_module
 
 
 class IteratorsMlirConverter(MLIRConverter):
