@@ -58,7 +58,7 @@ jobs:
     - name: Pack build result
       run: |
         cd ${GITHUB_WORKSPACE}
-        tar -cvf ${GITHUB_WORKSPACE}/artifact.tar.gz ${GITHUB_WORKSPACE}/sandbox/build
+        tar -cpvf ${GITHUB_WORKSPACE}/artifact.tar.gz ${GITHUB_WORKSPACE}/sandbox/build
 
     - name: Upload build result
       uses: actions/upload-artifact@v3
@@ -116,7 +116,7 @@ jobs:
     - name: Unpack build result
       run: |
         cd ${GITHUB_WORKSPACE}
-        tar -xvf ${GITHUB_WORKSPACE}/artifact.tar.gz
+        tar -xpvf ${GITHUB_WORKSPACE}/artifact.tar.gz
 
     - name: Run iterators tests
       run: |
