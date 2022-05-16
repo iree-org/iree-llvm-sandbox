@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Iterators Build and Test (Release Asserts)
+    name: Iterators Build (Release Asserts)
     runs-on: ubuntu-20.04
     env:
       LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
@@ -55,7 +55,31 @@ jobs:
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
 
-    - name: Test
+    - name: Upload build result
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-result
+        path: ${{ env.IREE_LLVM_SANDBOX_BUILD_DIR }}
+        retention-days: 1
+
+  test:
+    name: Iterators Test (Release Asserts)
+    needs: build
+    runs-on: ubuntu-20.04
+    env:
+      LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
+
+    steps:
+    - name: Set environment variables
+      run: |
+        echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
+
+    - name: Download build result
+      uses: actions/download-artifact@v3
+      with:
+        name: build-result
+
+    - name: Run iterators tests
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
         python run_tests.py --iterators-tests
