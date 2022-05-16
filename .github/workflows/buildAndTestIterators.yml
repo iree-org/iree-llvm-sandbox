@@ -55,11 +55,16 @@ jobs:
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
 
+    - name: Pack build result
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        tar -cvf ${GITHUB_WORKSPACE}/artifact.tar.gz ${GITHUB_WORKSPACE}/sandbox
+
     - name: Upload build result
       uses: actions/upload-artifact@v3
       with:
         name: build-result
-        path: ${{ env.IREE_LLVM_SANDBOX_BUILD_DIR }}
+        path: ${{ github.workspace }}/artifact.tar.gz
         retention-days: 1
 
   test:
@@ -78,10 +83,14 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: build-result
-        path: ${{ env.IREE_LLVM_SANDBOX_BUILD_DIR }}
+        path: ${{ github.workspace }}/artifact.tar.gz
+
+    - name: Unpack build result
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        tar -xvf ${GITHUB_WORKSPACE}/artifact.tar.gz
 
     - name: Run iterators tests
       run: |
-        find ${GITHUB_WORKSPACE}
         cd ${GITHUB_WORKSPACE}/sandbox
         python run_tests.py --iterators-tests
