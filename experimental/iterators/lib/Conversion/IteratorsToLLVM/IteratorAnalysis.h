@@ -50,8 +50,7 @@ public:
 
 private:
   /// Assembles all required information of a given iterator op.
-  template <typename OperatorType>
-  void buildIteratorInfo(OperatorType op);
+  void buildIteratorInfo(Operation *op);
 
   /// Pre-assigns names for the Open/Next/Close functions of the given op. The
   /// conversion is expected to create these names in the lowering of the
@@ -72,20 +71,6 @@ private:
   OperationMap opMap;
   uint64_t uniqueNumber = 0;
 };
-
-template <typename OperatorType>
-void IteratorAnalysis::buildIteratorInfo(OperatorType op) {
-  llvm::SmallVector<SymbolRefAttr, 3> symbols =
-      createFunctionNames(op.getOperation());
-  SymbolRefAttr openFuncSymbol = symbols[0];
-  SymbolRefAttr nextFuncSymbol = symbols[1];
-  SymbolRefAttr closeFuncSymbol = symbols[2];
-
-  auto stateType = computeStateType(op);
-
-  opMap.try_emplace(op, IteratorInfo{stateType, openFuncSymbol, nextFuncSymbol,
-                                     closeFuncSymbol});
-}
 
 } // namespace iterators
 } // namespace mlir

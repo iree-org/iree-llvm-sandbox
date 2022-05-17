@@ -30,6 +30,21 @@ IteratorAnalysis::getIteratorInfo(Operation *op) const {
   return it->getSecond();
 }
 
+void IteratorAnalysis::buildIteratorInfo(Operation *op) {
+  llvm::SmallVector<SymbolRefAttr, 3> symbols = createFunctionNames(op);
+  SymbolRefAttr openFuncSymbol = symbols[0];
+  SymbolRefAttr nextFuncSymbol = symbols[1];
+  SymbolRefAttr closeFuncSymbol = symbols[2];
+
+  auto stateType = llvm::TypeSwitch<Operation *, LLVM::LLVMStructType>(op)
+                       .Case<ReduceOp, SampleInputOp>(
+                           [&](auto op) { return computeStateType(op); })
+                       .Default(LLVM::LLVMStructType());
+
+  opMap.try_emplace(op, IteratorInfo{stateType, openFuncSymbol, nextFuncSymbol,
+                                     closeFuncSymbol});
+}
+
 llvm::SmallVector<SymbolRefAttr, 3>
 IteratorAnalysis::createFunctionNames(Operation *op) {
   ModuleOp module = op->template getParentOfType<ModuleOp>();
