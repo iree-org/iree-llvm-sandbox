@@ -233,8 +233,10 @@ struct PrintOpLowering : public ConversionPattern {
 // Helpers for creating Open/Next/Close functions
 //===----------------------------------------------------------------------===//
 
-/// Creates a new function at the parent module of originalOp with the given
-/// types and name and initializes the function body with a first block.
+/// Creates a new Open/Next/Close function at the parent module of originalOp
+/// with the given types and name and initializes the function body with a first
+/// block. Since these functions are only used by the iterators in this module,
+/// they are created with private visibility.
 static FuncOp createOpenNextCloseInParentModule(Operation *originalOp,
                                                 RewriterBase &rewriter,
                                                 TypeRange inputTypes,
@@ -249,9 +251,10 @@ static FuncOp createOpenNextCloseInParentModule(Operation *originalOp,
   OpBuilder::InsertionGuard guard(rewriter);
   rewriter.setInsertionPointToStart(module.getBody());
 
-  FunctionType funcType = FunctionType::get(context, inputTypes, returnTypes);
-  FuncOp funcOp =
-      rewriter.create<FuncOp>(originalOp->getLoc(), funcName, funcType);
+  auto visibility = StringAttr::get(context, "private");
+  auto funcType = FunctionType::get(context, inputTypes, returnTypes);
+  FuncOp funcOp = rewriter.create<FuncOp>(originalOp->getLoc(), funcName,
+                                          funcType, visibility);
   funcOp.setPrivate();
 
   // Create initial block.
