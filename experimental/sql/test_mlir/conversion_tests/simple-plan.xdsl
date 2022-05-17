@@ -1,0 +1,19 @@
+// RUN: rel_opt.py -t mlir %s | filecheck %s
+
+module() {
+  func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+    %input : !iterators.stream<!tuple<[!i32]>> = iterators.sampleInput()
+    %reduce : !iterators.stream<!tuple<[!i32]>> = iterators.reduce(%input : !iterators.stream<!tuple<[!i32]>>)
+    iterators.sink(%reduce : !iterators.stream<!tuple<[!i32]>>)
+    func.return()
+  }
+}
+
+//      CHECK: module {
+// CHECK-NEXT:   func public @main() {
+// CHECK-NEXT:     %0 = "iterators.sampleInput"() : () -> !iterators.stream<tuple<i32>>
+// CHECK-NEXT:     %1 = "iterators.reduce"(%0) : (!iterators.stream<tuple<i32>>) -> !iterators.stream<tuple<i32>>
+// CHECK-NEXT:     "iterators.sink"(%1) : (!iterators.stream<tuple<i32>>) -> ()
+// CHECK-NEXT:     return
+// CHECK-NEXT:   }
+// CHECK-NEXT: }
