@@ -235,9 +235,11 @@ struct PrintOpLowering : public ConversionPattern {
 
 /// Creates a new function at the parent module of originalOp with the given
 /// types and name and initializes the function body with a first block.
-FuncOp createOpenNextCloseFunc(Operation *originalOp, RewriterBase &rewriter,
-                               TypeRange inputTypes, TypeRange returnTypes,
-                               SymbolRefAttr funcNameAttr) {
+static FuncOp createOpenNextCloseFunc(Operation *originalOp,
+                                      RewriterBase &rewriter,
+                                      TypeRange inputTypes,
+                                      TypeRange returnTypes,
+                                      SymbolRefAttr funcNameAttr) {
   StringRef funcName = funcNameAttr.getLeafReference();
   ModuleOp module = originalOp->getParentOfType<ModuleOp>();
   assert(module);
@@ -260,24 +262,24 @@ FuncOp createOpenNextCloseFunc(Operation *originalOp, RewriterBase &rewriter,
 }
 
 /// Creates an Open function for originalOp given the provided opInfo.
-FuncOp createOpenFunc(Operation *originalOp, RewriterBase &rewriter,
-                      const IteratorAnalysis::IteratorInfo &opInfo) {
+static FuncOp createOpenFunc(Operation *originalOp, RewriterBase &rewriter,
+                             const IteratorAnalysis::IteratorInfo &opInfo) {
   return createOpenNextCloseFunc(originalOp, rewriter, opInfo.stateType,
                                  opInfo.stateType, opInfo.openFunc);
 }
 
 /// Creates an Next function for originalOp given the provided opInfo.
-FuncOp createNextFunc(Operation *originalOp, RewriterBase &rewriter,
-                      const IteratorAnalysis::IteratorInfo &opInfo,
-                      Type elementType) {
+static FuncOp createNextFunc(Operation *originalOp, RewriterBase &rewriter,
+                             const IteratorAnalysis::IteratorInfo &opInfo,
+                             Type elementType) {
   return createOpenNextCloseFunc(
       originalOp, rewriter, opInfo.stateType,
       {opInfo.stateType, rewriter.getI1Type(), elementType}, opInfo.nextFunc);
 }
 
 /// Creates an Close function for originalOp given the provided opInfo.
-FuncOp createCloseFunc(Operation *originalOp, RewriterBase &rewriter,
-                       const IteratorAnalysis::IteratorInfo &opInfo) {
+static FuncOp createCloseFunc(Operation *originalOp, RewriterBase &rewriter,
+                              const IteratorAnalysis::IteratorInfo &opInfo) {
   return createOpenNextCloseFunc(originalOp, rewriter, opInfo.stateType,
                                  opInfo.stateType, opInfo.closeFunc);
 }
@@ -288,7 +290,7 @@ FuncOp createCloseFunc(Operation *originalOp, RewriterBase &rewriter,
 
 /// Converts the given SampleInputOp to LLVM using the converted operands from
 /// the upstream iterator.
-FailureOr<Optional<Value>>
+static FailureOr<Optional<Value>>
 convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
                   RewriterBase &rewriter,
                   const IteratorAnalysis &typeAnalysis) {
@@ -399,7 +401,7 @@ convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
 
 /// Converts the given ReduceOp to LLVM using the converted operands from the
 /// upstream iterator.
-FailureOr<Optional<Value>>
+static FailureOr<Optional<Value>>
 convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
                   const IteratorAnalysis &typeAnalysis) {
   // Convert upstream operation.
@@ -599,7 +601,7 @@ convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
 
 /// Converts the given sink to LLVM using the converted operands from the root
 /// iterator.
-FailureOr<Optional<Value>>
+static FailureOr<Optional<Value>>
 convertIteratorOp(SinkOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
                   const IteratorAnalysis &typeAnalysis) {
   // Convert upstream operation.
@@ -695,7 +697,7 @@ convertIteratorOp(SinkOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
 /// Converts the given op to LLVM using the converted operands from the upstream
 /// iterator. This function is essentially a type switch to op-specific
 /// conversion functions.
-FailureOr<Optional<Value>>
+static FailureOr<Optional<Value>>
 convertIteratorOp(Operation *op, ArrayRef<Value> operands,
                   RewriterBase &rewriter,
                   const IteratorAnalysis &typeAnalysis) {
@@ -710,7 +712,7 @@ convertIteratorOp(Operation *op, ArrayRef<Value> operands,
 //===----------------------------------------------------------------------===//
 
 /// Converts all iterator ops of a module to LLVM using a custom walker.
-void convertIteratorOps(ModuleOp module) {
+static void convertIteratorOps(ModuleOp module) {
   IRRewriter rewriter(module.getContext());
   IteratorAnalysis typeAnalysis(module);
   BlockAndValueMapping mapping;
