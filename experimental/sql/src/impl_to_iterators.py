@@ -50,6 +50,7 @@ class PandasTableRewriter(RelImplRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.PandasTable,
                         rewriter: PatternRewriter):
+    # TODO: Change this once not only SampleInputOp is supported
     rewriter.replace_matched_op(
         it.SampleInputOp.get(self.convert_bag(op.result.typ)))
 
