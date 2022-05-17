@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 try:
-  from tools.IteratorsMlirConverter import IteratorsMLIRConverter
+  from tools.IteratorsMLIRConverter import IteratorsMLIRConverter
   mlir_loaded = True
 except ImportError:
   mlir_loaded = False
