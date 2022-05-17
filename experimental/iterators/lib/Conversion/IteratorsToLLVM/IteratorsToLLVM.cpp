@@ -354,32 +354,23 @@ convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
                                               /*width=*/32);
     Value hasNext = rewriter.create<arith::CmpIOp>(
         op->getLoc(), arith::CmpIPredicate::sle, currentIndex, three);
-    scf::IfOp ifOp =
-        rewriter.create<scf::IfOp>(op->getLoc(), opInfo.stateType, hasNext,
-                                   /*withElseRegion=*/true);
-
-    // Fill "then" region of ifOp.
-    {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
-
-      Value one =
-          rewriter.create<arith::ConstantIntOp>(op->getLoc(), /*value=*/1,
-                                                /*width=*/32);
-      Value updatedCurrentIndex = rewriter.create<arith::AddIOp>(
-          op->getLoc(), currentIndex.getType(), currentIndex, one);
-      Value updatedState = rewriter.create<InsertValueOp>(
-          op->getLoc(), originalState, updatedCurrentIndex,
-          rewriter.getIndexArrayAttr({0}));
-      rewriter.create<scf::YieldOp>(op->getLoc(), updatedState);
-    }
-
-    // Fill "else" region of ifOp.
-    {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
-      rewriter.create<scf::YieldOp>(op->getLoc(), originalState);
-    }
+    auto ifOp = rewriter.create<scf::IfOp>(
+        op->getLoc(), opInfo.stateType, hasNext,
+        /*thenBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          Value one = builder.create<arith::ConstantIntOp>(loc, /*value=*/1,
+                                                           /*width=*/32);
+          Value updatedCurrentIndex = builder.create<arith::AddIOp>(
+              loc, currentIndex.getType(), currentIndex, one);
+          Value updatedState = builder.create<InsertValueOp>(
+              loc, originalState, updatedCurrentIndex,
+              builder.getIndexArrayAttr({0}));
+          builder.create<scf::YieldOp>(loc, updatedState);
+        },
+        /*elseBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          builder.create<scf::YieldOp>(loc, originalState);
+        });
 
     // Assemble element that will be returned.
     Value emptyNextElement =
@@ -485,87 +476,78 @@ convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
                                       nextResultTypes, initialUpstreamState);
 
     // Check for empty upstream.
-    scf::IfOp ifOp = rewriter.create<scf::IfOp>(op->getLoc(), nextResultTypes,
-                                                firstNextCall->getResult(1),
-                                                /*withElseRegion=*/true);
+    auto ifOp = rewriter.create<scf::IfOp>(
+        op->getLoc(), nextResultTypes, firstNextCall->getResult(1),
+        /*ifBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          // Create while loop.
+          SmallVector<Value> whileInputs = {firstNextCall->getResult(0),
+                                            firstNextCall->getResult(2)};
+          SmallVector<Type> whileInputTypes = {
+              firstNextCall->getResult(0).getType(),
+              firstNextCall->getResult(2).getType()};
+          SmallVector<Type> whileResultTypes = {upstreamInfo.stateType,
+                                                elementType, elementType};
+          SmallVector<Location> whileResultLocs = {loc, loc, loc};
+          scf::WhileOp whileOp =
+              builder.create<scf::WhileOp>(loc, whileResultTypes, whileInputs);
 
-    {
-      // Fill "then" region of ifOp.
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&ifOp.getThenRegion().front());
+          // Fill the "before" region of whileOp.
+          {
+            OpBuilder::InsertionGuard guard(builder);
+            Block *before = builder.createBlock(&whileOp.getBefore(), {},
+                                                whileInputTypes, {loc, loc});
+            Value currentState = before->getArgument(0);
+            Value currentAggregate = before->getArgument(1);
+            func::CallOp nextCall = builder.create<func::CallOp>(
+                loc, upstreamInfo.nextFunc, nextResultTypes, currentState);
+            builder.create<scf::ConditionOp>(loc, nextCall->getResult(1),
+                                             ValueRange{nextCall->getResult(0),
+                                                        nextCall->getResult(2),
+                                                        currentAggregate});
+          } // "before" region
 
-      // Create while loop.
-      SmallVector<Value> whileInputs = {firstNextCall->getResult(0),
-                                        firstNextCall->getResult(2)};
-      SmallVector<Type> whileInputTypes = {
-          firstNextCall->getResult(0).getType(),
-          firstNextCall->getResult(2).getType()};
-      SmallVector<Type> whileResultTypes = {upstreamInfo.stateType, elementType,
-                                            elementType};
-      SmallVector<Location> whileResultLocs = {op->getLoc(), op->getLoc(),
-                                               op->getLoc()};
-      scf::WhileOp whileOp = rewriter.create<scf::WhileOp>(
-          op->getLoc(), whileResultTypes, whileInputs);
+          // Fill the "after" region of whileOp.
+          {
+            OpBuilder::InsertionGuard guard(builder);
+            Block *after = builder.createBlock(
+                &whileOp.getAfter(), {}, whileResultTypes, whileResultLocs);
 
-      // Fill the "before" region of whileOp.
-      {
-        OpBuilder::InsertionGuard guard(rewriter);
-        Block *before =
-            rewriter.createBlock(&whileOp.getBefore(), {}, whileInputTypes,
-                                 {op->getLoc(), op->getLoc()});
-        Value currentState = before->getArgument(0);
-        Value currentAggregate = before->getArgument(1);
-        func::CallOp nextCall = rewriter.create<func::CallOp>(
-            op->getLoc(), upstreamInfo.nextFunc, nextResultTypes, currentState);
-        rewriter.create<scf::ConditionOp>(op->getLoc(), nextCall->getResult(1),
-                                          ValueRange{nextCall->getResult(0),
-                                                     nextCall->getResult(2),
-                                                     currentAggregate});
-      } // "before" region
+            Value currentState = after->getArgument(0);
+            Value currentAggregate = after->getArgument(1);
+            Value nextElement = after->getArgument(2);
 
-      // Fill the "after" region of whileOp.
-      {
-        OpBuilder::InsertionGuard guard(rewriter);
-        Block *after = rewriter.createBlock(&whileOp.getAfter(), {},
-                                            whileResultTypes, whileResultLocs);
+            // TODO(ingomueller): extend to arbitrary functions
+            ArrayAttr indicesAttr = builder.getIndexArrayAttr(0);
+            Value nextValue = builder.create<ExtractValueOp>(
+                loc, builder.getI32Type(), nextElement,
+                builder.getIndexArrayAttr(0));
+            Value aggregateValue = builder.create<ExtractValueOp>(
+                loc, builder.getI32Type(), currentAggregate, indicesAttr);
+            Value newAggregateValue = builder.create<arith::AddIOp>(
+                loc, aggregateValue.getType(), aggregateValue, nextValue);
+            Value newAggregate = builder.create<InsertValueOp>(
+                loc, currentAggregate, newAggregateValue, indicesAttr);
 
-        Value currentState = after->getArgument(0);
-        Value currentAggregate = after->getArgument(1);
-        Value nextElement = after->getArgument(2);
+            builder.create<scf::YieldOp>(
+                loc, ValueRange{currentState, newAggregate});
+          } // "after" region
 
-        // TODO(ingomueller): extend to arbitrary functions
-        ArrayAttr indicesAttr = rewriter.getIndexArrayAttr(0);
-        Value nextValue = rewriter.create<ExtractValueOp>(
-            op->getLoc(), rewriter.getI32Type(), nextElement,
-            rewriter.getIndexArrayAttr(0));
-        Value aggregateValue = rewriter.create<ExtractValueOp>(
-            op->getLoc(), rewriter.getI32Type(), currentAggregate, indicesAttr);
-        Value newAggregateValue = rewriter.create<arith::AddIOp>(
-            op->getLoc(), aggregateValue.getType(), aggregateValue, nextValue);
-        Value newAggregate = rewriter.create<InsertValueOp>(
-            op->getLoc(), currentAggregate, newAggregateValue, indicesAttr);
-
-        rewriter.create<scf::YieldOp>(op->getLoc(),
-                                      ValueRange{currentState, newAggregate});
-      } // "after" region
-
-      // The "then" branch of ifOp returns the result of whileOp.
-      Value constTrue = rewriter.create<arith::ConstantIntOp>(
-          op->getLoc(), /*value=*/1, /*width=*/1);
-      rewriter.create<scf::YieldOp>(
-          op->getLoc(),
-          ValueRange{whileOp->getResult(0), constTrue, whileOp->getResult(2)});
-    } // "then" branch
-
-    // Fill "else" region of ifOp. This branch is taken when the first call to
-    // upstream's next does not return anything. In this case, that
-    // "end-of-stream" signal is the result of the reduction and the upstream
-    // state is final, so we just forward the results of the call to next.
-    {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&ifOp.getElseRegion().front());
-      rewriter.create<scf::YieldOp>(op->getLoc(), firstNextCall->getResults());
-    }
+          // The "then" branch of ifOp returns the result of whileOp.
+          Value constTrue = builder.create<arith::ConstantIntOp>(
+              loc, /*value=*/1, /*width=*/1);
+          builder.create<scf::YieldOp>(loc, ValueRange{whileOp->getResult(0),
+                                                       constTrue,
+                                                       whileOp->getResult(2)});
+        },
+        /*elseBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          // This branch is taken when the first call to upstream's next does
+          // not return anything. In this case, that "end-of-stream" signal is
+          // the result of the reduction and the upstream state is final, so we
+          // just forward the results of the call to next.
+          builder.create<scf::YieldOp>(loc, firstNextCall->getResults());
+        });
 
     // Update state.
     Value finalUpstreamState = ifOp->getResult(0);
