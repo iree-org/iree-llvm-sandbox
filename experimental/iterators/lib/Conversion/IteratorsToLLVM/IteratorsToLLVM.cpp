@@ -235,11 +235,11 @@ struct PrintOpLowering : public ConversionPattern {
 
 /// Creates a new function at the parent module of originalOp with the given
 /// types and name and initializes the function body with a first block.
-static FuncOp createOpenNextCloseFunc(Operation *originalOp,
-                                      RewriterBase &rewriter,
-                                      TypeRange inputTypes,
-                                      TypeRange returnTypes,
-                                      SymbolRefAttr funcNameAttr) {
+static FuncOp createOpenNextCloseInParentModule(Operation *originalOp,
+                                                RewriterBase &rewriter,
+                                                TypeRange inputTypes,
+                                                TypeRange returnTypes,
+                                                SymbolRefAttr funcNameAttr) {
   StringRef funcName = funcNameAttr.getLeafReference();
   ModuleOp module = originalOp->getParentOfType<ModuleOp>();
   assert(module);
@@ -262,26 +262,31 @@ static FuncOp createOpenNextCloseFunc(Operation *originalOp,
 }
 
 /// Creates an Open function for originalOp given the provided opInfo.
-static FuncOp createOpenFunc(Operation *originalOp, RewriterBase &rewriter,
+static FuncOp
+createOpenFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
                              const IteratorAnalysis::IteratorInfo &opInfo) {
-  return createOpenNextCloseFunc(originalOp, rewriter, opInfo.stateType,
-                                 opInfo.stateType, opInfo.openFunc);
+  return createOpenNextCloseInParentModule(originalOp, rewriter,
+                                           opInfo.stateType, opInfo.stateType,
+                                           opInfo.openFunc);
 }
 
 /// Creates an Next function for originalOp given the provided opInfo.
-static FuncOp createNextFunc(Operation *originalOp, RewriterBase &rewriter,
+static FuncOp
+createNextFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
                              const IteratorAnalysis::IteratorInfo &opInfo,
                              Type elementType) {
-  return createOpenNextCloseFunc(
+  return createOpenNextCloseInParentModule(
       originalOp, rewriter, opInfo.stateType,
       {opInfo.stateType, rewriter.getI1Type(), elementType}, opInfo.nextFunc);
 }
 
 /// Creates an Close function for originalOp given the provided opInfo.
-static FuncOp createCloseFunc(Operation *originalOp, RewriterBase &rewriter,
+static FuncOp
+createCloseFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
                               const IteratorAnalysis::IteratorInfo &opInfo) {
-  return createOpenNextCloseFunc(originalOp, rewriter, opInfo.stateType,
-                                 opInfo.stateType, opInfo.closeFunc);
+  return createOpenNextCloseInParentModule(originalOp, rewriter,
+                                           opInfo.stateType, opInfo.stateType,
+                                           opInfo.closeFunc);
 }
 
 //===----------------------------------------------------------------------===//
@@ -309,7 +314,7 @@ convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
 
   // Create Open function. --------------------------------------------------
   {
-    FuncOp funcOp = createOpenFunc(op, rewriter, opInfo);
+    FuncOp funcOp = createOpenFuncInParentModule(op, rewriter, opInfo);
 
     Block *block = &funcOp.getBody().front();
     OpBuilder::InsertionGuard guard(rewriter);
@@ -328,7 +333,8 @@ convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
 
   // Create Next function. --------------------------------------------------
   {
-    FuncOp funcOp = createNextFunc(op, rewriter, opInfo, elementType);
+    FuncOp funcOp =
+        createNextFuncInParentModule(op, rewriter, opInfo, elementType);
 
     Block *block = &funcOp.getBody().front();
     OpBuilder::InsertionGuard guard(rewriter);
@@ -386,7 +392,7 @@ convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
 
   // Create Close function. -------------------------------------------------
   {
-    FuncOp funcOp = createCloseFunc(op, rewriter, opInfo);
+    FuncOp funcOp = createCloseFuncInParentModule(op, rewriter, opInfo);
 
     Block *block = &funcOp.getBody().front();
     OpBuilder::InsertionGuard guard(rewriter);
@@ -429,7 +435,7 @@ convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
 
   // Create Open function. --------------------------------------------------
   {
-    FuncOp funcOp = createOpenFunc(op, rewriter, opInfo);
+    FuncOp funcOp = createOpenFuncInParentModule(op, rewriter, opInfo);
     Block *block = &funcOp.getBody().front();
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(block);
@@ -456,7 +462,8 @@ convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
 
   // Create Next function. --------------------------------------------------
   {
-    FuncOp funcOp = createNextFunc(op, rewriter, opInfo, elementType);
+    FuncOp funcOp =
+        createNextFuncInParentModule(op, rewriter, opInfo, elementType);
     Block *block = &funcOp.getBody().front();
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(block);
@@ -571,7 +578,7 @@ convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
 
   // Create Close function. -------------------------------------------------
   {
-    FuncOp funcOp = createCloseFunc(op, rewriter, opInfo);
+    FuncOp funcOp = createCloseFuncInParentModule(op, rewriter, opInfo);
     Block *block = &funcOp.getBody().front();
     OpBuilder::InsertionGuard guard(rewriter);
     rewriter.setInsertionPointToStart(block);
