@@ -12,6 +12,7 @@
 #include "IteratorAnalysis.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arithmetic/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
@@ -349,19 +350,19 @@ convertIteratorOp(SampleInputOp op, ArrayRef<Value> operands,
         rewriter.getIndexArrayAttr({0}));
 
     // Test if we have reached the end of the range.
-    Value three =
-        rewriter.create<arith::ConstantIntOp>(op->getLoc(), /*value=*/3,
+    Value four =
+        rewriter.create<arith::ConstantIntOp>(op->getLoc(), /*value=*/4,
                                               /*width=*/32);
-    Value hasNext = rewriter.create<arith::CmpIOp>(
-        op->getLoc(), arith::CmpIPredicate::sle, currentIndex, three);
+    ArithBuilder ab(rewriter, op.getLoc());
+    Value hasNext = ab.slt(currentIndex, four);
     auto ifOp = rewriter.create<scf::IfOp>(
         op->getLoc(), opInfo.stateType, hasNext,
         /*thenBuilder=*/
         [&](OpBuilder &builder, Location loc) {
           Value one = builder.create<arith::ConstantIntOp>(loc, /*value=*/1,
                                                            /*width=*/32);
-          Value updatedCurrentIndex = builder.create<arith::AddIOp>(
-              loc, currentIndex.getType(), currentIndex, one);
+          ArithBuilder ab(builder, loc);
+          Value updatedCurrentIndex = ab.add(currentIndex, one);
           Value updatedState = builder.create<InsertValueOp>(
               loc, originalState, updatedCurrentIndex,
               builder.getIndexArrayAttr({0}));
@@ -524,8 +525,8 @@ convertIteratorOp(ReduceOp op, ArrayRef<Value> operands, RewriterBase &rewriter,
                 builder.getIndexArrayAttr(0));
             Value aggregateValue = builder.create<ExtractValueOp>(
                 loc, builder.getI32Type(), currentAggregate, indicesAttr);
-            Value newAggregateValue = builder.create<arith::AddIOp>(
-                loc, aggregateValue.getType(), aggregateValue, nextValue);
+            ArithBuilder ab(builder, loc);
+            Value newAggregateValue = ab.add(aggregateValue, nextValue);
             Value newAggregate = builder.create<InsertValueOp>(
                 loc, currentAggregate, newAggregateValue, indicesAttr);
 
