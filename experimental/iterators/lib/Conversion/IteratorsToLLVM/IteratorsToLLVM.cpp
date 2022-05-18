@@ -235,6 +235,11 @@ struct PrintOpLowering : public ConversionPattern {
 // SampleInputOp.
 //===----------------------------------------------------------------------===//
 
+/// Builds IR that resets the current index to 0. Possible result:
+///
+/// %0 = llvm.mlir.constant(0 : i32) : i32
+/// %1 = llvm.insertvalue %0, %arg0[0 : index] :
+///          !llvm.struct<"iterators.sampleInputState", (i32)>
 static llvm::SmallVector<Value, 4>
 buildOpenBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos) {
@@ -246,6 +251,31 @@ buildOpenBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
   return {updatedState};
 }
 
+/// Builds IR that produces a tuple with the current index and increments that
+/// index. Pseudo-code:
+///
+/// if currentIndex > max: return {}
+/// return currentIndex++
+///
+/// Possible result:
+//
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.sampleInputState", (i32)>
+/// %c4_i32 = arith.constant 4 : i32
+/// %1 = arith.cmpi slt, %0, %c4_i32 : i32
+/// %2 = scf.if %1 -> (!llvm.struct<"iterators.sampleInputState", (i32)>) {
+///   %c1_i32 = arith.constant 1 : i32
+///   %5 = arith.addi %0, %c1_i32 : i32
+///   %6 = llvm.insertvalue %5, %arg0[0 : index] :
+///            !llvm.struct<"iterators.sampleInputState", (i32)>
+///   scf.yield %6 : !llvm.struct<"iterators.sampleInputState", (i32)>
+/// } else {
+///   scf.yield %arg0 : !llvm.struct<"iterators.sampleInputState", (i32)>
+/// }
+/// %3 = llvm.mlir.undef : !llvm.struct<(i32)>
+/// %4 = llvm.insertvalue %0, %3[0 : index] : !llvm.struct<(i32)>
+/// return %2, %1, %4 : !llvm.struct<"iterators.sampleInputState", (i32)>,
+///                     i1, !llvm.struct<(i32)>
 static llvm::SmallVector<Value, 4>
 buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -286,13 +316,20 @@ buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
   return {ifOp->getResult(0), hasNext, nextElement};
 }
 
+/// Forwards the initial state. The SampleInputOp doesn't do anything on Close.
 static llvm::SmallVector<Value, 4>
 buildCloseBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
                ArrayRef<IteratorInfo> upstreamInfos) {
-  // Nothing to do, return.
   return {initialState};
 }
 
+/// Builds IR that creates an initial iterator state consisting of an
+/// (uninitialized) current index. Possible result:
+///
+/// %0 = llvm.mlir.constant(0 : i32) : i32
+/// %1 = llvm.insertvalue %0, %arg0[0 : index] :
+///          !llvm.struct<"iterators.sampleInputState", (i32)>
+/// return %1 : !llvm.struct<"iterators.sampleInputState", (i32)>
 static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
@@ -304,6 +341,13 @@ static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
 // ReduceOp.
 //===----------------------------------------------------------------------===//
 
+/// Builds IR that opens the nested upstream iterator. Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
+/// %1 = call @iterators.sampleInput.Open.0(%0) : (...) -> ...
+/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
 static llvm::SmallVector<Value, 4>
 buildOpenBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos) {
@@ -325,6 +369,45 @@ buildOpenBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   return {updatedState};
 }
 
+/// Builds IR that consumes all elements of the upstream iterator and combines
+/// them into a single one using the given reduce function. Pseudo-code:
+///
+/// accumulator = upstream->Next()
+/// if !accumulator: return {}
+/// while (nextTuple = upstream->Next()):
+///     accumulator = reduce(accumulator, nextTuple)
+/// return accumulator
+///
+/// Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
+/// %1:3 = call @iterators.sampleInput.Next.0(%0) :
+///            (...) -> (..., i1, !llvm.struct<(i32)>)
+/// %2:3 = scf.if %1#1 -> (..., i1, !llvm.struct<(i32)>) {
+///   %4:3 = scf.while (%arg1 = %1#0, %arg2 = %1#2) :
+///              (..., !llvm.struct<(i32)>) ->
+///                 (..., !llvm.struct<(i32)>, !llvm.struct<(i32)>) {
+///     %5:3 = call @iterators.sampleInput.Next.0(%arg1) :
+///                (...) -> (..., i1, !llvm.struct<(i32)>)
+///     scf.condition(%5#1) %5#0, %5#2, %arg2 :
+///         ..., !llvm.struct<(i32)>, !llvm.struct<(i32)>
+///   } do {
+///   ^bb0(%arg1: ..., %arg2: !llvm.struct<(i32)>, %arg3: !llvm.struct<(i32)>):
+///     // TODO(ingomueller): extend to arbitrary functions
+///     %5 = llvm.extractvalue %arg3[0 : index] : !llvm.struct<(i32)>
+///     %6 = llvm.extractvalue %arg2[0 : index] : !llvm.struct<(i32)>
+///     %7 = arith.addi %6, %5 : i32
+///     %8 = llvm.insertvalue %7, %arg2[0 : index] : !llvm.struct<(i32)>
+///     scf.yield %arg1, %8 : ..., !llvm.struct<(i32)>
+///   }
+///   %true = arith.constant true
+///   scf.yield %4#0, %true, %4#2 : ..., i1, !llvm.struct<(i32)>
+/// } else {
+///   scf.yield %1#0, %1#1, %1#2 : ..., i1, !llvm.struct<(i32)>
+/// }
+/// %3 = llvm.insertvalue %2#0, %arg0[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
 static llvm::SmallVector<Value, 4>
 buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -423,6 +506,13 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   return {finalState, ifOp->getResult(1), ifOp->getResult(2)};
 }
 
+/// Builds IR that closes the nested upstream iterator. Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
+/// %1 = call @iterators.sampleInput.Close.0(%0) : (...) -> ...
+/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
 static llvm::SmallVector<Value, 4>
 buildCloseBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
                ArrayRef<IteratorInfo> upstreamInfos) {
@@ -444,6 +534,13 @@ buildCloseBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   return {updatedState};
 }
 
+/// Builds IR that initializes the iterator state with the state of the upstream
+/// iterator. Possible output:
+///
+/// %0 = ...
+/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.reduceState", (...)>
+/// %2 = llvm.insertvalue %0, %1[0 : index] :
+///          !llvm.struct<"iterators.reduceState", (...)>
 static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
@@ -634,7 +731,37 @@ convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
 }
 
 /// Converts the given sink to LLVM using the converted operands from the root
-/// iterator.
+/// iterator. The current sink consumes the root iterator and prints each
+/// element it produces. Pseudo code:
+///
+/// rootIterator->Open()
+/// while (nextTuple = rootIterator->Next())
+///   print(nextTuple)
+/// rootIterator->Close()
+///
+/// Possible result:
+///
+/// %2 = ... // initialize state of root iterator
+/// %3 = call @iterators.reduce.Open.1(%2) : (!rootStateType) -> !rootStateType
+/// %4:3 = scf.while (%arg0 = %3) :
+///            (!rootStateType) -> (!rootStateType, i1, !llvm.struct<(i32)>) {
+///   %6:3 = call @iterators.reduce.Next.1(%arg0) :
+///              (!rootStateType) -> (!rootStateType, i1, !llvm.struct<(i32)>)
+///   scf.condition(%6#1) %6#0, %6#1, %6#2 :
+///       !rootStateType, i1, !llvm.struct<(i32)>
+/// } do {
+/// ^bb0(%arg0: !rootStateType, %arg1: i1, %arg2: !llvm.struct<(i32)>):
+///   %6 = llvm.mlir.addressof @frmt_spec.anonymous_tuple :
+///            !llvm.ptr<array<6 x i8>>
+///   %7 = llvm.mlir.constant(0 : i64) : i64
+///   %8 = llvm.getelementptr %6[%7, %7] :
+///            (!llvm.ptr<array<6 x i8>>, i64, i64) -> !llvm.ptr<i8>
+///   %9 = llvm.extractvalue %arg2[0 : index] : !llvm.struct<(i32)>
+///   %10 = llvm.call @printf(%8, %9) : (!llvm.ptr<i8>, i32) -> i32
+///   scf.yield %arg0 : !rootStateType
+/// }
+/// %5 = call @iterators.reduce.Close.1(%4#0) :
+///          (!rootStateType) -> !rootStateType
 static FailureOr<Optional<Value>>
 convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
                       RewriterBase &rewriter,
