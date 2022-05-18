@@ -10,7 +10,7 @@
 func @query1() {
   %input = "iterators.sampleInput"() : () -> (!iterators.stream<!tupleType>)
   %reduce1 = "iterators.reduce"(%input) : (!iterators.stream<!tupleType>) -> (!iterators.stream<!tupleType>)
-  // Reduce result again to check that we can reduce from any input.
+  // Reduce result again to vary from second query.
   %reduce2 = "iterators.reduce"(%reduce1) : (!iterators.stream<!tupleType>) -> (!iterators.stream<!tupleType>)
   "iterators.sink"(%reduce2) : (!iterators.stream<!tupleType>) -> ()
   return
