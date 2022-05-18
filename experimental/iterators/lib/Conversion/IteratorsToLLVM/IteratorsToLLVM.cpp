@@ -11,6 +11,7 @@
 #include "../PassDetail.h"
 #include "IteratorAnalysis.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Utils/MLIRSupport.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Arithmetic/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -64,6 +65,7 @@ using namespace mlir;
 using namespace mlir::iterators;
 using namespace mlir::LLVM;
 using namespace mlir::func;
+using namespace ::iterators;
 using namespace std::string_literals;
 using IteratorInfo = IteratorAnalysis::IteratorInfo;
 
@@ -95,23 +97,23 @@ private:
 
 /// Return a symbol reference to the printf function, inserting it into the
 /// module if necessary.
-static FlatSymbolRefAttr lookupOrInsertPrintf(RewriterBase &rewriter,
+static FlatSymbolRefAttr lookupOrInsertPrintf(OpBuilder &builder,
                                               ModuleOp module) {
   if (module.lookupSymbol<LLVMFuncOp>("printf"))
-    return SymbolRefAttr::get(rewriter.getContext(), "printf");
+    return SymbolRefAttr::get(builder.getContext(), "printf");
 
   // Create a function declaration for printf, the signature is:
   //   * `i32 (i8*, ...)`
-  LLVMPointerType charPointerType = LLVMPointerType::get(rewriter.getI8Type());
+  LLVMPointerType charPointerType = LLVMPointerType::get(builder.getI8Type());
   LLVMFunctionType printfFunctionType =
-      LLVMFunctionType::get(rewriter.getI32Type(), charPointerType,
+      LLVMFunctionType::get(builder.getI32Type(), charPointerType,
                             /*isVarArg=*/true);
 
   // Insert the printf function into the body of the parent module.
-  PatternRewriter::InsertionGuard insertGuard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
-  rewriter.create<LLVMFuncOp>(module.getLoc(), "printf", printfFunctionType);
-  return SymbolRefAttr::get(rewriter.getContext(), "printf");
+  OpBuilder::InsertionGuard insertGuard(builder);
+  builder.setInsertionPointToStart(module.getBody());
+  builder.create<LLVMFuncOp>(module.getLoc(), "printf", printfFunctionType);
+  return SymbolRefAttr::get(builder.getContext(), "printf");
 }
 
 /// Return a value representing an access into a global string with the given
@@ -431,55 +433,44 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
         // Create while loop.
         SmallVector<Value> whileInputs = {firstNextCall->getResult(0),
                                           firstNextCall->getResult(2)};
-        SmallVector<Type> whileInputTypes = {
-            firstNextCall->getResult(0).getType(),
-            firstNextCall->getResult(2).getType()};
         SmallVector<Type> whileResultTypes = {upstreamInfos[0].stateType,
                                               elementType, elementType};
-        SmallVector<Location> whileResultLocs = {loc, loc, loc};
-        scf::WhileOp whileOp =
-            builder.create<scf::WhileOp>(loc, whileResultTypes, whileInputs);
+        scf::WhileOp whileOp = utils::createWhileOp(
+            builder, loc, whileResultTypes, whileInputs,
+            /*beforeBuilder=*/
+            [&](OpBuilder &builder, Location loc,
+                Block::BlockArgListType args) {
+              Value currentState = args[0];
+              Value currentAggregate = args[1];
+              func::CallOp nextCall =
+                  builder.create<func::CallOp>(loc, upstreamInfos[0].nextFunc,
+                                               nextResultTypes, currentState);
+              builder.create<scf::ConditionOp>(
+                  loc, nextCall->getResult(1),
+                  ValueRange{nextCall->getResult(0), nextCall->getResult(2),
+                             currentAggregate});
+            },
+            /*afterBuilder=*/
+            [&](OpBuilder &builder, Location loc,
+                Block::BlockArgListType args) {
+              Value currentState = args[0];
+              Value currentAggregate = args[1];
+              Value nextElement = args[2];
 
-        // Fill the "before" region of whileOp.
-        {
-          OpBuilder::InsertionGuard guard(builder);
-          Block *before = builder.createBlock(&whileOp.getBefore(), {},
-                                              whileInputTypes, {loc, loc});
-          Value currentState = before->getArgument(0);
-          Value currentAggregate = before->getArgument(1);
-          func::CallOp nextCall = builder.create<func::CallOp>(
-              loc, upstreamInfos[0].nextFunc, nextResultTypes, currentState);
-          builder.create<scf::ConditionOp>(loc, nextCall->getResult(1),
-                                           ValueRange{nextCall->getResult(0),
-                                                      nextCall->getResult(2),
-                                                      currentAggregate});
-        } // "before" region
+              ArrayAttr indicesAttr = builder.getIndexArrayAttr(0);
+              Value nextValue = builder.create<ExtractValueOp>(
+                  loc, builder.getI32Type(), nextElement,
+                  builder.getIndexArrayAttr(0));
+              Value aggregateValue = builder.create<ExtractValueOp>(
+                  loc, builder.getI32Type(), currentAggregate, indicesAttr);
+              ArithBuilder ab(builder, loc);
+              Value newAggregateValue = ab.add(aggregateValue, nextValue);
+              Value newAggregate = builder.create<InsertValueOp>(
+                  loc, currentAggregate, newAggregateValue, indicesAttr);
 
-        // Fill the "after" region of whileOp.
-        {
-          OpBuilder::InsertionGuard guard(builder);
-          Block *after = builder.createBlock(&whileOp.getAfter(), {},
-                                             whileResultTypes, whileResultLocs);
-
-          Value currentState = after->getArgument(0);
-          Value currentAggregate = after->getArgument(1);
-          Value nextElement = after->getArgument(2);
-
-          // TODO(ingomueller): extend to arbitrary functions
-          ArrayAttr indicesAttr = builder.getIndexArrayAttr(0);
-          Value nextValue = builder.create<ExtractValueOp>(
-              loc, builder.getI32Type(), nextElement,
-              builder.getIndexArrayAttr(0));
-          Value aggregateValue = builder.create<ExtractValueOp>(
-              loc, builder.getI32Type(), currentAggregate, indicesAttr);
-          ArithBuilder ab(builder, loc);
-          Value newAggregateValue = ab.add(aggregateValue, nextValue);
-          Value newAggregate = builder.create<InsertValueOp>(
-              loc, currentAggregate, newAggregateValue, indicesAttr);
-
-          builder.create<scf::YieldOp>(loc,
-                                       ValueRange{currentState, newAggregate});
-        } // "after" region
+              builder.create<scf::YieldOp>(
+                  loc, ValueRange{currentState, newAggregate});
+            });
 
         // The "then" branch of ifOp returns the result of whileOp.
         Value constTrue =
@@ -785,64 +776,55 @@ convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
   SmallVector<Location> whileResultLocs = {op->getLoc(), op->getLoc(),
                                            op->getLoc()};
 
-  scf::WhileOp whileOp = rewriter.create<scf::WhileOp>(
-      op->getLoc(), nextResultTypes, openCallOp->getOpResult(0));
+  scf::WhileOp whileOp = utils::createWhileOp(
+      rewriter, op->getLoc(), nextResultTypes, openCallOp->getOpResult(0),
+      /*beforeBuilder=*/
+      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        Value currentState = args[0];
+        func::CallOp nextCallOp = builder.create<func::CallOp>(
+            loc, opInfo->nextFunc, nextResultTypes, currentState);
+        // TODO: Don't pass the boolean to "after"
+        builder.create<scf::ConditionOp>(loc, nextCallOp->getResult(1),
+                                         nextCallOp->getResults());
+      },
+      /*afterBuilder=*/
+      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        LLVMStructType structType = elementType.dyn_cast<LLVMStructType>();
+        assert(structType && "Only struct types supported for now");
 
-  // Before region.
-  {
-    OpBuilder::InsertionGuard guard(rewriter);
-    Block *before = rewriter.createBlock(&whileOp.getBefore(), {},
-                                         opInfo->stateType, op->getLoc());
-    Value currentState = before->getArgument(0);
-    func::CallOp nextCallOp = rewriter.create<func::CallOp>(
-        op->getLoc(), opInfo->nextFunc, nextResultTypes, currentState);
-    // TODO: Don't pass the boolean to "after"
-    rewriter.create<scf::ConditionOp>(op->getLoc(), nextCallOp->getResult(1),
-                                      nextCallOp->getResults());
-  }
+        // Assemble format string in the form `(%i, %i, ...)`.
+        std::string format("(%i)\n\0"s);
 
-  // After region.
-  {
-    OpBuilder::InsertionGuard guard(rewriter);
-    Block *after = rewriter.createBlock(&whileOp.getAfter(), {},
-                                        nextResultTypes, whileResultLocs);
+        // Insert format string as global.
+        ModuleOp module = op->getParentOfType<ModuleOp>();
+        StringRef tupleName = (structType.isIdentified() ? structType.getName()
+                                                         : "anonymous_tuple");
+        Value formatSpec = getOrCreateGlobalString(
+            builder, Twine("frmt_spec.") + tupleName, format, module);
 
-    LLVMStructType structType = elementType.dyn_cast<LLVMStructType>();
-    assert(structType && "Only struct types supported for now");
+        // Assemble arguments to printf.
+        SmallVector<Value, 8> values = {formatSpec};
+        ArrayRef<Type> fieldTypes = structType.getBody();
+        for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
+          // Create index attribute.
+          ArrayAttr indicesAttr = builder.getIndexArrayAttr({i});
 
-    // Assemble format string in the form `(%i, %i, ...)`.
-    std::string format("(%i)\n\0"s);
+          // Extract from into struct.
+          Value value = builder.create<ExtractValueOp>(loc, fieldTypes[i],
+                                                       args[2], indicesAttr);
 
-    // Insert format string as global.
-    ModuleOp module = op->getParentOfType<ModuleOp>();
-    StringRef tupleName =
-        (structType.isIdentified() ? structType.getName() : "anonymous_tuple");
-    Value formatSpec = getOrCreateGlobalString(
-        rewriter, Twine("frmt_spec.") + tupleName, format, module);
+          values.push_back(value);
+        }
 
-    // Assemble arguments to printf.
-    SmallVector<Value, 8> values = {formatSpec};
-    ArrayRef<Type> fieldTypes = structType.getBody();
-    for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
-      // Create index attribute.
-      ArrayAttr indicesAttr = rewriter.getIndexArrayAttr({i});
+        // Generate call to printf.
+        FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(builder, module);
+        builder.create<LLVM::CallOp>(loc, builder.getI32Type(), printfRef,
+                                     values);
 
-      // Extract from into struct.
-      Value value = rewriter.create<ExtractValueOp>(
-          op->getLoc(), fieldTypes[i], after->getArgument(2), indicesAttr);
-
-      values.push_back(value);
-    }
-
-    // Generate call to printf.
-    FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
-    rewriter.create<LLVM::CallOp>(op->getLoc(), rewriter.getI32Type(),
-                                  printfRef, values);
-
-    // Forward iterator state to "before" region.
-    Value currentState = after->getArgument(0);
-    rewriter.create<scf::YieldOp>(op->getLoc(), currentState);
-  }
+        // Forward iterator state to "before" region.
+        Value currentState = args[0];
+        builder.create<scf::YieldOp>(loc, currentState);
+      });
 
   Value consumedState = whileOp.getResult(0);
 
@@ -879,9 +861,9 @@ static void convertIteratorOps(ModuleOp module) {
   IteratorAnalysis typeAnalysis(module);
   BlockAndValueMapping mapping;
 
-  // Collect all iterator ops in a worklist. Within each block, the iterator ops
-  // are seen by the walker in sequential order, so each iterator is added to
-  // the worklist *after* all of its upstream iterators.
+  // Collect all iterator ops in a worklist. Within each block, the iterator
+  // ops are seen by the walker in sequential order, so each iterator is added
+  // to the worklist *after* all of its upstream iterators.
   SmallVector<Operation *, 16> workList;
   module->walk<WalkOrder::PreOrder>([&](Operation *op) {
     TypeSwitch<Operation *, void>(op).Case<SampleInputOp, ReduceOp, SinkOp>(

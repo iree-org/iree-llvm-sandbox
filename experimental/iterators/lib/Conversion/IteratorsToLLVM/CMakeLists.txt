@@ -6,6 +6,7 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
   MLIRIteratorsConversionIncGen
 
   LINK_LIBS PUBLIC
+  IteratorsUtils
   MLIRFunc
   MLIRIterators
   MLIRLLVMIR
