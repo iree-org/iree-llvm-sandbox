@@ -11,6 +11,7 @@
 
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
+include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpBase.td"
 
@@ -47,18 +48,53 @@ def Iterators_PrintTupleOp : Iterators_Op<"print"> {
 // High-level iterators
 //===----------------------------------------------------------------------===//
 
-def Iterators_SampleInputOp : Iterators_Op<"sampleInput"> {
+class IteratorElementTypeIsPred<string name, Type type>
+  : And<[
+      SubstLeaves<"$_self", "$" # name # ".getType()",
+                  Iterators_Stream.predicate>,
+      SubstLeaves<"$_self",
+                  "$" # name # ".getType().dyn_cast<StreamType>().getElementType()",
+                  type.predicate>]>;
+class IteratorElementTypeIs<string name, Type type>
+  : PredOpTrait<"'" # name # "' has element type " # type.summary,
+                IteratorElementTypeIsPred<name, type>>;
+
+class IteratorElementTypeIsSingleIntStructPred<string name>
+  : And<[
+      IteratorElementTypeIsPred<name, LLVM_AnyStruct>,
+      SubstLeaves<"$_self",
+                  "$" # name # ".getType().dyn_cast<StreamType>().getElementType()",
+                  CPred<"$_self.dyn_cast<::mlir::LLVM::LLVMStructType>().getBody().size() == 1">>,
+      SubstLeaves<"$_self",
+                  "$" # name # [{.getType()
+                                 .dyn_cast<StreamType>().getElementType()
+                                 .dyn_cast<::mlir::LLVM::LLVMStructType>()
+                                 .getBody().front()}],
+                  I32.predicate>
+    ]>;
+class IteratorElementTypeIsSingleIntStruct<string name>
+  : PredOpTrait<"'" # name # "' has single i32 LLVM struct element type",
+                IteratorElementTypeIsSingleIntStructPred<name>>;
+
+// TODO(ingomueller): Extend to more number types.
+def Iterators_SampleInputOp : Iterators_Op<"sampleInput",
+    [IteratorElementTypeIsSingleIntStruct<"result">]> {
   let summary = "Create some sample input";
   let results = (outs Iterators_Stream:$result);
 }
 
-def Iterators_ReduceOp : Iterators_Op<"reduce"> {
+// TODO(ingomueller): Support custom reduce function.
+// TODO(ingomueller): Extend to any type matching reduce function.
+def Iterators_ReduceOp : Iterators_Op<"reduce",
+    [IteratorElementTypeIsSingleIntStruct<"result">]> {
   let summary = "Reduce the input to a single tuple";
   let arguments = (ins Iterators_Stream:$input);
   let results = (outs Iterators_Stream:$result);
 }
 
-def Iterators_SinkOp : Iterators_Op<"sink"> {
+// TODO(ingomueller): Extend to more LLVM structs/builtin types
+def Iterators_SinkOp : Iterators_Op<"sink",
+    [IteratorElementTypeIsSingleIntStruct<"input">]> {
   let summary = "Consume tuples from an iterator";
   let arguments = (ins Iterators_Stream:$input);
 }

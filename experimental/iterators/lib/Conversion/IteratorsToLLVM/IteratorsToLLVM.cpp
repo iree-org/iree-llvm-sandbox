@@ -854,6 +854,7 @@ convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
         assert(structType && "Only struct types supported for now");
 
         // Assemble format string in the form `(%i, %i, ...)`.
+        // TODO(ingomueller): support more struct types
         std::string format("(%i)\n\0"s);
 
         // Insert format string as global.
