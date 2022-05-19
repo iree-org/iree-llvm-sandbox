@@ -33,7 +33,7 @@ In your `$HOME/src` directory, check out each project:
 
 Required:
 
-* `git clone https://github.com/google/iree-llvm-sandbox`
+* `git clone --recursive https://github.com/google/iree-llvm-sandbox`
 
 We use the following environment variables defaults in these instructions:
 
@@ -45,7 +45,7 @@ We use the following environment variables defaults in these instructions:
 Follow the instructions for
 [MLIR Python Bindings](https://mlir.llvm.org/docs/Bindings/Python/):
 
-```
+```bash
 which python
 python -m venv ~/.venv/mlirdev
 source ~/.venv/mlirdev/bin/activate
@@ -53,41 +53,55 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-## Configure and build
-
-The sandbox must be built with IREE integration.
-
 Note that useful python environment `activate` scripts for `mlirdev` and
 `mlirdev-debug` are provided in the `scripts` directory.
 
-Checkout the [IREE](https://github.com/google/iree) GitHub repo next to this
-directory and initialize submodules:
+## Configure and build
 
-```
-(cd .. && git clone https://github.com/google/iree --recurse-submodules=third_party/llvm-project && \
- git checkout ntv-sandbox && \
- git submodule update --init --recursive)
-```
+### Default IREE and LLVM versions
 
-And configure/build the project:
+Make sure that the git submodules are clone and up to date:
 
-```
-python configure.py --iree-path=../iree
+```bash
+git submodule update --recursive --init
 ```
 
-Or if using `scripts/mlirdev/bin/activate`:
+Configure the project and run an initial build:
 
+```bash
+python configure.py
 ```
+
+Run subsequent builds with:
+
+```bash
+cd ${IREE_LLVM_SANDBOX_BUILD_DIR}
+ninja
+```
+
+If using using `scripts/mlirdev/bin/activate`, the above steps can be run as:
+
+```bash
+sandbox-update-dependencies
 sandbox-configure-and-build-iree
+sandbox-build
 ```
 
-Note that the `third_party/llvm-project` bundled with IREE is used.
-The `IREE` `ntv-sandbox` branch often runs ahead of the IREE integration and should
-generally be used.
+### Custom IREE and LLVM versions
+
+Instead of using the versions of IREE and (transitively) LLVM as described
+above, i.e., by using the git submodules referenced by this repository, you
+can provide paths for custom locations of these dependencies:
+
+```bash
+python configure --iree-path=../iree  # Custom IREE with IREE-provided LLVM
+python configure --llvm-path=../llvm  # Default IREE but custom LLVM
+python configure --llvm-path=../llvm --iree-path=../iree  # Both custom
+```
 
 ## Using the Python API
 
-```
+```bash
 source .env && export PYTHONPATH
 
 # Sanity check (should not error).
@@ -102,7 +116,7 @@ python -m python.examples.matmul.test
 
 ## Using mlir-proto-opt
 
-```
+```bash
 "${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/mlir-proto-opt \
   test/Dialect/vector_ext/vector_masking.mlir \
   -test-vector-masking-utils=masking -split-input-file
@@ -112,7 +126,7 @@ python -m python.examples.matmul.test
 
 The following commands either run the lit tests only or all tests:
 
-```
+```bash
 # Run lit tests
 lit -v test
 # Run python and lit tests
@@ -128,7 +142,7 @@ to display as-you-type diagnostics, code navigation, and similar features. In
 order to extend this functionality to the dialects from this repository, use
 the following LSP server binary:
 
-```
+```bash
 /path/to/iree-llvm-sandbox/build/bin/mlir-proto-lsp-server
 ```
 
@@ -140,7 +154,7 @@ In VS Code, this is done via the `mlir.server_path` property in
 The following command runs a simple search of 1000 iterations distributed across
 all processors of the machine, for a matmul of fixed size `40x50x60`:
 
-```
+```bash
 iree-llvm-sandbox# python -m python.examples.tuning.test_nevergrad_small_matmul \
 --search-budget 1000 --n_iters 100 --num-parallel-tasks $(nproc --all) \
 --num-cpus-per-benchmark 1 --timeout-per-compilation 1 --timeout-per-benchmark 1 \
@@ -152,7 +166,7 @@ iree-llvm-sandbox# python -m python.examples.tuning.test_nevergrad_small_matmul 
 Adaptation of recommended benchmark instructions found [here](https://llvm.org/docs/Benchmarking.html).
 Run the following as root.
 
-```
+```bash
 # Basic info
 numactl --hardware
 
@@ -223,14 +237,14 @@ PYTHONPATH=${IREE_LLVM_SANDBOX_BUILD_DIR}/tools/sandbox/python_packages cset pro
 
 Repro for experimental results described in [arxiv paper](https://arxiv.org/abs/2202.03293):
 
-```
+```bash
 git checkout 680c8160edb7aa13b621b28c221288624ebc37e4
 echo Please update LLVM to $(cat pinned-llvm-version)
 ```
 
 Hash before transitioning to schedule dialect only:
 
-```
+```bash
 git checkout ea0e5ec37a4d73808e16926c0335cc21fde0286c
 echo Please update LLVM to $(cat pinned-llvm-version)
 ```

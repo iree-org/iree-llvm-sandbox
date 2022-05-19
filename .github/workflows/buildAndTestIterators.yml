@@ -25,14 +25,6 @@ jobs:
       uses: actions/checkout@v2
       with:
         path: sandbox
-    - name: Checkout IREE
-      uses: actions/checkout@v2
-      with:
-        path: iree
-        repository: nicolasvasilache/iree
-        # Always build with iree/iree-dialects on the nicolasvasilache/iree/ntv-sandbox branch.
-        ref: ntv-sandbox
-        # Use the LLVM version bundled with IREE and coming from iree-llvm-fork.
         submodules: recursive
 
     - name: Install Python depends
@@ -50,8 +42,7 @@ jobs:
     - name: Build
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
-        # Always build with iree/iree-dialects on the iree/ntv-sandbox branch.
-        python configure.py --iree-path=../iree --iterators
+        python configure.py --iterators
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
 
