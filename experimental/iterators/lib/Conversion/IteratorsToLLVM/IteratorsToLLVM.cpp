@@ -914,10 +914,18 @@ convertIteratorOp(Operation *op, ArrayRef<Value> operands,
 // Pass driver
 //===----------------------------------------------------------------------===//
 
-/// Converts all iterator ops of a module to LLVM using a custom walker.
+/// Converts all iterator ops of a module to LLVM using a custom walker. The
+/// conversion happens in two steps:
+/// 1. The IteratorAnalysis computes the nested state of each iterator op (i.e.,
+///    the private state of each iterator plus the private state of all
+///    transitive upstream iterators) and pre-assigns the names of the Open/
+///    Next/Close functions of each iterator op.
+/// 2. The custom walker traverses the iterator ops in use-def order, converting
+///    each iterator in an op-specific way providing the converted operands
+///    (which it has walked before) to the conversion logic.
 static void convertIteratorOps(ModuleOp module) {
   IRRewriter rewriter(module.getContext());
-  IteratorAnalysis typeAnalysis(module);
+  IteratorAnalysis analysis(module);
   BlockAndValueMapping mapping;
 
   // Collect all iterator ops in a worklist. Within each block, the iterator
@@ -943,7 +951,7 @@ static void convertIteratorOps(ModuleOp module) {
     // Convert this op.
     rewriter.setInsertionPointAfter(op);
     FailureOr<Optional<Value>> conversionResult =
-        convertIteratorOp(op, operands, rewriter, typeAnalysis);
+        convertIteratorOp(op, operands, rewriter, analysis);
     assert(succeeded(conversionResult));
 
     // Save converted result.

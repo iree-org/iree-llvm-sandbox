@@ -22,7 +22,10 @@ namespace mlir {
 namespace iterators {
 
 /// Constructs information about the state type and the Open/Next/Close
-/// functions of all iterator ops nested inside the given parent op.
+/// functions of all iterator ops nested inside the given parent op. The state
+/// type of each iterator usually consists of a private part, which the iterator
+/// accesses in its Open/Next/Close logic, as well as the state of all of its
+/// transitive upstream iterators.
 class IteratorAnalysis {
 public:
   /// Information about each op constructed by this analysis.
