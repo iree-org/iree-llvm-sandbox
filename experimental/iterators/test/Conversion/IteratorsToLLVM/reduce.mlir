@@ -16,7 +16,7 @@
 // CHECK-NEXT:    %[[V2:.*]]:3 = scf.if %[[V1]]#1 -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>) {
 // CHECK-NEXT:      %[[V4:.*]]:3 = scf.while (%[[arg1:.*]] = %[[V1]]#0, %[[arg2:.*]] = %[[V1]]#2) : ([[upstreamStateType]], !llvm.struct<(i32)>) -> ([[upstreamStateType]], !llvm.struct<(i32)>, !llvm.struct<(i32)>) {
 // CHECK-NEXT:        %[[V5:.*]]:3 = call @iterators.{{[a-zA-Z]+}}.Next.{{[0-9]+}}(%[[arg1]]) : ([[upstreamStateType]]) -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>)
-// CHECK-NEXT:        scf.condition(%[[V5]]#1) %[[V5]]#0, %[[V5]]#2, %[[arg2]] : [[upstreamStateType]], !llvm.struct<(i32)>, !llvm.struct<(i32)>
+// CHECK-NEXT:        scf.condition(%[[V5]]#1) %[[V5]]#0, %[[arg2]], %[[V5]]#2 : [[upstreamStateType]], !llvm.struct<(i32)>, !llvm.struct<(i32)>
 // CHECK-NEXT:      } do {
 // CHECK-NEXT:      ^[[bb0:.*]](%[[arg1]]: [[upstreamStateType]], %[[arg2]]: !llvm.struct<(i32)>, %arg3: !llvm.struct<(i32)>):
 // CHECK-NEXT:        %[[V5]] = llvm.extractvalue %arg3[0 : index] : !llvm.struct<(i32)>
@@ -26,7 +26,7 @@
 // CHECK-NEXT:        scf.yield %[[arg1]], %[[V8]] : [[upstreamStateType]], !llvm.struct<(i32)>
 // CHECK-NEXT:      }
 // CHECK-NEXT:      %[[true:.*]] = arith.constant true
-// CHECK-NEXT:      scf.yield %[[V4]]#0, %[[true]], %[[V4]]#2 : [[upstreamStateType]], i1, !llvm.struct<(i32)>
+// CHECK-NEXT:      scf.yield %[[V4]]#0, %[[true]], %[[V4]]#1 : [[upstreamStateType]], i1, !llvm.struct<(i32)>
 // CHECK-NEXT:    } else {
 // CHECK-NEXT:      scf.yield %[[V1]]#0, %[[V1]]#1, %[[V1]]#2 : [[upstreamStateType]], i1, !llvm.struct<(i32)>
 // CHECK-NEXT:    }
