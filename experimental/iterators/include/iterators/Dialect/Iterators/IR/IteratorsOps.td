@@ -36,15 +36,18 @@ def MatchingFieldCountsConstraint
 def Iterators_ConstantTupleOp
     : Iterators_Base_Op<"constant", [MatchingFieldCountsConstraint]> {
   let summary = "Creates a tuple from the given values";
-  // TODO(ingomueller): extend to more field types
-  let arguments = (ins I32ArrayAttr:$values);
-  let results = (outs TupleOf<[I32]>:$tuple);
+  let arguments = (ins Iterators_NumericArrayAttr:$values);
+  let results = (outs Iterators_TupleOfNumerics:$tuple);
 }
 
-def Iterators_PrintTupleOp : Iterators_Base_Op<"print"> {
-  let summary = "Print the elements of a tuple";
-  // TODO(ingomueller): extend to all supported tuple types
-  let arguments = (ins TupleOf<[I32]>);
+def Iterators_PrintTupleOp : Iterators_Base_Op<"printtuple"> {
+  let summary = "Prints the elements of a tuple";
+  let arguments = (ins Iterators_TupleOfNumerics:$tuple);
+}
+
+def Iterators_PrintOp : Iterators_Base_Op<"print"> {
+  let summary = "Prints the given element";
+  let arguments = (ins Iterators_LLVMStructOfNumerics:$element);
 }
 
 //===----------------------------------------------------------------------===//

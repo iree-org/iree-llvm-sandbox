@@ -2,8 +2,8 @@
 // RUN: mlir-proto-opt %s
 
 func @main() {
-  %emptyTuple = "iterators.constant"() { values = [] } : () -> tuple<>
-  %oneFieldTuple = "iterators.constant"() { values = [1 : i32] } : () -> tuple<i32>
-  %threeFieldTuple = "iterators.constant"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
+  %empty_tuple = "iterators.constant"() { values = [] } : () -> tuple<>
+  %one_field_tuple = "iterators.constant"() { values = [1 : i32] } : () -> tuple<i32>
+  %three_field_tuple = "iterators.constant"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
   return
 }
