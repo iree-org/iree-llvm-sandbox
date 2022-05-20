@@ -9,6 +9,7 @@
 #ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 #define ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/SymbolTable.h"

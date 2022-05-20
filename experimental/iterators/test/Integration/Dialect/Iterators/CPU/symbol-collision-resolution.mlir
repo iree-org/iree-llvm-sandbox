@@ -7,14 +7,22 @@
 
 !element_type = type !llvm.struct<(i32)>
 
+func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
+  %lhsi = llvm.extractvalue %lhs[0 : index] : !element_type
+  %rhsi = llvm.extractvalue %rhs[0 : index] : !element_type
+  %i = arith.addi %lhsi, %rhsi : i32
+  %result = llvm.insertvalue %i, %lhs[0 : index] : !element_type
+  return %result : !element_type
+}
+
 func @query1() {
   %input = "iterators.constantstream"() { value = [[6 : i32]] }
       : () -> (!iterators.stream<!element_type>)
-  %reduce1 = "iterators.reduce"(%input)
-      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %reduce1 = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
+    : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   // Reduce result again to vary from second query.
-  %reduce2 = "iterators.reduce"(%reduce1)
-      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %reduce2 = "iterators.reduce"(%reduce1) {reduceFuncRef = @sum_struct}
+    : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   "iterators.sink"(%reduce2) : (!iterators.stream<!element_type>) -> ()
   return
 }
@@ -23,8 +31,8 @@ func @query2() {
   // Run similar query again to check that name collision resolution works.
   %input = "iterators.constantstream"(){ value = [[6 : i32]] }
       : () -> (!iterators.stream<!element_type>)
-  %reduce = "iterators.reduce"(%input)
-      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %reduce = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
+    : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
   return
 }

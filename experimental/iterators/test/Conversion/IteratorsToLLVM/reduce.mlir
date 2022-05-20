@@ -18,12 +18,9 @@
 // CHECK-NEXT:        %[[V5:.*]]:3 = call @iterators.{{[a-zA-Z]+}}.next.{{[0-9]+}}(%[[arg1]]) : ([[upstreamStateType]]) -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>)
 // CHECK-NEXT:        scf.condition(%[[V5]]#1) %[[V5]]#0, %[[arg2]], %[[V5]]#2 : [[upstreamStateType]], !llvm.struct<(i32)>, !llvm.struct<(i32)>
 // CHECK-NEXT:      } do {
-// CHECK-NEXT:      ^[[bb0:.*]](%[[arg1]]: [[upstreamStateType]], %[[arg2]]: !llvm.struct<(i32)>, %arg3: !llvm.struct<(i32)>):
-// CHECK-NEXT:        %[[V5]] = llvm.extractvalue %arg3[0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:        %[[V6:.*]] = llvm.extractvalue %[[arg2]][0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:        %[[V7:.*]] = arith.addi %[[V6]], %[[V5]] : i32
-// CHECK-NEXT:        %[[V8:.*]] = llvm.insertvalue %[[V7]], %[[arg2]][0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:        scf.yield %[[arg1]], %[[V8]] : [[upstreamStateType]], !llvm.struct<(i32)>
+// CHECK-NEXT:      ^[[bb0:.*]](%[[arg1:.*]]: [[upstreamStateType]], %[[arg2:.*]]: !llvm.struct<(i32)>, %[[arg3:.*]]: !llvm.struct<(i32)>):
+// CHECK-NEXT:        %[[V5:.*]] = call @sum_struct(%[[arg2]], %[[arg3]]) : (!llvm.struct<(i32)>, !llvm.struct<(i32)>) -> !llvm.struct<(i32)>
+// CHECK-NEXT:        scf.yield %[[arg1]], %[[V5]] : [[upstreamStateType]], !llvm.struct<(i32)>
 // CHECK-NEXT:      }
 // CHECK-NEXT:      %[[true:.*]] = arith.constant true
 // CHECK-NEXT:      scf.yield %[[V4]]#0, %[[true]], %[[V4]]#1 : [[upstreamStateType]], i1, !llvm.struct<(i32)>
@@ -41,11 +38,26 @@
 // CHECK-NEXT:    return %[[V2]] : !llvm.struct<"[[reduceStateName]]", ([[nestedUpstreamStateType]])>
 // CHECK-NEXT:  }
 
+func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
+// CHECK-LABEL: func private @sum_struct(%{{.*}}: !llvm.struct<(i32)>, %{{.*}}: !llvm.struct<(i32)>) -> !llvm.struct<(i32)>
+  %lhsi = llvm.extractvalue %lhs[0 : index] : !element_type
+// CHECK-NEXT:    %[[lhsi:.*]] = llvm.extractvalue %[[lhs:.*]][0 : index] : !llvm.struct<(i32)>
+  %rhsi = llvm.extractvalue %rhs[0 : index] : !element_type
+// CHECK-NEXT:    %[[rhsi:.*]] = llvm.extractvalue %[[rhs:.*]][0 : index] : !llvm.struct<(i32)>
+  %i = arith.addi %lhsi, %rhsi : i32
+// CHECK-NEXT:    %[[i:.*]] = arith.addi %[[lhsi]], %[[rhsi]] : i32
+  %result = llvm.insertvalue %i, %lhs[0 : index] : !element_type
+// CHECK-NEXT:    %[[result:.*]] = llvm.insertvalue %[[i]], %[[lhs]][0 : index] : !llvm.struct<(i32)>
+  return %result : !element_type
+// CHECK-NEXT:    return %[[result]] : !llvm.struct<(i32)>
+}
+// CHECK-NEXT:  }
+
 func @main() {
   // CHECK-LABEL: func @main()
   %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
-  %reduce = "iterators.reduce"(%input)
-      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %reduce = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
+    : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   // CHECK:        %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<"[[reduceStateName:iterators\.reduce_state.*]]", ([[nestedUpstreamStateType:.*]])>
   // CHECK-NEXT:   %[[V2:.*]] = llvm.insertvalue %[[V0:.*]], %[[V1]][0 : index] : !llvm.struct<"[[reduceStateName]]", ([[nestedUpstreamStateType]])>
   return
