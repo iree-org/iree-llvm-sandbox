@@ -11,6 +11,7 @@
 
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsInterfaces.td"
+include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/OpBase.td"
 
@@ -20,11 +21,54 @@ class Iterators_Type<string name, string typeMnemonic, list<Trait> traits = []>
   let mnemonic = typeMnemonic;
 }
 
+//===----------------------------------------------------------------------===//
+// Streams (i.e., the data types passed between iterators)
+//===----------------------------------------------------------------------===//
+
 def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
   let summary = "Stream of elements of the given type";
   let parameters = (ins "Type":$elementType);
   let assemblyFormat = "`<` qualified($elementType) `>`";
 }
+
+/// An LLVMStructType where the body only uses the provided types.
+class Iterators_LLVMStructOf<list<Type> allowedTypes>
+  : MixedContainerType<AnyTypeOf<allowedTypes>, LLVM_AnyStruct.predicate,
+                       "$_self.cast<::mlir::LLVM::LLVMStructType>().getBody()",
+                       "LLVM struct">;
+
+/// An LLVMStructType where the body consists of a single I32
+def Iterators_LLVMStructOfSingleI32
+  : Type<And<[Iterators_LLVMStructOf<[I32]>.predicate,
+              CPred<[{$_self.dyn_cast<::mlir::LLVM::LLVMStructType>()
+                            .getBody().size() == 1}]>]>,
+         "LLVM struct with single I32 field">;
+
+/// An Iterators stream of elements of the given type.
+class Iterators_StreamOf<Type elementType>
+  : Type<And<[Iterators_Stream.predicate,
+              SubstLeaves<"$_self",
+                          "$_self.dyn_cast<StreamType>().getElementType()",
+                          elementType.predicate>]>,
+         "stream with elements of type " # elementType.summary>;
+
+/// An Iterators stream of LLVM structs consisting of a single I32.
+def Iterators_StreamOfLLVMStructOfSingleI32
+  : Iterators_StreamOf<Iterators_LLVMStructOfSingleI32>;
+
+/// Prediate to verify that a named argument or result's stream type matches a
+/// given type.
+class Iterators_IsStreamOfPred<string name, Type type>
+  : SubstLeaves<"$_self", "$" # name # ".getType()",
+                Iterators_StreamOf<type>.predicate>;
+class Iterators_IsStreamOf<string name, Type type>
+  : PredOpTrait<"'" # name # "' has element type " # type.summary,
+                Iterators_IsStreamOfPred<name, type>>;
+
+/// Predicate to verify that a named argument or result's stream type is an
+/// LLVM struct consisting of a single I32.
+class Iterators_IsStreamOfLLVMStructOfSingleI32Pred<string name>
+  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfSingleI32>;
 
 //===----------------------------------------------------------------------===//
 // State of low-level iterators
