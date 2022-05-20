@@ -74,10 +74,13 @@ class String(DataType):
 
   @staticmethod
   @builder
-  def get(val: Union[int, IntegerAttr]) -> 'String':
-    if isinstance(val, IntegerAttr):
-      return String([val])
-    return String([IntegerAttr.from_int_and_width(val, 1)])
+  def from_int(is_nullable: int) -> 'String':
+    return String([IntegerAttr.from_int_and_width(is_nullable, 1)])
+
+  @staticmethod
+  @builder
+  def from_attr(is_nullable: IntegerAttr) -> 'String':
+    return String([is_nullable])
 
 
 #===------------------------------------------------------------------------===#
@@ -94,7 +97,10 @@ class Boolean(ParametrizedAttribute):
   Example:
 
   '''
-  !rel_ssa.bool
+  rel_ssa.select(%0: rel_ssa.bag<[!rel_ssa.int32]>) {
+    ...
+    rel_ssa.yield(%3 : rel_ssa.bool)
+  }
   '''
   """
   name = "rel_ssa.bool"
@@ -135,11 +141,13 @@ class Bag(ParametrizedAttribute):
   """
   name = "rel_ssa.bag"
 
+  # TODO: add more verification
+  # TODO: add DictionaryAttr to xDSL
   schema = ParameterDef(ArrayOfConstraint(SchemaElement))
 
   @staticmethod
   @builder
-  def get(types: list[DataType], names: list[str]) -> 'Bag':
+  def get(names: list[str], types: list[DataType]) -> 'Bag':
     schema_elts = [SchemaElement.get(n, t) for n, t in zip(names, types)]
     return Bag([ArrayAttr.from_list(schema_elts)])
 
@@ -321,15 +329,15 @@ class Select(Operator):
 @irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith function of `functions` to the ith column name fo `col_names`
-  of `input`.
+  Applies the ith function of `functions` to the ith column name of `col_names`
+  of `input`. The ith resulting column has the same name as the ith input column
+  to the uniqueness of names.
 
 
   Example:
 
   '''
-  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a0", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
-  '''
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]] '''
   """
   name = "rel_ssa.aggregate"
 
@@ -360,7 +368,7 @@ class Aggregate(Operator):
             "functions":
                 ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
         },
-        result_types=[Bag.get([Int32()] * len(functions), col_names)])
+        result_types=[Bag.get(col_names, [Int32()] * len(functions))])
 
 
 @dataclass

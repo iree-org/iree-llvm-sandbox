@@ -35,6 +35,7 @@ class IbisRewriter(RewritePattern):
 
 @dataclass
 class SchemaElementRewriter(IbisRewriter):
+  # This is a simple 1-1 rewrite.
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.SchemaElement,
@@ -46,6 +47,7 @@ class SchemaElementRewriter(IbisRewriter):
 
 @dataclass
 class PandasTableRewriter(IbisRewriter):
+  # This is a simple 1-1 rewrite.
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.PandasTable, rewriter: PatternRewriter):
@@ -57,6 +59,7 @@ class PandasTableRewriter(IbisRewriter):
 
 @dataclass
 class LiteralRewriter(IbisRewriter):
+  # This is a simple 1-1 rewrite.
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.Literal, rewriter: PatternRewriter):
@@ -85,6 +88,7 @@ class TableColumnRewriter(IbisRewriter):
 
 @dataclass
 class SelectionRewriter(IbisRewriter):
+  # This is a simple 1-1 rewrite.
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.Selection, rewriter: PatternRewriter):

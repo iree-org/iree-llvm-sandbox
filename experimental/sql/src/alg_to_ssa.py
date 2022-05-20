@@ -26,7 +26,7 @@ class RelAlgRewriter(RewritePattern):
 
   def convert_datatype(self, type_: RelAlg.DataType) -> RelSSA.DataType:
     if isinstance(type_, RelAlg.String):
-      return RelSSA.String.get(type_.nullable)
+      return RelSSA.String.from_attr(type_.nullable)
     if isinstance(type_, RelAlg.Int32):
       return RelSSA.Int32()
     if isinstance(type_, RelAlg.Int64):
@@ -44,21 +44,22 @@ class RelAlgRewriter(RewritePattern):
         return s.elt_type
     return None
 
-  def find_type_in_parent_operator(self, name: str, op: Operation):
+  def find_type_in_parent_operator(self, name: str,
+                                   op: Operation) -> Optional[RelSSA.DataType]:
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
     case the lookup failed or reaching an operator with an input bag, that the
     type can be looked up in.
     """
     parent_op = op.parent_op()
-    if isinstance(parent_op, ModuleOp):
-      raise Exception(f"element not found in parent schema: {name}")
-    if isinstance(parent_op, RelSSA.Operator):
-      type_ = self.lookup_type_in_schema(name, parent_op.results[0].typ)
-      if type_:
-        return type_
-      raise Exception(f"element not found in parent schema: {name}")
-    return self.find_type_in_parent_operator(name, parent_op)
+    while (parent_op and not isinstance(parent_op, ModuleOp)):
+      if isinstance(parent_op, RelSSA.Operator):
+        type_ = self.lookup_type_in_schema(name, parent_op.results[0].typ)
+        if type_:
+          return type_
+        raise Exception(f"element not found in parent schema: {name}")
+      parent_op = parent_op.parent_op()
+    raise Exception(f"element not found in parent schema: {name}")
 
 
 #===------------------------------------------------------------------------===#
@@ -132,7 +133,7 @@ class PandasTableRewriter(RelAlgRewriter):
                         rewriter: PatternRewriter):
     schema_names = [s.elt_name.data for s in op.schema.ops]
     schema_types = [self.convert_datatype(s.elt_type) for s in op.schema.ops]
-    result_type = RelSSA.Bag.get(schema_types, schema_names)
+    result_type = RelSSA.Bag.get(schema_names, schema_types)
     new_op = RelSSA.PandasTable.get(op.table_name.data, result_type)
     rewriter.insert_op_before_matched_op(new_op)
     rewriter.erase_matched_op()
