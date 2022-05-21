@@ -22,8 +22,8 @@ class NamedAttribute;
 class OpBuilder;
 } // namespace mlir
 
-namespace iterators {
-namespace utils {
+namespace mlir {
+namespace scf {
 
 mlir::scf::WhileOp
 createWhileOp(mlir::OpBuilder &builder, mlir::Location loc,
@@ -36,7 +36,7 @@ createWhileOp(mlir::OpBuilder &builder, mlir::Location loc,
                   afterBuilder,
               llvm::ArrayRef<mlir::NamedAttribute> attributes = {});
 
-} // namespace utils
-} // namespace iterators
+} // namespace scf
+} // namespace mlir
 
 #endif // ITERATORS_UTILS_MLIR_SUPPORT_H

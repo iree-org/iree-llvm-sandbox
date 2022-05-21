@@ -16,13 +16,10 @@ namespace mlir {
 class NamedAttribute;
 } // namespace mlir
 
-using namespace mlir;
-using namespace iterators::utils;
+namespace mlir {
+namespace scf {
 
-namespace iterators {
-namespace utils {
-
-scf::WhileOp
+WhileOp
 createWhileOp(OpBuilder &builder, Location loc, TypeRange resultTypes,
               ValueRange operands,
               function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
@@ -49,5 +46,5 @@ createWhileOp(OpBuilder &builder, Location loc, TypeRange resultTypes,
   return op;
 }
 
-} // namespace utils
-} // namespace iterators
+} // namespace scf
+} // namespace mlir

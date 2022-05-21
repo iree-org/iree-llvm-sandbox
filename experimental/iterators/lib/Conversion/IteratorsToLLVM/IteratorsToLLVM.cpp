@@ -454,7 +454,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
             elementType,       // Accumulator.
             elementType        // Element from last next call.
         };
-        scf::WhileOp whileOp = utils::createWhileOp(
+        scf::WhileOp whileOp = scf::createWhileOp(
             builder, loc, whileResultTypes, whileInputs,
             /*beforeBuilder=*/
             [&](OpBuilder &builder, Location loc,
@@ -830,7 +830,7 @@ convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
   SmallVector<Type> whileResultTypes = {stateType, elementType};
   SmallVector<Location> whileResultLocs = {loc, loc};
 
-  scf::WhileOp whileOp = utils::createWhileOp(
+  scf::WhileOp whileOp = scf::createWhileOp(
       rewriter, loc, whileResultTypes, openedUpstreamState,
       /*beforeBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
