@@ -1,21 +1,20 @@
 #include "IteratorAnalysis.h"
+
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "iterators/Utils/NameAssigner.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/Operation.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir {
 namespace iterators {
 
-IteratorAnalysis::IteratorAnalysis(Operation *parentOp) : parentOp(parentOp) {
+IteratorAnalysis::IteratorAnalysis(Operation *parentOp, ModuleOp module)
+    : parentOp(parentOp), nameAssigner(module) {
   parentOp->walk([&](Operation *op) {
     llvm::TypeSwitch<Operation *, void>(op).Case<SampleInputOp, ReduceOp>(
         [&](auto op) { buildIteratorInfo(op); });
@@ -31,7 +30,7 @@ IteratorAnalysis::getIteratorInfo(Operation *op) const {
 }
 
 void IteratorAnalysis::buildIteratorInfo(Operation *op) {
-  llvm::SmallVector<SymbolRefAttr, 3> symbols = createFunctionNames(op);
+  llvm::SmallVector<SymbolRefAttr, 3> symbols = assignFunctionNames(op);
   SymbolRefAttr openFuncSymbol = symbols[0];
   SymbolRefAttr nextFuncSymbol = symbols[1];
   SymbolRefAttr closeFuncSymbol = symbols[2];
@@ -46,9 +45,7 @@ void IteratorAnalysis::buildIteratorInfo(Operation *op) {
 }
 
 llvm::SmallVector<SymbolRefAttr, 3>
-IteratorAnalysis::createFunctionNames(Operation *op) {
-  ModuleOp module = op->template getParentOfType<ModuleOp>();
-
+IteratorAnalysis::assignFunctionNames(Operation *op) {
   llvm::SmallVector<SymbolRefAttr, 3> symbols;
   for (auto const *suffix :
        std::array<const char *, 3>{"Open", "Next", "Close"}) {
@@ -58,29 +55,13 @@ IteratorAnalysis::createFunctionNames(Operation *op) {
         (op->getName().getStringRef() + Twine(".") + suffix).str());
 
     // Make name unique. This may increment uniqueNumber.
-    StringAttr uniqueName = createUniqueFunctionName(baseName, module);
+    StringAttr uniqueName = nameAssigner.assignName(baseName);
 
     auto symbol = SymbolRefAttr::get(op->getContext(), uniqueName);
     symbols.push_back(symbol);
   }
 
-  // Increment such that subsequent calls get a different value.
-  uniqueNumber++;
-
   return symbols;
-}
-
-StringAttr IteratorAnalysis::createUniqueFunctionName(StringRef prefix,
-                                                      ModuleOp module) {
-  llvm::SmallString<64> candidateName;
-  while (true) {
-    (prefix + Twine(".") + Twine(uniqueNumber)).toStringRef(candidateName);
-    if (!module.lookupSymbol<func::FuncOp>(candidateName)) {
-      break;
-    }
-    uniqueNumber++;
-  }
-  return StringAttr::get(module.getContext(), candidateName);
 }
 
 /// The state of SampleInputOp consists of a single number that corresponds

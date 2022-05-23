@@ -10,15 +10,17 @@
 #define EXPERIMENTAL_ITERATORS_LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Utils/NameAssigner.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/Operation.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
+class ModuleOp;
+class Operation;
+
 namespace iterators {
 
 /// Constructs information about the state type and the Open/Next/Close
@@ -43,7 +45,7 @@ private:
   using OperationMap = llvm::DenseMap<Operation *, IteratorInfo>;
 
 public:
-  explicit IteratorAnalysis(Operation *parentOp);
+  explicit IteratorAnalysis(Operation *parentOp, ModuleOp module);
 
   /// Returns the operation this analysis was constructed from.
   Operation *getOperation() const { return parentOp; }
@@ -55,16 +57,11 @@ private:
   /// Assembles all required information of a given iterator op.
   void buildIteratorInfo(Operation *op);
 
-  /// Pre-assigns names for the Open/Next/Close functions of the given op. The
-  /// conversion is expected to create these names in the lowering of the
-  /// corresponding op and can look them up in the lowering of downstream
-  /// iterators. The uniqueness is achieved by appending a number and
-  /// incrementing it until a non-colliding name is obtained. Since the
-  /// functions are not immediately created, this only avoids clashes with
-  /// existing names and those created by the same analysis.
-  llvm::SmallVector<SymbolRefAttr, 3> createFunctionNames(Operation *op);
-  /// Makes a given name unique in the current module.
-  StringAttr createUniqueFunctionName(StringRef prefix, ModuleOp module);
+  /// Pre-assigns names for the Open/Next/Close functions of the given iterator
+  /// op. The conversion is expected to create these names in the lowering of
+  /// the corresponding op and can look them up in the lowering of downstream
+  /// iterators.
+  llvm::SmallVector<SymbolRefAttr, 3> assignFunctionNames(Operation *op);
 
   // Compute the state type of an op of a given type.
   LLVM::LLVMStructType computeStateType(SampleInputOp op);
@@ -72,7 +69,7 @@ private:
 
   Operation *parentOp;
   OperationMap opMap;
-  uint64_t uniqueNumber = 0;
+  NameAssigner nameAssigner;
 };
 
 } // namespace iterators

@@ -925,7 +925,7 @@ convertIteratorOp(Operation *op, ArrayRef<Value> operands,
 ///    (which it has walked before) to the conversion logic.
 static void convertIteratorOps(ModuleOp module) {
   IRRewriter rewriter(module.getContext());
-  IteratorAnalysis analysis(module);
+  IteratorAnalysis analysis(module, module);
   BlockAndValueMapping mapping;
 
   // Collect all iterator ops in a worklist. Within each block, the iterator
