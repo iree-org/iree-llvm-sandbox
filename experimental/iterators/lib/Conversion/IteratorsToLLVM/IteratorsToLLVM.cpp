@@ -241,9 +241,9 @@ struct PrintOpLowering : public ConversionPattern {
 /// %0 = llvm.mlir.constant(0 : i32) : i32
 /// %1 = llvm.insertvalue %0, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.sampleInputState", (i32)>
-static llvm::SmallVector<Value, 4>
-buildOpenBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
-              ArrayRef<IteratorInfo> upstreamInfos) {
+static Value buildOpenBody(SampleInputOp op, RewriterBase &rewriter,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
 
   // Insert constant zero into state.
@@ -254,7 +254,7 @@ buildOpenBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
   Value updatedState =
       rewriter.create<InsertValueOp>(loc, initialState, zeroValue, zeroArray);
 
-  return {updatedState};
+  return updatedState;
 }
 
 /// Builds IR that produces a tuple with the current index and increments that
@@ -325,10 +325,10 @@ buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
 }
 
 /// Forwards the initial state. The SampleInputOp doesn't do anything on Close.
-static llvm::SmallVector<Value, 4>
-buildCloseBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
-               ArrayRef<IteratorInfo> upstreamInfos) {
-  return {initialState};
+static Value buildCloseBody(SampleInputOp op, RewriterBase &rewriter,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
+  return initialState;
 }
 
 /// Builds IR that creates an initial iterator state consisting of an
@@ -357,9 +357,9 @@ static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
 /// %1 = call @iterators.sampleInput.Open.0(%0) : (...) -> ...
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduceState", (...)>
-static llvm::SmallVector<Value, 4>
-buildOpenBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
-              ArrayRef<IteratorInfo> upstreamInfos) {
+static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
   Type upstreamStateType = upstreamInfos[0].stateType;
 
@@ -378,7 +378,7 @@ buildOpenBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   Value updatedState = rewriter.create<InsertValueOp>(
       loc, initialState, updatedUpstreamState, zeroArray);
 
-  return {updatedState};
+  return updatedState;
 }
 
 /// Builds IR that consumes all elements of the upstream iterator and combines
@@ -529,9 +529,9 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
 /// %1 = call @iterators.sampleInput.Close.0(%0) : (...) -> ...
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduceState", (...)>
-static llvm::SmallVector<Value, 4>
-buildCloseBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
-               ArrayRef<IteratorInfo> upstreamInfos) {
+static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
   Type upstreamStateType = upstreamInfos[0].stateType;
 
@@ -550,7 +550,7 @@ buildCloseBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   Value updatedState = rewriter.create<InsertValueOp>(
       loc, initialState, updatedUpstreamState, zeroArray);
 
-  return {updatedState};
+  return updatedState;
 }
 
 /// Builds IR that initializes the iterator state with the state of the upstream
@@ -623,11 +623,11 @@ buildOpenNextCloseInParentModule(Operation *originalOp, RewriterBase &rewriter,
 }
 
 /// Type-switching proxy for builders of the body of Open functions.
-static llvm::SmallVector<Value, 4>
-buildOpenBody(Operation *op, RewriterBase &rewriter, Value initialState,
-              ArrayRef<IteratorInfo> upstreamInfos) {
-  return llvm::TypeSwitch<Operation *, llvm::SmallVector<Value, 4>>(op)
-      .Case<ReduceOp, SampleInputOp>([&](auto op) {
+static Value buildOpenBody(Operation *op, RewriterBase &rewriter,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  return llvm::TypeSwitch<Operation *, Value>(op).Case<ReduceOp, SampleInputOp>(
+      [&](auto op) {
         return buildOpenBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -644,11 +644,11 @@ buildNextBody(Operation *op, RewriterBase &rewriter, Value initialState,
 }
 
 /// Type-switching proxy for builders of the body of Close functions.
-static llvm::SmallVector<Value, 4>
-buildCloseBody(Operation *op, RewriterBase &rewriter, Value initialState,
-               ArrayRef<IteratorInfo> upstreamInfos) {
-  return llvm::TypeSwitch<Operation *, llvm::SmallVector<Value, 4>>(op)
-      .Case<ReduceOp, SampleInputOp>([&](auto op) {
+static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
+  return llvm::TypeSwitch<Operation *, Value>(op).Case<ReduceOp, SampleInputOp>(
+      [&](auto op) {
         return buildCloseBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -676,8 +676,10 @@ buildOpenFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
 
   return buildOpenNextCloseInParentModule(
       originalOp, rewriter, inputType, returnType, funcName,
-      [&](RewriterBase &rewriter, Value initialState) {
-        return buildOpenBody(originalOp, rewriter, initialState, upstreamInfos);
+      [&](RewriterBase &rewriter,
+          Value initialState) -> llvm::SmallVector<Value, 4> {
+        return {
+            buildOpenBody(originalOp, rewriter, initialState, upstreamInfos)};
       });
 }
 
@@ -721,9 +723,10 @@ buildCloseFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
 
   return buildOpenNextCloseInParentModule(
       originalOp, rewriter, inputType, returnType, funcName,
-      [&](RewriterBase &rewriter, Value initialState) {
-        return buildCloseBody(originalOp, rewriter, initialState,
-                              upstreamInfos);
+      [&](RewriterBase &rewriter,
+          Value initialState) -> llvm::SmallVector<Value, 4> {
+        return {
+            buildCloseBody(originalOp, rewriter, initialState, upstreamInfos)};
       });
 }
 
