@@ -163,16 +163,13 @@ struct ConstantTupleLowering : public ConversionPattern {
     ArrayAttr values = op->getAttr("values").dyn_cast<ArrayAttr>();
     assert(values);
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
-      // Create index attribute.
-      ArrayAttr indicesAttr = rewriter.getIndexArrayAttr({i});
-
       // Create constant value op.
       Value valueOp = rewriter.create<LLVM::ConstantOp>(
           op->getLoc(), values[i].getType(), values[i]);
 
       // Insert into struct.
-      structValue = rewriter.create<InsertValueOp>(op->getLoc(), structValue,
-                                                   valueOp, indicesAttr);
+      structValue = createInsertValueOp(rewriter, op->getLoc(), structValue,
+                                        valueOp, {i});
     }
 
     rewriter.replaceOp(op, structValue);
@@ -212,12 +209,9 @@ struct PrintOpLowering : public ConversionPattern {
     SmallVector<Value, 8> values = {formatSpec};
     ArrayRef<Type> fieldTypes = structType.getBody();
     for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
-      // Create index attribute.
-      ArrayAttr indicesAttr = rewriter.getIndexArrayAttr({i});
-
       // Extract from struct.
-      Value value = rewriter.create<ExtractValueOp>(op->getLoc(), fieldTypes[i],
-                                                    operands[0], indicesAttr);
+      Value value = createExtractValueOp(rewriter, op->getLoc(), fieldTypes[i],
+                                         operands[0], {i});
 
       values.push_back(value);
     }
@@ -250,9 +244,8 @@ static Value buildOpenBody(SampleInputOp op, RewriterBase &rewriter,
   Type i32 = rewriter.getI32Type();
   Attribute zeroAttr = rewriter.getI32IntegerAttr(0);
   Value zeroValue = rewriter.create<LLVM::ConstantOp>(loc, i32, zeroAttr);
-  ArrayAttr zeroArray = rewriter.getIndexArrayAttr({0});
   Value updatedState =
-      rewriter.create<InsertValueOp>(loc, initialState, zeroValue, zeroArray);
+      createInsertValueOp(rewriter, loc, initialState, zeroValue, {0});
 
   return updatedState;
 }
@@ -289,9 +282,8 @@ buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
   Location loc = op->getLoc();
 
   // Extract current index.
-  ArrayAttr zeroArray = rewriter.getIndexArrayAttr({0});
   Value currentIndex =
-      rewriter.create<ExtractValueOp>(loc, i32, initialState, zeroArray);
+      createExtractValueOp(rewriter, loc, i32, initialState, {0});
 
   // Test if we have reached the end of the range.
   Value four = rewriter.create<arith::ConstantIntOp>(loc, /*value=*/4,
@@ -306,8 +298,8 @@ buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
                                                          /*width=*/32);
         ArithBuilder ab(builder, loc);
         Value updatedCurrentIndex = ab.add(currentIndex, one);
-        Value updatedState = builder.create<InsertValueOp>(
-            loc, initialState, updatedCurrentIndex, zeroArray);
+        Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+                                                 updatedCurrentIndex, {0});
         builder.create<scf::YieldOp>(loc, updatedState);
       },
       /*elseBuilder=*/
@@ -317,8 +309,8 @@ buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
 
   // Assemble element that will be returned.
   Value emptyNextElement = rewriter.create<UndefOp>(loc, elementType);
-  Value nextElement = rewriter.create<InsertValueOp>(loc, emptyNextElement,
-                                                     currentIndex, zeroArray);
+  Value nextElement =
+      createInsertValueOp(rewriter, loc, emptyNextElement, currentIndex, {0});
 
   Value finalState = ifOp->getResult(0);
   return {finalState, hasNext, nextElement};
@@ -364,9 +356,8 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  ArrayAttr zeroArray = rewriter.getIndexArrayAttr({0});
-  Value initialUpstreamState = rewriter.create<ExtractValueOp>(
-      loc, upstreamStateType, initialState, zeroArray);
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -375,8 +366,8 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = rewriter.create<InsertValueOp>(
-      loc, initialState, updatedUpstreamState, zeroArray);
+  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+                                           updatedUpstreamState, {0});
 
   return updatedState;
 }
@@ -427,9 +418,8 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  ArrayAttr zeroArray = rewriter.getIndexArrayAttr({0});
-  Value initialUpstreamState = rewriter.create<ExtractValueOp>(
-      loc, upstreamStateType, initialState, zeroArray);
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
 
   // Get first result from upstream.
   Type i1 = rewriter.getI1Type();
@@ -480,16 +470,15 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
               Value nextElement = args[2];
 
               // TODO(ingomueller): extend to arbitrary functions
-              ArrayAttr zeroArray = builder.getIndexArrayAttr(0);
               Type i32 = rewriter.getI32Type();
-              Value nextValue = builder.create<ExtractValueOp>(
-                  loc, i32, nextElement, zeroArray);
-              Value aggregateValue = builder.create<ExtractValueOp>(
-                  loc, i32, accumulator, zeroArray);
+              Value nextValue =
+                  createExtractValueOp(rewriter, loc, i32, nextElement, {0});
+              Value aggregateValue =
+                  createExtractValueOp(rewriter, loc, i32, accumulator, {0});
               ArithBuilder ab(builder, loc);
               Value newAccumulatorValue = ab.add(aggregateValue, nextValue);
-              Value newAccumulator = builder.create<InsertValueOp>(
-                  loc, accumulator, newAccumulatorValue, zeroArray);
+              Value newAccumulator = createInsertValueOp(
+                  rewriter, loc, accumulator, newAccumulatorValue, {0});
 
               builder.create<scf::YieldOp>(
                   loc, ValueRange{upstreamState, newAccumulator});
@@ -514,8 +503,8 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
 
   // Update state.
   Value finalUpstreamState = ifOp->getResult(0);
-  Value finalState = rewriter.create<InsertValueOp>(
-      loc, initialState, finalUpstreamState, zeroArray);
+  Value finalState =
+      createInsertValueOp(rewriter, loc, initialState, finalUpstreamState, {0});
   Value hasNext = ifOp->getResult(1);
   Value nextElement = ifOp->getResult(2);
 
@@ -536,9 +525,8 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  ArrayAttr zeroArray = rewriter.getIndexArrayAttr({0});
-  Value initialUpstreamState = rewriter.create<ExtractValueOp>(
-      loc, upstreamStateType, initialState, zeroArray);
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -547,8 +535,8 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  Value updatedState = rewriter.create<InsertValueOp>(
-      loc, initialState, updatedUpstreamState, zeroArray);
+  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+                                           updatedUpstreamState, {0});
 
   return updatedState;
 }
@@ -567,10 +555,9 @@ static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
 
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
 
-  ArrayAttr zeroArray = rewriter.getIndexArrayAttr({0});
   Value upstreamState = upstreamStates[0];
   Value initialState =
-      rewriter.create<InsertValueOp>(loc, undefState, upstreamState, zeroArray);
+      createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 
   return initialState;
 }
@@ -870,12 +857,9 @@ convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
         SmallVector<Value, 8> values = {formatSpec};
         ArrayRef<Type> fieldTypes = structType.getBody();
         for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
-          // Create index attribute.
-          ArrayAttr indicesAttr = builder.getIndexArrayAttr({i});
-
           // Extract from struct.
-          Value value = builder.create<ExtractValueOp>(
-              loc, fieldTypes[i], nextElement, indicesAttr);
+          Value value = createExtractValueOp(rewriter, loc, fieldTypes[i],
+                                             nextElement, {i});
 
           values.push_back(value);
         }
