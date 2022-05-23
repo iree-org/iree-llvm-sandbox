@@ -30,16 +30,14 @@ class OpBuilder;
 namespace mlir {
 namespace scf {
 
-mlir::scf::WhileOp
-createWhileOp(mlir::OpBuilder &builder, mlir::Location loc,
-              mlir::TypeRange resultTypes, mlir::ValueRange operands,
-              llvm::function_ref<void(mlir::OpBuilder &, mlir::Location,
-                                      mlir::Block::BlockArgListType)>
-                  beforeBuilder,
-              llvm::function_ref<void(mlir::OpBuilder &, mlir::Location,
-                                      mlir::Block::BlockArgListType)>
-                  afterBuilder,
-              llvm::ArrayRef<mlir::NamedAttribute> attributes = {});
+WhileOp createWhileOp(
+    OpBuilder &builder, Location loc, TypeRange resultTypes,
+    ValueRange operands,
+    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
+        beforeBuilder,
+    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
+        afterBuilder,
+    llvm::ArrayRef<NamedAttribute> attributes = {});
 
 } // namespace scf
 
