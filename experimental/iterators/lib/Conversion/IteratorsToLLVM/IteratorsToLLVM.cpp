@@ -738,9 +738,9 @@ buildCloseFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
 static FailureOr<Optional<Value>>
 convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
                          RewriterBase &rewriter,
-                         const IteratorAnalysis &typeAnalysis) {
+                         const IteratorAnalysis &iteratorAnalysis) {
   // IteratorInfo for this op.
-  auto opInfo = typeAnalysis.getIteratorInfo(op);
+  auto opInfo = iteratorAnalysis.getIteratorInfo(op);
   assert(opInfo.hasValue());
 
   // Assemble IteratorInfo for upstreams.
@@ -748,7 +748,7 @@ convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
   for (Value operand : op->getOperands()) {
     Operation *definingOp = operand.getDefiningOp();
     Optional<IteratorInfo> upstreamInfo =
-        typeAnalysis.getIteratorInfo(definingOp);
+        iteratorAnalysis.getIteratorInfo(definingOp);
     assert(upstreamInfo.hasValue());
     upstreamInfos.push_back(upstreamInfo.getValue());
   }
@@ -800,13 +800,13 @@ convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
 static FailureOr<Optional<Value>>
 convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
                       RewriterBase &rewriter,
-                      const IteratorAnalysis &typeAnalysis) {
+                      const IteratorAnalysis &iteratorAnalysis) {
   Location loc = op->getLoc();
 
   // Look up IteratorInfo about root iterator.
   assert(operands.size() == 1);
   Operation *definingOp = op->getOperand(0).getDefiningOp();
-  Optional<IteratorInfo> opInfo = typeAnalysis.getIteratorInfo(definingOp);
+  Optional<IteratorInfo> opInfo = iteratorAnalysis.getIteratorInfo(definingOp);
   assert(opInfo.hasValue());
 
   Type stateType = opInfo->stateType;
@@ -900,13 +900,14 @@ convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
 static FailureOr<Optional<Value>>
 convertIteratorOp(Operation *op, ArrayRef<Value> operands,
                   RewriterBase &rewriter,
-                  const IteratorAnalysis &typeAnalysis) {
+                  const IteratorAnalysis &iteratorAnalysis) {
   return TypeSwitch<Operation *, FailureOr<Optional<Value>>>(op)
       .Case<SampleInputOp, ReduceOp>([&](auto op) {
-        return convertNonSinkIteratorOp(op, operands, rewriter, typeAnalysis);
+        return convertNonSinkIteratorOp(op, operands, rewriter,
+                                        iteratorAnalysis);
       })
       .Case<SinkOp>([&](auto op) {
-        return convertSinkIteratorOp(op, operands, rewriter, typeAnalysis);
+        return convertSinkIteratorOp(op, operands, rewriter, iteratorAnalysis);
       });
 }
 
