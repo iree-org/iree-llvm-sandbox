@@ -36,8 +36,8 @@ def Iterators_Dialect : Dialect {
     Example:
 
     ```mlir
-    %input = "iterators.sampleInput"() : () -> (!iterators.stream<!tupleType>)
-    "iterators.sink"(%input) : (!iterators.stream<!tupleType>) -> ()
+    %input = "iterators.sampleInput"() : () -> (!iterators.stream<!T>)
+    "iterators.sink"(%input) : (!iterators.stream<!T>) -> ()
     ```
 
     The semantics of the different iterator ops is defined as if execution was

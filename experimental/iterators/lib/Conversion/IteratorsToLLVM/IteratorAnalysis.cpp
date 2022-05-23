@@ -48,7 +48,7 @@ llvm::SmallVector<SymbolRefAttr, 3>
 IteratorAnalysis::assignFunctionNames(Operation *op) {
   llvm::SmallVector<SymbolRefAttr, 3> symbols;
   for (auto const *suffix :
-       std::array<const char *, 3>{"Open", "Next", "Close"}) {
+       std::array<const char *, 3>{"open", "next", "close"}) {
     // Construct base name from op type and Open/Next/Close.
     auto baseName = StringAttr::get(
         op->getContext(),
@@ -74,7 +74,7 @@ LLVM::LLVMStructType IteratorAnalysis::computeStateType(SampleInputOp op) {
   assert(elementType && elementType.getBody().size() == 1);
   auto counterType = elementType.getBody().front();
   return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.sampleInputState", {counterType});
+      op->getContext(), "iterators.sample_input_state", {counterType});
 }
 
 /// The state of ReduceOp only consists of the state of its upstream iterator,
@@ -84,7 +84,7 @@ LLVM::LLVMStructType IteratorAnalysis::computeStateType(ReduceOp op) {
   assert(maybeUpstreamInfo.hasValue());
   auto upstreamInfo = maybeUpstreamInfo.getValue();
   return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.reduceState", {upstreamInfo.stateType});
+      op->getContext(), "iterators.reduce_state", {upstreamInfo.stateType});
 }
 
 } // namespace iterators

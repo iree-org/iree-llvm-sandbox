@@ -1,14 +1,14 @@
 // RUN: mlir-proto-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
-!intTuple = type !llvm.struct<(i32)>
+!element_type = type !llvm.struct<(i32)>
 
-// CHECK-LABEL: func private @iterators.sampleInput.Close.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.sampleInputState{{.*}}", (i32)>) -> !llvm.struct<"iterators.sampleInputState{{.*}}", (i32)>
-// CHECK-NEXT:    return %[[arg0:.*]] : !llvm.struct<"[[inputStateType:iterators\.sampleInputState.*]]", (i32)>
+// CHECK-LABEL: func private @iterators.sampleInput.close.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.sample_input_state{{.*}}", (i32)>) -> !llvm.struct<"iterators.sample_input_state{{.*}}", (i32)>
+// CHECK-NEXT:    return %[[arg0:.*]] : !llvm.struct<"[[inputStateType:iterators\.sample_input_state.*]]", (i32)>
 // CHECK-NEXT:  }
 
-// CHECK-LABEL: func private @iterators.sampleInput.Next.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.sampleInputState{{.*}}", (i32)>) -> (!llvm.struct<"iterators.sampleInputState{{.*}}", (i32)>, i1, !llvm.struct<(i32)>)
-// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<"[[inputStateType:iterators\.sampleInputState.*]]", (i32)>
+// CHECK-LABEL: func private @iterators.sampleInput.next.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.sample_input_state{{.*}}", (i32)>) -> (!llvm.struct<"iterators.sample_input_state{{.*}}", (i32)>, i1, !llvm.struct<(i32)>)
+// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<"[[inputStateType:iterators\.sample_input_state.*]]", (i32)>
 // CHECK-NEXT:    %[[V1:.*]] = arith.constant 4 : i32
 // CHECK-NEXT:    %[[V2:.*]] = arith.cmpi slt, %[[V0]], %[[V1]] : i32
 // CHECK-NEXT:    %[[V3:.*]] = scf.if %[[V2]] -> (!llvm.struct<"[[inputStateType]]", (i32)>) {
@@ -24,16 +24,16 @@
 // CHECK-NEXT:    return %[[V3]], %[[V2]], %[[V8]] : !llvm.struct<"[[inputStateType]]", (i32)>, i1, !llvm.struct<(i32)>
 // CHECK-NEXT:  }
 
-// CHECK-LABEL: func private @iterators.sampleInput.Open.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.sampleInputState{{.*}}", (i32)>) -> !llvm.struct<"iterators.sampleInputState{{.*}}", (i32)>
+// CHECK-LABEL: func private @iterators.sampleInput.open.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.sample_input_state{{.*}}", (i32)>) -> !llvm.struct<"iterators.sample_input_state{{.*}}", (i32)>
 // CHECK-NEXT:    %[[V0:.*]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-NEXT:    %[[V1:.*]] = llvm.insertvalue %[[V0]], %[[arg0:.*]][0 : index] : !llvm.struct<"[[inputStateType:iterators\.sampleInputState.*]]", (i32)>
+// CHECK-NEXT:    %[[V1:.*]] = llvm.insertvalue %[[V0]], %[[arg0:.*]][0 : index] : !llvm.struct<"[[inputStateType:iterators\.sample_input_state.*]]", (i32)>
 // CHECK-NEXT:    return %[[V1]] : !llvm.struct<"[[inputStateType]]", (i32)>
 // CHECK-NEXT:  }
 
 func @main() {
   // CHECK-LABEL: func @main()
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!intTuple>)
-  // CHECK-NEXT:   %[[V0:.*]] = llvm.mlir.undef : !llvm.struct<"[[inputStateType:iterators\.sampleInputState.*]]", (i32)>
+  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
+  // CHECK-NEXT:   %[[V0:.*]] = llvm.mlir.undef : !llvm.struct<"[[inputStateType:iterators\.sample_input_state.*]]", (i32)>
   return
   // CHECK-NEXT:   return
 }

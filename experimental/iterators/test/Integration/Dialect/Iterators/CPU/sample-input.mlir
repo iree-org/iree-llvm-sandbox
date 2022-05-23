@@ -5,11 +5,11 @@
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
-!tupleType = type !llvm.struct<(i32)>
+!element_type = type !llvm.struct<(i32)>
 
 func @main() {
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!tupleType>)
-  "iterators.sink"(%input) : (!iterators.stream<!tupleType>) -> ()
+  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
+  "iterators.sink"(%input) : (!iterators.stream<!element_type>) -> ()
   // CHECK:      (0)
   // CHECK-NEXT: (1)
   // CHECK-NEXT: (2)
