@@ -48,6 +48,8 @@ def Iterators_PrintTupleOp : Iterators_Op<"print"> {
 //===----------------------------------------------------------------------===//
 
 // TODO(ingomueller): Extend to more number types.
+// TODO(ingomueller): Rename this op to RangeOp; parametrized it with attributes
+//                    `from`, `to`, and `step`.
 def Iterators_SampleInputOp : Iterators_Op<"sampleInput"> {
   let summary = "Create some sample input";
   let results = (outs Iterators_StreamOfLLVMStructOfSingleI32:$result);
