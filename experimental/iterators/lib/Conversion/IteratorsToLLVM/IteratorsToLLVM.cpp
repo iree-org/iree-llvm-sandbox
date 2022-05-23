@@ -909,12 +909,72 @@ convertIteratorOp(Operation *op, ArrayRef<Value> operands,
 // Pass driver
 //===----------------------------------------------------------------------===//
 
-/// Converts all iterator ops of a module to LLVM using a custom walker. The
-/// conversion happens in two steps:
-/// 1. The IteratorAnalysis computes the nested state of each iterator op (i.e.,
-///    the private state of each iterator plus the private state of all
-///    transitive upstream iterators) and pre-assigns the names of the Open/
-///    Next/Close functions of each iterator op.
+/// Converts all iterator ops of a module to LLVM. The lowering converts each
+/// connected component of iterators to logic that co-executes all iterators in
+/// that component. Currently, these connected components have to be shaped as a
+/// tree. Roughly speaking, the lowering result consists of three things:
+///
+/// 1. Nested iterator state types that allow iterators to give up and resume
+///    execution by passing control flow between them.
+/// 2. Operations that create the initial states.
+/// 3. Functions and control flow that executes the logic of one connected
+///    component while updating the states.
+///
+/// Each iterator state is represented as an `!llvm.struct<...>` that constists
+/// of an iterator-specific part plus the state of all upstream iterators, i.e.,
+/// of all iterators in the transitive use-def chain of the operands of the
+/// current iterator, which is inlined into its own state.
+///
+/// The lowering replaces the original iterator ops with ops that create the
+/// initial operator states (which is usually short) plus the logic of the sink
+/// operator, which drives the computation of the entire connected components.
+/// The logic of the iterators is represented by functions that are added to
+/// the current module, and which are called initially by the sink logic and
+/// then transitively by the iterators in the connected component.
+///
+/// More precisely, the computations of each non-sink iterator are expressed as
+/// the three functions, `Open`, `Next`, and `Close`, which operate on the
+/// iterator's state and which continuously pass control flow between the logic
+/// of to and from other iterators:
+///
+/// * `Open` initializes the computations, typically calling `Open` on the
+///   nested states of the current iterator;
+/// * `Next` produces the next element in the stream or signals "end of stream",
+///   making zero, one, or more calls to `Next` on any of the nested states as
+///   required by the logic of the current iterator; and
+/// * `Close` cleans up the state if necessary, typically calling `Close` on the
+///   nested states of the current iterator.
+///
+/// The three functions take the current iterator state as an input and return
+/// the updated state. (Subsequent bufferization within LLVM presumably converts
+/// this to in-place updates.) `Next` also returns the next element in the
+/// stream, plus a Boolean that signals whether the element is valid or the end
+/// of the stream was reached.
+///
+/// Iterator states inherently require to contain the states of the all
+/// iterators they transitively consume from: Since producing an element for
+/// the result stream of an iterator eventually requires to consume elements
+/// from the operand streams and the consumption of those elements updates the
+/// state of the iterators that produce them, the states of these iterators
+/// need to be updated and hence known. If these updates should not be side
+/// effects, they have to be reflected in the updated state of the current
+/// iterator.
+///
+/// This means that the lowering of any particular iterator op depends on the
+/// transitive use-def chain of its operands. However, it is sufficient to know
+/// the state *types*, and, since these states are only forwarded to functions
+/// from the upstream iterators (i.e., the iterators that produce the operand
+/// streams), they are treated as blackboxes.
+///
+/// The lowering is done using a custom walker. The conversion happens in two
+/// steps:
+///
+/// 1. The `IteratorAnalysis` computes the nested state of each iterator op
+///    and pre-assigns the names of the Open/Next/Close functions of each
+///    iterator op. The former provides all information needed from the use-def
+///    chain and hences removes need to traverse it for the conversion of each
+///    iterator op; the latter establishes the interfaces between each iterator
+///    and its downstreams (i.e., consumers).
 /// 2. The custom walker traverses the iterator ops in use-def order, converting
 ///    each iterator in an op-specific way providing the converted operands
 ///    (which it has walked before) to the conversion logic.

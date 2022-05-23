@@ -27,7 +27,8 @@ namespace iterators {
 /// functions of all iterator ops nested inside the given parent op. The state
 /// type of each iterator usually consists of a private part, which the iterator
 /// accesses in its Open/Next/Close logic, as well as the state of all of its
-/// transitive upstream iterators.
+/// transitive upstream iterators, i.e., the iterators that produce the operand
+/// streams.
 class IteratorAnalysis {
 public:
   /// Information about each op constructed by this analysis.

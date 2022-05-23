@@ -77,7 +77,8 @@ LLVM::LLVMStructType IteratorAnalysis::computeStateType(SampleInputOp op) {
       op->getContext(), "iterators.sampleInputState", {counterType});
 }
 
-/// The state of ReduceOp only consists of the state of its upstream.
+/// The state of ReduceOp only consists of the state of its upstream iterator,
+/// i.e., the state of the iterator that produces its input stream.
 LLVM::LLVMStructType IteratorAnalysis::computeStateType(ReduceOp op) {
   auto maybeUpstreamInfo = getIteratorInfo(op.input().getDefiningOp());
   assert(maybeUpstreamInfo.hasValue());
