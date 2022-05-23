@@ -232,6 +232,8 @@ struct PrintOpLowering : public ConversionPattern {
 
 /// Builds IR that resets the current index to 0. Possible result:
 ///
+// TODO(ingomueller): make type generic once the SampleInputOp/RangeOp is more
+//                    generic.
 /// %0 = llvm.mlir.constant(0 : i32) : i32
 /// %1 = llvm.insertvalue %0, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.sampleInputState", (i32)>
@@ -257,7 +259,9 @@ static Value buildOpenBody(SampleInputOp op, RewriterBase &rewriter,
 /// return currentIndex++
 ///
 /// Possible result:
-//
+///
+// TODO(ingomueller): make type generic once the SampleInputOp/RangeOp is more
+//                    generic.
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.sampleInputState", (i32)>
 /// %c4_i32 = arith.constant 4 : i32
@@ -326,6 +330,8 @@ static Value buildCloseBody(SampleInputOp op, RewriterBase &rewriter,
 /// Builds IR that creates an initial iterator state consisting of an
 /// (uninitialized) current index. Possible result:
 ///
+// TODO(ingomueller): make type generic once the SampleInputOp/RangeOp is more
+//                    generic.
 /// %0 = llvm.mlir.constant(0 : i32) : i32
 /// %1 = llvm.insertvalue %0, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.sampleInputState", (i32)>
@@ -345,10 +351,10 @@ static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
-/// %1 = call @iterators.sampleInput.Open.0(%0) : (...) -> ...
+///          !llvm.struct<"iterators.reduceState", !nestedState>
+/// %1 = call @iterators.sampleInput.Open.0(%0) : (!nestedState) -> !nestedState
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
+///          !llvm.struct<"iterators.reduceState", (!nestedState)>
 static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
@@ -384,33 +390,33 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 /// Possible output:
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
+///          !llvm.struct<"iterators.reduceState", (!nestedState)>
 /// %1:3 = call @iterators.sampleInput.Next.0(%0) :
-///            (...) -> (..., i1, !llvm.struct<(i32)>)
-/// %2:3 = scf.if %1#1 -> (..., i1, !llvm.struct<(i32)>) {
+///            (!nestedState) -> (!nestedState, i1, !elementType)
+/// %2:3 = scf.if %1#1 -> (!nestedState, i1, !elementType) {
 ///   %4:3 = scf.while (%arg1 = %1#0, %arg2 = %1#2) :
-///              (..., !llvm.struct<(i32)>) ->
-///                 (..., !llvm.struct<(i32)>, !llvm.struct<(i32)>) {
+///              (!nestedState, !elementType) ->
+///                 (!nestedState, !elementType, !elementType) {
 ///     %5:3 = call @iterators.sampleInput.Next.0(%arg1) :
-///                (...) -> (..., i1, !llvm.struct<(i32)>)
+///                (!nestedState) -> (!nestedState, i1, !elementType)
 ///     scf.condition(%5#1) %5#0, %5#2, %arg2 :
-///         ..., !llvm.struct<(i32)>, !llvm.struct<(i32)>
+///         !nestedState, !elementType, !elementType
 ///   } do {
-///   ^bb0(%arg1: ..., %arg2: !llvm.struct<(i32)>, %arg3: !llvm.struct<(i32)>):
+///   ^bb0(%arg1: !nestedState, %arg2: !elementType, %arg3: !elementType):
 ///     // TODO(ingomueller): extend to arbitrary functions
-///     %5 = llvm.extractvalue %arg3[0 : index] : !llvm.struct<(i32)>
-///     %6 = llvm.extractvalue %arg2[0 : index] : !llvm.struct<(i32)>
+///     %5 = llvm.extractvalue %arg3[0 : index] : !elementType
+///     %6 = llvm.extractvalue %arg2[0 : index] : !elementType
 ///     %7 = arith.addi %6, %5 : i32
-///     %8 = llvm.insertvalue %7, %arg2[0 : index] : !llvm.struct<(i32)>
-///     scf.yield %arg1, %8 : ..., !llvm.struct<(i32)>
+///     %8 = llvm.insertvalue %7, %arg2[0 : index] : !elementType
+///     scf.yield %arg1, %8 : !nestedState, !elementType
 ///   }
 ///   %true = arith.constant true
-///   scf.yield %4#0, %true, %4#2 : ..., i1, !llvm.struct<(i32)>
+///   scf.yield %4#0, %true, %4#2 : !nestedState, i1, !elementType
 /// } else {
-///   scf.yield %1#0, %1#1, %1#2 : ..., i1, !llvm.struct<(i32)>
+///   scf.yield %1#0, %1#1, %1#2 : !nestedState, i1, !elementType
 /// }
 /// %3 = llvm.insertvalue %2#0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
+///          !llvm.struct<"iterators.reduceState", (!nestedState)>
 static llvm::SmallVector<Value, 4>
 buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -514,10 +520,11 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
-/// %1 = call @iterators.sampleInput.Close.0(%0) : (...) -> ...
+///          !llvm.struct<"iterators.reduceState", (!nestedState)>
+/// %1 = call @iterators.sampleInput.Close.0(%0) :
+///          (!nestedState) -> !nestedState
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
+///          !llvm.struct<"iterators.reduceState", (!nestedState)>
 static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
@@ -545,9 +552,9 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.reduceState", (...)>
+/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.reduceState", (!nestedState)>
 /// %2 = llvm.insertvalue %0, %1[0 : index] :
-///          !llvm.struct<"iterators.reduceState", (...)>
+///          !llvm.struct<"iterators.reduceState", (!nestedState)>
 static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
@@ -769,19 +776,19 @@ convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
 /// %2 = ... // initialize state of root iterator
 /// %3 = call @iterators.reduce.Open.1(%2) : (!rootStateType) -> !rootStateType
 /// %4:3 = scf.while (%arg0 = %3) :
-///            (!rootStateType) -> (!rootStateType, i1, !llvm.struct<(i32)>) {
+///            (!rootStateType) -> (!rootStateType, i1, !elementType) {
 ///   %6:3 = call @iterators.reduce.Next.1(%arg0) :
-///              (!rootStateType) -> (!rootStateType, i1, !llvm.struct<(i32)>)
-///   scf.condition(%6#1) %6#0, %6#1, %6#2 :
-///       !rootStateType, i1, !llvm.struct<(i32)>
+///              (!rootStateType) -> (!rootStateType, i1, !elementType)
+///   scf.condition(%6#1) %6#0, %6#1, %6#2 : !rootStateType, i1, !elementType
 /// } do {
-/// ^bb0(%arg0: !rootStateType, %arg1: i1, %arg2: !llvm.struct<(i32)>):
+/// ^bb0(%arg0: !rootStateType, %arg1: i1, %arg2: !elementType):
+// TODO(ingomueller): extend to arbitrary types/LLVMStrucTypes
 ///   %6 = llvm.mlir.addressof @frmt_spec.anonymous_tuple :
 ///            !llvm.ptr<array<6 x i8>>
 ///   %7 = llvm.mlir.constant(0 : i64) : i64
 ///   %8 = llvm.getelementptr %6[%7, %7] :
 ///            (!llvm.ptr<array<6 x i8>>, i64, i64) -> !llvm.ptr<i8>
-///   %9 = llvm.extractvalue %arg2[0 : index] : !llvm.struct<(i32)>
+///   %9 = llvm.extractvalue %arg2[0 : index] : !elementType
 ///   %10 = llvm.call @printf(%8, %9) : (!llvm.ptr<i8>, i32) -> i32
 ///   scf.yield %arg0 : !rootStateType
 /// }
