@@ -8,8 +8,11 @@
 !element_type = type !llvm.struct<(i32)>
 
 func @main() {
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
-  %reduce = "iterators.reduce"(%input) : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %input = "iterators.constantstream"()
+      { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
+      : () -> (!iterators.stream<!element_type>)
+  %reduce = "iterators.reduce"(%input)
+      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
   // CHECK:      (6)
   return

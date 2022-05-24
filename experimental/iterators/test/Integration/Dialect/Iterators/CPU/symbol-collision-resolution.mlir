@@ -8,18 +8,23 @@
 !element_type = type !llvm.struct<(i32)>
 
 func @query1() {
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
-  %reduce1 = "iterators.reduce"(%input) : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %input = "iterators.constantstream"() { value = [[6 : i32]] }
+      : () -> (!iterators.stream<!element_type>)
+  %reduce1 = "iterators.reduce"(%input)
+      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   // Reduce result again to vary from second query.
-  %reduce2 = "iterators.reduce"(%reduce1) : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %reduce2 = "iterators.reduce"(%reduce1)
+      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   "iterators.sink"(%reduce2) : (!iterators.stream<!element_type>) -> ()
   return
 }
 
 func @query2() {
   // Run similar query again to check that name collision resolution works.
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
-  %reduce = "iterators.reduce"(%input) : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %input = "iterators.constantstream"(){ value = [[6 : i32]] }
+      : () -> (!iterators.stream<!element_type>)
+  %reduce = "iterators.reduce"(%input)
+      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
   return
 }

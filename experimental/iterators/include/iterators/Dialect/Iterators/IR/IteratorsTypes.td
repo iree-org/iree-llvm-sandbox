@@ -13,6 +13,7 @@ include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsInterfaces.td"
 include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/IR/AttrTypeBase.td"
+include "mlir/IR/BuiltinAttributes.td"
 include "mlir/IR/OpBase.td"
 
 // Base class for Iterators dialect types.
@@ -83,6 +84,10 @@ class Iterators_StreamOf<Type elementType>
 def Iterators_StreamOfLLVMStructOfSingleI32
   : Iterators_StreamOf<Iterators_LLVMStructOfSingleI32>;
 
+/// An Iterators stream of LLVM structs consisting of numerics.
+def Iterators_StreamOfLLVMStructOfNumerics
+  : Iterators_StreamOf<Iterators_LLVMStructOfNumerics>;
+
 /// Predicate to verify that a named argument or result's stream type matches a
 /// given type.
 class Iterators_IsStreamOfPred<string name, Type type>
@@ -96,6 +101,52 @@ class Iterators_IsStreamOf<string name, Type type>
 /// LLVM struct consisting of a single I32.
 class Iterators_IsStreamOfLLVMStructOfSingleI32Pred<string name>
   : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfSingleI32>;
+
+/// Predicate to verify that a named argument or result's stream type is an
+/// LLVM struct consisting of numerics.
+class Iterators_IsStreamOfLLVMStructOfNumericsPred<string name>
+  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfNumerics>;
+
+/// ArrayAttr where the attribute elements are again ArrayAttrs.
+def Iterators_ArrayArrayAttr
+  : TypedArrayAttrBase<Builtin_ArrayAttr, "array attribute of array attributes"> {
+  let storageType = [{ ::mlir::ArrayAttr }];
+}
+
+/// ArrayAttr of ArrayAttrs where, for all inner ArrayAttrs, the sequence of
+/// types of the inner-most elements is the same. In other words, the type
+/// of the element at position i is the same for all inner ArrayAttrs.
+def Iterators_HomogeneouslyTypedArrayArrayAttrConstraint
+  : AttrConstraint<
+      CPred<[{
+        $_self.dyn_cast<::mlir::ArrayAttr>().size() == 0 ||
+        ::llvm::is_splat(
+          ::llvm::map_range(
+            $_self.dyn_cast<::mlir::ArrayAttr>().getValue(),
+            [](::mlir::Attribute attr) {
+              return ::llvm::SmallVector<Type>(
+                ::llvm::map_range(
+                  attr.dyn_cast<::mlir::ArrayAttr>(),
+                  [](Attribute attr) { return attr.getType(); }));;
+            }))
+        }]>,
+      "where all inner arrays have the same type sequence">;
+def Iterators_HomogeneouslyTypedArrayArrayAttr
+  : Confined<Iterators_ArrayArrayAttr,
+            [Iterators_HomogeneouslyTypedArrayArrayAttrConstraint]>;
+
+/// ArrayAttr of ArrayAttr where the inner ArrayAttrs have matching element
+/// types and all those types are numeric.
+def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
+  : Confined<Iterators_ArrayArrayAttr, [
+        Iterators_HomogeneouslyTypedArrayArrayAttrConstraint,
+        AttrConstraint<
+          Or<[
+            CPred<"$_self.dyn_cast<::mlir::ArrayAttr>().size() == 0">,
+            SubstLeaves<"$_self", "(*($_self.dyn_cast<::mlir::ArrayAttr>().begin()))",
+                        Iterators_NumericArrayAttr.predicate>]>,
+          "and where the inner arrays consist of numeric values">
+      ]>;
 
 //===----------------------------------------------------------------------===//
 // State of low-level iterators

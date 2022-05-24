@@ -3,19 +3,19 @@
 // RUN: | FileCheck %s
 
 func @main() {
-  %empty_tuple = "iterators.constant"() { values = [] } : () -> tuple<>
+  %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
   "iterators.printtuple"(%empty_tuple) : (tuple<>) -> ()
   // CHECK:      ()
 
-  %one_field_tuple = "iterators.constant"() { values = [1 : i32] } : () -> tuple<i32>
+  %one_field_tuple = "iterators.constanttuple"() { values = [1 : i32] } : () -> tuple<i32>
   "iterators.printtuple"(%one_field_tuple) : (tuple<i32>) -> ()
   // CHECK-NEXT: (1)
 
-  %three_field_tuple = "iterators.constant"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
+  %three_field_tuple = "iterators.constanttuple"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
   "iterators.printtuple"(%three_field_tuple) : (tuple<i32, i32, i32>) -> ()
   // CHECK-NEXT: (1, 2, 3)
 
-  %mixed_field_tuple = "iterators.constant"()
+  %mixed_field_tuple = "iterators.constanttuple"()
       { values = [1 : i1, 2 : i8, 3 : i16, 4 : i32, 5 : i64, 8.5 : f16, 8.25 : f32, 8.125 : f64] }
       : () -> tuple<i1, i8, i16, i32, i64, f16, f32, f64>
   "iterators.printtuple"(%mixed_field_tuple) : (tuple<i1, i8, i16, i32, i64, f16, f32, f64>) -> ()

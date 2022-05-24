@@ -6,10 +6,10 @@
 // CHECK-NEXT:   llvm.mlir.global internal constant @frmt_spec.tuple[[S0:.*]]("(%lli)\0A\00")
 // CHECK-NEXT:   func @main() {
 func @main() {
-  %empty_tuple = "iterators.constant"() { values = [] } : () -> tuple<>
+  %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
   // CHECK-NEXT:     %[[V0:.*]] = llvm.mlir.undef : !llvm.struct<"tuple[[S0:.*]]", ()>
 
-  %one_field_tuple = "iterators.constant"() { values = [1 : i32] } : () -> tuple<i32>
+  %one_field_tuple = "iterators.constanttuple"() { values = [1 : i32] } : () -> tuple<i32>
   // CHECK-NEXT:     %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<"tuple[[S1:.*]]", (i32)>
   // CHECK-NEXT:     %[[V2:.*]] = llvm.mlir.constant(1 : i32) : i32
   // CHECK-NEXT:     %[[V3:.*]] = llvm.insertvalue %[[V2]], %[[V1]][0 : index] : !llvm.struct<"tuple[[S1]]", (i32)>
@@ -22,7 +22,7 @@ func @main() {
   // CHECK-NEXT:     %[[Vb:.*]] = llvm.zext %[[V7]] : i32 to i64
   // CHECK-NEXT:     %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[Vb]]) : (!llvm.ptr<i8>, i64) -> i32
 
-  %three_field_tuple = "iterators.constant"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
+  %three_field_tuple = "iterators.constanttuple"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
   // CHECK-NEXT:     %[[V4:.*]] = llvm.mlir.undef : !llvm.struct<"tuple[[S2:.*]]", (i32, i32, i32)>
   // CHECK-NEXT:     %[[V5:.*]] = llvm.mlir.constant(1 : i32) : i32
   // CHECK-NEXT:     %[[V6:.*]] = llvm.insertvalue %[[V5]], %[[V4]][0 : index] : !llvm.struct<"tuple[[S2]]", (i32, i32, i32)>
