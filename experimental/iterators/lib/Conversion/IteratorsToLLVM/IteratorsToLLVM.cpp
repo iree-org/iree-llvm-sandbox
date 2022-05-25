@@ -554,7 +554,8 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 ///
 /// %0 = ...
 /// %1 = llvm.mlir.undef : !llvm.struct<"iterators.reduce_state",
-/// (!nested_state)> %2 = llvm.insertvalue %0, %1[0 : index] :
+///                                     (!nested_state)>
+/// %2 = llvm.insertvalue %0, %1[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
 static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
