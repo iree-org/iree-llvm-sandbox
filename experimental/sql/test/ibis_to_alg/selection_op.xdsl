@@ -1,7 +1,7 @@
 // RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
 
 module() {
-  ibis.selection() {
+  ibis.selection() ["names" = []] {
     // selection input
     ibis.pandas_table() ["table_name" = "t"] {
       ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
