@@ -1,6 +1,6 @@
 # RUN: rel_opt.py -f ibis %s | filecheck %s
 
-table['b'] * table['c']
+table[(table['b'] * table['c']).name('d')]
 
 #      CHECK: ibis.selection() {
 # CHECK-NEXT:     ibis.pandas_table() ["table_name" = "t"] {

@@ -120,6 +120,21 @@ class TableColumn(Operation):
 
 
 @irdl_op_definition
+class Multiply(Operation):
+  name = "ibis.multiply"
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+  output_type = AttributeDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Region, rhs: Region, output_type: DataType) -> 'Multiply':
+    return Multiply.build(regions=[lhs, rhs],
+                          attributes={"output_type": output_type})
+
+
+@irdl_op_definition
 class Selection(Operation):
   """
   Models an SQL `Select` statement and related concepts. If there are predicates
