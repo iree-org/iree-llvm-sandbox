@@ -262,6 +262,36 @@ class Equals(Operation):
 
 
 @irdl_op_definition
+class GreaterEqual(Operation):
+  """
+  Checks whether each entry of `left` is greater or equal to `right`.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/logical.py#L89
+
+  Example:
+
+  ```
+  ibis.greaterEqual() {
+    // left
+    ibis.table_column() ...
+  } {
+    // right
+    ibis.literal() ...
+  }
+  ```
+  """
+  name = "ibis.greaterEqual"
+
+  left = SingleBlockRegionDef()
+  right = SingleBlockRegionDef()
+
+  @builder
+  @staticmethod
+  def get(left: Region, right: Region) -> 'GreaterEqual':
+    return GreaterEqual.build(regions=[left, right])
+
+
+@irdl_op_definition
 class PandasTable(Operation):
   """
   Defines a table with name `table_name` and schema `schema`. The table is
@@ -354,6 +384,7 @@ class Ibis:
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
     self.ctx.register_op(Equals)
+    self.ctx.register_op(GreaterEqual)
     self.ctx.register_op(TableColumn)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Sum)
