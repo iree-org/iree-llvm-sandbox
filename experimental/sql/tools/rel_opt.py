@@ -41,6 +41,26 @@ class RelOptMain(xDSLOptMain):
       import pandas as pd
       import numpy as np
 
+      def exec_then_eval(query: str, tables: list[ibis.expr.types.Expr],
+                         names: list[str]):
+        """
+        Takes a (potentially multi-line) string that defines an ibis query with
+        variables for subexpressions. The expression tree is built with the ith
+        names of `names` corresponding to the ith table of `tables`. Finally,
+        the result of the last line (modulo comments) is returned.
+        """
+        assert len(tables) == len(names)
+        import ast
+
+        _globals, _locals = {}, {}
+        for t, n in zip(tables, names):
+          _locals[n] = t
+
+        ast_query = ast.parse(query)
+        last = ast.Expression(ast_query.body.pop().value)
+        exec(compile(ast_query, '<string>', mode='exec'), _globals, _locals)
+        return eval(compile(last, '<string>', mode='eval'), _globals, _locals)
+
       connection = ibis.pandas.connect({
           "t":
               pd.DataFrame({
@@ -54,11 +74,11 @@ class RelOptMain(xDSLOptMain):
               })
       })
 
-      table = connection.table('t')
-      sum_table = connection.table('u')
       query = f.read()
-      res = eval(query)
-
+      res = exec_then_eval(
+          query,
+          [connection.table('t'), connection.table('u')],
+          ["table", "sum_table"])
       return ibis_to_xdsl(self.ctx, res)
 
     self.available_frontends['ibis'] = parse_ibis
