@@ -1,6 +1,9 @@
-add_library(runtime_utils
-  SHARED
-  RuntimeUtils.cpp
+add_mlir_library(IteratorsUtils
+  MLIRSupport.cpp
+  NameAssigner.cpp
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  MLIRLLVMIR
+  MLIRSCF
 )
-set_property(TARGET runtime_utils PROPERTY CXX_STANDARD 17)
-target_compile_definitions(runtime_utils PRIVATE runtime_utils_EXPORTS)

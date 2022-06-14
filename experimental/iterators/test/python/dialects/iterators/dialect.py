@@ -30,9 +30,10 @@ def testStreamType():
 # CHECK-LABEL: TEST: testParse
 def testParse():
   mod = Module.parse(
-      '%0 = "iterators.sampleInput"() : () -> (!iterators.stream<tuple<i32>>)')
+      '%0 = "iterators.sampleInput"() : () -> (!iterators.stream<!llvm.struct<(i32)>>)'
+  )
   # CHECK:      module {
-  # CHECK-NEXT:   %0 = "iterators.sampleInput"() : () -> !iterators.stream<tuple<i32>>
+  # CHECK-NEXT:   %0 = "iterators.sampleInput"() : () -> !iterators.stream<!llvm.struct<(i32)>>
   # CHECK-NEXT: }
   print(mod)
 
@@ -42,7 +43,7 @@ def testParse():
 def testConvertIteratorsToLlvm():
   mod = Module.parse('''
       func @main() {
-        %input = "iterators.sampleInput"() : () -> (!iterators.stream<tuple<i32>>)
+        %input = "iterators.sampleInput"() : () -> (!iterators.stream<!llvm.struct<(i32)>>)
         return
       }
       ''')
@@ -57,14 +58,15 @@ def testConvertIteratorsToLlvm():
 def testEndToEnd():
   mod = Module.parse('''
       func @main() attributes { llvm.emit_c_interface } {
-        %input = "iterators.sampleInput"() : () -> (!iterators.stream<tuple<i32>>)
-        %reduce = "iterators.reduce"(%input) : (!iterators.stream<tuple<i32>>) -> (!iterators.stream<tuple<i32>>)
-        "iterators.sink"(%reduce) : (!iterators.stream<tuple<i32>>) -> ()
+        %input = "iterators.sampleInput"() : () -> (!iterators.stream<!llvm.struct<(i32)>>)
+        %reduce = "iterators.reduce"(%input) : (!iterators.stream<!llvm.struct<(i32)>>) -> (!iterators.stream<!llvm.struct<(i32)>>)
+        "iterators.sink"(%reduce) : (!iterators.stream<!llvm.struct<(i32)>>) -> ()
         return
       }
       ''')
-  pm = PassManager.parse('convert-iterators-to-llvm,convert-func-to-llvm')
+  pm = PassManager.parse('convert-iterators-to-llvm,convert-func-to-llvm,' +
+                         'convert-scf-to-cf,convert-cf-to-llvm')
   pm.run(mod)
-  engine = ExecutionEngine(mod, shared_libs=[os.environ['RUNTIMELIB']])
+  engine = ExecutionEngine(mod)
   # CHECK: (6)
   engine.invoke('main')

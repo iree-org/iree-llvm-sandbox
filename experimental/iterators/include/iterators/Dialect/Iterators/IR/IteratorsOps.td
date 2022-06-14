@@ -47,20 +47,26 @@ def Iterators_PrintTupleOp : Iterators_Op<"print"> {
 // High-level iterators
 //===----------------------------------------------------------------------===//
 
+// TODO(ingomueller): Extend to more number types.
+// TODO(ingomueller): Rename this op to RangeOp; parametrized it with attributes
+//                    `from`, `to`, and `step`.
 def Iterators_SampleInputOp : Iterators_Op<"sampleInput"> {
   let summary = "Create some sample input";
-  let results = (outs Iterators_Stream);
+  let results = (outs Iterators_StreamOfLLVMStructOfSingleI32:$result);
 }
 
+// TODO(ingomueller): Support custom reduce function.
+// TODO(ingomueller): Extend to any type matching reduce function.
 def Iterators_ReduceOp : Iterators_Op<"reduce"> {
   let summary = "Reduce the input to a single tuple";
-  let arguments = (ins Iterators_Stream);
-  let results = (outs Iterators_Stream);
+  let arguments = (ins Iterators_StreamOfLLVMStructOfSingleI32:$input);
+  let results = (outs Iterators_StreamOfLLVMStructOfSingleI32:$result);
 }
 
+// TODO(ingomueller): Extend to more LLVM structs/builtin types
 def Iterators_SinkOp : Iterators_Op<"sink"> {
   let summary = "Consume tuples from an iterator";
-  let arguments = (ins Iterators_Stream);
+  let arguments = (ins Iterators_StreamOfLLVMStructOfSingleI32:$input);
 }
 
 //===----------------------------------------------------------------------===//

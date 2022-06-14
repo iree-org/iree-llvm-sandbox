@@ -8,6 +8,7 @@
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/ADT/TypeSwitch.h"
