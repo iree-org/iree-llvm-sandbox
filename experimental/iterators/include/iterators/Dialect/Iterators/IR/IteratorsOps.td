@@ -14,8 +14,12 @@ include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpBase.td"
 
-class Iterators_Op<string mnemonic, list<Trait> traits = []> :
+class Iterators_Base_Op<string mnemonic, list<Trait> traits = []> :
     Op<Iterators_Dialect, mnemonic, traits> {
+}
+
+class Iterators_Op<string mnemonic, list<Trait> traits = []> :
+    Iterators_Base_Op<mnemonic,  traits # [Iterators_IteratorOpInterface]> {
 }
 
 //===----------------------------------------------------------------------===//
@@ -30,14 +34,14 @@ def MatchingFieldCountsConstraint
                   MatchingFieldCountsPred>;
 
 def Iterators_ConstantTupleOp
-    : Iterators_Op<"constant", [MatchingFieldCountsConstraint]> {
+    : Iterators_Base_Op<"constant", [MatchingFieldCountsConstraint]> {
   let summary = "Creates a tuple from the given values";
   // TODO(ingomueller): extend to more field types
   let arguments = (ins I32ArrayAttr:$values);
   let results = (outs TupleOf<[I32]>:$tuple);
 }
 
-def Iterators_PrintTupleOp : Iterators_Op<"print"> {
+def Iterators_PrintTupleOp : Iterators_Base_Op<"print"> {
   let summary = "Print the elements of a tuple";
   // TODO(ingomueller): extend to all supported tuple types
   let arguments = (ins TupleOf<[I32]>);
@@ -63,8 +67,11 @@ def Iterators_ReduceOp : Iterators_Op<"reduce"> {
   let results = (outs Iterators_StreamOfLLVMStructOfSingleI32:$result);
 }
 
+/// The sink op is a special op that only consumes a stream of values and 
+/// produces nothing.
+/// It is not markes with Iterators_IteratorOpInterface.
 // TODO(ingomueller): Extend to more LLVM structs/builtin types
-def Iterators_SinkOp : Iterators_Op<"sink"> {
+def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
   let summary = "Consume tuples from an iterator";
   let arguments = (ins Iterators_StreamOfLLVMStructOfSingleI32:$input);
 }

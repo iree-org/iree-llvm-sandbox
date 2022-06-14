@@ -20,7 +20,7 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
                 "LLVM dialect";
   let description = [{
     This lowering pass converts iterators, i.e., operation that have operands
-    and results of type `Stream`, to control flow that co-executes all iterators
+    and results of type `Stream`, to control-flow that co-executes all iterators
     connected via use-def chains of `Stream`s as well as the state that is
     required for each iterator to do so. This is achieved by having each
     iterator *consumes* the elements in its operand `Stream`s in order to
@@ -29,12 +29,12 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
     currently only works if the use-def chains of `Stream`s form a tree, i.e.,
     every `Stream` is used as an operand by exactly one subsequent iterator.
 
-    More precisely, for each iterator, the lowering produces a state in form
+    More precisely, for each iterator, the lowering produces a state in the form
     of an `!llvm.struct<...>`, including any local state that the iterator might
     require **plus the states of all iterators in the transitive use-def chain**
     of its operands. The computations are expressed as three functions, `Open`,
     `Next`, and `Close`, which operate on that state and which continuously pass
-    control flow between the logic of the different iterators:
+    control-flow between the logic of the different iterators:
 
     * `Open` initializes the computations, typically calling `Open` on the
       nested states of the current iterator;

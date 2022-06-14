@@ -27,4 +27,8 @@ def Iterators_IteratorInterface : TypeInterface<"IteratorInterface"> {
   ];
 }
 
+def Iterators_IteratorOpInterface : OpInterface<"IteratorOpInterface"> {
+  let description = [{Iterators op interface.}];
+}
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSINTERFACES

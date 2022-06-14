@@ -1,4 +1,4 @@
-//===-- IteratorAnalysis.h - Lowering information of iterators --*- C++ -*-===//
+//===-- NameAssigner.h - Assigner of unique names --------------*- C++ -*-===//
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,14 +9,12 @@
 #ifndef ITERATORS_UTILS_NAMEASSIGNER_H
 #define ITERATORS_UTILS_NAMEASSIGNER_H
 
-#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/StringRef.h"
-
-#include <stdint.h>
+#include "mlir/Support/LLVM.h"
 
 namespace mlir {
+
+class ModuleOp;
 namespace iterators {
 
 /// Pre-assigns unique symbol names in the given module. Uniqueness is

@@ -47,7 +47,7 @@ def Iterators_Dialect : Dialect {
     stream in its entirety. However, the intention is to lower a program of
     iterator ops such that **all iterators** in a connected component of
     iterators **run at the same time**, continuously passing individual elements
-    of the streams (and potentially control flow) between them. In many cases,
+    of the streams (and potentially control-flow) between them. In many cases,
     this removes the need to write the potentially large result of one iterator
     (represented by a stream) to slow memory because each element in the stream
     is consumed by the subsequent (downstream) iterator immediately after it has

@@ -16,45 +16,11 @@
 #include "mlir/Dialect/Arithmetic/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/IR/Attributes.h"
-#include "mlir/IR/Block.h"
 #include "mlir/IR/BlockAndValueMapping.h"
-#include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Location.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/IR/Operation.h"
-#include "mlir/IR/OperationSupport.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/IR/TypeRange.h"
-#include "mlir/IR/Types.h"
-#include "mlir/IR/Value.h"
-#include "mlir/IR/Visitors.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Support/raw_ostream.h"
-
-#include <assert.h>
-
-#include <algorithm>
-#include <iterator>
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
 
 namespace mlir {
 class MLIRContext;
@@ -66,7 +32,7 @@ using namespace mlir::LLVM;
 using namespace mlir::func;
 using namespace ::iterators;
 using namespace std::string_literals;
-using IteratorInfo = IteratorAnalysis::IteratorInfo;
+using IteratorInfo = mlir::iterators::IteratorInfo;
 
 namespace {
 struct ConvertIteratorsToLLVMPass
@@ -339,9 +305,7 @@ static Value buildCloseBody(SampleInputOp op, RewriterBase &rewriter,
 static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
-  Location loc = op.getLoc();
-  Value initialState = rewriter.create<UndefOp>(loc, stateType);
-  return initialState;
+  return rewriter.create<UndefOp>(op.getLoc(), stateType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -543,10 +507,9 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
-                                           updatedUpstreamState, {0});
-
-  return updatedState;
+  return createInsertValueOp(rewriter, loc, initialState, updatedUpstreamState,
+                             {0})
+      .getResult();
 }
 
 /// Builds IR that initializes the iterator state with the state of the upstream
@@ -561,14 +524,9 @@ static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
   Location loc = op.getLoc();
-
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-
   Value upstreamState = upstreamStates[0];
-  Value initialState =
-      createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
-
-  return initialState;
+  return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -650,7 +608,7 @@ static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
 }
 
 /// Type-switching proxy for builders of iterator state creation.
-static Value buildStateCreation(Operation *op, RewriterBase &rewriter,
+static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
   return llvm::TypeSwitch<Operation *, Value>(op).Case<ReduceOp, SampleInputOp>(
@@ -734,34 +692,29 @@ buildCloseFuncInParentModule(Operation *originalOp, RewriterBase &rewriter,
 /// the upstream iterator. This consists of (1) creating the initial iterator
 /// state based on the initial states of the upstream iterators and (2) building
 /// the op-specific Open/Next/Close functions.
-static FailureOr<Optional<Value>>
-convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
-                         RewriterBase &rewriter,
-                         const IteratorAnalysis &iteratorAnalysis) {
+static Value convert(IteratorOpInterface op, ValueRange operands,
+                     RewriterBase &rewriter,
+                     const IteratorAnalysis &iteratorAnalysis) {
   // IteratorInfo for this op.
-  auto opInfo = iteratorAnalysis.getIteratorInfo(op);
-  assert(opInfo.hasValue());
+  IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(op);
 
-  // Assemble IteratorInfo for upstreams.
+  // Assemble IteratorInfo for all the upstream iterators (i.e. all the defs).
   llvm::SmallVector<IteratorInfo, 8> upstreamInfos;
   for (Value operand : op->getOperands()) {
-    Operation *definingOp = operand.getDefiningOp();
-    Optional<IteratorInfo> upstreamInfo =
-        iteratorAnalysis.getIteratorInfo(definingOp);
-    assert(upstreamInfo.hasValue());
-    upstreamInfos.push_back(upstreamInfo.getValue());
+    auto definingOp = cast<IteratorOpInterface>(operand.getDefiningOp());
+    IteratorInfo upstreamInfo =
+        iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+    upstreamInfos.push_back(upstreamInfo);
   }
 
   // Build Open/Next/Close functions.
-  buildOpenFuncInParentModule(op, rewriter, *opInfo, upstreamInfos);
-  buildNextFuncInParentModule(op, rewriter, *opInfo, upstreamInfos);
-  buildCloseFuncInParentModule(op, rewriter, *opInfo, upstreamInfos);
+  buildOpenFuncInParentModule(op, rewriter, opInfo, upstreamInfos);
+  buildNextFuncInParentModule(op, rewriter, opInfo, upstreamInfos);
+  buildCloseFuncInParentModule(op, rewriter, opInfo, upstreamInfos);
 
   // Create initial state.
-  LLVMStructType stateType = opInfo->stateType;
-  Value initialState = buildStateCreation(op, rewriter, stateType, operands);
-
-  return {initialState};
+  LLVMStructType stateType = opInfo.stateType;
+  return buildStateCreation(op, rewriter, stateType, operands);
 }
 
 /// Converts the given sink to LLVM using the converted operands from the root
@@ -797,22 +750,19 @@ convertNonSinkIteratorOp(Operation *op, ArrayRef<Value> operands,
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
 ///          (!root_state_type) -> !root_state_type
-static FailureOr<Optional<Value>>
-convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
-                      RewriterBase &rewriter,
-                      const IteratorAnalysis &iteratorAnalysis) {
+static Value convert(SinkOp op, ValueRange operands, RewriterBase &rewriter,
+                     const IteratorAnalysis &iteratorAnalysis) {
   Location loc = op->getLoc();
 
   // Look up IteratorInfo about root iterator.
   assert(operands.size() == 1);
   Operation *definingOp = op->getOperand(0).getDefiningOp();
-  Optional<IteratorInfo> opInfo = iteratorAnalysis.getIteratorInfo(definingOp);
-  assert(opInfo.hasValue());
+  IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
 
-  Type stateType = opInfo->stateType;
-  SymbolRefAttr openFunc = opInfo->openFunc;
-  SymbolRefAttr nextFunc = opInfo->nextFunc;
-  SymbolRefAttr closeFunc = opInfo->closeFunc;
+  Type stateType = opInfo.stateType;
+  SymbolRefAttr openFunc = opInfo.openFunc;
+  SymbolRefAttr nextFunc = opInfo.nextFunc;
+  SymbolRefAttr closeFunc = opInfo.closeFunc;
 
   // Open root iterator. ------------------------------------------------------
   Value initialState = operands[0];
@@ -888,23 +838,21 @@ convertSinkIteratorOp(SinkOp op, ArrayRef<Value> operands,
   // Close root iterator. -----------------------------------------------------
   rewriter.create<func::CallOp>(loc, closeFunc, stateType, consumedState);
 
-  return Optional<Value>();
+  return Value();
 }
 
 /// Converts the given op to LLVM using the converted operands from the upstream
 /// iterator. This function is essentially a switch between conversion functions
 /// for sink and non-sink iterator ops.
-static FailureOr<Optional<Value>>
-convertIteratorOp(Operation *op, ArrayRef<Value> operands,
-                  RewriterBase &rewriter,
-                  const IteratorAnalysis &iteratorAnalysis) {
-  return TypeSwitch<Operation *, FailureOr<Optional<Value>>>(op)
-      .Case<SampleInputOp, ReduceOp>([&](auto op) {
-        return convertNonSinkIteratorOp(op, operands, rewriter,
-                                        iteratorAnalysis);
+static Value convertIteratorOp(Operation *op, ValueRange operands,
+                               RewriterBase &rewriter,
+                               const IteratorAnalysis &iteratorAnalysis) {
+  return TypeSwitch<Operation *, Value>(op)
+      .Case<IteratorOpInterface>([&](auto op) {
+        return convert(op, operands, rewriter, iteratorAnalysis);
       })
       .Case<SinkOp>([&](auto op) {
-        return convertSinkIteratorOp(op, operands, rewriter, iteratorAnalysis);
+        return convert(op, operands, rewriter, iteratorAnalysis);
       });
 }
 
@@ -983,7 +931,7 @@ convertIteratorOp(Operation *op, ArrayRef<Value> operands,
 ///    (which it has walked before) to the conversion logic.
 static void convertIteratorOps(ModuleOp module) {
   IRRewriter rewriter(module.getContext());
-  IteratorAnalysis analysis(module, module);
+  IteratorAnalysis analysis(module);
   BlockAndValueMapping mapping;
 
   // Collect all iterator ops in a worklist. Within each block, the iterator
@@ -991,7 +939,7 @@ static void convertIteratorOps(ModuleOp module) {
   // to the worklist *after* all of its upstream iterators.
   SmallVector<Operation *, 16> workList;
   module->walk<WalkOrder::PreOrder>([&](Operation *op) {
-    TypeSwitch<Operation *, void>(op).Case<SampleInputOp, ReduceOp, SinkOp>(
+    TypeSwitch<Operation *, void>(op).Case<IteratorOpInterface, SinkOp>(
         [&](Operation *op) { workList.push_back(op); });
   });
 
@@ -999,29 +947,22 @@ static void convertIteratorOps(ModuleOp module) {
   for (Operation *op : workList) {
     // Look up converted operands. The worklist order guarantees that they
     // exist.
-    SmallVector<Value, 4> operands;
-    for (Value operand : op->getOperands()) {
-      Value convertedOperand = mapping.lookup(operand);
-      assert(convertedOperand);
-      operands.push_back(convertedOperand);
-    }
+    SmallVector<Value> operands;
+    for (Value operand : op->getOperands())
+      operands.push_back(mapping.lookup(operand));
 
     // Convert this op.
-    rewriter.setInsertionPointAfter(op);
-    FailureOr<Optional<Value>> conversionResult =
-        convertIteratorOp(op, operands, rewriter, analysis);
-    assert(succeeded(conversionResult));
-
-    // Save converted result.
-    if (conversionResult->hasValue()) {
-      mapping.map(op->getResult(0), conversionResult->getValue());
-    }
+    rewriter.setInsertionPoint(op);
+    Value converted = convertIteratorOp(op, operands, rewriter, analysis);
+    if (converted)
+      mapping.map(op->getResult(0), converted);
+    else
+      assert(isa<SinkOp>(op) && "Only sink ops convert to a null Value");
   }
 
   // Delete the original, now-converted iterator ops.
-  for (auto it = workList.rbegin(); it != workList.rend(); it++) {
+  for (auto it = workList.rbegin(); it != workList.rend(); it++)
     rewriter.eraseOp(*it);
-  }
 }
 
 void mlir::iterators::populateIteratorsToLLVMConversionPatterns(

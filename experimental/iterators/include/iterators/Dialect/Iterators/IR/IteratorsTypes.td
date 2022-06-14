@@ -56,7 +56,7 @@ class Iterators_StreamOf<Type elementType>
 def Iterators_StreamOfLLVMStructOfSingleI32
   : Iterators_StreamOf<Iterators_LLVMStructOfSingleI32>;
 
-/// Prediate to verify that a named argument or result's stream type matches a
+/// Predicate to verify that a named argument or result's stream type matches a
 /// given type.
 class Iterators_IsStreamOfPred<string name, Type type>
   : SubstLeaves<"$_self", "$" # name # ".getType()",
