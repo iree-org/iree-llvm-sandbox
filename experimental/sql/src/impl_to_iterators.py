@@ -45,10 +45,10 @@ class RelImplRewriter(RewritePattern):
 
 
 @dataclass
-class PandasTableRewriter(RelImplRewriter):
+class FullTableScanRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelImpl.PandasTable,
+  def match_and_rewrite(self, op: RelImpl.FullTableScanOp,
                         rewriter: PatternRewriter):
     # TODO: Change this once not only SampleInputOp is supported
     rewriter.replace_matched_op(
@@ -71,7 +71,7 @@ class AggregateRewriter(RelImplRewriter):
 def impl_to_iterators(ctx: MLContext, query: ModuleOp):
 
   walker = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [PandasTableRewriter(), AggregateRewriter()]),
+      [FullTableScanRewriter(), AggregateRewriter()]),
                                 walk_regions_first=False,
                                 apply_recursively=False,
                                 walk_reverse=False)
