@@ -1,7 +1,7 @@
 // RUN: mlir-proto-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
-!element_type = type !llvm.struct<(i32)>
+!element_type = !llvm.struct<(i32)>
 
 // CHECK-LABEL: func private @iterators.constantstream.close.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>) -> !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>
 // CHECK-NEXT:    return %[[arg0:.*]] : !llvm.struct<"[[inputStateType:iterators\.constant_stream_state.*]]", (i32)>
@@ -54,8 +54,8 @@
 // CHECK-NEXT:    return %[[V1]] : !llvm.struct<"[[inputStateType]]", (i32)>
 // CHECK-NEXT:  }
 
-func @main() {
-  // CHECK-LABEL: func @main()
+func.func @main() {
+  // CHECK-LABEL: func.func @main()
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!element_type>)

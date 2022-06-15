@@ -1,7 +1,7 @@
 // RUN: mlir-proto-opt %s -test-vector-masking-utils=predication -split-input-file | FileCheck %s
 
 
-func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
+func.func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
 %pred0: vector<16xi1>, %idx0 : index, %incoming: vector<16xi1>) {
   %c0 = arith.constant 0 : index
   %f0 = arith.constant 0.0 : f32
@@ -11,7 +11,7 @@ func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>,
   return
 }
 
-// CHECK-LABEL:   func @func_pred0(
+// CHECK-LABEL:   func.func @func_pred0(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?xf32>, %[[VAL_1:.*]]: memref<?xf32>,
 // CHECK-SAME:                     %[[VAL_2:.*]]: vector<16xi1>,
 // CHECK-SAME:                     %[[VAL_3:.*]]: index,

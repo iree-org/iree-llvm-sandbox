@@ -5,7 +5,7 @@
 // RUN:   -shared-libs=%mlir_runner_utils_dir/libmlir_c_runner_utils%shlibext | \
 // RUN: FileCheck %s
 
-func @func_pred0(%arg0: memref<8xf32>, %pred: vector<8xi1>, %idx: index, %incoming: vector<8xi1>) {
+func.func @func_pred0(%arg0: memref<8xf32>, %pred: vector<8xi1>, %idx: index, %incoming: vector<8xi1>) {
   %c0 = arith.constant 0 : index
   %f0 = arith.constant 0.0 : f32
   %0 = vector.transfer_read %arg0[%c0], %f0 {in_bounds = [true]} : memref<8xf32>, vector<8xf32>
@@ -14,7 +14,7 @@ func @func_pred0(%arg0: memref<8xf32>, %pred: vector<8xi1>, %idx: index, %incomi
   return
 }
 
-func @entry() {
+func.func @entry() {
   %f0 = arith.constant 0.0 : f32
   %c0 = arith.constant 0 : index
   %buf = memref.alloca() : memref<8xf32>

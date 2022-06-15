@@ -14,17 +14,32 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "Registration.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Tools/mlir-lsp-server/MlirLspServerMain.h"
 
 using namespace mlir;
 
+#ifdef SANDBOX_ENABLE_ITERATORS
+#include "iterators/Conversion/Passes.h"
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
+
+static void registerIteratorDialects(DialectRegistry &registry) {
+  registry.insert<mlir::iterators::IteratorsDialect>();
+  registerIteratorsConversionPasses();
+}
+#else
+static void registerIteratorDialects(DialectRegistry &registry) {}
+#endif
+
 int main(int argc, char **argv) {
-  mlir::DialectRegistry registry;
   registerAllPasses();
-  registerIntoDialectRegistry(registry);
+
+  DialectRegistry registry;
+  registerAllDialects(registry);
+  registerIteratorDialects(registry);
+
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }

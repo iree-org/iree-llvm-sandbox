@@ -2,10 +2,10 @@ add_mlir_library(MLIRIterators
   Iterators.cpp
 
   LINK_LIBS PUBLIC
-  MLIRFunc
+  MLIRFuncDialect
   MLIRInferTypeOpInterface
   MLIRIR
-  MLIRLLVMIR
+  MLIRLLVMDialect
 
   DEPENDS
   MLIRIteratorsInterfacesIncGen

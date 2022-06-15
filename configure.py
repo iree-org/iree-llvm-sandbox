@@ -19,7 +19,7 @@ def parse_arguments():
   parser.add_argument(
       "--target",
       help="Semicolumn-separated list of targets to build with LLVM",
-      default="X86;NVPTX")
+      default="X86")
   parser.add_argument("--build-dir",
                       help="Build directory",
                       type=str,
@@ -249,8 +249,7 @@ def main(args):
   cmake_args = ["cmake", "--build", build_dir, "--target", \
                 "tools/sandbox/all", "mlir-opt", "mlir-translate", \
                 "mlir-cpu-runner", "mlir_runner_utils", "mlir_c_runner_utils", \
-                "mlir_async_runtime_copy", "llvm-mca", "llvm-objdump", "llc", "opt", \
-                "FileCheck"]
+                "llvm-mca", "llvm-objdump", "llc", "opt", "FileCheck"]
 
   if args.enable_alp:
     cmake_args.append("clang")

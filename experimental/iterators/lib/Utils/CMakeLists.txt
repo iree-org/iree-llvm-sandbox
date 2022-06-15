@@ -4,6 +4,6 @@ add_mlir_library(IteratorsUtils
 
   LINK_LIBS PUBLIC
   MLIRIR
-  MLIRLLVMIR
-  MLIRSCF
+  MLIRLLVMDialect
+  MLIRSCFDialect
 )

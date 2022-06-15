@@ -1,13 +1,13 @@
 // RUN: mlir-proto-opt %s -split-input-file | FileCheck %s
 
-func @predicate_noresults(%pred: vector<8xi1>, %idx: index, %incoming: vector<8xi1>) {
+func.func @predicate_noresults(%pred: vector<8xi1>, %idx: index, %incoming: vector<8xi1>) {
   vector_ext.predicate (%pred, [%idx], %incoming) : vector<8xi1> {
    ^bb0(%true_mask : vector<8xi1>) :
   }
   return
 }
 
-// CHECK-LABEL:   func @predicate_noresults(
+// CHECK-LABEL:   func.func @predicate_noresults(
 // CHECK-NEXT:      vector_ext.predicate(%{{.*}}, [%{{.*}}], %{{.*}}) : vector<8xi1> {
 // CHECK-NEXT:      ^bb0(%{{.*}}: vector<8xi1>):
 // CHECK-NEXT:      }
@@ -16,7 +16,7 @@ func @predicate_noresults(%pred: vector<8xi1>, %idx: index, %incoming: vector<8x
 
 // -----
 
-func @predicate_results(%pred: vector<32xi1>, %idx: index, %incoming: vector<32xi1>) {
+func.func @predicate_results(%pred: vector<32xi1>, %idx: index, %incoming: vector<32xi1>) {
   vector_ext.predicate (%pred, [%idx], %incoming) : vector<32xi1> -> i32 {
    ^bb0(%true_mask : vector<32xi1>) :
     %c0 = arith.constant 0 : i32
@@ -25,7 +25,7 @@ func @predicate_results(%pred: vector<32xi1>, %idx: index, %incoming: vector<32x
   return
 }
 
-// CHECK-LABEL:   func @predicate_results(
+// CHECK-LABEL:   func.func @predicate_results(
 // CHECK-NEXT:      %{{.*}} = vector_ext.predicate(%{{.*}}, [%{{.*}}], %{{.*}}) : vector<32xi1> -> (i32) {
 // CHECK-NEXT:      ^bb0(%{{.*}}: vector<32xi1>):
 // CHECK-NEXT:        %[[CONST:.*]] = arith.constant 0 : i32

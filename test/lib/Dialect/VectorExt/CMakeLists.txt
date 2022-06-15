@@ -10,7 +10,7 @@ add_mlir_library(MLIRVectorExtTestPasses
   MLIRPass
   MLIRTransforms
   MLIRRewrite
-  MLIRVector
+  MLIRVectorDialect
   MLIRVectorExt
   MLIRVectorExtTransforms
-  )
+)
