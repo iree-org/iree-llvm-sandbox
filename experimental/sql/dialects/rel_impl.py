@@ -295,25 +295,25 @@ class Operator(Operation):
 
 
 @irdl_op_definition
-class PandasTable(Operator):
+class FullTableScanOp(Operator):
   """
-  Defines a table with name `table_name` and the schema defined in the result_type.
+  Performs a full table scan of the table `table_name` and produces a bag with the given schema.
 
   Example:
 
   '''
-  %0 : rel_impl.bag<[!rel_impl.int32]> = rel_impl.pandas_table() ["table_name" = "t"]
+  %0 : rel_impl.bag<[!rel_impl.int32]> = rel_impl.full_table_scan() ["table_name" = "t"]
   '''
   """
-  name = "rel_impl.pandas_table"
+  name = "rel_impl.full_table_scan"
 
   table_name = AttributeDef(StringAttr)
   result = ResultDef(Bag)
 
   @staticmethod
   @builder
-  def get(name: str, result_type: Bag) -> 'PandasTable':
-    return PandasTable.build(
+  def get(name: str, result_type: Bag) -> 'FullTableScanOp':
+    return FullTableScanOp.build(
         attributes={"table_name": StringAttr.from_str(name)},
         result_types=[result_type])
 
@@ -408,7 +408,7 @@ class RelImpl:
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Aggregate)
-    self.ctx.register_op(PandasTable)
+    self.ctx.register_op(FullTableScanOp)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
     self.ctx.register_op(IndexByName)

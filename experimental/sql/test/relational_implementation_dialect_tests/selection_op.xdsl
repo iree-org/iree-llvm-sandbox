@@ -1,7 +1,7 @@
 // RUN: rel_opt.py %s | filecheck %s
 
 module() {
-    %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.pandas_table() ["table_name" = "some_name"]
+    %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
     %1 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) {
       ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>):
         %3 : !rel_impl.int32 = rel_impl.literal() ["value" = 5 : !i32]
@@ -11,7 +11,7 @@ module() {
     }
 }
 
-//      CHECK:    %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.pandas_table() ["table_name" = "some_name"]
+//      CHECK:    %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
 // CHECK-NEXT:    %1 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) {
 // CHECK-NEXT:      ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>):
 // CHECK-NEXT:        %3 : !rel_impl.int32 = rel_impl.literal() ["value" = 5 : !i32]

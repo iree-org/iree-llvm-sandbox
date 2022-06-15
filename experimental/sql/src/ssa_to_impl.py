@@ -114,8 +114,8 @@ class PandasTableRewriter(RelSSARewriter):
   def match_and_rewrite(self, op: RelSSA.PandasTable,
                         rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelImpl.PandasTable.get(op.table_name.data,
-                                self.convert_bag(op.result.typ)))
+        RelImpl.FullTableScanOp.get(op.table_name.data,
+                                    self.convert_bag(op.result.typ)))
 
 
 @dataclass
