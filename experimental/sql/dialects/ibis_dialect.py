@@ -359,31 +359,30 @@ class LessEqual(Operation):
 
 
 @irdl_op_definition
-class PandasTable(Operation):
+class UnboundTable(Operation):
   """
   Defines a table with name `table_name` and schema `schema`. The table is
-  backed by a pandas dataframe (https://pandas.pydata.org/docs/reference/frame.html).
+  unbound, i.e. it is not backed by data.
 
-  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/backends/pandas/client.py#L282
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L70
 
   Example:
 
-  ```
-  ibis.pandas_table() ["table_name" = "t"] {
+  ``` ibis.unbound_table() ["table_name" = "t"] {
     ibis.schema_element() ...
     ...
   }
   ```
   """
-  name = "ibis.pandas_table"
+  name = "ibis.unbound_table"
 
   table_name = AttributeDef(StringAttr)
   schema = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(name: str, Schema: Region) -> 'PandasTable':
-    return PandasTable.build(
+  def get(name: str, Schema: Region) -> 'UnboundTable':
+    return UnboundTable.build(
         attributes={"table_name": StringAttr.from_str(name)}, regions=[Schema])
 
 
@@ -447,7 +446,7 @@ class Ibis:
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
 
-    self.ctx.register_op(PandasTable)
+    self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
     self.ctx.register_op(Equals)

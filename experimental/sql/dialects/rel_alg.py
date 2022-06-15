@@ -224,29 +224,29 @@ class Select(Operator):
 
 
 @irdl_op_definition
-class PandasTable(Operator):
+class Table(Operator):
   """
   Defines a table with name `table_name` and schema `schema`.
 
   Example:
 
   ```
-  rel_alg.pandas_table() ["table_name" = "t"] {
+  rel_alg.table() ["table_name" = "t"] {
     rel_alg.schema_element() ...
     ...
   }
   ```
   """
-  name = "rel_alg.pandas_table"
+  name = "rel_alg.table"
 
   table_name = AttributeDef(StringAttr)
   schema = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(name: str, Schema: Region) -> 'PandasTable':
-    return PandasTable.build(
-        attributes={"table_name": StringAttr.from_str(name)}, regions=[Schema])
+  def get(name: str, Schema: Region) -> 'Table':
+    return Table.build(attributes={"table_name": StringAttr.from_str(name)},
+                       regions=[Schema])
 
 
 @irdl_op_definition
@@ -283,7 +283,7 @@ class RelationalAlg:
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
 
-    self.ctx.register_op(PandasTable)
+    self.ctx.register_op(Table)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Literal)

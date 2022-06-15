@@ -4,7 +4,7 @@
 module() {
   ibis.selection() ["names" = ["a", "b"]] {
     // selection input
-    ibis.pandas_table() ["table_name" = "t"] {
+    ibis.unbound_table() ["table_name" = "t"] {
       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
       ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
@@ -12,14 +12,14 @@ module() {
   } {} {
     // projections
     ibis.table_column() ["col_name" = "a"] {
-      ibis.pandas_table() ["table_name" = "t"] {
+      ibis.unbound_table() ["table_name" = "t"] {
         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
       }
     }
     ibis.table_column() ["col_name" = "b"] {
-      ibis.pandas_table() ["table_name" = "t"] {
+      ibis.unbound_table() ["table_name" = "t"] {
         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
@@ -29,21 +29,21 @@ module() {
 }
 
 //      CHECK: ibis.selection() ["names" = ["a", "b"]] {
-// CHECK-NEXT:     ibis.pandas_table() ["table_name" = "t"] {
+// CHECK-NEXT:     ibis.unbound_table() ["table_name" = "t"] {
 // CHECK-NEXT:       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 // CHECK-NEXT:       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
 // CHECK-NEXT:       ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
 // CHECK-NEXT:     }
 // CHECK-NEXT:   } {} {
 // CHECK-NEXT:     ibis.table_column() ["col_name" = "a"] {
-// CHECK-NEXT:       ibis.pandas_table() ["table_name" = "t"] {
+// CHECK-NEXT:       ibis.unbound_table() ["table_name" = "t"] {
 // CHECK-NEXT:         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 // CHECK-NEXT:         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
 // CHECK-NEXT:         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
 // CHECK-NEXT:       }
 // CHECK-NEXT:     }
 // CHECK-NEXT:     ibis.table_column() ["col_name" = "b"] {
-// CHECK-NEXT:       ibis.pandas_table() ["table_name" = "t"] {
+// CHECK-NEXT:       ibis.unbound_table() ["table_name" = "t"] {
 // CHECK-NEXT:         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 // CHECK-NEXT:         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
 // CHECK-NEXT:         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]

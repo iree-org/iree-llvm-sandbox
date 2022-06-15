@@ -1,7 +1,7 @@
 // RUN: rel_opt.py %s | filecheck %s
 
 module() {
-    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.pandas_table() ["table_name" = "some_name"]
+    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "some_name"]
     %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) {
         %2 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i32]
         %3 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
@@ -10,7 +10,7 @@ module() {
     }
 }
 
-//      CHECK:    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.pandas_table() ["table_name" = "some_name"]
+//      CHECK:    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "some_name"]
 // CHECK-NEXT:    %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) {
 // CHECK-NEXT:        %2 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i32]
 // CHECK-NEXT:        %3 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]

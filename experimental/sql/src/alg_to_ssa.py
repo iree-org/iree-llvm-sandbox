@@ -126,15 +126,14 @@ class SelectRewriter(RelAlgRewriter):
 
 
 @dataclass
-class PandasTableRewriter(RelAlgRewriter):
+class TableRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelAlg.PandasTable,
-                        rewriter: PatternRewriter):
+  def match_and_rewrite(self, op: RelAlg.Table, rewriter: PatternRewriter):
     schema_names = [s.elt_name.data for s in op.schema.ops]
     schema_types = [self.convert_datatype(s.elt_type) for s in op.schema.ops]
     result_type = RelSSA.Bag.get(schema_names, schema_types)
-    new_op = RelSSA.PandasTable.get(op.table_name.data, result_type)
+    new_op = RelSSA.Table.get(op.table_name.data, result_type)
     rewriter.insert_op_before_matched_op(new_op)
     rewriter.erase_matched_op()
 
@@ -164,8 +163,7 @@ class AggregateRewriter(RelAlgRewriter):
 
 def alg_to_ssa(ctx: MLContext, query: ModuleOp):
   operator_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [PandasTableRewriter(),
-       SelectRewriter(),
+      [TableRewriter(), SelectRewriter(),
        AggregateRewriter()]),
                                          walk_regions_first=True,
                                          apply_recursively=True,
