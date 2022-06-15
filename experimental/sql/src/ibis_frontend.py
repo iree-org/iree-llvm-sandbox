@@ -92,36 +92,35 @@ def visit(  #type: ignore
   return id.TableColumn.get(table, op.name)
 
 
+def create_logical_op(op: ibis.expr.operations.Comparison,
+                      _class: Operation) -> Operation:
+  left_reg = Region.from_operation_list([visit(op.left)])
+  right_reg = Region.from_operation_list([visit(op.right)])
+  return _class.get(left_reg, right_reg)
+
+
 @dispatch(ibis.expr.operations.logical.Equals)
 def visit(  #type: ignore
     op: ibis.expr.operations.logical.Equals) -> Operation:
-  left_reg = Region.from_operation_list([visit(op.left)])
-  right_reg = Region.from_operation_list([visit(op.right)])
-  return id.Equals.get(left_reg, right_reg)
+  return create_logical_op(op, id.Equals)
 
 
 @dispatch(ibis.expr.operations.logical.GreaterEqual)
 def visit(  #type: ignore
     op: ibis.expr.operations.logical.GreaterEqual) -> Operation:
-  left_reg = Region.from_operation_list([visit(op.left)])
-  right_reg = Region.from_operation_list([visit(op.right)])
-  return id.GreaterEqual.get(left_reg, right_reg)
+  return create_logical_op(op, id.GreaterEqual)
 
 
 @dispatch(ibis.expr.operations.logical.LessEqual)
 def visit(  #type: ignore
     op: ibis.expr.operations.logical.LessEqual) -> Operation:
-  left_reg = Region.from_operation_list([visit(op.left)])
-  right_reg = Region.from_operation_list([visit(op.right)])
-  return id.LessEqual.get(left_reg, right_reg)
+  return create_logical_op(op, id.LessEqual)
 
 
 @dispatch(ibis.expr.operations.logical.Less)
 def visit(  #type: ignore
     op: ibis.expr.operations.logical.Less) -> Operation:
-  left_reg = Region.from_operation_list([visit(op.left)])
-  right_reg = Region.from_operation_list([visit(op.right)])
-  return id.LessThan.get(left_reg, right_reg)
+  return create_logical_op(op, id.LessThan)
 
 
 @dispatch(ibis.expr.operations.generic.Literal)
