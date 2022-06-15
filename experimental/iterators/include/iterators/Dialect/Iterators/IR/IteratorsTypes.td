@@ -31,11 +31,38 @@ def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
   let assemblyFormat = "`<` qualified($elementType) `>`";
 }
 
+/// List of LLVM-compatible numeric types.
+def Iterators_NumericTypes {
+  list<Type> types = [I1, I8, I16, I32, I64,
+                      F16, F32, F64];
+}
+
+/// Any LLVM-compatible numeric types..
+def Iterators_AnyNumeric
+  : AnyTypeOf<Iterators_NumericTypes.types>;
+
+/// A tuple consisting only of numeric types.
+def Iterators_TupleOfNumerics : TupleOf<Iterators_NumericTypes.types>;
+
+/// Attribute of numeric type.
+def Iterators_NumericAttr
+  : Attr<SubstLeaves<"$_self", "$_self.getType()",
+                     Iterators_AnyNumeric.predicate>,
+        "any numeric type">;
+
+/// Array of numeric attributes.
+def Iterators_NumericArrayAttr
+  : TypedArrayAttrBase<Iterators_NumericAttr, "array of numeric types">;
+
 /// An LLVMStructType where the body only uses the provided types.
 class Iterators_LLVMStructOf<list<Type> allowedTypes>
   : MixedContainerType<AnyTypeOf<allowedTypes>, LLVM_AnyStruct.predicate,
                        "$_self.cast<::mlir::LLVM::LLVMStructType>().getBody()",
                        "LLVM struct">;
+
+/// An LLVMStructType where the body only uses numeric types.
+def Iterators_LLVMStructOfNumerics
+  : Iterators_LLVMStructOf<Iterators_NumericTypes.types>;
 
 /// An LLVMStructType where the body consists of a single I32
 def Iterators_LLVMStructOfSingleI32

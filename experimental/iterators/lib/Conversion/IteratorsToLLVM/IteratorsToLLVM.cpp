@@ -84,12 +84,24 @@ static FlatSymbolRefAttr lookupOrInsertPrintf(OpBuilder &builder,
 /// Return a value representing an access into a global string with the given
 /// name, creating the string if necessary.
 static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
-                                     Twine value, ModuleOp module) {
+                                     Twine value, ModuleOp module,
+                                     bool makeUnique) {
   Location loc = module->getLoc();
+
+  // Determine name of global.
+  llvm::SmallString<64> candidateName;
+  name.toStringRef(candidateName);
+  if (makeUnique) {
+    int64_t uniqueNumber = 0;
+    while (module.lookupSymbol(candidateName)) {
+      (name + "." + Twine(uniqueNumber)).toStringRef(candidateName);
+      uniqueNumber++;
+    }
+  }
 
   // Create the global at the entry of the module.
   GlobalOp global;
-  StringAttr nameAttr = builder.getStringAttr(name);
+  StringAttr nameAttr = builder.getStringAttr(candidateName);
   if (!(global = module.lookupSymbol<GlobalOp>(nameAttr))) {
     StringAttr valueAttr = builder.getStringAttr(value);
     LLVMArrayType globalType =
@@ -109,86 +121,123 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
                                globalPtr, ArrayRef<Value>({zero, zero}));
 }
 
-struct ConstantTupleLowering : public ConversionPattern {
+struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
   ConstantTupleLowering(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
-      : ConversionPattern(typeConverter, "iterators.constant", benefit,
-                          context) {}
+      : OpConversionPattern(typeConverter, context, benefit) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult match(ConstantTupleOp op) const override { return success(); }
+
+  void rewrite(ConstantTupleOp op, OpAdaptor adaptor,
+               ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
     // Convert tuple type.
     assert(op->getNumResults() == 1);
-    Type structType = typeConverter->convertType(op->getResult(0).getType());
+    Type tupleType = op.tuple().getType();
+    Type structType = typeConverter->convertType(tupleType);
 
     // Undef.
-    Value structValue = rewriter.create<UndefOp>(op->getLoc(), structType);
+    Value structValue = rewriter.create<UndefOp>(loc, structType);
 
     // Insert values.
-    ArrayAttr values = op->getAttr("values").dyn_cast<ArrayAttr>();
+    ArrayAttr values = op.values();
     assert(values);
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
       // Create constant value op.
-      Value valueOp = rewriter.create<LLVM::ConstantOp>(
-          op->getLoc(), values[i].getType(), values[i]);
+      Attribute field = values[i];
+      Type fieldType = field.getType();
+      auto valueOp = rewriter.create<LLVM::ConstantOp>(loc, fieldType, field);
 
       // Insert into struct.
-      structValue = createInsertValueOp(rewriter, op->getLoc(), structValue,
-                                        valueOp, {i});
+      structValue =
+          createInsertValueOp(rewriter, loc, structValue, valueOp, {i});
     }
 
     rewriter.replaceOp(op, structValue);
-
-    return success();
   }
 };
 
-struct PrintOpLowering : public ConversionPattern {
+/// Applies of 1-to-1 conversion of the given PrintTupleOp to a PrintOp.
+struct PrintTupleOpLowering : public OpConversionPattern<PrintTupleOp> {
+  PrintTupleOpLowering(TypeConverter &typeConverter, MLIRContext *context,
+                       PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult match(PrintTupleOp op) const override { return success(); }
+
+  void rewrite(PrintTupleOp op, OpAdaptor adaptor,
+               ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<PrintOp>(op, adaptor.tuple());
+  }
+};
+
+struct PrintOpLowering : public OpConversionPattern<PrintOp> {
   PrintOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                   PatternBenefit benefit = 1)
-      : ConversionPattern(typeConverter, "iterators.print", benefit, context) {}
+      : OpConversionPattern(typeConverter, context, benefit) {}
 
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
-    assert(operands.size() == 1);
-    LLVMStructType structType =
-        operands[0].getType().dyn_cast<LLVMStructType>();
-    assert(structType);
+  LogicalResult match(PrintOp op) const override { return success(); }
 
-    // Assemble format string in the form `(%i, %i, ...)`.
+  void rewrite(PrintOp op, OpAdaptor adaptor,
+               ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+    Type i32 = rewriter.getI32Type();
+
+    auto structType = adaptor.element().getType().dyn_cast<LLVMStructType>();
+    assert(structType && "Only struct types supported for now");
+
+    // Assemble format string in the form `(%lli, %lg, ...)`.
     std::string format("(");
     llvm::raw_string_ostream formatStream(format);
     llvm::interleaveComma(structType.getBody(), formatStream, [&](Type type) {
-      assert(type == rewriter.getI32Type() && "Only I32 is supported for now");
-      formatStream << "%i";
+      // We extend lower-precision values later, so use the maximum width for
+      // each type category.
+      StringRef specifier;
+      assert(type.isSignlessIntOrFloat());
+      if (type.isSignlessInteger()) {
+        specifier = "%lli";
+      } else {
+        specifier = "%lg";
+      }
+      formatStream << specifier;
     });
     format += ")\n\0"s;
 
     // Insert format string as global.
-    ModuleOp module = op->getParentOfType<ModuleOp>();
+    auto module = op->getParentOfType<ModuleOp>();
+    StringRef tupleName =
+        (structType.isIdentified() ? structType.getName() : "anonymous_tuple");
     Value formatSpec = getOrCreateGlobalString(
-        rewriter, Twine("frmt_spec.") + structType.getName(), format, module);
+        rewriter, Twine("frmt_spec.") + tupleName, format, module,
+        /*makeUnique=*/!structType.isIdentified());
 
     // Assemble arguments to printf.
     SmallVector<Value, 8> values = {formatSpec};
     ArrayRef<Type> fieldTypes = structType.getBody();
     for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
       // Extract from struct.
-      Value value = createExtractValueOp(rewriter, op->getLoc(), fieldTypes[i],
-                                         operands[0], {i});
+      Type fieldType = fieldTypes[i];
+      Value value = createExtractValueOp(rewriter, loc, fieldType,
+                                         adaptor.element(), {i});
 
-      values.push_back(value);
+      // Extend.
+      Value extValue;
+      if (fieldType.isSignlessInteger()) {
+        Type i64 = rewriter.getI64Type();
+        extValue = rewriter.create<ZExtOp>(loc, i64, value);
+      } else {
+        Type f64 = rewriter.getF64Type();
+        extValue = rewriter.create<FPExtOp>(loc, f64, value);
+      }
+
+      values.push_back(extValue);
     }
 
     // Generate call to printf.
     FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
-    rewriter.create<LLVM::CallOp>(op->getLoc(), rewriter.getI32Type(),
-                                  printfRef, values);
+    rewriter.create<LLVM::CallOp>(loc, i32, printfRef, values);
     rewriter.eraseOp(op);
-
-    return success();
   }
 };
 
@@ -738,14 +787,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 ///   scf.condition(%6#1) %6#0, %6#1, %6#2 : !root_state_type, i1, !element_type
 /// } do {
 /// ^bb0(%arg0: !root_state_type, %arg1: i1, %arg2: !element_type):
-// TODO(ingomueller): extend to arbitrary types/LLVMStrucTypes
-///   %6 = llvm.mlir.addressof @frmt_spec.anonymous_tuple :
-///            !llvm.ptr<array<6 x i8>>
-///   %7 = llvm.mlir.constant(0 : i64) : i64
-///   %8 = llvm.getelementptr %6[%7, %7] :
-///            (!llvm.ptr<array<6 x i8>>, i64, i64) -> !llvm.ptr<i8>
-///   %9 = llvm.extractvalue %arg2[0 : index] : !element_type
-///   %10 = llvm.call @printf(%8, %9) : (!llvm.ptr<i8>, i32) -> i32
+///   "iterators.print"(%arg1) : (!element_type) -> ()
 ///   scf.yield %arg0 : !root_state_type
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
@@ -799,35 +841,8 @@ static Value convert(SinkOp op, ValueRange operands, RewriterBase &rewriter,
         Value currentState = args[0];
         Value nextElement = args[1];
 
-        LLVMStructType structType = elementType.dyn_cast<LLVMStructType>();
-        assert(structType && "Only struct types supported for now");
-
-        // Assemble format string in the form `(%i, %i, ...)`.
-        // TODO(ingomueller): support more struct types
-        std::string format("(%i)\n\0"s);
-
-        // Insert format string as global.
-        ModuleOp module = op->getParentOfType<ModuleOp>();
-        StringRef tupleName = (structType.isIdentified() ? structType.getName()
-                                                         : "anonymous_tuple");
-        Value formatSpec = getOrCreateGlobalString(
-            builder, Twine("frmt_spec.") + tupleName, format, module);
-
-        // Assemble arguments to printf.
-        SmallVector<Value, 8> values = {formatSpec};
-        ArrayRef<Type> fieldTypes = structType.getBody();
-        for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
-          // Extract from struct.
-          Value value = createExtractValueOp(rewriter, loc, fieldTypes[i],
-                                             nextElement, {i});
-
-          values.push_back(value);
-        }
-
-        // Generate call to printf.
-        FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(builder, module);
-        Type i32 = builder.getI32Type();
-        builder.create<LLVM::CallOp>(loc, i32, printfRef, values);
+        // Print next element.
+        builder.create<PrintOp>(loc, nextElement);
 
         // Forward iterator state to "before" region.
         builder.create<scf::YieldOp>(loc, currentState);
@@ -967,8 +982,8 @@ static void convertIteratorOps(ModuleOp module) {
 
 void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
-  patterns.add<ConstantTupleLowering, PrintOpLowering>(typeConverter,
-                                                       patterns.getContext());
+  patterns.add<ConstantTupleLowering, PrintTupleOpLowering, PrintOpLowering>(
+      typeConverter, patterns.getContext());
 }
 
 void ConvertIteratorsToLLVMPass::runOnOperation() {
