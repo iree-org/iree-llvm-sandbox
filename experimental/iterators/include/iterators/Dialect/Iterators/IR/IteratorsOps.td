@@ -96,12 +96,70 @@ def Iterators_ConstantStreamOp
   let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
 }
 
-// TODO(ingomueller): Support custom reduce function.
-// TODO(ingomueller): Extend to any type matching reduce function.
-def Iterators_ReduceOp : Iterators_Op<"reduce"> {
+/// Looks up the given symbol, which must refer to a FuncOp, in the scope of the
+/// given op and returns the function type of that symbol.
+class LookupFuncType<string opName, string symbolName>
+  : StrFunc<"::mlir::SymbolTable::lookupNearestSymbolFrom<func::FuncOp>("
+            "    &$" # opName # ","
+            "    " # symbolName # ".dyn_cast<FlatSymbolRefAttr>())"
+            "       .getFunctionType()">;
+
+/// A reduce function, that is a function with a signature of the form
+/// (T, T) -> T.
+class Iterators_ReduceFunc
+  : Type<And<[FunctionType.predicate,
+              CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 2">,
+              CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">,
+              AllMatchPred<[
+                "$_self.dyn_cast<FunctionType>().getInput(0)",
+                "$_self.dyn_cast<FunctionType>().getInput(1)",
+                "$_self.dyn_cast<FunctionType>().getResult(0)",
+              ]>
+             ]>,
+         "function with signature (T, T) -> T",
+         "FunctionType">;
+
+/// A FlatSymbolRef referring to a reduce function.
+def Iterators_ReduceFuncRefAttr
+  : Confined<FlatSymbolRefAttr, [
+        ReferToOp<"func::FuncOp">,
+        AttrConstraint<
+          SubstLeaves<"$_self",
+                      LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
+                      Iterators_ReduceFunc<>.predicate>,
+          "referring to a " # Iterators_ReduceFunc<>.summary>
+      ]>;
+
+def Iterators_ReduceOp : Iterators_Op<"reduce",
+    [AllMatch<["getReduceFunc().getResultTypes().front()",
+               "$input.getType().dyn_cast<StreamType>().getElementType()"],
+              "the reduce function signature must match its element type">]> {
   let summary = "Reduce the input to a single tuple";
-  let arguments = (ins Iterators_StreamOfLLVMStructOfSingleI32:$input);
-  let results = (outs Iterators_StreamOfLLVMStructOfSingleI32:$result);
+  let description = [{
+    Reads the elements of its operand stream and reduces them to a single
+    element using the provided reduce function. The result stream is empty iff
+    the operand stream is empty. Otherwise, the elements are reduced pairwise in
+    an implementation-defined order until a single element is left, which
+    constitutes the result stream. This is only deterministic if the reduce
+    function is associative.
+
+    Example:
+    ```mlir
+    %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum} :
+                   (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+    ```
+  }];
+  let arguments = (ins
+      Iterators_StreamOfLLVMStructOfNumerics:$input,
+      Iterators_ReduceFuncRefAttr:$reduceFuncRef
+    );
+  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let extraClassDeclaration = [{
+    func::FuncOp getReduceFunc() {
+      return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
+          *this, reduceFuncRefAttr());
+    }
+  }];
 }
 
 /// The sink op is a special op that only consumes a stream of values and 

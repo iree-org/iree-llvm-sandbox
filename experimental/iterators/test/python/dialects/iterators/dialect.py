@@ -57,13 +57,21 @@ def testConvertIteratorsToLlvm():
 # CHECK-LABEL: TEST: testEndToEnd
 def testEndToEnd():
   mod = Module.parse('''
+      !element_type = type !llvm.struct<(i32)>
+      func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
+        %lhsi = llvm.extractvalue %lhs[0 : index] : !element_type
+        %rhsi = llvm.extractvalue %rhs[0 : index] : !element_type
+        %i = arith.addi %lhsi, %rhsi : i32
+        %result = llvm.insertvalue %i, %lhs[0 : index] : !element_type
+        return %result : !element_type
+      }
       func @main() attributes { llvm.emit_c_interface } {
         %input = "iterators.constantstream"()
                     { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] } :
-                    () -> (!iterators.stream<!llvm.struct<(i32)>>)
-        %reduce = "iterators.reduce"(%input) :
-                      (!iterators.stream<!llvm.struct<(i32)>>) -> (!iterators.stream<!llvm.struct<(i32)>>)
-        "iterators.sink"(%reduce) : (!iterators.stream<!llvm.struct<(i32)>>) -> ()
+                    () -> (!iterators.stream<!element_type>)
+        %reduce = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
+          : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+        "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
         return
       }
       ''')

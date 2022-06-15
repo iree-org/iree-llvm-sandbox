@@ -495,11 +495,8 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 ///         !nested_state, !element_type, !element_type
 ///   } do {
 ///   ^bb0(%arg1: !nested_state, %arg2: !element_type, %arg3: !element_type):
-///     // TODO(ingomueller): extend to arbitrary functions
-///     %5 = llvm.extractvalue %arg3[0 : index] : !element_type
-///     %6 = llvm.extractvalue %arg2[0 : index] : !element_type
-///     %7 = arith.addi %6, %5 : i32
-///     %8 = llvm.insertvalue %7, %arg2[0 : index] : !element_type
+///     %5 = call @reduce_func(%arg2, %arg3) :
+///              (!element_type, !element_type) -> !element_type
 ///     scf.yield %arg1, %8 : !nested_state, !element_type
 ///   }
 ///   %true = arith.constant true
@@ -567,16 +564,11 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
               Value accumulator = args[1];
               Value nextElement = args[2];
 
-              // TODO(ingomueller): extend to arbitrary functions
-              Type i32 = rewriter.getI32Type();
-              Value nextValue =
-                  createExtractValueOp(rewriter, loc, i32, nextElement, {0});
-              Value aggregateValue =
-                  createExtractValueOp(rewriter, loc, i32, accumulator, {0});
-              ArithBuilder ab(builder, loc);
-              Value newAccumulatorValue = ab.add(aggregateValue, nextValue);
-              Value newAccumulator = createInsertValueOp(
-                  rewriter, loc, accumulator, newAccumulatorValue, {0});
+              // Call reduce function.
+              auto reduceCall = builder.create<func::CallOp>(
+                  loc, elementType, op.reduceFuncRef(),
+                  ValueRange{accumulator, nextElement});
+              Value newAccumulator = reduceCall->getResult(0);
 
               builder.create<scf::YieldOp>(
                   loc, ValueRange{upstreamState, newAccumulator});
