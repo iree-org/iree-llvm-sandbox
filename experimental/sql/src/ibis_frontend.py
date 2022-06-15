@@ -108,6 +108,22 @@ def visit(  #type: ignore
   return id.GreaterEqual.get(left_reg, right_reg)
 
 
+@dispatch(ibis.expr.operations.logical.LessEqual)
+def visit(  #type: ignore
+    op: ibis.expr.operations.logical.LessEqual) -> Operation:
+  left_reg = Region.from_operation_list([visit(op.left)])
+  right_reg = Region.from_operation_list([visit(op.right)])
+  return id.LessEqual.get(left_reg, right_reg)
+
+
+@dispatch(ibis.expr.operations.logical.Less)
+def visit(  #type: ignore
+    op: ibis.expr.operations.logical.Less) -> Operation:
+  left_reg = Region.from_operation_list([visit(op.left)])
+  right_reg = Region.from_operation_list([visit(op.right)])
+  return id.LessThan.get(left_reg, right_reg)
+
+
 @dispatch(ibis.expr.operations.generic.Literal)
 def visit(  #type: ignore
     op: ibis.expr.operations.generic.Literal) -> Operation:
