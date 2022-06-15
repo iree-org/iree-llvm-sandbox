@@ -4,11 +4,12 @@
 
 from dataclasses import dataclass
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr
-from xdsl.ir import Operation, MLContext, Region, Block
+from xdsl.ir import Operation, MLContext, Region, Block, Attribute
 from typing import List, Type, Optional
 from multipledispatch import dispatch
 
 import ibis
+import numpy as np
 
 import dialects.ibis_dialect as id
 
@@ -28,6 +29,14 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
   if isinstance(type_, ibis.expr.datatypes.Int64):
     return id.Int64()
   raise KeyError(f"Unknown datatype: {type(type_)}")
+
+
+def convert_literal(literal) -> Attribute:
+  if isinstance(literal, str):
+    return StringAttr.from_str(literal)
+  if isinstance(literal, np.int64):
+    return IntegerAttr.from_int_and_width(literal, 64)
+  raise Exception(f"literal conversion not yet implemented for {type(literal)}")
 
 
 # The first two functions work on multiple parts of the ibis tree, so they
@@ -83,19 +92,41 @@ def visit(  #type: ignore
   return id.TableColumn.get(table, op.name)
 
 
+def create_logical_op(op: ibis.expr.operations.Comparison,
+                      _class: Operation) -> Operation:
+  left_reg = Region.from_operation_list([visit(op.left)])
+  right_reg = Region.from_operation_list([visit(op.right)])
+  return _class.get(left_reg, right_reg)
+
+
 @dispatch(ibis.expr.operations.logical.Equals)
 def visit(  #type: ignore
     op: ibis.expr.operations.logical.Equals) -> Operation:
-  left_reg = Region.from_operation_list([visit(op.left)])
-  right_reg = Region.from_operation_list([visit(op.right)])
-  return id.Equals.get(left_reg, right_reg)
+  return create_logical_op(op, id.Equals)
+
+
+@dispatch(ibis.expr.operations.logical.GreaterEqual)
+def visit(  #type: ignore
+    op: ibis.expr.operations.logical.GreaterEqual) -> Operation:
+  return create_logical_op(op, id.GreaterEqual)
+
+
+@dispatch(ibis.expr.operations.logical.LessEqual)
+def visit(  #type: ignore
+    op: ibis.expr.operations.logical.LessEqual) -> Operation:
+  return create_logical_op(op, id.LessEqual)
+
+
+@dispatch(ibis.expr.operations.logical.Less)
+def visit(  #type: ignore
+    op: ibis.expr.operations.logical.Less) -> Operation:
+  return create_logical_op(op, id.LessThan)
 
 
 @dispatch(ibis.expr.operations.generic.Literal)
 def visit(  #type: ignore
     op: ibis.expr.operations.generic.Literal) -> Operation:
-  return id.Literal.get(StringAttr.from_str(op.value),
-                        convert_datatype(op.dtype))
+  return id.Literal.get(convert_literal(op.value), convert_datatype(op.dtype))
 
 
 @dispatch(ibis.expr.operations.reductions.Sum)

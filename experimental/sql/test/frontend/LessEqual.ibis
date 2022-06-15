@@ -1,0 +1,7 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table.filter(table['b'] <= np.int64(0))
+
+#      CHECK:    ibis.lessEqual() {
+# CHECK-NEXT:      ibis.table_column() ["col_name" = "b"] {
+# CHECK-NEXT:        ibis.pandas_table() ["table_name" = "t"] {

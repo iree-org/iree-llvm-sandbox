@@ -39,6 +39,7 @@ class RelOptMain(xDSLOptMain):
     def parse_ibis(f: IOBase):
       import ibis
       import pandas as pd
+      import numpy as np
 
       connection = ibis.pandas.connect({
           "t":
