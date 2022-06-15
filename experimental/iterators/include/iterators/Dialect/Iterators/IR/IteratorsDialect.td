@@ -36,7 +36,9 @@ def Iterators_Dialect : Dialect {
     Example:
 
     ```mlir
-    %input = "iterators.sampleInput"() : () -> (!iterators.stream<!T>)
+    %input = "iterators.constantstream"()
+               { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] } :
+               () -> (!iterators.stream<!element_type>)
     "iterators.sink"(%input) : (!iterators.stream<!T>) -> ()
     ```
 

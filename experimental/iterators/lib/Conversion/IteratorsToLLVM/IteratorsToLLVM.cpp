@@ -242,17 +242,15 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
 };
 
 //===----------------------------------------------------------------------===//
-// SampleInputOp.
+// ConstantStreamOp.
 //===----------------------------------------------------------------------===//
 
 /// Builds IR that resets the current index to 0. Possible result:
 ///
-// TODO(ingomueller): make type generic once the SampleInputOp/RangeOp is more
-//                    generic.
 /// %0 = llvm.mlir.constant(0 : i32) : i32
 /// %1 = llvm.insertvalue %0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.sample_input_state", (i32)>
-static Value buildOpenBody(SampleInputOp op, RewriterBase &rewriter,
+///          !llvm.struct<"iterators.constant_stream_state", (i32)>
+static Value buildOpenBody(ConstantStreamOp op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -267,35 +265,102 @@ static Value buildOpenBody(SampleInputOp op, RewriterBase &rewriter,
   return updatedState;
 }
 
-/// Builds IR that produces a tuple with the current index and increments that
-/// index. Pseudo-code:
+/// Creates a constant global array with the constant stream data provided in
+/// the $value attribute of the given op.
+static GlobalOp buildGlobalData(ConstantStreamOp op, RewriterBase &rewriter,
+                                Type elementType) {
+  Location loc = op->getLoc();
+
+  // Find unique global name.
+  auto module = op->getParentOfType<ModuleOp>();
+  llvm::SmallString<64> candidateName;
+  int64_t uniqueNumber = 0;
+  while (true) {
+    (Twine("iterators.constant_stream_data.") + Twine(uniqueNumber))
+        .toStringRef(candidateName);
+    if (!module.lookupSymbol(candidateName)) {
+      break;
+    }
+    uniqueNumber++;
+  }
+  StringAttr nameAttr = rewriter.getStringAttr(candidateName);
+
+  // Create global op.
+  ArrayAttr valueAttr = op.value();
+  LLVMArrayType globalType = LLVMArrayType::get(elementType, valueAttr.size());
+  OpBuilder::InsertionGuard insertGuard(rewriter);
+  rewriter.setInsertionPointToStart(module.getBody());
+  auto globalArray =
+      rewriter.create<GlobalOp>(loc, globalType, /*isConstant=*/true,
+                                Linkage::Internal, nameAttr, Attribute());
+
+  // Create initializer for global. Since arrays of arrays cannot be passed
+  // to GlobalOp as attribute, we need to write an initializer that inserts
+  // the data from the $value attribute one by one into the global array.
+  rewriter.createBlock(&globalArray.getInitializer());
+  Value initValue = rewriter.create<UndefOp>(loc, globalType);
+
+  for (auto &elementAttr :
+       llvm::enumerate(valueAttr.getAsValueRange<ArrayAttr>())) {
+    Value structValue = rewriter.create<UndefOp>(loc, elementType);
+    for (auto &fieldAttr : llvm::enumerate(elementAttr.value())) {
+      auto value = rewriter.create<LLVM::ConstantOp>(
+          loc, fieldAttr.value().getType(), fieldAttr.value());
+      structValue =
+          createInsertValueOp(rewriter, loc, structValue, value,
+                              {static_cast<int64_t>(fieldAttr.index())});
+    }
+    initValue =
+        createInsertValueOp(rewriter, loc, initValue, structValue,
+                            {static_cast<int64_t>(elementAttr.index())});
+  }
+
+  rewriter.create<LLVM::ReturnOp>(loc, initValue);
+
+  return globalArray;
+}
+
+/// Builds IR that produces the element at the current index and increments that
+/// index. Also creates a global constant with the data. Pseudo-code:
 ///
 /// if currentIndex > max: return {}
-/// return currentIndex++
+/// return data[currentIndex++]
 ///
 /// Possible result:
 ///
-// TODO(ingomueller): make type generic once the SampleInputOp/RangeOp is more
-//                    generic.
+/// llvm.mlir.global internal constant @iterators.constant_stream_data.0() :
+///     !llvm.array<4 x !element_type> {
+///   %0 = llvm.mlir.undef : !llvm.array<4 x !element_type>
+///   // ...
+///   llvm.return %n : !llvm.array<4 x !element_type>
+/// }
+/// // ...
 /// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.sample_input_state", (i32)>
+///          !llvm.struct<"iterators.constant_stream_state", (i32)>
 /// %c4_i32 = arith.constant 4 : i32
 /// %1 = arith.cmpi slt, %0, %c4_i32 : i32
-/// %2 = scf.if %1 -> (!llvm.struct<"iterators.sample_input_state", (i32)>) {
+/// %2:2 = scf.if %1 -> (!llvm.struct<"iterators.constant_stream_state", (i32)>,
+///                      !element_type) {
 ///   %c1_i32 = arith.constant 1 : i32
-///   %5 = arith.addi %0, %c1_i32 : i32
-///   %6 = llvm.insertvalue %5, %arg0[0 : index] :
-///            !llvm.struct<"iterators.sample_input_state", (i32)>
-///   scf.yield %6 : !llvm.struct<"iterators.sample_input_state", (i32)>
+///   %3 = arith.addi %0, %c1_i32 : i32
+///   %4 = llvm.insertvalue %3, %arg0[0 : index] :
+///            !llvm.struct<"iterators.constant_stream_state", (i32)>
+///   %5 = llvm.mlir.addressof @iterators.constant_stream_data.0 :
+///            !llvm.ptr<array<4 x !element_type>>
+///   %c0_i32 = arith.constant 0 : i32
+///   %6 = llvm.getelementptr %5[%c0_i32, %0] :
+///            (!llvm.ptr<array<4 x !element_type>>, i32, i32)
+///                -> !llvm.ptr<!element_type>
+///   %7 = llvm.load %6 : !llvm.ptr<!element_type>
+///   scf.yield %4, %7 :
+///       !llvm.struct<"iterators.constant_stream_state", (i32)>, !element_type
 /// } else {
-///   scf.yield %arg0 : !llvm.struct<"iterators.sample_input_state", (i32)>
+///   %3 = llvm.mlir.undef : !element_type
+///   scf.yield %arg0, %3 :
+///       !llvm.struct<"iterators.constant_stream_state", (i32)>, !element_type
 /// }
-/// %3 = llvm.mlir.undef : !llvm.struct<(i32)>
-/// %4 = llvm.insertvalue %0, %3[0 : index] : !llvm.struct<(i32)>
-/// return %2, %1, %4 : !llvm.struct<"iterators.sample_input_state", (i32)>,
-///                     i1, !llvm.struct<(i32)>
 static llvm::SmallVector<Value, 4>
-buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
+buildNextBody(ConstantStreamOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   Type i32 = rewriter.getI32Type();
   Location loc = op->getLoc();
@@ -305,38 +370,53 @@ buildNextBody(SampleInputOp op, RewriterBase &rewriter, Value initialState,
       createExtractValueOp(rewriter, loc, i32, initialState, {0});
 
   // Test if we have reached the end of the range.
-  Value four = rewriter.create<arith::ConstantIntOp>(loc, /*value=*/4,
-                                                     /*width=*/32);
+  int64_t numElements = op.value().size();
+  Value lastIndex =
+      rewriter.create<arith::ConstantIntOp>(loc, /*value=*/numElements,
+                                            /*width=*/32);
   ArithBuilder ab(rewriter, op.getLoc());
-  Value hasNext = ab.slt(currentIndex, four);
+  Value hasNext = ab.slt(currentIndex, lastIndex);
   auto ifOp = rewriter.create<scf::IfOp>(
-      loc, initialState.getType(), hasNext,
+      loc, TypeRange{initialState.getType(), elementType}, hasNext,
       /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
+        // Increment index and update state.
         Value one = builder.create<arith::ConstantIntOp>(loc, /*value=*/1,
                                                          /*width=*/32);
         ArithBuilder ab(builder, loc);
         Value updatedCurrentIndex = ab.add(currentIndex, one);
         Value updatedState = createInsertValueOp(rewriter, loc, initialState,
                                                  updatedCurrentIndex, {0});
-        builder.create<scf::YieldOp>(loc, updatedState);
+
+        // Load element from global data at current index.
+        GlobalOp globalArray = buildGlobalData(op, rewriter, elementType);
+        Value globalPtr = rewriter.create<AddressOfOp>(loc, globalArray);
+        Value zero = rewriter.create<arith::ConstantIntOp>(loc, /*value=*/0,
+                                                           /*width=*/32);
+        Value gep =
+            rewriter.create<GEPOp>(loc, LLVMPointerType::get(elementType),
+                                   globalPtr, ValueRange{zero, currentIndex});
+        Value nextElement = rewriter.create<LoadOp>(loc, gep);
+
+        builder.create<scf::YieldOp>(loc,
+                                     ValueRange{updatedState, nextElement});
       },
       /*elseBuilder=*/
       [&](OpBuilder &builder, Location loc) {
-        builder.create<scf::YieldOp>(loc, initialState);
+        // Don't modify state; return undef element.
+        Value nextElement = rewriter.create<UndefOp>(loc, elementType);
+        builder.create<scf::YieldOp>(loc,
+                                     ValueRange{initialState, nextElement});
       });
 
-  // Assemble element that will be returned.
-  Value emptyNextElement = rewriter.create<UndefOp>(loc, elementType);
-  Value nextElement =
-      createInsertValueOp(rewriter, loc, emptyNextElement, currentIndex, {0});
-
   Value finalState = ifOp->getResult(0);
+  Value nextElement = ifOp.getResult(1);
   return {finalState, hasNext, nextElement};
 }
 
-/// Forwards the initial state. The SampleInputOp doesn't do anything on Close.
-static Value buildCloseBody(SampleInputOp op, RewriterBase &rewriter,
+/// Forwards the initial state. The ConstantStreamOp doesn't do anything on
+/// Close.
+static Value buildCloseBody(ConstantStreamOp op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   return initialState;
@@ -345,13 +425,11 @@ static Value buildCloseBody(SampleInputOp op, RewriterBase &rewriter,
 /// Builds IR that creates an initial iterator state consisting of an
 /// (uninitialized) current index. Possible result:
 ///
-// TODO(ingomueller): make type generic once the SampleInputOp/RangeOp is more
-//                    generic.
 /// %0 = llvm.mlir.constant(0 : i32) : i32
 /// %1 = llvm.insertvalue %0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.sample_input_state", (i32)>
-/// return %1 : !llvm.struct<"iterators.sample_input_state", (i32)>
-static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
+///          !llvm.struct<"iterators.constant_stream_state", (i32)>
+/// return %1 : !llvm.struct<"iterators.constant_stream_state", (i32)>
+static Value buildStateCreation(ConstantStreamOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
   return rewriter.create<UndefOp>(op.getLoc(), stateType);
@@ -365,7 +443,7 @@ static Value buildStateCreation(SampleInputOp op, RewriterBase &rewriter,
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", !nested_state>
-/// %1 = call @iterators.sampleInput.open.0(%0) :
+/// %1 = call @iterators.constantstream.open.0(%0) :
 ///          (!nested_state) -> !nested_state
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
@@ -405,13 +483,13 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
-/// %1:3 = call @iterators.sampleInput.next.0(%0) :
+/// %1:3 = call @iterators.constantstream.next.0(%0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type)
 /// %2:3 = scf.if %1#1 -> (!nested_state, i1, !element_type) {
 ///   %4:3 = scf.while (%arg1 = %1#0, %arg2 = %1#2) :
 ///              (!nested_state, !element_type) ->
 ///                 (!nested_state, !element_type, !element_type) {
-///     %5:3 = call @iterators.sampleInput.next.0(%arg1) :
+///     %5:3 = call @iterators.constantstream.next.0(%arg1) :
 ///                (!nested_state) -> (!nested_state, i1, !element_type)
 ///     scf.condition(%5#1) %5#0, %5#2, %arg2 :
 ///         !nested_state, !element_type, !element_type
@@ -535,7 +613,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
-/// %1 = call @iterators.sampleInput.close.0(%0) :
+/// %1 = call @iterators.constantstream.close.0(%0) :
 ///          (!nested_state) -> !nested_state
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
@@ -629,8 +707,8 @@ buildOpenNextCloseInParentModule(Operation *originalOp, RewriterBase &rewriter,
 static Value buildOpenBody(Operation *op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
-  return llvm::TypeSwitch<Operation *, Value>(op).Case<ReduceOp, SampleInputOp>(
-      [&](auto op) {
+  return llvm::TypeSwitch<Operation *, Value>(op)
+      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
         return buildOpenBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -640,7 +718,7 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(Operation *op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   return llvm::TypeSwitch<Operation *, llvm::SmallVector<Value, 4>>(op)
-      .Case<ReduceOp, SampleInputOp>([&](auto op) {
+      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
         return buildNextBody(op, rewriter, initialState, upstreamInfos,
                              elementType);
       });
@@ -650,8 +728,8 @@ buildNextBody(Operation *op, RewriterBase &rewriter, Value initialState,
 static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
-  return llvm::TypeSwitch<Operation *, Value>(op).Case<ReduceOp, SampleInputOp>(
-      [&](auto op) {
+  return llvm::TypeSwitch<Operation *, Value>(op)
+      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
         return buildCloseBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -660,8 +738,8 @@ static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
 static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
-  return llvm::TypeSwitch<Operation *, Value>(op).Case<ReduceOp, SampleInputOp>(
-      [&](auto op) {
+  return llvm::TypeSwitch<Operation *, Value>(op)
+      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
         return buildStateCreation(op, rewriter, stateType, upstreamStates);
       });
 }

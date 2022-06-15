@@ -5,9 +5,8 @@
 
 func @main() {
   // CHECK-LABEL: func @main()
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
-  %reduce = "iterators.reduce"(%input) : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
-  "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
+  %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
+  "iterators.sink"(%input) : (!iterators.stream<!element_type>) -> ()
   // CHECK:         %[[V1:.*]] = call @[[rootIteratorName:.*]].open.{{[0-9]+}}(%[[V0:.*]]) : ([[rootStateType:.*]]) -> [[rootStateType]]
   // CHECK-NEXT:    %[[V2:.*]]:2 = scf.while (%[[arg0:.*]] = %[[V1]]) : ([[rootStateType]]) -> ([[rootStateType]], !llvm.struct<(i32)>) {
   // CHECK-NEXT:      %[[V4:.*]]:3 = call @[[rootIteratorName]].next.{{[0-9]+}}(%[[arg0]]) : ([[rootStateType]]) -> ([[rootStateType]], i1, !llvm.struct<(i32)>)

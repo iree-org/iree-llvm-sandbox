@@ -43,8 +43,9 @@
 
 func @main() {
   // CHECK-LABEL: func @main()
-  %input = "iterators.sampleInput"() : () -> (!iterators.stream<!element_type>)
-  %reduce = "iterators.reduce"(%input) : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
+  %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
+  %reduce = "iterators.reduce"(%input)
+      : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   // CHECK:        %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<"[[reduceStateName:iterators\.reduce_state.*]]", ([[nestedUpstreamStateType:.*]])>
   // CHECK-NEXT:   %[[V2:.*]] = llvm.insertvalue %[[V0:.*]], %[[V1]][0 : index] : !llvm.struct<"[[reduceStateName]]", ([[nestedUpstreamStateType]])>
   return

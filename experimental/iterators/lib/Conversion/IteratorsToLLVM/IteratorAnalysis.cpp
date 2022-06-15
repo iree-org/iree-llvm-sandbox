@@ -33,17 +33,13 @@ static SymbolTriple assignFunctionNames(Operation *op,
   return std::make_tuple(symbols[0], symbols[1], symbols[2]);
 }
 
-/// The state of SampleInputOp consists of a single number that corresponds
+/// The state of ConstantStreamOp consists of a single number that corresponds
 /// to the next number returned by the iterator.
-static LLVM::LLVMStructType computeStateType(SampleInputOp op) {
-  auto resultType = op.result().getType().dyn_cast<StreamType>();
-  assert(resultType);
-  auto elementType =
-      resultType.getElementType().dyn_cast<LLVM::LLVMStructType>();
-  assert(elementType && elementType.getBody().size() == 1);
-  auto counterType = elementType.getBody().front();
+static LLVM::LLVMStructType computeStateType(ConstantStreamOp op) {
+  MLIRContext *context = op->getContext();
+  Type i32 = IntegerType::get(context, /*width=*/32);
   return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.sample_input_state", {counterType});
+      context, "iterators.constant_stream_state", {i32});
 }
 
 /// The state of ReduceOp only consists of the state of its upstream iterator,
@@ -91,9 +87,9 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(Operation *rootOp)
   /// before any def.
   rootOp->walk([&](IteratorOpInterface iteratorOp) {
     llvm::TypeSwitch<Operation *, void>(iteratorOp)
-        /// The state of SampleInputOp consists of a single number that
+        /// The state of ConstantStreamOp consists of a single number that
         /// corresponds to the next number returned by the iterator.
-        .Case<SampleInputOp>([&](auto op) {
+        .Case<ConstantStreamOp>([&](auto op) {
           auto stateType = computeStateType(op);
           setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));
         })
