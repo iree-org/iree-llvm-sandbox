@@ -56,6 +56,8 @@ class RelOptMain(xDSLOptMain):
         for t, n in zip(tables, names):
           _locals[n] = t
 
+        _locals["np"] = np
+
         ast_query = ast.parse(query)
         last = ast.Expression(ast_query.body.pop().value)
         exec(compile(ast_query, '<string>', mode='exec'), _globals, _locals)
