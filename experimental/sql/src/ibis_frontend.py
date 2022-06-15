@@ -61,9 +61,9 @@ def visit(  #type: ignore
   return visit(op.op())
 
 
-@dispatch(ibis.backends.pandas.client.PandasTable)
+@dispatch(ibis.expr.operations.relations.UnboundTable)
 def visit(  #type: ignore
-    op: ibis.backends.pandas.client.PandasTable) -> Operation:
+    op: ibis.expr.operations.relations.UnboundTable) -> Operation:
   schema = visit_schema(op.schema)
   return id.PandasTable.get(op.name, schema)
 

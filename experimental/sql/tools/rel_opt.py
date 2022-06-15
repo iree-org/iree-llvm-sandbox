@@ -38,7 +38,6 @@ class RelOptMain(xDSLOptMain):
 
     def parse_ibis(f: IOBase):
       import ibis
-      import pandas as pd
       import numpy as np
 
       def exec_then_eval(query: str, tables: list[ibis.expr.types.Expr],
@@ -63,24 +62,11 @@ class RelOptMain(xDSLOptMain):
         exec(compile(ast_query, '<string>', mode='exec'), _globals, _locals)
         return eval(compile(last, '<string>', mode='eval'), _globals, _locals)
 
-      connection = ibis.pandas.connect({
-          "t":
-              pd.DataFrame({
-                  "a": ["AS", "EU", "NA"],
-                  "b": [1, 2, 3],
-                  "c": [3, 1, 18]
-              }),
-          "u":
-              pd.DataFrame({
-                  "b": [1, 2, 3],
-              })
-      })
-
       query = f.read()
-      res = exec_then_eval(
-          query,
-          [connection.table('t'), connection.table('u')],
-          ["table", "sum_table"])
+      res = exec_then_eval(query, [
+          ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't'),
+          ibis.table([("b", "int64")], 'u')
+      ], ["table", "sum_table"])
       return ibis_to_xdsl(self.ctx, res)
 
     self.available_frontends['ibis'] = parse_ibis
