@@ -121,6 +121,27 @@ class TableColumn(Operation):
 
 @irdl_op_definition
 class Multiply(Operation):
+  """
+  Models an multiplication of the columnds `lhs` and `rhs` with result type `output_type`.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/numeric.py#L25
+
+  Example:
+  ```
+  ibis.selecton() ["names" = ["res]] {
+    ibis.unbound_table() ...
+  } {} {
+    ibis.multiply() ["output_type" = !ibis.int64] {
+      // lhs
+      ibis.table_column() ...
+    } {
+      // rhs
+      ibis.table_column() ...
+    }
+  }
+  ```
+
+  """
   name = "ibis.multiply"
 
   lhs = SingleBlockRegionDef()
