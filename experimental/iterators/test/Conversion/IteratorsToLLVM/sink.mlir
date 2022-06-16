@@ -1,15 +1,15 @@
 // RUN: mlir-proto-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
-!element_type = type !llvm.struct<(i32)>
+!element_type = !llvm.struct<(i32)>
 
-func @main() {
-  // CHECK-LABEL: func @main()
+func.func @main() {
+  // CHECK-LABEL: func.func @main()
   %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
   "iterators.sink"(%input) : (!iterators.stream<!element_type>) -> ()
   // CHECK:         %[[V1:.*]] = call @[[rootIteratorName:.*]].open.{{[0-9]+}}(%[[V0:.*]]) : ([[rootStateType:.*]]) -> [[rootStateType]]
   // CHECK-NEXT:    %[[V2:.*]]:2 = scf.while (%[[arg0:.*]] = %[[V1]]) : ([[rootStateType]]) -> ([[rootStateType]], !llvm.struct<(i32)>) {
-  // CHECK-NEXT:      %[[V4:.*]]:3 = call @[[rootIteratorName]].next.{{[0-9]+}}(%[[arg0]]) : ([[rootStateType]]) -> ([[rootStateType]], i1, !llvm.struct<(i32)>)
+  // CHECK-NEXT:      %[[V4:.*]]:3 = func.call @[[rootIteratorName]].next.{{[0-9]+}}(%[[arg0]]) : ([[rootStateType]]) -> ([[rootStateType]], i1, !llvm.struct<(i32)>)
   // CHECK-NEXT:      scf.condition(%[[V4]]#1) %[[V4]]#0, %[[V4]]#2 : [[rootStateType]], !llvm.struct<(i32)>
   // CHECK-NEXT:    } do {
   // CHECK-NEXT:    ^[[bb0:.*]](%[[arg1:.*]]: [[rootStateType]], %[[arg2:.*]]: !llvm.struct<(i32)>):

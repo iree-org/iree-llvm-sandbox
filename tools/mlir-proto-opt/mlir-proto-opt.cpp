@@ -11,8 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Registration.h"
+#include "Dialect/VectorExt/VectorExtDialect.h"
 #include "mlir/IR/Dialect.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "llvm/Support/CommandLine.h"
@@ -21,6 +22,25 @@
 #include "llvm/Support/ToolOutputFile.h"
 
 using namespace mlir;
+
+#ifdef SANDBOX_ENABLE_ITERATORS
+#include "iterators/Conversion/Passes.h"
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
+
+static void registerIteratorDialects(DialectRegistry &registry) {
+  registry.insert<mlir::iterators::IteratorsDialect>();
+  registerIteratorsConversionPasses();
+}
+#else
+static void registerIteratorDialects(DialectRegistry &registry) {}
+#endif
+
+#ifdef SANDBOX_ENABLE_ALP
+#include "alp/Transforms/Passes.h"
+static void registerALPPasses() { registerALPPasses(); }
+#else
+static void registerALPPasses() {}
+#endif
 
 namespace mlir {
 namespace test_ext {
@@ -31,14 +51,14 @@ void registerTestVectorMaskingUtils();
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
-  registerOutsideOfDialectRegistry();
+  registerALPPasses();
 
   mlir::test_ext::registerTestVectorMaskingUtils();
 
-  // TODO: Find a way to register test passes here.
-
   DialectRegistry registry;
-  registerIntoDialectRegistry(registry);
+  registerAllDialects(registry);
+  registry.insert<vector_ext::VectorExtDialect>();
+  registerIteratorDialects(registry);
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
                             registry,

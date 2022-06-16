@@ -29,7 +29,7 @@ scf::WhileOp mlir::scf::createWhileOp(
   // Before region.
   llvm::SmallVector<Location, 4> beforeLocs(operands.size(), loc);
   Block *before =
-      builder.createBlock(&op.getBefore(), {}, operands, beforeLocs);
+      builder.createBlock(&op.getBefore(), {}, operands.getTypes(), beforeLocs);
   beforeBuilder(builder, loc, before->getArguments());
 
   // After region.

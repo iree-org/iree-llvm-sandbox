@@ -6,11 +6,11 @@ add_mlir_library(MLIRVectorExtTransforms
   MLIRVectorExt
 
   LINK_LIBS PUBLIC
-  MLIRAffine
+  MLIRAffineDialect
   MLIRGPUOps
   MLIRIR
-  MLIRLinalg
-  MLIRVector
+  MLIRLinalgDialect
+  MLIRVectorDialect
   MLIRVectorExt
   MLIRVectorTransforms
   MLIRVectorUtils

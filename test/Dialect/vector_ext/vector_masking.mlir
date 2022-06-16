@@ -1,6 +1,6 @@
 // RUN: mlir-proto-opt %s -test-vector-masking-utils=masking -split-input-file | FileCheck %s
 
-func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>, %pred_mask: vector<16xi1>,
+func.func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>, %pred_mask: vector<16xi1>,
                  %idx: index, %incoming_mask: vector<16xi1> ) {
   vector_ext.predicate(%pred_mask, [%idx], %incoming_mask): vector<16xi1> {
   ^bb0(%true_mask: vector<16xi1>):
@@ -13,7 +13,7 @@ func @func_pred0(%arg0: memref<?xf32>, %arg1: memref<?xf32>, %pred_mask: vector<
   return
 }
 
-// CHECK-LABEL:   func @func_pred0(
+// CHECK-LABEL:   func.func @func_pred0(
 // CHECK-SAME:                     %[[VAL_0:.*]]: memref<?xf32>, %[[VAL_1:.*]]: memref<?xf32>,
 // CHECK-SAME:                     %[[VAL_2:.*]]: vector<16xi1>,
 // CHECK-SAME:                     %[[VAL_3:.*]]: index,

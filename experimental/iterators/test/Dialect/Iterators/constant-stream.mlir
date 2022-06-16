@@ -1,7 +1,7 @@
 // Test that we can parse and verify constant streams without errors
 // RUN: mlir-proto-opt %s
 
-func @main() {
+func.func @main() {
   %empty = "iterators.constantstream"() { value = [] }
       : () -> (!iterators.stream<!llvm.struct<(i32)>>)
   %i32 = "iterators.constantstream"() { value = [[42 : i32]] }

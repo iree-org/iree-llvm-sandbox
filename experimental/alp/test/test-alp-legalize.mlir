@@ -7,7 +7,7 @@
 #map5 = affine_map<(d0) -> (d0 ceildiv 8)>
 #map6 = affine_map<(d0, d1) -> (d0 + d1)>
 // CHECK-LABEL: @kernel
-func @kernel(%arg0: memref<2048x256xf32, #map0>, %arg1: index, %arg2: memref<256x256x1x8xf32>, %arg3: index, %arg4: memref<32x256x1x8xf32>, %arg5: index) attributes {passthrough = [["prefer-vector-width", "128"]]} {
+func.func @kernel(%arg0: memref<2048x256xf32, #map0>, %arg1: index, %arg2: memref<256x256x1x8xf32>, %arg3: index, %arg4: memref<32x256x1x8xf32>, %arg5: index) attributes {passthrough = [["prefer-vector-width", "128"]]} {
   %cst = arith.constant 0.000000e+00 : f32
   %c0 = arith.constant 0 : index
   %c256 = arith.constant 256 : index

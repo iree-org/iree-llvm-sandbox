@@ -5,7 +5,7 @@
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
-func @main() {
+func.func @main() {
   %zero_to_three = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!llvm.struct<(i32)>>)

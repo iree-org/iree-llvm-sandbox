@@ -7,10 +7,10 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
 
   LINK_LIBS PUBLIC
   IteratorsUtils
-  MLIRFunc
+  MLIRFuncDialect
   MLIRIterators
-  MLIRLLVMIR
+  MLIRLLVMDialect
   MLIRPass
-  MLIRSCF
+  MLIRSCFDialect
   MLIRTransforms
-  )
+)

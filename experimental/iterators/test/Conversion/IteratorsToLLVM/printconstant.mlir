@@ -4,8 +4,8 @@
 // CHECK:      module {
 // CHECK-NEXT:   llvm.func @printf(!llvm.ptr<i8>, ...) -> i32
 // CHECK-NEXT:   llvm.mlir.global internal constant @frmt_spec.tuple[[S0:.*]]("(%lli)\0A\00")
-// CHECK-NEXT:   func @main() {
-func @main() {
+// CHECK-NEXT:   func.func @main() {
+func.func @main() {
   %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
   // CHECK-NEXT:     %[[V0:.*]] = llvm.mlir.undef : !llvm.struct<"tuple[[S0:.*]]", ()>
 

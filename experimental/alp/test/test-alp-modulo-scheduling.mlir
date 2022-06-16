@@ -1,7 +1,7 @@
 // RUN: mlir-proto-opt -alp-modulo-scheduling %s | FileCheck %s 
 #map1 = affine_map<()[s0] -> (s0 ceildiv 8)>
 
-func @kernel(%arg0: memref<2048x256xf32>, %arg1: index, %arg2: memref<256x256x1x8xf32>, %arg3: index, %arg4: memref<32x256x1x8xf32>, %arg5: index){
+func.func @kernel(%arg0: memref<2048x256xf32>, %arg1: index, %arg2: memref<256x256x1x8xf32>, %arg3: index, %arg4: memref<32x256x1x8xf32>, %arg5: index){
   %0 = affine.apply #map1()[%arg5]
   %cst = arith.constant dense<0.000000e+00> : vector<4x4xf32>
   %c0 = arith.constant 0 : index

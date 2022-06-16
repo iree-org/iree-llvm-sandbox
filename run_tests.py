@@ -90,10 +90,11 @@ def _run_test(test_script: str, test_args: Sequence[str] = []) -> bool:
   return True
 
 
-def run_small_search():
-  return _run_test(
-      "./python/examples/tuning/test_nevergrad_small_matmul.py",
-      ['--search-budget 500', '--n_iters 3000', '--num-parallel-tasks 10'])
+# TODO: Reactivate once piped through IREE.
+# def run_small_search():
+#   return _run_test(
+#       "./python/examples/tuning/test_nevergrad_small_matmul.py",
+#       ['--search-budget 500', '--n_iters 3000', '--num-parallel-tasks 10'])
 
 
 def main(args):
@@ -101,11 +102,12 @@ def main(args):
   for f in glob.glob("./python/**/*test.py", recursive=True):
     results.append(_run_test(f))
   # Tun a small search.
-  results.append(
-      _run_test("./python/examples/tuning/test_nevergrad_small_matmul.py", [
-          '--search-budget', '10', '--n_iters', '10', '--num-parallel-tasks',
-          '4'
-      ]))
+  # TODO: Reactivate once piped through IREE.
+  # results.append(
+  #     _run_test("./python/examples/tuning/test_nevergrad_small_matmul.py", [
+  #         '--search-budget', '10', '--n_iters', '10', '--num-parallel-tasks',
+  #         '4'
+  #     ]))
   errors = results.count(False)
   if errors:
     print(f"-> {errors} tests failed!")

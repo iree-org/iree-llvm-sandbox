@@ -5,9 +5,9 @@
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
-!element_type = type !llvm.struct<(i32)>
+!element_type = !llvm.struct<(i32)>
 
-func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
+func.func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
   %lhsi = llvm.extractvalue %lhs[0 : index] : !element_type
   %rhsi = llvm.extractvalue %rhs[0 : index] : !element_type
   %i = arith.addi %lhsi, %rhsi : i32
@@ -15,7 +15,7 @@ func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element
   return %result : !element_type
 }
 
-func @query1() {
+func.func @query1() {
   %input = "iterators.constantstream"() { value = [[6 : i32]] }
       : () -> (!iterators.stream<!element_type>)
   %reduce1 = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
@@ -27,7 +27,7 @@ func @query1() {
   return
 }
 
-func @query2() {
+func.func @query2() {
   // Run similar query again to check that name collision resolution works.
   %input = "iterators.constantstream"(){ value = [[6 : i32]] }
       : () -> (!iterators.stream<!element_type>)
@@ -36,7 +36,7 @@ func @query2() {
   "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
   return
 }
-func @main() {
+func.func @main() {
   // CHECK: (6)
   call @query1() : () -> ()
 

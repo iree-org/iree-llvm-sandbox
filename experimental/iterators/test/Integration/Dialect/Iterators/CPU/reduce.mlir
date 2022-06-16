@@ -5,9 +5,9 @@
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
-!i32_struct = type !llvm.struct<(i32)>
+!i32_struct = !llvm.struct<(i32)>
 
-func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_struct {
+func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_struct {
   %lhsi = llvm.extractvalue %lhs[0 : index] : !i32_struct
   %rhsi = llvm.extractvalue %rhs[0 : index] : !i32_struct
   %i = arith.addi %lhsi, %rhsi : i32
@@ -15,7 +15,7 @@ func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_struct 
   return %result : !i32_struct
 }
 
-func @query1() {
+func.func @query1() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -26,11 +26,11 @@ func @query1() {
   return
 }
 
-!i32f32_struct = type !llvm.struct<(i32, f32)>
+!i32f32_struct = !llvm.struct<(i32, f32)>
 
 // Return input where second struct field is larger. Return lhs on equality or
 // unordered.
-func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32f32_struct {
+func.func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32f32_struct {
   %lhsf = llvm.extractvalue %lhs[1 : index] : !i32f32_struct
   %rhsf = llvm.extractvalue %rhs[1 : index] : !i32f32_struct
   %cmp = arith.cmpf "uge", %lhsf, %rhsf : f32
@@ -42,7 +42,7 @@ func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32f32_s
   return %result : !i32f32_struct
 }
 
-func @query2() {
+func.func @query2() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32,  0.   : f32],
                  [1 : i32, 13.37 : f32],  // <-- max value
@@ -55,7 +55,7 @@ func @query2() {
   return
 }
 
-func @main() {
+func.func @main() {
   call @query1() : () -> ()
   call @query2() : () -> ()
   return

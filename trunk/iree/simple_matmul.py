@@ -72,7 +72,7 @@ with open(TRANSFORM_SPEC_FILE_NAME, "w") as f:
 # Compile a module.
 
 DOT_ASM = """
-func.func @dot(%lhs: tensor<127x128xf32>, %rhs: tensor<128x129xf32>) -> tensor<127x129xf32> {
+func.func.func @dot(%lhs: tensor<127x128xf32>, %rhs: tensor<128x129xf32>) -> tensor<127x129xf32> {
      %0 = "mhlo.dot"(%lhs, %rhs) : (tensor<127x128xf32>, tensor<128x129xf32>) -> tensor<127x129xf32>
     return %0 : tensor<127x129xf32>
 }
