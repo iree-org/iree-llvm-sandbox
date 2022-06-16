@@ -3,7 +3,7 @@
 table[(table['b'] * table['c']).name('d')]
 
 #      CHECK: ibis.selection() ["names" = ["d"]] {
-# CHECK-NEXT:     ibis.pandas_table() ["table_name" = "t"] {
+# CHECK-NEXT:     ibis.unbound_table() ["table_name" = "t"] {
 # CHECK-NEXT:       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 # CHECK-NEXT:       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
 # CHECK-NEXT:       ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
@@ -11,7 +11,7 @@ table[(table['b'] * table['c']).name('d')]
 # CHECK-NEXT:   } {} {
 # CHECK-NEXT:     ibis.multiply() ["output_type" = !ibis.int64] {
 # CHECK-NEXT:       ibis.table_column() ["col_name" = "b"] {
-# CHECK-NEXT:         ibis.pandas_table() ["table_name" = "t"] {
+# CHECK-NEXT:         ibis.unbound_table() ["table_name" = "t"] {
 # CHECK-NEXT:           ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 # CHECK-NEXT:           ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
 # CHECK-NEXT:           ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
@@ -19,7 +19,7 @@ table[(table['b'] * table['c']).name('d')]
 # CHECK-NEXT:       }
 # CHECK-NEXT:     }  {
 # CHECK-NEXT:       ibis.table_column() ["col_name" = "c"] {
-# CHECK-NEXT:         ibis.pandas_table() ["table_name" = "t"] {
+# CHECK-NEXT:         ibis.unbound_table() ["table_name" = "t"] {
 # CHECK-NEXT:           ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 # CHECK-NEXT:           ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
 # CHECK-NEXT:           ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
