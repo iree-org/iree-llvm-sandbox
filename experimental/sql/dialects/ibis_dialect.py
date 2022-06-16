@@ -124,15 +124,16 @@ class Selection(Operation):
   """
   Models an SQL `Select` statement and related concepts. If there are predicates
   to filter with, they are part of `predicates`. If there is a projection, the
-  wanted columns are part of `projections`. If `projections` is empty, all of
-  the columns are part of the result.
+  wanted columns are part of `projections`. The ith projected column will have
+  the ith name of `names`. If `projections` is empty, all of the columns are
+  part of the result.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L375
 
   Example:
 
   ```
-  ibis.selection() {
+  ibis.selection() ["names" = []] {
     // table
     ibis.table() ...
   } {
@@ -142,7 +143,7 @@ class Selection(Operation):
     // projections
   }
 
-  ibis.selection() {
+  ibis.selection() ["names" = ["c"]] {
     // table
     ibis.table() ...
   } {
@@ -158,12 +159,18 @@ class Selection(Operation):
   table = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
   projections = SingleBlockRegionDef()
+  names = AttributeDef(ArrayOfConstraint(StringAttr))
 
   @staticmethod
   @builder
-  def get(table: Region, predicates: Region,
-          projections: Region) -> 'Selection':
-    return Selection.build(regions=[table, predicates, projections])
+  def get(table: Region, predicates: Region, projections: Region,
+          names: list[str]) -> 'Selection':
+    return Selection.build(regions=[table, predicates, projections],
+                           attributes={
+                               "names":
+                                   ArrayAttr.from_list(
+                                       [StringAttr.from_str(n) for n in names])
+                           })
 
 
 @irdl_op_definition

@@ -71,10 +71,14 @@ def visit(  #type: ignore
 @dispatch(ibis.expr.operations.relations.Selection)
 def visit(  #type: ignore
     op: ibis.expr.operations.relations.Selection) -> Operation:
+  assert (op.inputs[0] is op.table)
+  names = []
+  if len(op.inputs) > 0:
+    names = [n.get_name() for n in op.inputs[1]]
   table = Region.from_operation_list([visit(op.table)])
   predicates = visit_ibis_expr_list(op.predicates)
   projections = visit_ibis_expr_list(op.selections)
-  return id.Selection.get(table, predicates, projections)
+  return id.Selection.get(table, predicates, projections, names)
 
 
 @dispatch(ibis.expr.operations.relations.Aggregation)
