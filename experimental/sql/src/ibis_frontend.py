@@ -55,6 +55,18 @@ def visit_ibis_expr_list(l: List[ibis.expr.types.Expr]) -> Region:
   return Region.from_operation_list(ops)
 
 
+@dispatch(object)
+def visit(op) -> Operation:
+  raise Exception(f"conversion not yet implemented for {type(op)}")
+
+
+@dispatch(ibis.expr.operations.numeric.Multiply)
+def visit(op: ibis.expr.operations.numeric.Multiply) -> Operation:
+  return id.Multiply.get(Region.from_operation_list([visit(op.left)]),
+                         Region.from_operation_list([visit(op.right)]),
+                         convert_datatype(op.output_type().keywords['dtype']))
+
+
 @dispatch(ibis.expr.types.Expr)
 def visit(  #type: ignore
     op: ibis.expr.types.Expr) -> Operation:
