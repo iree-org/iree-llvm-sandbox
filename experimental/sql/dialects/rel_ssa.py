@@ -277,26 +277,25 @@ class Operator(Operation):
 
 
 @irdl_op_definition
-class PandasTable(Operator):
+class Table(Operator):
   """
   Defines a table with name `table_name`.
 
   Example:
 
   '''
-  %0 : rel_ssa.bag<[!rel_ssa.int32]> = rel_ssa.pandas_table() ["table_name" = "t"]
+  %0 : rel_ssa.bag<[!rel_ssa.int32]> = rel_ssa.table() ["table_name" = "t"]
   '''
   """
-  name = "rel_ssa.pandas_table"
+  name = "rel_ssa.table"
 
   table_name = AttributeDef(StringAttr)
 
   @staticmethod
   @builder
-  def get(name: str, result_type: Attribute) -> 'PandasTable':
-    return PandasTable.build(
-        attributes={"table_name": StringAttr.from_str(name)},
-        result_types=[result_type])
+  def get(name: str, result_type: Attribute) -> 'Table':
+    return Table.build(attributes={"table_name": StringAttr.from_str(name)},
+                       result_types=[result_type])
 
 
 @irdl_op_definition
@@ -385,7 +384,7 @@ class RelSSA:
     self.ctx.register_attr(SchemaElement)
 
     self.ctx.register_op(Select)
-    self.ctx.register_op(PandasTable)
+    self.ctx.register_op(Table)
     self.ctx.register_op(Aggregate)
 
     self.ctx.register_op(Literal)

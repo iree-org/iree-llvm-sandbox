@@ -3,7 +3,7 @@
 module() {
   ibis.selection() ["names" = []] {
     // selection input
-    ibis.pandas_table() ["table_name" = "t"] {
+    ibis.unbound_table() ["table_name" = "t"] {
       ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
     }
   } {
@@ -11,7 +11,7 @@ module() {
     ibis.equals() {
       // predicate column
       ibis.table_column() ["col_name" = "id"] {
-        ibis.pandas_table() ["table_name" = "t"] {
+        ibis.unbound_table() ["table_name" = "t"] {
           ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
         }
       }
@@ -25,7 +25,7 @@ module() {
 }
 
 //      CHECK: rel_alg.select() {
-// CHECK-NEXT:         rel_alg.pandas_table() ["table_name" = "t"] {
+// CHECK-NEXT:         rel_alg.table() ["table_name" = "t"] {
 // CHECK-NEXT:             rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
 // CHECK-NEXT:         }
 // CHECK-NEXT:     } {

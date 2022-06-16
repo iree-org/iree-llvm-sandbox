@@ -108,11 +108,10 @@ class SelectRewriter(RelSSARewriter):
 
 
 @dataclass
-class PandasTableRewriter(RelSSARewriter):
+class TableRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelSSA.PandasTable,
-                        rewriter: PatternRewriter):
+  def match_and_rewrite(self, op: RelSSA.Table, rewriter: PatternRewriter):
     rewriter.replace_matched_op(
         RelImpl.FullTableScanOp.get(op.table_name.data,
                                     self.convert_bag(op.result.typ)))
@@ -136,7 +135,7 @@ class AggregateRewriter(RelSSARewriter):
 def ssa_to_impl(ctx: MLContext, query: ModuleOp):
 
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
-      PandasTableRewriter(),
+      TableRewriter(),
       SelectRewriter(),
       AggregateRewriter(),
       LiteralRewriter(),

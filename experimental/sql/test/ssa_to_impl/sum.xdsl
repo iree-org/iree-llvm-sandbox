@@ -1,7 +1,7 @@
 // RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
 
 module() {
-    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.pandas_table() ["table_name" = "some_name"]
+    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "some_name"]
     %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
 }
 

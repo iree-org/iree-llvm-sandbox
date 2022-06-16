@@ -46,13 +46,13 @@ class SchemaElementRewriter(IbisRewriter):
 
 
 @dataclass
-class PandasTableRewriter(IbisRewriter):
+class UnboundTableRewriter(IbisRewriter):
   # This is a simple 1-1 rewrite.
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: ibis.PandasTable, rewriter: PatternRewriter):
+  def match_and_rewrite(self, op: ibis.UnboundTable, rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelAlg.PandasTable.get(
+        RelAlg.Table.get(
             op.table_name.data,
             rewriter.move_region_contents_to_new_regions(op.schema)))
 
@@ -120,7 +120,7 @@ class AggregationRewriter(IbisRewriter):
 
 def ibis_to_alg(ctx: MLContext, query: ModuleOp):
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
-      PandasTableRewriter(),
+      UnboundTableRewriter(),
       SchemaElementRewriter(),
       SelectionRewriter(),
       EqualsRewriter(),
