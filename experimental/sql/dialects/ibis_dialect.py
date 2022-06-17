@@ -38,6 +38,16 @@ class DataType(ParametrizedAttribute):
 
 
 @irdl_attr_definition
+class Decimal(DataType):
+  name = "ibis.decimal"
+
+
+@irdl_attr_definition
+class Timestamp(DataType):
+  name = "ibis.timestamp"
+
+
+@irdl_attr_definition
 class Int32(DataType):
   """
   Models the ibis int32 type.
@@ -481,6 +491,8 @@ class Ibis:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
+    self.ctx.register_attr(Decimal)
+    self.ctx.register_attr(Timestamp)
 
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)

@@ -1,0 +1,5 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+ibis.table([("ORDERKEY", "int64"), ("EXTENDEDPRICE", "decimal"),
+                ("RETURNFLAG", "string"), ("SHIPDATE", "timestamp")],
+                'lineitem')
