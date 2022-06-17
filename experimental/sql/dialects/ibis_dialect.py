@@ -39,11 +39,21 @@ class DataType(ParametrizedAttribute):
 
 @irdl_attr_definition
 class Decimal(DataType):
+  """
+  Models the ibis decimal type.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/datatypes.py#L344
+  """
   name = "ibis.decimal"
 
 
 @irdl_attr_definition
 class Timestamp(DataType):
+  """
+  Models the ibis timestamp type.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/datatypes.py#L222
+  """
   name = "ibis.timestamp"
 
 

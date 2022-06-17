@@ -3,3 +3,10 @@
 ibis.table([("ORDERKEY", "int64"), ("EXTENDEDPRICE", "decimal"),
                 ("RETURNFLAG", "string"), ("SHIPDATE", "timestamp")],
                 'lineitem')
+
+#      CHECK:  ibis.unbound_table() ["table_name" = "lineitem"] {
+# CHECK-NEXT:    ibis.schema_element() ["elt_name" = "ORDERKEY", "elt_type" = !ibis.int64]
+# CHECK-NEXT:    ibis.schema_element() ["elt_name" = "EXTENDEDPRICE", "elt_type" = !ibis.decimal]
+# CHECK-NEXT:    ibis.schema_element() ["elt_name" = "RETURNFLAG", "elt_type" = !ibis.string<1 : !i1>]
+# CHECK-NEXT:    ibis.schema_element() ["elt_name" = "SHIPDATE", "elt_type" = !ibis.timestamp]
+# CHECK-NEXT:  }
