@@ -92,10 +92,18 @@ class SelectionRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.Selection, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(
-        RelAlg.Select.get(
-            rewriter.move_region_contents_to_new_regions(op.table),
-            rewriter.move_region_contents_to_new_regions(op.predicates)))
+    assert len(op.predicates.ops) == 0 or len(op.projections.ops) == 0
+    if len(op.predicates.ops) > 0:
+      rewriter.replace_matched_op(
+          RelAlg.Select.get(
+              rewriter.move_region_contents_to_new_regions(op.table),
+              rewriter.move_region_contents_to_new_regions(op.predicates)))
+    else:
+      rewriter.replace_matched_op(
+          RelAlg.Project.get(
+              rewriter.move_region_contents_to_new_regions(op.table),
+              rewriter.move_region_contents_to_new_regions(op.projections),
+              op.names))
 
 
 @dataclass
