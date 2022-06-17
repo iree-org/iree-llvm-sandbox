@@ -79,39 +79,6 @@ class EqualsRewriter(IbisRewriter):
 
 
 @dataclass
-class GreaterEqualRewriter(IbisRewriter):
-
-  @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: ibis.GreaterEqual, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(
-        RelAlg.Compare.get(
-            ">=", rewriter.move_region_contents_to_new_regions(op.left),
-            rewriter.move_region_contents_to_new_regions(op.right)))
-
-
-@dataclass
-class LessThanRewriter(IbisRewriter):
-
-  @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: ibis.LessThan, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(
-        RelAlg.Compare.get(
-            "<", rewriter.move_region_contents_to_new_regions(op.left),
-            rewriter.move_region_contents_to_new_regions(op.right)))
-
-
-@dataclass
-class LessEqualRewriter(IbisRewriter):
-
-  @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: ibis.LessEqual, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(
-        RelAlg.Compare.get(
-            "<=", rewriter.move_region_contents_to_new_regions(op.left),
-            rewriter.move_region_contents_to_new_regions(op.right)))
-
-
-@dataclass
 class TableColumnRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
@@ -157,9 +124,6 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       SchemaElementRewriter(),
       SelectionRewriter(),
       EqualsRewriter(),
-      GreaterEqualRewriter(),
-      LessEqualRewriter(),
-      LessThanRewriter(),
       TableColumnRewriter(),
       AggregationRewriter(),
       LiteralRewriter()
