@@ -281,6 +281,32 @@ class Project(Operator):
 
 
 @irdl_op_definition
+class Multiply(Operator):
+  """
+  Combines two columns into one by element-wise multiplication.
+
+  Example:
+
+  '''
+  rel_alg.multiply() {
+    rel_alg.column() ...
+  } {
+    rel_alg.column() ...
+  }
+  '''
+  """
+  name = "rel_alg.multiply"
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+
+  @builder
+  @staticmethod
+  def get(lhs: Region, rhs: Region) -> 'Multiply':
+    return Multiply.build(regions=[lhs, rhs])
+
+
+@irdl_op_definition
 class Table(Operator):
   """
   Defines a table with name `table_name` and schema `schema`.
@@ -346,6 +372,7 @@ class RelationalAlg:
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
+    self.ctx.register_op(Multiply)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)
