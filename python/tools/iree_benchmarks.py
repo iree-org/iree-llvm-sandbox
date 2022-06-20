@@ -74,7 +74,7 @@ def generate_dispatch_regions(args) -> Sequence[str]:
   """Run iree-compile to produce the dispatch regions."""
 
   benchmark_output_dir = args['benchmark_output_dir']
-  iree_compile_bin = args['iree_bin_dir'] + '/iree/tools/iree-compile'
+  iree_compile_bin = args['iree_bin_dir'] + '/tools/iree-compile'
   iree_input_type = args['iree_input_type']
   iree_target_backends = args['iree_target_backends']
   mlir_file = args['mlir_file']
@@ -87,7 +87,7 @@ def generate_dispatch_regions(args) -> Sequence[str]:
     ['--iree-input-type=' + iree_input_type] + \
     ['-o', '/dev/null']
   print(' '.join(cmd_list))
-  subprocess.run(cmd_list)
+  subprocess.run(cmd_list, check=True)
 
   benchmark_output_dir = args['benchmark_output_dir']
   import glob
@@ -105,7 +105,7 @@ def transform_dispatch_region(
      This is where we should inject transform dialect commands."""
 
   iree_target_backends = args['iree_target_backends']
-  iree_translate_bin = args['iree_bin_dir'] + '/iree/tools/iree-translate'
+  iree_translate_bin = args['iree_bin_dir'] + '/tools/iree-compile'
   cmd_list = [iree_translate_bin] + \
     [dispatch_mlir_filename] + \
     ['-o', dispatch_mlir_filename + '.vmfb'] + \
@@ -114,8 +114,7 @@ def transform_dispatch_region(
   
   if strategy_filename is not None:
     cmd_list = cmd_list + \
-      ['-iree-codegen-use-linalg-transform-interp'] + \
-      ['-linalg-transform-file-name=' + strategy_filename]
+      ['-iree-flow-dispatch-use-transform-dialect=' + strategy_filename]
 
   debug = args['debug']
   if debug:
@@ -124,7 +123,7 @@ def transform_dispatch_region(
       ['-mlir-print-ir-after-change']
 
   print(' '.join(cmd_list))
-  subprocess.run(cmd_list)
+  subprocess.run(cmd_list, check=True)
 
 
 def benchmark_dispatch_region(
@@ -133,7 +132,7 @@ def benchmark_dispatch_region(
   """Run iree-benchmark-module to dump json and then parse the times."""
 
   iree_target_backends = args['iree_target_backends']
-  iree_benchmark_module_bin = args['iree_bin_dir'] + '/iree/tools/iree-benchmark-module'
+  iree_benchmark_module_bin = args['iree_bin_dir'] + '/tools/iree-benchmark-module'
   benchmark_batch_size = args['benchmark_batch_size']
   benchmark_repetitions = args['benchmark_repetitions']
   benchmark_min_time = args['benchmark_min_time']
@@ -165,16 +164,22 @@ def make_strategy_as_serialized_mlir(strategy_filename : str):
   """Create a fixed strategy with the transform dialect and save it to file."""
 
   import iree.compiler.dialects.transform as transform
+  import iree.compiler.dialects.transform.structured as structured_transform
+  import iree.compiler.dialects.transform.iree_structured as iree_structured_transform
   import iree.compiler.dialects.pdl as pdl
   import iree.compiler.ir as ir
 
   with ir.Context() as ctx, ir.Location.unknown(ctx):
-    transform.register_dialect(ctx)
+    import iree.compiler._mlir_libs._ireeDialects.transform
+    iree.compiler._mlir_libs._ireeDialects.transform.register_dialect(ctx)
+
+    from iree.compiler.transforms import ireec
+    ireec.register_all_dialects(ctx)
 
     module = ir.Module.create()
     with ir.InsertionPoint(module.body):
-      root = transform.WithPDLPatternsOp(root=None)
-      with ir.InsertionPoint(root.body.blocks[0]):
+      root = transform.WithPDLPatternsOp()
+      with ir.InsertionPoint(root.body):
         isa_matmul = pdl.PatternOp(benefit = 1, name = "isa_matmul")
         with ir.InsertionPoint(isa_matmul.body):
           args = pdl.OperandsOp()
@@ -184,37 +189,39 @@ def make_strategy_as_serialized_mlir(strategy_filename : str):
           pdl.ApplyNativeConstraintOp("isEquivalentToOp", args=[pdl_op, op_name])
           pdl.RewriteOp(pdl_op, "transform.dialect")
 
-        sequence = transform.CanonicalizedSequenceOp(root.body.blocks[0].arguments[0])
-        sequence_block = sequence.body.blocks[0]
+        sequence = iree_structured_transform.CanonicalizedSequenceOp(root.body.arguments[0])
+        sequence_block = sequence.body
         with ir.InsertionPoint(sequence_block):
-          # transform.PrintOp(None, name="Initial IR")
+          # iree_structured_transform.PrintOp(None, name="Initial IR")
           # ir.Operation.create(name="transform.iree.set_num_workgroups_to_one")
           target_match = transform.PDLMatchOp(sequence_block.arguments[0], "isa_matmul")
           # TODO: fuse...
-          tiled = transform.TileOp(target=target_match, sizes=[0, 0, 1])
-          # transform.PrintOp(None, name="After tiling")
+          tiled = structured_transform.TileOp(target=target_match,
+                                              sizes=[0, 0, 1])
+          # iree_structured_transform.PrintOp(None, name="After tiling")
 
           # TODO: peeling is disabled for now
           # transform.PeelLoopOp(tiled.results[1])
           # transform.PeelLoopOp(tiled.results[2])
           # TODO: Match dynamic matmul and scalarize.
-          transform.VectorizeOp(vectorize_padding=False)
+          r = structured_transform.VectorizeOp(target=tiled.results[0], vectorize_padding=False)
           # transform.PrintOp(None, name="After vectorization")
 
           ir.Operation.create(name="transform.iree.bufferize")
-          # transform.PrintOp(None, name="After bufferization")
+          # iree_structured_transform.PrintOp(None, name="After bufferization")
           
           stages = []
           for i in range(1, 8):
             stages.append(i)
-            transform.LowerVectorsOp(contraction_lowering="outerproduct",
-                                    multireduction_lowering="innerparallel",
-                                    split_transfers="linalg-copy",
-                                    stages=stages,
-                                    transpose_avx2_lowering=False,
-                                    transpose_lowering="shuffle",
-                                    unroll_vector_transfers=True)
-          transform.PrintOp(None, name="After lowering vectors")
+            iree_structured_transform.LowerVectorsOp(
+                contraction_lowering="outerproduct",
+                multireduction_lowering="innerparallel",
+                split_transfers="linalg-copy",
+                stages=stages,
+                transpose_avx2_lowering=False,
+                transpose_lowering="shuffle",
+                unroll_vector_transfers=True)
+          iree_structured_transform.PrintOp(None, name="After lowering vectors")
           transform.YieldOp([])
 
     with open(strategy_filename, "w") as f:
