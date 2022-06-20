@@ -38,6 +38,34 @@ class Int32(DataType):
 
 
 @irdl_attr_definition
+class Decimal(DataType):
+  """
+  Models a decimal type in a relational query.
+
+  Example:
+
+  ```
+  !rel_alg.decimal
+  ```
+  """
+  name = "rel_alg.decimal"
+
+
+@irdl_attr_definition
+class Timestamp(DataType):
+  """
+  Models a timestamp type in a relational query.
+
+  Example:
+
+  ```
+  !rel_alg.timestamp
+  ```
+  """
+  name = "rel_alg.timestamp"
+
+
+@irdl_attr_definition
 class Int64(DataType):
   """
   Models a int64 type in a relational query.
@@ -281,6 +309,8 @@ class RelationalAlg:
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Int32)
+    self.ctx.register_attr(Timestamp)
+    self.ctx.register_attr(Decimal)
     self.ctx.register_attr(Int64)
 
     self.ctx.register_op(Table)
