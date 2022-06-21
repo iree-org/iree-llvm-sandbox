@@ -1,7 +1,7 @@
 // RUN: rel_opt.py %s | filecheck %s
 
 module() {
-ibis.aggregation() {
+ibis.aggregation() ["names" = ["b"]] {
     ibis.unbound_table() ["table_name" = "t"] {
       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
@@ -20,7 +20,7 @@ ibis.aggregation() {
   }
 }
 
-//      CHECK: ibis.aggregation() {
+//      CHECK: ibis.aggregation() ["names" = ["b"]] {
 // CHECK-NEXT:     ibis.unbound_table() ["table_name" = "t"] {
 // CHECK-NEXT:       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
 // CHECK-NEXT:       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]

@@ -252,6 +252,7 @@ class Aggregation(Operation):
 
   table = SingleBlockRegionDef()
   metrics = SingleBlockRegionDef()
+  names = AttributeDef(ArrayOfConstraint(StringAttr))
   # TODO: figure out what the rest of these two and model them
   # by = SingleBlockRegionDef()
   # having = SingleBlockRegionDef()
@@ -260,8 +261,13 @@ class Aggregation(Operation):
 
   @staticmethod
   @builder
-  def get(table: Region, metrics: Region) -> 'Aggregation':
-    return Aggregation.build(regions=[table, metrics])
+  def get(table: Region, metrics: Region, names: list[str]) -> 'Aggregation':
+    return Aggregation.build(
+        regions=[table, metrics],
+        attributes={
+            "names":
+                ArrayAttr.from_list([StringAttr.from_str(n) for n in names])
+        })
 
 
 @irdl_op_definition
