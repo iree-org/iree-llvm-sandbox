@@ -102,6 +102,7 @@ def visit(  #type: ignore
     op: ibis.expr.operations.relations.Aggregation) -> Operation:
   table = Region.from_operation_list([visit(op.table)])
   metrics = visit_ibis_expr_list(op.metrics)
+  names = []
   if len(op.inputs) > 0:
     names = [n.get_name() for n in op.inputs[1]]
   return id.Aggregation.get(table, metrics, names)
