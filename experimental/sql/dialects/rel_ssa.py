@@ -56,6 +56,34 @@ class Int64(DataType):
 
 
 @irdl_attr_definition
+class Decimal(DataType):
+  """
+  Models a decimal type in a relational SSA query.
+
+  Example:
+
+  ```
+  !rel_ssa.decimal
+  ```
+  """
+  name = "rel_ssa.decimal"
+
+
+@irdl_attr_definition
+class Timestamp(DataType):
+  """
+  Models a timestamp type in a relational SSA query.
+
+  Example:
+
+  ```
+  !rel_ssa.timestamp
+  ```
+  """
+  name = "rel_ssa.timestamp"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models a string type in a relational SSA query, that can be either nullable or
@@ -379,6 +407,8 @@ class RelSSA:
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
+    self.ctx.register_attr(Timestamp)
+    self.ctx.register_attr(Decimal)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
