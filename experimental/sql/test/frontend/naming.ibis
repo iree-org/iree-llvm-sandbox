@@ -1,5 +1,6 @@
 # RUN: rel_opt.py -f ibis %s | filecheck %s
 
+table = ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't')
 table[table['b'].name('d')]
 
 #      CHECK: ibis.selection() ["names" = ["d"]] {

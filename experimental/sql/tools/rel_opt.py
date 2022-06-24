@@ -40,22 +40,19 @@ class RelOptMain(xDSLOptMain):
       import ibis
       import numpy as np
 
-      def exec_then_eval(query: str, tables: list[ibis.expr.types.Expr],
-                         names: list[str]):
+      def exec_then_eval(query: str):
         """
         Takes a (potentially multi-line) string that defines an ibis query with
         variables for subexpressions. The expression tree is built with the ith
         names of `names` corresponding to the ith table of `tables`. Finally,
         the result of the last line (modulo comments) is returned.
         """
-        assert len(tables) == len(names)
         import ast
 
         _globals, _locals = {}, {}
-        for t, n in zip(tables, names):
-          _locals[n] = t
 
         _locals["np"] = np
+        _locals["ibis"] = ibis
 
         ast_query = ast.parse(query)
         last = ast.Expression(ast_query.body.pop().value)
@@ -63,10 +60,7 @@ class RelOptMain(xDSLOptMain):
         return eval(compile(last, '<string>', mode='eval'), _globals, _locals)
 
       query = f.read()
-      res = exec_then_eval(query, [
-          ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't'),
-          ibis.table([("b", "int64")], 'u')
-      ], ["table", "sum_table"])
+      res = exec_then_eval(query)
       return ibis_to_xdsl(self.ctx, res)
 
     self.available_frontends['ibis'] = parse_ibis
