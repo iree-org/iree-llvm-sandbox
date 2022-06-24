@@ -31,6 +31,10 @@ class RelAlgRewriter(RewritePattern):
       return RelSSA.Int32()
     if isinstance(type_, RelAlg.Int64):
       return RelSSA.Int64()
+    if isinstance(type_, RelAlg.Decimal):
+      return RelSSA.Decimal()
+    if isinstance(type_, RelAlg.Timestamp):
+      return RelSSA.Timestamp()
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
