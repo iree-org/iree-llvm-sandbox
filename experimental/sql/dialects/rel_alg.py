@@ -202,6 +202,7 @@ class Aggregate(Operator):
   input = SingleBlockRegionDef()
   col_names = AttributeDef(ArrayOfConstraint(StringAttr))
   functions = AttributeDef(ArrayOfConstraint(StringAttr))
+  res_names = AttributeDef(ArrayOfConstraint(StringAttr))
 
   # TODO: add support for grouping...
 
@@ -212,8 +213,8 @@ class Aggregate(Operator):
 
   @staticmethod
   @builder
-  def get(input: Region, col_names: List[str],
-          functions: List[str]) -> 'Aggregate':
+  def get(input: Region, col_names: List[str], functions: List[str],
+          res_names: List[str]) -> 'Aggregate':
     return Aggregate.build(
         regions=[input],
         attributes={
@@ -221,7 +222,10 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(n) for n in col_names]
                                    ),
             "functions":
-                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions]
+                                   ),
+            "res_names":
+                ArrayAttr.from_list([StringAttr.from_str(n) for n in res_names])
         })
 
 

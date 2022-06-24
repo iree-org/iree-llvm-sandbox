@@ -160,7 +160,7 @@ class AggregationRewriter(IbisRewriter):
     rewriter.replace_matched_op(
         RelAlg.Aggregate.get(
             rewriter.move_region_contents_to_new_regions(op.table), col_names,
-            functions))
+            functions, [r.data for r in op.names.data]))
 
 
 @dataclass
