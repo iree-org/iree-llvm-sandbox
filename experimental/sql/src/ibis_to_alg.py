@@ -163,6 +163,17 @@ class AggregationRewriter(IbisRewriter):
             functions))
 
 
+@dataclass
+class MultiplyRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Multiply, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.Multiply.get(
+            rewriter.move_region_contents_to_new_regions(op.lhs),
+            rewriter.move_region_contents_to_new_regions(op.rhs)))
+
+
 def ibis_to_alg(ctx: MLContext, query: ModuleOp):
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       UnboundTableRewriter(),
@@ -174,6 +185,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       LessThanRewriter(),
       TableColumnRewriter(),
       AggregationRewriter(),
+      MultiplyRewriter(),
       LiteralRewriter()
   ]),
                                 walk_regions_first=False,

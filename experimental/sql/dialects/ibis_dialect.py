@@ -507,6 +507,7 @@ class Ibis:
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
+    self.ctx.register_op(Multiply)
     self.ctx.register_op(Equals)
     self.ctx.register_op(GreaterEqual)
     self.ctx.register_op(LessEqual)
