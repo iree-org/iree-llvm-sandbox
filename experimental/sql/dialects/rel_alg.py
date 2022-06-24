@@ -224,6 +224,35 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class Project(Operator):
+  """
+  Projects the input table s.t. the output has as the ith column a column with
+  the ith name of `names` and the ith column specified in `projectons`.
+
+  Example:
+  '''
+  rel_alg.project() {
+    rel_alg.unbound_table() ...
+  } {
+    rel_alg.column() ...
+    ...
+  }
+  '''
+  """
+  name = "rel_alg.project"
+
+  input = SingleBlockRegionDef()
+  projections = SingleBlockRegionDef()
+  names = AttributeDef(ArrayOfConstraint(StringAttr))
+
+  @staticmethod
+  @builder
+  def get(table: Region, projections: Region, names: ArrayAttr) -> 'Project':
+    return Project.build(regions=[table, projections],
+                         attributes={"names": names})
+
+
+@irdl_op_definition
 class Table(Operator):
   """
   Defines a table with name `table_name` and schema `schema`.
@@ -286,6 +315,7 @@ class RelationalAlg:
     self.ctx.register_op(Table)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
+    self.ctx.register_op(Project)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)
