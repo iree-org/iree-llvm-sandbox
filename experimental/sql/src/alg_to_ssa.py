@@ -38,16 +38,6 @@ class RelAlgRewriter(RewritePattern):
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
-  def lookup_type_in_schema(self, name: str,
-                            bag: RelSSA.Bag) -> Optional[RelSSA.DataType]:
-    """
-    Looks up the type of name in the schema of bag.
-    """
-    for s in bag.schema.data:
-      if s.elt_name.data == name:
-        return s.elt_type
-    return None
-
   def find_type_in_parent_operator(self, name: str,
                                    op: Operation) -> Optional[RelSSA.DataType]:
     """
@@ -58,7 +48,7 @@ class RelAlgRewriter(RewritePattern):
     parent_op = op.parent_op()
     while (parent_op and not isinstance(parent_op, ModuleOp)):
       if isinstance(parent_op, RelSSA.Operator):
-        type_ = self.lookup_type_in_schema(name, parent_op.results[0].typ)
+        type_ = parent_op.results[0].typ.lookup_type_in_schema(name)
         if type_:
           return type_
         raise Exception(f"element not found in parent schema: {name}")
@@ -89,6 +79,8 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
+    if isinstance(op.parent_op(), RelAlg.Project):
+      return
     res_type = self.find_type_in_parent_operator(op.col_name.data, op)
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
     rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
@@ -115,6 +107,18 @@ class CompareRewriter(RelAlgRewriter):
 #===------------------------------------------------------------------------===#
 # Operators
 #===------------------------------------------------------------------------===#
+
+
+@dataclass
+class ProjectRewriter(RelAlgRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
+    rewriter.inline_block_before_matched_op(op.input)
+    rewriter.insert_op_before_matched_op(
+        RelSSA.Project.get(rewriter.added_operations_before[0],
+                           [n.data for n in op.names.data]))
+    rewriter.erase_matched_op()
 
 
 @dataclass
@@ -166,9 +170,12 @@ class AggregateRewriter(RelAlgRewriter):
 
 
 def alg_to_ssa(ctx: MLContext, query: ModuleOp):
-  operator_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [TableRewriter(), SelectRewriter(),
-       AggregateRewriter()]),
+  operator_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
+      TableRewriter(),
+      SelectRewriter(),
+      AggregateRewriter(),
+      ProjectRewriter()
+  ]),
                                          walk_regions_first=True,
                                          apply_recursively=True,
                                          walk_reverse=False)

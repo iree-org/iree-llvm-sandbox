@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from dataclasses import dataclass
-from typing import Any, Union, List
+from typing import Any, Union, List, Optional
 from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, Data, MLContext, Attribute
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
@@ -179,6 +179,15 @@ class Bag(ParametrizedAttribute):
     schema_elts = [SchemaElement.get(n, t) for n, t in zip(names, types)]
     return Bag([ArrayAttr.from_list(schema_elts)])
 
+  def lookup_type_in_schema(self, name: str) -> Optional[DataType]:
+    """
+    Looks up the type of name in the schema of this bag.
+    """
+    for s in self.schema.data:
+      if s.elt_name.data == name:
+        return s.elt_type
+    return None
+
 
 #===------------------------------------------------------------------------===#
 # Expressions
@@ -327,6 +336,40 @@ class Table(Operator):
 
 
 @irdl_op_definition
+class Project(Operator):
+  """
+  Projects the input table s.t. the output has only the columns specified in
+  `col_names`.
+
+  Example:
+  '''
+  %1 : rel_sa.bag<[*schema_element1*]> = rel_ssa.project(%0 : rel_ssa.bag<[*schema_element1*, *schema_element2*]>) ["col_names" = *schema_element1*]
+  '''
+
+  """
+  name = "rel_ssa.project"
+
+  col_names = AttributeDef(ArrayOfConstraint(StringAttr))
+  input = OperandDef(Bag)
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(input: Operation, col_names: List[str]) -> 'Project':
+    return Project.build(
+        operands=[input],
+        attributes={
+            "col_names":
+                ArrayAttr.from_list([StringAttr.from_str(n) for n in col_names])
+        },
+        result_types=[
+            Bag.get(
+                col_names,
+                [input.result.typ.lookup_type_in_schema(n) for n in col_names])
+        ])
+
+
+@irdl_op_definition
 class Select(Operator):
   """
   Selects all tuples of `input` according to the yielded expression in `predicates`.
@@ -416,6 +459,7 @@ class RelSSA:
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)
     self.ctx.register_op(Aggregate)
+    self.ctx.register_op(Project)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
