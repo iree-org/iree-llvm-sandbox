@@ -29,6 +29,10 @@ class IbisRewriter(RewritePattern):
       return RelAlg.Int32()
     if isinstance(type_, ibis.Int64):
       return RelAlg.Int64()
+    if isinstance(type_, ibis.Timestamp):
+      return RelAlg.Timestamp()
+    if isinstance(type_, ibis.Decimal):
+      return RelAlg.Decimal()
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 

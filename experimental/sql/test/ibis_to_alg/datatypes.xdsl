@@ -1,0 +1,17 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+    ibis.unbound_table() ["table_name" = "some_name"] {
+        ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
+        ibis.schema_element() ["elt_name" = "price", "elt_type" = !ibis.decimal]
+        ibis.schema_element() ["elt_name" = "time", "elt_type" = !ibis.timestamp]
+        ibis.schema_element() ["elt_name" = "name", "elt_type" = !ibis.string<1 : !i1>]
+    }
+}
+
+//      CHECK: rel_alg.table() ["table_name" = "some_name"] {
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "price", "elt_type" = !rel_alg.decimal]
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "time", "elt_type" = !rel_alg.timestamp]
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "name", "elt_type" = !rel_alg.string<1 : !i1>]
+// CHECK-Next: }
