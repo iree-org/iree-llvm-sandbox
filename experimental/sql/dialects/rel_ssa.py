@@ -117,6 +117,35 @@ class String(DataType):
 
 
 @irdl_attr_definition
+class ProjExpr(ParametrizedAttribute):
+  """
+  Base class for nodes used to define expression trees for projections.
+  """
+  ...
+
+
+@irdl_attr_definition
+class ColExpr(ProjExpr):
+  """
+  Represents a column in a projection expression tree.
+  """
+  name = "rel_ssa.col_expr"
+
+  col_name = ParameterDef(StringAttr)
+
+
+@irdl_attr_definition
+class MulExpr(ProjExpr):
+  """
+  Represents a multiplication of `lhs` * `rhs` in a projection expression tree..
+  """
+  name = "rel_ssa.mul_expr"
+
+  lhs = ParameterDef(ProjExpr)
+  rhs = ParameterDef(ProjExpr)
+
+
+@irdl_attr_definition
 class Boolean(ParametrizedAttribute):
   """
   Models a type that can either be true or false to, e.g., show whether a tuple
@@ -463,6 +492,9 @@ class RelSSA:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
+
+    self.ctx.register_attr(ColExpr)
+    self.ctx.register_attr(MulExpr)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)
