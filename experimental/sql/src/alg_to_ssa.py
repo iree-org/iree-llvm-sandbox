@@ -155,8 +155,7 @@ class AggregateRewriter(RelAlgRewriter):
     rewriter.insert_op_before_matched_op([
         RelSSA.Aggregate.get(rewriter.added_operations_before[0],
                              [c.data for c in op.col_names.data],
-                             [f.data for f in op.functions.data],
-                             [r.data for r in op.res_names.data])
+                             [f.data for f in op.functions.data])
     ])
     rewriter.erase_matched_op()
 

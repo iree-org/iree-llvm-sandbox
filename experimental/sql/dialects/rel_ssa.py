@@ -427,8 +427,8 @@ class Aggregate(Operator):
 
   @builder
   @staticmethod
-  def get(input: Operation, col_names: List[str], functions: List[str],
-          res_names: List[str]) -> 'Aggregate':
+  def get(input: Operation, col_names: List[str],
+          functions: List[str]) -> 'Aggregate':
     return Aggregate.build(
         operands=[input],
         attributes={
@@ -438,11 +438,7 @@ class Aggregate(Operator):
             "functions":
                 ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
         },
-        result_types=[
-            Bag.get(
-                res_names,
-                [input.result.typ.lookup_type_in_schema(n) for n in col_names])
-        ])
+        result_types=[Bag.get(col_names, [Int32()] * len(functions))])
 
 
 @dataclass
