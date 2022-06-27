@@ -127,7 +127,7 @@ class ProjectRewriter(RelAlgRewriter):
     rewriter.inline_block_before_matched_op(op.input)
     rewriter.insert_op_before_matched_op(
         RelSSA.Project.get(
-            rewriter.added_operations_before[0],
+            rewriter.added_operations_before[-1],
             [n.data for n in op.names.data],
             [self.convert_to_proj_expr(e) for e in op.projections.ops]))
     rewriter.erase_matched_op()
@@ -141,7 +141,7 @@ class SelectRewriter(RelAlgRewriter):
     rewriter.inline_block_before_matched_op(op.input)
     predicates = rewriter.move_region_contents_to_new_regions(op.predicates)
     rewriter.insert_op_before_matched_op(
-        RelSSA.Select.get(rewriter.added_operations_before[0], predicates))
+        RelSSA.Select.get(rewriter.added_operations_before[-1], predicates))
     rewriter.erase_matched_op()
 
 
