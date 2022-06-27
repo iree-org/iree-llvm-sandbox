@@ -112,12 +112,24 @@ class CompareRewriter(RelAlgRewriter):
 @dataclass
 class ProjectRewriter(RelAlgRewriter):
 
+  def convert_to_proj_expr(self, expr_op: Operation) -> RelSSA.ProjExpr:
+    if isinstance(expr_op, RelAlg.Column):
+      return RelSSA.ColExpr([expr_op.col_name])
+    if isinstance(expr_op, RelAlg.Multiply):
+      return RelSSA.MulExpr([
+          self.convert_to_proj_expr(expr_op.lhs.op),
+          self.convert_to_proj_expr(expr_op.rhs.op)
+      ])
+    raise Exception(f"conversion not implemented: {type(expr_op)}")
+
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input)
     rewriter.insert_op_before_matched_op(
-        RelSSA.Project.get(rewriter.added_operations_before[0],
-                           [n.data for n in op.names.data]))
+        RelSSA.Project.get(
+            rewriter.added_operations_before[0],
+            [n.data for n in op.names.data],
+            [self.convert_to_proj_expr(e) for e in op.projections.ops]))
     rewriter.erase_matched_op()
 
 

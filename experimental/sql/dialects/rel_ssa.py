@@ -117,6 +117,35 @@ class String(DataType):
 
 
 @irdl_attr_definition
+class ProjExpr(ParametrizedAttribute):
+  """
+  Base class for nodes used to define expression trees for projections.
+  """
+  ...
+
+
+@irdl_attr_definition
+class ColExpr(ProjExpr):
+  """
+  Represents a column in a projection expression tree.
+  """
+  name = "rel_ssa.col_expr"
+
+  col_name = ParameterDef(StringAttr)
+
+
+@irdl_attr_definition
+class MulExpr(ProjExpr):
+  """
+  Represents a multiplication of `lhs` * `rhs` in a projection expression tree..
+  """
+  name = "rel_ssa.mul_expr"
+
+  lhs = ParameterDef(ProjExpr)
+  rhs = ParameterDef(ProjExpr)
+
+
+@irdl_attr_definition
 class Boolean(ParametrizedAttribute):
   """
   Models a type that can either be true or false to, e.g., show whether a tuple
@@ -349,24 +378,21 @@ class Project(Operator):
   """
   name = "rel_ssa.project"
 
-  col_names = AttributeDef(ArrayOfConstraint(StringAttr))
+  projections = AttributeDef(ArrayOfConstraint(ProjExpr))
   input = OperandDef(Bag)
   result = ResultDef(Bag)
 
   @staticmethod
   @builder
-  def get(input: Operation, col_names: List[str]) -> 'Project':
-    return Project.build(
-        operands=[input],
-        attributes={
-            "col_names":
-                ArrayAttr.from_list([StringAttr.from_str(n) for n in col_names])
-        },
-        result_types=[
-            Bag.get(
-                col_names,
-                [input.result.typ.lookup_type_in_schema(n) for n in col_names])
-        ])
+  def get(input: Operation, col_names: List[str],
+          expr: List[ProjExpr]) -> 'Project':
+    result_types = [
+        input.result.typ.lookup_type_in_schema(e.col_name.data) if isinstance(
+            e, ColExpr) else Int64() for e in expr
+    ]
+    return Project.build(operands=[input],
+                         attributes={"projections": ArrayAttr.from_list(expr)},
+                         result_types=[Bag.get(col_names, result_types)])
 
 
 @irdl_op_definition
@@ -459,6 +485,9 @@ class RelSSA:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
+
+    self.ctx.register_attr(ColExpr)
+    self.ctx.register_attr(MulExpr)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)
