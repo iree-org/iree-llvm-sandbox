@@ -215,7 +215,7 @@ class AggregateRewriter(RelAlgRewriter):
   def match_and_rewrite(self, op: RelAlg.Aggregate, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input.blocks[0])
     rewriter.insert_op_before_matched_op([
-        RelSSA.Aggregate.get(rewriter.added_operations_before[0],
+        RelSSA.Aggregate.get(rewriter.added_operations_before[-1],
                              [c.data for c in op.col_names.data],
                              [f.data for f in op.functions.data],
                              [r.data for r in op.res_names.data])
