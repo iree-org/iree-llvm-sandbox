@@ -107,6 +107,38 @@ class Expression(Operation):
   ...
 
 
+class BinOp(Expression):
+  """
+  Binary operation on two values.
+  """
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+
+
+@irdl_op_definition
+class Multiply(BinOp):
+  """
+  Multiplies two values.
+
+  Example:
+
+  '''
+  rel_alg.multiply() {
+    rel_alg.column() ...
+  } {
+    rel_alg.column() ...
+  }
+  '''
+  """
+  name = "rel_alg.multiply"
+
+  @builder
+  @staticmethod
+  def get(lhs: Region, rhs: Region) -> 'Multiply':
+    return Multiply.build(regions=[lhs, rhs])
+
+
 @irdl_op_definition
 class Literal(Expression):
   """
@@ -282,32 +314,6 @@ class Project(Operator):
   def get(table: Region, projections: Region, names: ArrayAttr) -> 'Project':
     return Project.build(regions=[table, projections],
                          attributes={"names": names})
-
-
-@irdl_op_definition
-class Multiply(Operator):
-  """
-  Combines two columns into one by element-wise multiplication.
-
-  Example:
-
-  '''
-  rel_alg.multiply() {
-    rel_alg.column() ...
-  } {
-    rel_alg.column() ...
-  }
-  '''
-  """
-  name = "rel_alg.multiply"
-
-  lhs = SingleBlockRegionDef()
-  rhs = SingleBlockRegionDef()
-
-  @builder
-  @staticmethod
-  def get(lhs: Region, rhs: Region) -> 'Multiply':
-    return Multiply.build(regions=[lhs, rhs])
 
 
 @irdl_op_definition
