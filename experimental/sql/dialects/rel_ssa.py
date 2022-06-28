@@ -117,35 +117,6 @@ class String(DataType):
 
 
 @irdl_attr_definition
-class ProjExpr(ParametrizedAttribute):
-  """
-  Base class for nodes used to define expression trees for projections.
-  """
-  ...
-
-
-@irdl_attr_definition
-class ColExpr(ProjExpr):
-  """
-  Represents a column in a projection expression tree.
-  """
-  name = "rel_ssa.col_expr"
-
-  col_name = ParameterDef(StringAttr)
-
-
-@irdl_attr_definition
-class MulExpr(ProjExpr):
-  """
-  Represents a multiplication of `lhs` * `rhs` in a projection expression tree..
-  """
-  name = "rel_ssa.mul_expr"
-
-  lhs = ParameterDef(ProjExpr)
-  rhs = ParameterDef(ProjExpr)
-
-
-@irdl_attr_definition
 class Boolean(ParametrizedAttribute):
   """
   Models a type that can either be true or false to, e.g., show whether a tuple
@@ -253,6 +224,27 @@ class Column(Expression):
   def get(name: str, res_type: DataType) -> 'Column':
     return Column.build(result_types=[res_type],
                         attributes={"col_name": StringAttr.from_str(name)})
+
+
+@irdl_op_definition
+class BinOp(Expression):
+  name = "rel_ssa.bin_op"
+
+  # TODO: could be restricted to only allow ints/floats
+  lhs = OperandDef(DataType)
+  rhs = OperandDef(DataType)
+
+  # TODO: restrict to only *, +, - ...
+  operator = AttributeDef(StringAttr)
+
+  result = ResultDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Operation, rhs: Operation, operator: str):
+    return BinOp.build(operands=[lhs, rhs],
+                       attributes={"operator": StringAttr.from_str(operator)},
+                       result_types=[lhs.result.typ])
 
 
 @irdl_op_definition
@@ -492,9 +484,6 @@ class RelSSA:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
-
-    self.ctx.register_attr(ColExpr)
-    self.ctx.register_attr(MulExpr)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)
