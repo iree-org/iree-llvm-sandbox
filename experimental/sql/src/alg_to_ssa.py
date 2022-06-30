@@ -102,6 +102,29 @@ class CompareRewriter(RelAlgRewriter):
     rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
 
 
+@dataclass
+class BinOpRewriter(RelAlgRewriter):
+
+  def convert_bin_op_to_str(self, op: RelAlg.BinOp) -> str:
+    if isinstance(op, RelAlg.Multiply):
+      return "*"
+    raise Exception(f"bin op conversion not yet implemented for {type(op)}")
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.BinOp, rewriter: PatternRewriter):
+    # Remove the yield and inline the rest of the block.
+    rewriter.erase_op(op.lhs.blocks[0].ops[-1])
+    rewriter.inline_block_before_matched_op(op.lhs.blocks[0])
+    left = rewriter.added_operations_before[-1]
+
+    rewriter.erase_op(op.rhs.blocks[0].ops[-1])
+    rewriter.inline_block_before_matched_op(op.rhs.blocks[0])
+    right = rewriter.added_operations_before[-1]
+
+    new_op = RelSSA.BinOp.get(left, right, self.convert_bin_op_to_str(op))
+    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
+
+
 #===------------------------------------------------------------------------===#
 # Operators
 #===------------------------------------------------------------------------===#
@@ -201,11 +224,11 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
                                          apply_recursively=True,
                                          walk_reverse=False)
   operator_walker.rewrite_module(query)
-  expression_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
-      LiteralRewriter(),
-      ColumnRewriter(),
-      CompareRewriter(),
-  ]),
+  expression_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
+      [LiteralRewriter(),
+       ColumnRewriter(),
+       CompareRewriter(),
+       BinOpRewriter()]),
                                            walk_regions_first=True,
                                            apply_recursively=True,
                                            walk_reverse=False)

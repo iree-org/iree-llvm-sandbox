@@ -227,6 +227,27 @@ class Column(Expression):
 
 
 @irdl_op_definition
+class BinOp(Expression):
+  name = "rel_ssa.bin_op"
+
+  # TODO: could be restricted to only allow ints/floats
+  lhs = OperandDef(DataType)
+  rhs = OperandDef(DataType)
+
+  # TODO: restrict to only *, +, - ...
+  operator = AttributeDef(StringAttr)
+
+  result = ResultDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Operation, rhs: Operation, operator: str):
+    return BinOp.build(operands=[lhs, rhs],
+                       attributes={"operator": StringAttr.from_str(operator)},
+                       result_types=[lhs.result.typ])
+
+
+@irdl_op_definition
 class Compare(Expression):
   """
   Returns `left` 'comparator' `right`.
