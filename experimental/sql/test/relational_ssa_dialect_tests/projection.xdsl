@@ -2,8 +2,16 @@
 
 module() {
   %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]> = rel_ssa.table() ["table_name" = "t"]
-  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>]> = rel_ssa.project(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]>) ["col_names" = ["a", "b"]]
+  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>]> = rel_ssa.project(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]>) {
+    %2 : !rel_ssa.string<1 : !i1> = rel_ssa.column() ["col_name" = "a"]
+    %3 : !rel_ssa.int64 = rel_ssa.column() ["col_name" = "b"]
+    rel_ssa.yield(%2 : !rel_ssa.string<1 : !i1>, %3 : !rel_ssa.int64)
+ }
 }
 
 //      CHECK:  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]> = rel_ssa.table() ["table_name" = "t"]
-// CHECK-NEXT:  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>]> = rel_ssa.project(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]>) ["col_names" = ["a", "b"]]
+// CHECK-NEXT:  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>]> = rel_ssa.project(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string<1 : !i1>>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]>) {
+// CHECK-NEXT:    %2 : !rel_ssa.string<1 : !i1> = rel_ssa.column() ["col_name" = "a"]
+// CHECK-NEXT:    %3 : !rel_ssa.int64 = rel_ssa.column() ["col_name" = "b"]
+// CHECK-NEXT:    rel_ssa.yield(%2 : !rel_ssa.string<1 : !i1>, %3 : !rel_ssa.int64)
+// CHECK-NEXT:  }

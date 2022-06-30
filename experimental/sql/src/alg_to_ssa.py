@@ -48,7 +48,7 @@ class RelAlgRewriter(RewritePattern):
     parent_op = op.parent_op()
     while (parent_op and not isinstance(parent_op, ModuleOp)):
       if isinstance(parent_op, RelSSA.Operator):
-        type_ = parent_op.results[0].typ.lookup_type_in_schema(name)
+        type_ = parent_op.operands[0].typ.lookup_type_in_schema(name)
         if type_:
           return type_
         raise Exception(f"element not found in parent schema: {name}")
@@ -79,8 +79,6 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
-    if isinstance(op.parent_op(), RelAlg.Project):
-      return
     res_type = self.find_type_in_parent_operator(op.col_name.data, op)
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
     rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
@@ -115,10 +113,32 @@ class ProjectRewriter(RelAlgRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input)
+    input_bag = rewriter.added_operations_before[0].result.typ
     rewriter.insert_op_before_matched_op(
-        RelSSA.Project.get(rewriter.added_operations_before[0],
-                           [n.data for n in op.names.data]))
+        RelSSA.Project.get(
+            rewriter.added_operations_before[0],
+            [n.data for n in op.names.data], [
+                input_bag.lookup_type_in_schema(op.col_name.data) if isinstance(
+                    op, RelAlg.Column) else RelSSA.Int64()
+                for op in op.projections.ops
+            ], rewriter.move_region_contents_to_new_regions(op.projections)))
     rewriter.erase_matched_op()
+
+
+@dataclass
+class ProjectYieldCombiner(RewritePattern):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.Project, rewriter: PatternRewriter):
+    yielded_ops = []
+    for operation in op.projection.ops:
+      if isinstance(operation, RelSSA.Yield):
+        yielded_ops.extend(operation.ops)
+        op.projection.blocks[0].erase_op(operation)
+    new_region = rewriter.move_region_contents_to_new_regions(op.projection)
+    new_region.blocks[0].add_op(RelSSA.Yield.get(yielded_ops))
+    rewriter.replace_matched_op(
+        RelSSA.Project.from_result_type(op.input, op.result.typ, new_region))
 
 
 @dataclass
@@ -190,3 +210,9 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
                                            apply_recursively=True,
                                            walk_reverse=False)
   expression_walker.rewrite_module(query)
+  yield_combiner = PatternRewriteWalker(GreedyRewritePatternApplier(
+      [ProjectYieldCombiner()]),
+                                        walk_regions_first=True,
+                                        apply_recursively=False,
+                                        walk_reverse=False)
+  yield_combiner.rewrite_module(query)

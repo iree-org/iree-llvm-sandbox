@@ -338,35 +338,39 @@ class Table(Operator):
 @irdl_op_definition
 class Project(Operator):
   """
-  Projects the input table s.t. the output has only the columns specified in
-  `col_names`.
+  Projects the input table s.t. every tuple is transformed to the yielded values
+  in `projection`.
 
   Example:
   '''
-  %1 : rel_sa.bag<[*schema_element1*]> = rel_ssa.project(%0 : rel_ssa.bag<[*schema_element1*, *schema_element2*]>) ["col_names" = *schema_element1*]
+  %1 : rel_ssa.bag<[*schema_element1*]> = rel_ssa.project(%0 :  rel_ssa.bag<[*schema_element1*, *schema_element2*]>) {
+    %2 : *type1* = rel_ssa.column() ["col_name" = *name1*]
+    rel_ssa.yield(%2: *type1*)
+  }
   '''
 
   """
   name = "rel_ssa.project"
 
-  col_names = AttributeDef(ArrayOfConstraint(StringAttr))
+  projection = SingleBlockRegionDef()
   input = OperandDef(Bag)
   result = ResultDef(Bag)
 
   @staticmethod
   @builder
-  def get(input: Operation, col_names: List[str]) -> 'Project':
-    return Project.build(
-        operands=[input],
-        attributes={
-            "col_names":
-                ArrayAttr.from_list([StringAttr.from_str(n) for n in col_names])
-        },
-        result_types=[
-            Bag.get(
-                col_names,
-                [input.result.typ.lookup_type_in_schema(n) for n in col_names])
-        ])
+  def get(input: Operation, res_names: List[str], res_types: List[DataType],
+          projection: Region) -> 'Project':
+    return Project.build(operands=[input],
+                         result_types=[Bag.get(res_names, res_types)],
+                         regions=[projection])
+
+  @staticmethod
+  @builder
+  def from_result_type(input: Operation, res_type: Bag,
+                       projection: Region) -> 'Project':
+    return Project.build(operands=[input],
+                         result_types=[res_type],
+                         regions=[projection])
 
 
 @irdl_op_definition
