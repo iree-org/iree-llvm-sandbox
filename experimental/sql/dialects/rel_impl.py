@@ -313,7 +313,7 @@ class Literal(Expression):
 @irdl_op_definition
 class And(Expression):
   """
-  Computes the logical and of 'lhs' and 'rhs.
+  Computes the logical and of 'lhs' and 'rhs'.
 
   Example:
 
