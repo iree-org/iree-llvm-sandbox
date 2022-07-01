@@ -165,6 +165,25 @@ class ProjectYieldCombiner(RewritePattern):
 
 
 @dataclass
+class SelectYieldCombiner(RewritePattern):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.Select, rewriter: PatternRewriter):
+    yielded_ops = []
+    for operation in op.predicates.ops:
+      if isinstance(operation, RelSSA.Yield):
+        yielded_ops.extend(operation.ops)
+        op.predicates.blocks[0].erase_op(operation)
+    new_region = rewriter.move_region_contents_to_new_regions(op.predicates)
+    while (len(yielded_ops) > 1):
+      new_and = RelSSA.And.get(yielded_ops.pop(), yielded_ops.pop())
+      yielded_ops.append(new_and)
+      new_region.blocks[0].add_op(new_and)
+    new_region.blocks[0].add_op(RelSSA.Yield.get(yielded_ops))
+    rewriter.replace_matched_op(RelSSA.Select.get(op.input.op, new_region))
+
+
+@dataclass
 class SelectRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
@@ -234,7 +253,7 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
                                            walk_reverse=False)
   expression_walker.rewrite_module(query)
   yield_combiner = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [ProjectYieldCombiner()]),
+      [ProjectYieldCombiner(), SelectYieldCombiner()]),
                                         walk_regions_first=True,
                                         apply_recursively=False,
                                         walk_reverse=False)

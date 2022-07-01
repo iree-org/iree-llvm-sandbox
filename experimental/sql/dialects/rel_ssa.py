@@ -321,6 +321,30 @@ class Literal(Expression):
     return Literal.build(attributes={"value": val}, result_types=[res])
 
 
+@irdl_op_definition
+class And(Expression):
+  """
+  Computes the logical and of 'lhs' and 'rhs.
+
+  Example:
+
+  '''
+  %3 : !rel_ssa.bool = rel_ssa.and(%0 : !rel_ssa.bool, %1 : !rel_ssa.bool)
+  '''
+  """
+  name = "rel_ssa.and"
+
+  lhs = OperandDef(Boolean)
+  rhs = OperandDef(Boolean)
+
+  result = ResultDef(Boolean)
+
+  @staticmethod
+  @builder
+  def get(lhs: Operation, rhs: Operation) -> 'And':
+    return And.build(operands=[lhs, rhs], result_types=[Boolean()])
+
+
 #===------------------------------------------------------------------------===#
 # Operators
 #===------------------------------------------------------------------------===#
@@ -494,3 +518,4 @@ class RelSSA:
     self.ctx.register_op(Compare)
     self.ctx.register_op(Column)
     self.ctx.register_op(Yield)
+    self.ctx.register_op(And)
