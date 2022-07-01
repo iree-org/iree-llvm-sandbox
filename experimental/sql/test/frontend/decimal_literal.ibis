@@ -1,0 +1,9 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table = ibis.table([("EXTENDEDPRICE", "decimal")],
+                'lineitem')
+
+table.filter(table['EXTENDEDPRICE'] >= ibis.literal(decimal.Decimal("0.05"), "decimal(6, 2)"))
+
+
+# CHECK: ibis.literal() ["val" = "0.05", "type" = !ibis.decimal]

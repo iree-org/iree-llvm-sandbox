@@ -11,6 +11,8 @@ from multipledispatch import dispatch
 import ibis
 import numpy as np
 
+from decimal import Decimal
+
 import dialects.ibis_dialect as id
 
 # This file contains the translation from ibis to the ibis_dialect. This
@@ -41,6 +43,8 @@ def convert_literal(literal) -> Attribute:
   if isinstance(literal, int):
     # np.int64 are parsed as int by ibis
     return IntegerAttr.from_int_and_width(literal, 64)
+  if isinstance(literal, Decimal):
+    return StringAttr.from_str(literal)
   raise Exception(f"literal conversion not yet implemented for {type(literal)}")
 
 
