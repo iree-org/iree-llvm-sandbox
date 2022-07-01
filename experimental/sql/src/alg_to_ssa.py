@@ -139,7 +139,7 @@ class ProjectRewriter(RelAlgRewriter):
     input_bag = rewriter.added_operations_before[0].result.typ
     rewriter.insert_op_before_matched_op(
         RelSSA.Project.get(
-            rewriter.added_operations_before[0],
+            rewriter.added_operations_before[-1],
             [n.data for n in op.names.data], [
                 input_bag.lookup_type_in_schema(op.col_name.data) if isinstance(
                     op, RelAlg.Column) else RelSSA.Int64()
@@ -191,7 +191,7 @@ class SelectRewriter(RelAlgRewriter):
     rewriter.inline_block_before_matched_op(op.input)
     predicates = rewriter.move_region_contents_to_new_regions(op.predicates)
     rewriter.insert_op_before_matched_op(
-        RelSSA.Select.get(rewriter.added_operations_before[0], predicates))
+        RelSSA.Select.get(rewriter.added_operations_before[-1], predicates))
     rewriter.erase_matched_op()
 
 
@@ -215,7 +215,7 @@ class AggregateRewriter(RelAlgRewriter):
   def match_and_rewrite(self, op: RelAlg.Aggregate, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input.blocks[0])
     rewriter.insert_op_before_matched_op([
-        RelSSA.Aggregate.get(rewriter.added_operations_before[0],
+        RelSSA.Aggregate.get(rewriter.added_operations_before[-1],
                              [c.data for c in op.col_names.data],
                              [f.data for f in op.functions.data],
                              [r.data for r in op.res_names.data])
