@@ -228,6 +228,15 @@ class Column(Expression):
 
 @irdl_op_definition
 class BinOp(Expression):
+  """
+  Models a binary operation of `lhs` `operator` `rhs`.
+
+  Example:
+
+  '''
+  %1 : !rel_ssa.int32 = rel_ssa.bin_op(%0 : !rel_ssa.int32, %2 : !rel_ssa.int32) ["operator" = "*"]
+  '''
+  """
   name = "rel_ssa.bin_op"
 
   # TODO: could be restricted to only allow ints/floats
@@ -519,3 +528,4 @@ class RelSSA:
     self.ctx.register_op(Column)
     self.ctx.register_op(Yield)
     self.ctx.register_op(And)
+    self.ctx.register_op(BinOp)

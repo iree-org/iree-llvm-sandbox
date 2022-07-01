@@ -237,6 +237,36 @@ class IndexByName(Expression):
 
 
 @irdl_op_definition
+class BinOp(Expression):
+  """
+  Models a binary operation of `lhs` `operator` `rhs`.
+
+  Example:
+
+  '''
+  %1 : !rel_impl.int32 = rel_impl.bin_op(%0 : !rel_impl.int32, %2 : !rel_impl.int32) ["operator" = "*"]
+  '''
+  """
+  name = "rel_impl.bin_op"
+
+  # TODO: could be restricted to only allow ints/floats
+  lhs = OperandDef(DataType)
+  rhs = OperandDef(DataType)
+
+  # TODO: restrict to only *, +, - ...
+  operator = AttributeDef(StringAttr)
+
+  result = ResultDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Operation, rhs: Operation, operator: str):
+    return BinOp.build(operands=[lhs, rhs],
+                       attributes={"operator": StringAttr.from_str(operator)},
+                       result_types=[lhs.result.typ])
+
+
+@irdl_op_definition
 class Compare(Expression):
   """
   Returns `left` 'comparator' `right`.
@@ -508,3 +538,4 @@ class RelImpl:
     self.ctx.register_op(IndexByName)
     self.ctx.register_op(Yield)
     self.ctx.register_op(And)
+    self.ctx.register_op(BinOp)
