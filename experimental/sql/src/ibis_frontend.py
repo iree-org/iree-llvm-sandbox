@@ -38,7 +38,8 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
 def convert_literal(literal) -> Attribute:
   if isinstance(literal, str):
     return StringAttr.from_str(literal)
-  if isinstance(literal, np.int64):
+  if isinstance(literal, int):
+    # np.int64 are parsed as int by ibis
     return IntegerAttr.from_int_and_width(literal, 64)
   raise Exception(f"literal conversion not yet implemented for {type(literal)}")
 
@@ -65,10 +66,17 @@ def visit(op) -> Operation:
 
 
 @dispatch(ibis.expr.operations.numeric.Multiply)
-def visit(op: ibis.expr.operations.numeric.Multiply) -> Operation:
+def visit(  # type: ignore
+    op: ibis.expr.operations.numeric.Multiply) -> Operation:
   return id.Multiply.get(Region.from_operation_list([visit(op.left)]),
                          Region.from_operation_list([visit(op.right)]),
-                         convert_datatype(op.output_type().keywords['dtype']))
+                         convert_datatype(op.output_dtype()))
+
+
+@dispatch(ibis.expr.operations.core.Alias)
+def visit(  #type: ignore
+    op: ibis.expr.operations.core.Alias) -> Operation:
+  return visit(op.arg.op())
 
 
 @dispatch(ibis.expr.types.Expr)
