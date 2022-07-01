@@ -97,6 +97,24 @@ class YieldRewriter(RelSSARewriter):
 
 
 @dataclass
+class ProjectRewriter(RelSSARewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.Project, rewriter: PatternRewriter):
+    predicates = Region.from_block_list(
+        [Block.from_arg_types([self.create_tuple_of_bag(op.input.typ)])])
+    # The following loop moves the operations of (the old) op.predicates to the
+    # predicates region of the new operation.
+    for o in op.projection.blocks[0].ops:
+      op.projection.blocks[0].detach_op(o)
+      predicates.blocks[0].add_op(o)
+    rewriter.replace_matched_op(
+        RelImpl.Project.from_result_type(op.input.op,
+                                         self.convert_bag(op.result.typ),
+                                         predicates))
+
+
+@dataclass
 class SelectRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
@@ -145,7 +163,8 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       LiteralRewriter(),
       ColumnRewriter(),
       CompareRewriter(),
-      YieldRewriter()
+      YieldRewriter(),
+      ProjectRewriter()
   ]),
                                 walk_regions_first=False,
                                 apply_recursively=True,

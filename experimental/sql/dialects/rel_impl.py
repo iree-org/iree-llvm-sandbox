@@ -376,6 +376,45 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class Project(Operator):
+  """
+  Projects the input table s.t. every tuple is transformed to the yielded values
+  in `projection`.
+
+  Example:
+  '''
+  %1 : rel_impl.bag<[*schema_element1*]> = rel_impl.project(%0 :  rel_impl.bag<[*schema_element1*, *schema_element2*]>) {
+    ^0(%2 : !rel_impl.tuple<[*schema_element1*, *schema_element2*])
+      %3 : *type1* = rel_impl.index_by_name(%3 : ... ) ["col_name" = *name1*]
+      rel_impl.yield(%3: *type1*)
+  }
+  '''
+
+  """
+  name = "rel_impl.project"
+
+  projection = SingleBlockRegionDef()
+  input = OperandDef(Bag)
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(input: Operation, res_names: List[str], res_types: List[DataType],
+          projection: Region) -> 'Project':
+    return Project.build(operands=[input],
+                         result_types=[Bag.get(res_names, res_types)],
+                         regions=[projection])
+
+  @staticmethod
+  @builder
+  def from_result_type(input: Operation, res_type: Bag,
+                       projection: Region) -> 'Project':
+    return Project.build(operands=[input],
+                         result_types=[res_type],
+                         regions=[projection])
+
+
+@irdl_op_definition
 class Aggregate(Operator):
   """
   Applies the ith function of `functions` to the ith column name of `col_names`
@@ -437,6 +476,7 @@ class RelImpl:
     self.ctx.register_attr(Tuple)
 
     self.ctx.register_op(Select)
+    self.ctx.register_op(Project)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(FullTableScanOp)
     self.ctx.register_op(Literal)
