@@ -20,10 +20,14 @@ module() {
     }
 }
 
-//      CHECK:    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "t"]
-// CHECK-NEXT:    %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) {
+//      CHECK:    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>, !rel_ssa.schema_element<"b", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "t"]
+// CHECK-NEXT:    %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>, !rel_ssa.schema_element<"b", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>, !rel_ssa.schema_element<"b", !rel_ssa.int32>]>) {
 // CHECK-NEXT:        %2 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
 // CHECK-NEXT:        %3 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i64]
 // CHECK-NEXT:        %4 : !rel_ssa.bool = rel_ssa.compare(%2 : !rel_ssa.int32, %3 : !rel_ssa.int32) ["comparator" = "="]
-// CHECK-NEXT:        rel_ssa.yield(%4 : !rel_ssa.bool)
+// CHECK-NEXT:        %5 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "b"]
+// CHECK-NEXT:        %6 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 7 : !i64]
+// CHECK-NEXT:        %7 : !rel_ssa.bool = rel_ssa.compare(%5 : !rel_ssa.int32, %6 : !rel_ssa.int32) ["comparator" = ">"]
+// CHECK-NEXT:        %8 : !rel_ssa.bool = rel_ssa.and(%7 : !rel_ssa.bool, %4 : !rel_ssa.bool)
+// CHECK-NEXT:        rel_ssa.yield(%8 : !rel_ssa.bool)
 // CHECK-NEXT:    }

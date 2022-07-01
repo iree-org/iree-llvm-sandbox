@@ -180,8 +180,7 @@ class SelectYieldCombiner(RewritePattern):
       yielded_ops.append(new_and)
       new_region.blocks[0].add_op(new_and)
     new_region.blocks[0].add_op(RelSSA.Yield.get(yielded_ops))
-    rewriter.replace_matched_op(
-        RelSSA.Project.from_result_type(op.input, op.result.typ, new_region))
+    rewriter.replace_matched_op(RelSSA.Select.get(op.input.op, new_region))
 
 
 @dataclass
