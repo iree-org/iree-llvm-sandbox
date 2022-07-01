@@ -39,6 +39,7 @@ class RelOptMain(xDSLOptMain):
     def parse_ibis(f: IOBase):
       import ibis
       import numpy as np
+      import decimal
 
       def exec_then_eval(query: str):
         """
@@ -53,6 +54,7 @@ class RelOptMain(xDSLOptMain):
 
         _locals["np"] = np
         _locals["ibis"] = ibis
+        _locals["decimal"] = decimal
 
         ast_query = ast.parse(query)
         last = ast.Expression(ast_query.body.pop().value)
