@@ -323,6 +323,15 @@ class Literal(Expression):
 
 @irdl_op_definition
 class And(Expression):
+  """
+  Computes the logical and of 'lhs' and 'rhs.
+
+  Example:
+
+  '''
+  %3 : !rel_ssa.bool = rel_ssa.and(%0 : !rel_ssa.bool, %1 : !rel_ssa.bool)
+  '''
+  """
   name = "rel_ssa.and"
 
   lhs = OperandDef(Boolean)
