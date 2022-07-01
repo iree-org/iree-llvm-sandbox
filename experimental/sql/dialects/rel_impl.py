@@ -58,6 +58,34 @@ class Int64(DataType):
 
 
 @irdl_attr_definition
+class Decimal(DataType):
+  """
+  Models a decimal type in a relational implementation query.
+
+  Example:
+
+  ```
+  !rel_impl.decimal
+  ```
+  """
+  name = "rel_impl.decimal"
+
+
+@irdl_attr_definition
+class Timestamp(DataType):
+  """
+  Models a timestamp type in a relational implementation query.
+
+  Example:
+
+  ```
+  !rel_impl.timestamp
+  ```
+  """
+  name = "rel_impl.timestamp"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models a string type in a relational implementation query, that can be either
@@ -401,6 +429,8 @@ class RelImpl:
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
+    self.ctx.register_attr(Decimal)
+    self.ctx.register_attr(Timestamp)
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)

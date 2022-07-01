@@ -28,6 +28,10 @@ class RelSSARewriter(RewritePattern):
       return RelImpl.Int32()
     if isinstance(type_, RelSSA.Int64):
       return RelImpl.Int64()
+    if isinstance(type_, RelSSA.Decimal):
+      return RelImpl.Decimal()
+    if isinstance(type_, RelSSA.Timestamp):
+      return RelImpl.Timestamp()
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
