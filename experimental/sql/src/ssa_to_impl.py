@@ -83,6 +83,14 @@ class CompareRewriter(RelSSARewriter):
 
 
 @dataclass
+class AndRewriter(RelSSARewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.And, rewriter: PatternRewriter):
+    rewriter.replace_matched_op([RelImpl.And.get(op.lhs.op, op.rhs.op)])
+
+
+@dataclass
 class YieldRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
@@ -164,7 +172,8 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       ColumnRewriter(),
       CompareRewriter(),
       YieldRewriter(),
-      ProjectRewriter()
+      ProjectRewriter(),
+      AndRewriter()
   ]),
                                 walk_regions_first=False,
                                 apply_recursively=True,

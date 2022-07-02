@@ -1,0 +1,18 @@
+// RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
+
+module() {
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>, !rel_ssa.schema_element<"b", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "t"]
+  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>, !rel_ssa.schema_element<"b", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>, !rel_ssa.schema_element<"b", !rel_ssa.int32>]>) {
+      %2 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
+      %3 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i64]
+      %4 : !rel_ssa.bool = rel_ssa.compare(%2 : !rel_ssa.int32, %3 : !rel_ssa.int32) ["comparator" = "="]
+      %5 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "b"]
+      %6 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 7 : !i64]
+      %7 : !rel_ssa.bool = rel_ssa.compare(%5 : !rel_ssa.int32, %6 : !rel_ssa.int32) ["comparator" = ">"]
+      %8 : !rel_ssa.bool = rel_ssa.and(%7 : !rel_ssa.bool, %4 : !rel_ssa.bool)
+      rel_ssa.yield(%8 : !rel_ssa.bool)
+  }
+}
+
+
+// CHECK:        %9 : !rel_impl.bool = rel_impl.and(%8 : !rel_impl.bool, %5 : !rel_impl.bool)
