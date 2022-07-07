@@ -162,7 +162,7 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
   }];
 }
 
-/// The sink op is a special op that only consumes a stream of values and 
+/// The sink op is a special op that only consumes a stream of values and
 /// produces nothing.
 /// It is not marked with Iterators_IteratorOpInterface.
 def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
