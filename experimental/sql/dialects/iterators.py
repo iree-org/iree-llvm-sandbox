@@ -5,7 +5,7 @@
 from dataclasses import dataclass
 from typing import Any, Union, List
 from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, Data, MLContext, Attribute
-from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr, IntegerType, TupleType
+from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr, IntegerType, TupleType, FlatSymbolRefAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
 
 # This mirrors a subset of the MLIR iterators dialect in a one to one way
@@ -36,6 +36,13 @@ class Stream(ParametrizedAttribute):
     return Stream([elem_type])  #type: ignore
 
 
+@irdl_attr_definition
+class ReduceFuncRefAttr(FlatSymbolRefAttr):
+  name = "iterators.reduceFuncRefAttr"
+
+  data = ParameterDef(StringAttr)
+
+
 #===------------------------------------------------------------------------===#
 # Operations
 #===------------------------------------------------------------------------===#
@@ -54,6 +61,30 @@ class SampleInputOp(Operation):
   @staticmethod
   def get(type: Attribute) -> 'SampleInputOp':
     return SampleInputOp.create(result_types=[type])
+
+
+@irdl_op_definition
+class ReduceOp(Operation):
+  """
+  Reads the elements of its operand stream and reduces them to a single
+  element using the provided reduce function. The result stream is empty iff
+  the operand stream is empty. Otherwise, the elements are reduced pairwise in
+  an implementation-defined order until a single element is left, which
+  constitutes the result stream. This is only deterministic if the reduce
+  function is associative.
+
+  Example:
+  ```mlir
+  %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum} :
+                 (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+  ```
+  """
+  name = "iterators.reduce"
+
+  input = OperandDef(Stream)
+  reduceFuncRef = ParameterDef(ReduceFuncRefAttr)
+
+  result = ResultDef(Stream)
 
 
 @irdl_op_definition
@@ -123,6 +154,7 @@ class Iterators:
 
   def __post_init__(self: 'Iterators'):
     self.ctx.register_attr(Stream)
+    self.ctx.register_attr(ReduceFuncRefAttr)
 
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)
