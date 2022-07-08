@@ -104,6 +104,58 @@ class LookupFuncType<string opName, string symbolName>
             "    " # symbolName # ".dyn_cast<FlatSymbolRefAttr>())"
             "       .getFunctionType()">;
 
+/// A predicate, that is, a function with a signature of the form (T) -> i1.
+class Iterators_Predicate
+  : Type<And<[FunctionType.predicate,
+              CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 1">,
+              CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">,
+              SubstLeaves<"$_self",
+                      "$_self.dyn_cast<FunctionType>().getResult(0)",
+                      I1.predicate>
+             ]>,
+         "function with signature (T) -> i1",
+         "FunctionType">;
+
+/// A FlatSymbolRef referring to a predicate.
+def Iterators_PredicateRefAttr
+  : Confined<FlatSymbolRefAttr, [
+        ReferToOp<"func::FuncOp">,
+        AttrConstraint<
+          SubstLeaves<"$_self",
+                      LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
+                      Iterators_Predicate<>.predicate>,
+          "referring to a " # Iterators_Predicate<>.summary>
+      ]>;
+
+def Iterators_FilterOp : Iterators_Op<"filter",
+    [AllMatch<["getPredicate().getArgumentTypes().front()",
+               "$input.getType().dyn_cast<StreamType>().getElementType()"],
+              "the signature of the predicate must match the element type">]> {
+  let summary = "Filter the elements of the input using a predicate";
+  let description = [{
+    Reads the elements of its operand stream and produces a stream consisting of
+    those that match the provided predicate (i.e., those on which the provided
+    predicate returns true).
+
+    Example:
+    ```mlir
+    %filtered = "iterators.filter"(%input) {predicateRef = @is_positive} :
+                   (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+    ```
+  }];
+  let arguments = (ins
+      Iterators_StreamOfLLVMStructOfNumerics:$input,
+      Iterators_PredicateRefAttr:$predicateRef
+    );
+  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let extraClassDeclaration = [{
+    func::FuncOp getPredicate() {
+      return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
+          *this, predicateRefAttr());
+    }
+  }];
+}
+
 /// A reduce function, that is, a function with a signature of the form
 /// (T, T) -> T.
 class Iterators_ReduceFunc
