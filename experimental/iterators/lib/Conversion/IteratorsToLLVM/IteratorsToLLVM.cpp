@@ -443,7 +443,7 @@ static Value buildStateCreation(ConstantStreamOp op, RewriterBase &rewriter,
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", !nested_state>
-/// %1 = call @iterators.constantstream.open.0(%0) :
+/// %1 = call @iterators.upstream.open.0(%0) :
 ///          (!nested_state) -> !nested_state
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
@@ -483,13 +483,13 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
-/// %1:3 = call @iterators.constantstream.next.0(%0) :
+/// %1:3 = call @iterators.upstream.next.0(%0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type)
 /// %2:3 = scf.if %1#1 -> (!nested_state, i1, !element_type) {
 ///   %4:3 = scf.while (%arg1 = %1#0, %arg2 = %1#2) :
 ///              (!nested_state, !element_type) ->
 ///                 (!nested_state, !element_type, !element_type) {
-///     %5:3 = call @iterators.constantstream.next.0(%arg1) :
+///     %5:3 = call @iterators.upstream.next.0(%arg1) :
 ///                (!nested_state) -> (!nested_state, i1, !element_type)
 ///     scf.condition(%5#1) %5#0, %5#2, %arg2 :
 ///         !nested_state, !element_type, !element_type
@@ -546,7 +546,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
                 Block::BlockArgListType args) {
               Value upstreamState = args[0];
               Value accumulator = args[1];
-              func::CallOp nextCall = builder.create<func::CallOp>(
+              auto nextCall = builder.create<func::CallOp>(
                   loc, nextFunc, nextResultTypes, upstreamState);
 
               Value updatedUpstreamState = nextCall->getResult(0);
@@ -605,7 +605,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
 ///
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
-/// %1 = call @iterators.constantstream.close.0(%0) :
+/// %1 = call @iterators.upstream.close.0(%0) :
 ///          (!nested_state) -> !nested_state
 /// %2 = llvm.insertvalue %1, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
