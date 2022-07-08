@@ -104,7 +104,7 @@ class LookupFuncType<string opName, string symbolName>
             "    " # symbolName # ".dyn_cast<FlatSymbolRefAttr>())"
             "       .getFunctionType()">;
 
-/// A reduce function, that is a function with a signature of the form
+/// A reduce function, that is, a function with a signature of the form
 /// (T, T) -> T.
 class Iterators_ReduceFunc
   : Type<And<[FunctionType.predicate,
@@ -133,7 +133,7 @@ def Iterators_ReduceFuncRefAttr
 def Iterators_ReduceOp : Iterators_Op<"reduce",
     [AllMatch<["getReduceFunc().getResultTypes().front()",
                "$input.getType().dyn_cast<StreamType>().getElementType()"],
-              "the reduce function signature must match its element type">]> {
+              "the signature of the reduce function must match the element type">]> {
   let summary = "Reduce the input to a single tuple";
   let description = [{
     Reads the elements of its operand stream and reduces them to a single
