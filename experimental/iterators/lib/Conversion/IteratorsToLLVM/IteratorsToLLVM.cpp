@@ -621,6 +621,169 @@ static Value buildStateCreation(FilterOp op, RewriterBase &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// MapOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that opens the nested upstream iterator. Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.map_state", !nested_state>
+/// %1 = call @iterators.upstream.open.0(%0) :
+///          (!nested_state) -> !nested_state
+/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
+///          !llvm.struct<"iterators.map_state", (!nested_state)>
+static Value buildOpenBody(MapOp op, RewriterBase &rewriter, Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  Type upstreamStateType = upstreamInfos[0].stateType;
+
+  // Extract upstream state.
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+
+  // Call Open on upstream.
+  SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
+  auto openCallOp = rewriter.create<func::CallOp>(
+      loc, openFunc, upstreamStateType, initialUpstreamState);
+
+  // Update upstream state.
+  Value updatedUpstreamState = openCallOp->getResult(0);
+  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+                                           updatedUpstreamState, {0});
+
+  return updatedState;
+}
+
+/// Builds IR that consumes all elements of the upstream iterator and returns
+/// a stream where each original element is mapped to/transformed into a new
+/// element using the given map function. Pseudo-code:
+///
+/// if (nextTuple = upstream->Next()):
+///     return mapFunc(nextTuple)
+/// return {}
+///
+/// Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.map_state", (!nested_state)>
+/// %1:3 = scf.while (%arg1 = %0) :
+///            (!nested_state) -> (!nested_state, i1, !element_type) {
+///   %3:3 = func.call @iterators.upstream.next.0(%arg1) :
+///              (!nested_state) -> (!nested_state, i1, !element_type)
+///   %4 = scf.if %3#1 -> (i1) {
+///     %7 = func.call @predicate(%3#2) : (!element_type) -> i1
+///     scf.yield %7 : i1
+///   } else {
+///     scf.yield %3#1 : i1
+///   }
+///   %true = arith.constant true
+///   %5 = arith.xori %4, %true : i1
+///   %6 = arith.andi %3#1, %5 : i1
+///   scf.condition(%6) %3#0, %3#1, %3#2 : !nested_state, i1, !element_type
+/// } do {
+/// ^bb0(%arg1: !nested_state, %arg2: i1, %arg3: !element_type):
+///   scf.yield %arg1 : !nested_state
+/// }
+/// %2 = llvm.insertvalue %1#0, %arg0[0 : index] :
+///          !llvm.struct<"iterators.map_state", (!nested_state)>
+static llvm::SmallVector<Value, 4>
+buildNextBody(MapOp op, RewriterBase &rewriter, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op.getLoc();
+
+  // Extract upstream state.
+  Type upstreamStateType = upstreamInfos[0].stateType;
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+
+  // Extract input element type.
+  StreamType inputStreamType = op.input().getType().dyn_cast<StreamType>();
+  assert(inputStreamType);
+  Type inputElementType = inputStreamType.getElementType();
+
+  // Call next.
+  Type i1 = rewriter.getI1Type();
+  SmallVector<Type> nextResultTypes = {upstreamStateType, i1, inputElementType};
+  SymbolRefAttr nextFunc = upstreamInfos[0].nextFunc;
+  auto nextCall = rewriter.create<func::CallOp>(loc, nextFunc, nextResultTypes,
+                                                initialUpstreamState);
+  Value hasNext = nextCall->getResult(1);
+  Value nextElement = nextCall->getResult(2);
+
+  // If we got an element, apply map function.
+  auto ifOp = rewriter.create<scf::IfOp>(
+      loc, elementType, hasNext,
+      /*ifBuilder=*/
+      [&](OpBuilder &builder, Location loc) {
+        // Apply map function.
+        auto mapCall = builder.create<func::CallOp>(
+            loc, elementType, op.mapFuncRef(), ValueRange{nextElement});
+        Value mappedElement = mapCall->getResult(0);
+        builder.create<scf::YieldOp>(loc, mappedElement);
+      },
+      /*elseBuilder=*/
+      [&](OpBuilder &builder, Location loc) {
+        // Return undefined value.
+        Value undef = builder.create<LLVM::UndefOp>(loc, elementType);
+        builder.create<scf::YieldOp>(loc, undef);
+      });
+  Value mappedElement = ifOp.getResult(0);
+
+  // Update state.
+  Value finalUpstreamState = nextCall.getResult(0);
+  Value finalState =
+      createInsertValueOp(rewriter, loc, initialState, finalUpstreamState, {0});
+
+  return {finalState, hasNext, mappedElement};
+}
+
+/// Builds IR that closes the nested upstream iterator. Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.map_state", (!nested_state)>
+/// %1 = call @iterators.upstream.close.0(%0) :
+///          (!nested_state) -> !nested_state
+/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
+///          !llvm.struct<"iterators.map_state", (!nested_state)>
+static Value buildCloseBody(MapOp op, RewriterBase &rewriter,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  Type upstreamStateType = upstreamInfos[0].stateType;
+
+  // Extract upstream state.
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+
+  // Call Close on upstream.
+  SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
+  auto closeCallOp = rewriter.create<func::CallOp>(
+      loc, closeFunc, upstreamStateType, initialUpstreamState);
+
+  // Update upstream state.
+  Value updatedUpstreamState = closeCallOp->getResult(0);
+  return createInsertValueOp(rewriter, loc, initialState, updatedUpstreamState,
+                             {0})
+      .getResult();
+}
+
+/// Builds IR that initializes the iterator state with the state of the upstream
+/// iterator. Possible output:
+///
+/// %0 = ...
+/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.map_state", (!nested_state)>
+/// %2 = llvm.insertvalue %0, %1[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+static Value buildStateCreation(MapOp op, RewriterBase &rewriter,
+                                LLVM::LLVMStructType stateType,
+                                ValueRange upstreamStates) {
+  Location loc = op.getLoc();
+  Value undefState = rewriter.create<UndefOp>(loc, stateType);
+  Value upstreamState = upstreamStates[0];
+  return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceOp.
 //===----------------------------------------------------------------------===//
 
@@ -885,7 +1048,7 @@ static Value buildOpenBody(Operation *op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
         return buildOpenBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -895,7 +1058,7 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(Operation *op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   return llvm::TypeSwitch<Operation *, llvm::SmallVector<Value, 4>>(op)
-      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
         return buildNextBody(op, rewriter, initialState, upstreamInfos,
                              elementType);
       });
@@ -906,7 +1069,7 @@ static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
         return buildCloseBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -916,7 +1079,7 @@ static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
         return buildStateCreation(op, rewriter, stateType, upstreamStates);
       });
 }

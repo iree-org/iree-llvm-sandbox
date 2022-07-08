@@ -156,6 +156,57 @@ def Iterators_FilterOp : Iterators_Op<"filter",
   }];
 }
 
+/// A predicate, that is, a function with a signature of the form (T) -> i1.
+class Iterators_MapFunc
+  : Type<And<[FunctionType.predicate,
+              CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 1">,
+              CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">
+             ]>,
+         "function with signature (T1) -> T2",
+         "FunctionType">;
+
+/// A FlatSymbolRef referring to a predicate.
+def Iterators_MapFuncRefAttr
+  : Confined<FlatSymbolRefAttr, [
+        ReferToOp<"func::FuncOp">,
+        AttrConstraint<
+          SubstLeaves<"$_self",
+                      LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
+                      Iterators_MapFunc<>.predicate>,
+          "referring to a " # Iterators_MapFunc<>.summary>
+      ]>;
+
+def Iterators_MapOp : Iterators_Op<"map",
+    [AllMatch<["getMapFunc().getArgumentTypes().front()",
+               "$input.getType().dyn_cast<StreamType>().getElementType()"],
+              "the argument of the map function must match the input element type">,
+     AllMatch<["getMapFunc().getResultTypes().front()",
+               "$result.getType().dyn_cast<StreamType>().getElementType()"],
+              "the return type of the map function must match the result element type">]> {
+  let summary = "Maps (or transforms) each element of the input to another one.";
+  let description = [{
+    Reads the elements of its operand stream and maps each of them to a new
+    element, i.e., transforms the input stream elementwise.
+
+    Example:
+    ```mlir
+    %mapped = "iterators.map"(%input) {mapFuncRef = @abs} :
+                   (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+    ```
+  }];
+  let arguments = (ins
+      Iterators_StreamOfLLVMStructOfNumerics:$input,
+      Iterators_MapFuncRefAttr:$mapFuncRef
+    );
+  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let extraClassDeclaration = [{
+    func::FuncOp getMapFunc() {
+      return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
+          *this, mapFuncRefAttr());
+    }
+  }];
+}
+
 /// A reduce function, that is, a function with a signature of the form
 /// (T, T) -> T.
 class Iterators_ReduceFunc

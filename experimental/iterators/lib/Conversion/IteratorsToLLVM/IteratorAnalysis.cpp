@@ -50,6 +50,14 @@ computeStateType(FilterOp op, LLVM::LLVMStructType upstreamStateType) {
       op->getContext(), "iterators.filter_state", {upstreamStateType});
 }
 
+/// The state of MapOp only consists of the state of its upstream iterator,
+/// i.e., the state of the iterator that produces its input stream.
+static LLVM::LLVMStructType
+computeStateType(MapOp op, LLVM::LLVMStructType upstreamStateType) {
+  return LLVM::LLVMStructType::getNewIdentified(
+      op->getContext(), "iterators.map_state", {upstreamStateType});
+}
+
 /// The state of ReduceOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 static LLVM::LLVMStructType
@@ -101,11 +109,11 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(Operation *rootOp)
           auto stateType = computeStateType(op);
           setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));
         })
-        /// The respective state of FilterOp and ReduceOp only consist of the
-        /// state of its upstream iterator, i.e., the state of the iterator that
-        /// produces its input stream.
+        /// The respective state of FilterOp, MapOp, and ReduceOp only consist
+        /// of the state of its upstream iterator, i.e., the state of the
+        /// iterator that produces its input stream.
         // TODO: Verifiers that op.input does not come from a bbArg.
-        .Case<FilterOp, ReduceOp>([&](auto op) {
+        .Case<FilterOp, MapOp, ReduceOp>([&](auto op) {
           Operation *def = op.input().getDefiningOp();
           auto stateType =
               computeStateType(op, getExpectedIteratorInfo(def).stateType);
