@@ -436,6 +436,191 @@ static Value buildStateCreation(ConstantStreamOp op, RewriterBase &rewriter,
 }
 
 //===----------------------------------------------------------------------===//
+// FilterOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that opens the nested upstream iterator. Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.filter_state", !nested_state>
+/// %1 = call @iterators.upstream.open.0(%0) :
+///          (!nested_state) -> !nested_state
+/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+static Value buildOpenBody(FilterOp op, RewriterBase &rewriter,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  Type upstreamStateType = upstreamInfos[0].stateType;
+
+  // Extract upstream state.
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+
+  // Call Open on upstream.
+  SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
+  auto openCallOp = rewriter.create<func::CallOp>(
+      loc, openFunc, upstreamStateType, initialUpstreamState);
+
+  // Update upstream state.
+  Value updatedUpstreamState = openCallOp->getResult(0);
+  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+                                           updatedUpstreamState, {0});
+
+  return updatedState;
+}
+
+/// Builds IR that consumes all elements of the upstream iterator and returns
+/// a stream of those that pass the given precicate. Pseudo-code:
+///
+/// while (nextTuple = upstream->Next()):
+///     if precicate(nextTuple):
+///         return nextTuple
+/// return {}
+///
+/// Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %1:3 = scf.while (%arg1 = %0) :
+///            (!nested_state) -> (!nested_state, i1, !element_type) {
+///   %3:3 = func.call @iterators.upstream.next.0(%arg1) :
+///              (!nested_state) -> (!nested_state, i1, !element_type)
+///   %4 = scf.if %3#1 -> (i1) {
+///     %7 = func.call @predicate(%3#2) : (!element_type) -> i1
+///     scf.yield %7 : i1
+///   } else {
+///     scf.yield %3#1 : i1
+///   }
+///   %true = arith.constant true
+///   %5 = arith.xori %4, %true : i1
+///   %6 = arith.andi %3#1, %5 : i1
+///   scf.condition(%6) %3#0, %3#1, %3#2 : !nested_state, i1, !element_type
+/// } do {
+/// ^bb0(%arg1: !nested_state, %arg2: i1, %arg3: !element_type):
+///   scf.yield %arg1 : !nested_state
+/// }
+/// %2 = llvm.insertvalue %1#0, %arg0[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+static llvm::SmallVector<Value, 4>
+buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op.getLoc();
+
+  // Extract upstream state.
+  Type upstreamStateType = upstreamInfos[0].stateType;
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+
+  // Main while loop.
+  Type i1 = rewriter.getI1Type();
+  SmallVector<Type> nextResultTypes = {upstreamStateType, i1, elementType};
+  scf::WhileOp whileOp = scf::createWhileOp(
+      rewriter, loc, nextResultTypes, initialUpstreamState,
+      /*beforeBuilder=*/
+      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        Value upstreamState = args[0];
+        SymbolRefAttr nextFunc = upstreamInfos[0].nextFunc;
+        auto nextCall = builder.create<func::CallOp>(
+            loc, nextFunc, nextResultTypes, upstreamState);
+        Value hasNext = nextCall->getResult(1);
+        Value nextElement = nextCall->getResult(2);
+
+        // If we got an element, apply predicate.
+        auto ifOp = rewriter.create<scf::IfOp>(
+            loc, i1, hasNext,
+            /*ifBuilder=*/
+            [&](OpBuilder &builder, Location loc) {
+              // Call predicate.
+              auto predicateCall = builder.create<func::CallOp>(
+                  loc, i1, op.predicateRef(), ValueRange{nextElement});
+              Value isMatch = predicateCall->getResult(0);
+              builder.create<scf::YieldOp>(loc, isMatch);
+            },
+            /*elseBuilder=*/
+            [&](OpBuilder &builder, Location loc) {
+              // Note: hasNext is false in this branch.
+              builder.create<scf::YieldOp>(loc, hasNext);
+            });
+        Value hasMatchingNext = ifOp->getResult(0);
+
+        // Build condition: continue loop if (1) we did get an element from
+        // upstream (i.e., hasNext) and (2) that element did not match,i.e.,
+        // !hasMatchingNext = xor(hasMatchingNext, true).
+        Value constTrue =
+            builder.create<arith::ConstantIntOp>(loc, /*value=*/1, /*width=*/1);
+        Value hasNoMatchingNext =
+            builder.create<arith::XOrIOp>(loc, hasMatchingNext, constTrue);
+        Value loopCondition =
+            builder.create<arith::AndIOp>(loc, hasNext, hasNoMatchingNext);
+
+        builder.create<scf::ConditionOp>(loc, loopCondition,
+                                         nextCall->getResults());
+      },
+      /*afterBuilder=*/
+      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        Value upstreamState = args[0];
+        builder.create<scf::YieldOp>(loc, upstreamState);
+      });
+
+  // Update state.
+  Value finalUpstreamState = whileOp->getResult(0);
+  Value finalState =
+      createInsertValueOp(rewriter, loc, initialState, finalUpstreamState, {0});
+  Value hasNext = whileOp->getResult(1);
+  Value nextElement = whileOp->getResult(2);
+
+  return {finalState, hasNext, nextElement};
+}
+
+/// Builds IR that closes the nested upstream iterator. Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %1 = call @iterators.upstream.close.0(%0) :
+///          (!nested_state) -> !nested_state
+/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+static Value buildCloseBody(FilterOp op, RewriterBase &rewriter,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  Type upstreamStateType = upstreamInfos[0].stateType;
+
+  // Extract upstream state.
+  Value initialUpstreamState =
+      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+
+  // Call Close on upstream.
+  SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
+  auto closeCallOp = rewriter.create<func::CallOp>(
+      loc, closeFunc, upstreamStateType, initialUpstreamState);
+
+  // Update upstream state.
+  Value updatedUpstreamState = closeCallOp->getResult(0);
+  return createInsertValueOp(rewriter, loc, initialState, updatedUpstreamState,
+                             {0})
+      .getResult();
+}
+
+/// Builds IR that initializes the iterator state with the state of the upstream
+/// iterator. Possible output:
+///
+/// %0 = ...
+/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.filter_state",
+///                                     (!nested_state)>
+/// %2 = llvm.insertvalue %0, %1[0 : index] :
+///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+static Value buildStateCreation(FilterOp op, RewriterBase &rewriter,
+                                LLVM::LLVMStructType stateType,
+                                ValueRange upstreamStates) {
+  Location loc = op.getLoc();
+  Value undefState = rewriter.create<UndefOp>(loc, stateType);
+  Value upstreamState = upstreamStates[0];
+  return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
+}
+
+//===----------------------------------------------------------------------===//
 // ReduceOp.
 //===----------------------------------------------------------------------===//
 
@@ -700,7 +885,7 @@ static Value buildOpenBody(Operation *op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
         return buildOpenBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -710,7 +895,7 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(Operation *op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   return llvm::TypeSwitch<Operation *, llvm::SmallVector<Value, 4>>(op)
-      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
         return buildNextBody(op, rewriter, initialState, upstreamInfos,
                              elementType);
       });
@@ -721,7 +906,7 @@ static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
         return buildCloseBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -731,7 +916,7 @@ static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, ReduceOp>([&](auto op) {
+      .Case<ConstantStreamOp, FilterOp, ReduceOp>([&](auto op) {
         return buildStateCreation(op, rewriter, stateType, upstreamStates);
       });
 }
