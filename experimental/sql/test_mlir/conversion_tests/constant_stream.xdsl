@@ -2,19 +2,18 @@
 
 module() {
   func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
-    %input : !iterators.stream<!llvm.struct<"", [!i32], "opaque">> = iterators.constantstream() ["value" = [[42 : !i32]]]
+    %empty : !iterators.stream<!llvm.struct<"", []>> = iterators.constantstream() ["value" = [[]]]
+    %i32 : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[42 : !i32]]]
+    %i32i64 : !iterators.stream<!llvm.struct<"", [!i32, !i64]>> = iterators.constantstream() ["value" = [[42 : !i32, 1337 : !i64]]]
+    %two_elems : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[42 : !i32], [1337 : !i32]]]
     func.return()
   }
 }
 
-//      CHECK: func.func @main() {
-// CHECK-NEXT:   %empty = "iterators.constantstream"() { value = [] }
-// CHECK-NEXT:       : () -> (!iterators.stream<!llvm.struct<(i32)>>)
-// CHECK-NEXT:   %i32 = "iterators.constantstream"() { value = [[42 : i32]] }
-// CHECK-NEXT:       : () -> (!iterators.stream<!llvm.struct<(i32)>>)
-// CHECK-NEXT:   %f32 = "iterators.constantstream"() { value = [[42. : f32]] }
-// CHECK-NEXT:       : () -> (!iterators.stream<!llvm.struct<(f32)>>)
-// CHECK-NEXT:   %i32i64 = "iterators.constantstream"() { value = [[42 : i32, 1337 : i64]] }
-// CHECK-NEXT:       : () -> (!iterators.stream<!llvm.struct<(i32, i64)>>)
-// CHECK-NEXT:   return
-// CHECK-NEXT: }
+//      CHECK: func.func public @main() {
+// CHECK-NEXT:     %0 = "iterators.constantstream"() {value = [[]]} : () -> !iterators.stream<!llvm.struct<()>>
+// CHECK-NEXT:     %1 = "iterators.constantstream"() {value = [[42 : i32]]} : () -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:     %2 = "iterators.constantstream"() {value = [[42 : i32, 1337]]} : () -> !iterators.stream<!llvm.struct<(i32, i64)>>
+// CHECK-NEXT:     %3 = "iterators.constantstream"() {value = [[42 : i32], [1337 : i32]]} : () -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:     return
+// CHECK-NEXT:   }
