@@ -82,9 +82,18 @@ class ReduceOp(Operation):
   name = "iterators.reduce"
 
   input = OperandDef(Stream)
-  reduceFuncRef = ParameterDef(ReduceFuncRefAttr)
+  reduceFuncRef = AttributeDef(ReduceFuncRefAttr)
 
   result = ResultDef(Stream)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, func: StringAttr,
+          res_type: Attribute) -> 'ReduceOp':
+    return ReduceOp.build(
+        operands=[input],
+        attributes={"reduceFuncRef": ReduceFuncRefAttr([func])},
+        result_types=[res_type])
 
 
 @irdl_op_definition
@@ -109,28 +118,14 @@ class ConstantStreamOp(Operation):
   value = AttributeDef(ArrayOfConstraint(ArrayOfConstraint(AnyAttr())))
   result = ResultDef(Stream)
 
-
-@irdl_op_definition
-class ReduceOp(Operation):
-  """
-  Reduce the input to a single tuple.
-  """
-  name = "iterators.reduce"
-
-  arguments = OperandDef(Stream)
-
-  result = ResultDef(Stream)
-
   @builder
   @staticmethod
-  def get(argument: Operation) -> 'ReduceOp':
-    return ReduceOp.create(
-        operands=[argument.result],
-        result_types=[
-            Stream([
-                TupleType([ArrayAttr.from_list([IntegerType.from_width(32)])])
-            ])
-        ])
+  def get(values: List[List[Attribute]],
+          res_type: Attribute) -> 'ConstantstreamOp':
+    return ConstantstreamOp.build(attributes={
+        "value": ArrayAttr.from_list([ArrayAttr.from_list(v) for v in values])
+    },
+                                  result_types=[res_type])
 
 
 @irdl_op_definition
