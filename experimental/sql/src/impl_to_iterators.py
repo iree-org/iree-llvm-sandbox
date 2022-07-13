@@ -53,7 +53,7 @@ class FullTableScanRewriter(RelImplRewriter):
                         rewriter: PatternRewriter):
     # TODO: Change this once loading from input is supported
     rewriter.replace_matched_op(
-        it.ConstantstreamOp.get([[IntegerAttr.from_int_and_width(0, 32)],
+        it.ConstantStreamOp.get([[IntegerAttr.from_int_and_width(0, 32)],
                                  [IntegerAttr.from_int_and_width(1, 32)],
                                  [IntegerAttr.from_int_and_width(2, 32)],
                                  [IntegerAttr.from_int_and_width(3, 32)]],

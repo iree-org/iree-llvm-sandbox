@@ -121,8 +121,8 @@ class ConstantStreamOp(Operation):
   @builder
   @staticmethod
   def get(values: List[List[Attribute]],
-          res_type: Attribute) -> 'ConstantstreamOp':
-    return ConstantstreamOp.build(attributes={
+          res_type: Attribute) -> 'ConstantStreamOp':
+    return ConstantStreamOp.build(attributes={
         "value": ArrayAttr.from_list([ArrayAttr.from_list(v) for v in values])
     },
                                   result_types=[res_type])
