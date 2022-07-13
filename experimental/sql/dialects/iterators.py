@@ -57,7 +57,7 @@ class SampleInputOp(Operation):
 
 
 @irdl_op_definition
-class ConstantstreamOp(Operation):
+class ConstantStreamOp(Operation):
   """
   Produces a stream of LLVM structs given in the array of arrays attribute
   (each inner array being returned as a literal LLVM struct with the values
@@ -127,4 +127,4 @@ class Iterators:
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)
     self.ctx.register_op(SinkOp)
-    self.ctx.register_op(ConstantstreamOp)
+    self.ctx.register_op(ConstantStreamOp)
