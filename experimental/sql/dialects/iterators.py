@@ -40,7 +40,7 @@ class Stream(ParametrizedAttribute):
 class ReduceFuncRefAttr(FlatSymbolRefAttr):
   name = "iterators.reduceFuncRefAttr"
 
-  data = ParameterDef(StringAttr)
+  data: ParameterDef[StringAttr]
 
 
 #===------------------------------------------------------------------------===#
