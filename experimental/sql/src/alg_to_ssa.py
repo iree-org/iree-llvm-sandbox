@@ -156,12 +156,12 @@ class ProjectYieldCombiner(RewritePattern):
     yielded_ops = []
     for operation in op.projection.ops:
       if isinstance(operation, RelSSA.Yield):
-        yielded_ops.extend(operation.ops)
+        yielded_ops.extend([o.op for o in operation.ops])
         op.projection.blocks[0].erase_op(operation)
     new_region = rewriter.move_region_contents_to_new_regions(op.projection)
     new_region.blocks[0].add_op(RelSSA.Yield.get(yielded_ops))
     rewriter.replace_matched_op(
-        RelSSA.Project.from_result_type(op.input, op.result.typ, new_region))
+        RelSSA.Project.from_result_type(op.input.op, op.result.typ, new_region))
 
 
 @dataclass
@@ -172,7 +172,7 @@ class SelectYieldCombiner(RewritePattern):
     yielded_ops = []
     for operation in op.predicates.ops:
       if isinstance(operation, RelSSA.Yield):
-        yielded_ops.extend(operation.ops)
+        yielded_ops.extend([o.op for o in operation.ops])
         op.predicates.blocks[0].erase_op(operation)
     new_region = rewriter.move_region_contents_to_new_regions(op.predicates)
     while (len(yielded_ops) > 1):

@@ -105,7 +105,8 @@ class YieldRewriter(RelSSARewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelSSA.Yield, rewriter: PatternRewriter):
     # TODO: This is a hack to circumvent the FrozenList. Could this be done cleaner?
-    rewriter.replace_matched_op([RelImpl.Yield.get([o for o in op.operands])])
+    rewriter.replace_matched_op(
+        [RelImpl.Yield.get([o.op for o in op.operands])])
 
 
 #===------------------------------------------------------------------------===#
