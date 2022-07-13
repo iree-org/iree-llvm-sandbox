@@ -28,11 +28,11 @@ class Stream(ParametrizedAttribute):
   """
   name = "iterators.stream"
 
-  types = ParameterDef(TupleType)
+  types = ParameterDef(AnyAttr())
 
   @builder
   @staticmethod
-  def get(elem_type: TupleType) -> 'Stream':
+  def get(elem_type: Attribute) -> 'Stream':
     return Stream([elem_type])  #type: ignore
 
 
@@ -54,6 +54,29 @@ class SampleInputOp(Operation):
   @staticmethod
   def get(type: Attribute) -> 'SampleInputOp':
     return SampleInputOp.build(result_types=[type])
+
+
+@irdl_op_definition
+class ConstantStreamOp(Operation):
+  """
+  Produces a stream of LLVM structs given in the array of arrays attribute
+  (each inner array being returned as a literal LLVM struct with the values
+  and types of the elements of that array). The inner arrays all have to have
+  matching types, i.e., the element at position i has to be the same for all
+  inner arrays, and the element type of the return Stream has to be the
+  corresponding literal LLVM struct. An empty array is allowed (in which case
+  the return Stream does not need to match anything).
+
+  Example:
+  ```mlir
+  %0 = "iterators.constantstream"() { value = [[42 : i32]] } :
+          () -> (!iterators.stream<!llvm.struct<(i32)>>)
+  ```
+  """
+  name = "iterators.constantstream"
+
+  value = AttributeDef(ArrayOfConstraint(ArrayOfConstraint(AnyAttr())))
+  result = ResultDef(Stream)
 
 
 @irdl_op_definition
@@ -104,3 +127,4 @@ class Iterators:
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)
     self.ctx.register_op(SinkOp)
+    self.ctx.register_op(ConstantStreamOp)
