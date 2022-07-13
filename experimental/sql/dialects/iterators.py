@@ -75,8 +75,7 @@ class ReduceOp(Operation):
 
   Example:
   ```mlir
-  %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum} :
-                 (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+  %reduced : !iterators.stream<!llvm.struct<"", !i32> = "iterators.reduce"(%input : !iterators.stream<!llvm.struct<"", !i32>>) {reduceFuncRef = !iterators.reduceFuncRefAttr<"sum">}
   ```
   """
   name = "iterators.reduce"
