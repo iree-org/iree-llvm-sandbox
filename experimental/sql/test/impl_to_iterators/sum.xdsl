@@ -13,9 +13,9 @@ module() {
 // CHECK-NEXT:   }
 // CHECK-NEXT:   func.func() ["sym_name" = "sum_struct", "function_type" = !fun<[!llvm.struct<"", [!i32]>, !llvm.struct<"", [!i32]>], [!llvm.struct<"", [!i32]>]>, "sym_visibility" = "private"] {
 // CHECK-NEXT:   ^0(%2 : !llvm.struct<"", [!i32]>, %3 : !llvm.struct<"", [!i32]>):
-// CHECK-NEXT:     %lhsi : !i32 = llvm.extractvalue(%2 : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
-// CHECK-NEXT:     %rhsi : !i32 = llvm.extractvalue(%3 : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
-// CHECK-NEXT:     %i : !i32 = arith.addi(%lhsi : !i32, %rhsi : !i32)
-// CHECK-NEXT:     %result : !llvm.struct<"", [!i32]> = llvm.insertvalue(%2 : !llvm.struct<"", [!i32]>, %i : !i32) ["position" = [0 : !index]]
-// CHECK-NEXT:     func.return(%result : !llvm.struct<"", [!i32]>)
+// CHECK-NEXT:     %4 : !i32 = llvm.extractvalue(%2 : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
+// CHECK-NEXT:     %5 : !i32 = llvm.extractvalue(%3 : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
+// CHECK-NEXT:     %6 : !i32 = arith.addi(%4 : !i32, %5 : !i32)
+// CHECK-NEXT:     %7 : !llvm.struct<"", [!i32]> = llvm.insertvalue(%2 : !llvm.struct<"", [!i32]>, %6 : !i32) ["position" = [0 : !index]]
+// CHECK-NEXT:     func.return(%7 : !llvm.struct<"", [!i32]>)
 // CHECK-NEXT:   }

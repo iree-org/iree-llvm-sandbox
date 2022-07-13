@@ -6,8 +6,10 @@ from dataclasses import dataclass
 from xdsl.ir import Operation, MLContext, Region, Block, Attribute
 from typing import List, Type, Optional
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType
-from xdsl.dialects.llvm import LLVMStructType
+from xdsl.dialects.llvm import LLVMStructType, LLVMExtractValue, LLVMInsertValue
 from xdsl.dialects.func import FuncOp, Return
+from xdsl.dialects.arith import Addi
+from xdsl.dialects.func import Return
 
 from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, PatternRewriteWalker, PatternRewriter, op_type_rewrite_pattern
 
@@ -76,30 +78,56 @@ class AggregateRewriter(RelImplRewriter):
 
 
 def add_reduce_functions(ctx: MLContext, mod: ModuleOp):
-  from xdsl.parser import Parser
-  sum_struct = Parser(
-      ctx, """
-  func.func() ["sym_name" = "sum_struct", "function_type" = !fun<[!llvm.struct<"", [!i32]>, !llvm.struct<"", [!i32]>], [!llvm.struct<"", [!i32]>]>, "sym_visibility" = "private"] {
-    ^0(%lhs : !llvm.struct<"", [!i32]>, %rhs : !llvm.struct<"", [!i32]>):
-      %lhsi : !i32 = llvm.extractvalue (%lhs : !llvm.struct<"", [!i32]>)["position" = [0 : !index]]
-      %rhsi : !i32 = llvm.extractvalue (%rhs : !llvm.struct<"", [!i32]>)["position" = [0 : !index]]
-      %i  : !i32 = arith.addi(%lhsi : !i32, %rhsi : !i32)
-      %result : !llvm.struct<"", [!i32]> = llvm.insertvalue(%lhs : !llvm.struct<"", [!i32]>, %i : !i32) ["position" = [0 : !index]]
-      func.return(%result : !llvm.struct<"", [!i32]>)
-    }
-  """).parse_op()
+  sum_struct = FuncOp.from_region(
+      "sum_struct",
+      [
+          LLVMStructType.from_type_list([IntegerType.from_width(32)]),
+          LLVMStructType.from_type_list([IntegerType.from_width(32)])
+      ],
+      [LLVMStructType.from_type_list([IntegerType.from_width(32)])],
+      Region.from_block_list(
+          [
+              Block.from_callable(
+                  [
+                      LLVMStructType.from_type_list(
+                          [IntegerType.from_width(32)]),
+                      LLVMStructType.from_type_list(
+                          [IntegerType.from_width(32)])
+                  ],
+                  lambda ba1, ba2: [
+                      l := LLVMExtractValue.build(
+                          result_types=[IntegerType.from_width(32)],
+                          attributes={
+                              "position":
+                                  ArrayAttr.from_list(
+                                      [IntegerAttr.from_index_int_value(0)])
+                          },
+                          operands=[ba1]),
+                      # This comment is needed to safe formatting
+                      r := LLVMExtractValue.build(
+                          result_types=[IntegerType.from_width(32)],
+                          attributes={
+                              "position":
+                                  ArrayAttr.from_list(
+                                      [IntegerAttr.from_index_int_value(0)])
+                          },
+                          operands=[ba2]),
+                      s := Addi.get(l, r),
+                      res := LLVMInsertValue.build(
+                          result_types=[
+                              LLVMStructType.from_type_list(
+                                  [IntegerType.from_width(32)])
+                          ],
+                          operands=[ba1, s],
+                          attributes={
+                              "position":
+                                  ArrayAttr.from_list(
+                                      [IntegerAttr.from_index_int_value(0)])
+                          }),
+                      Return.get(res)
+                  ])
+          ]))
   mod.regions[0].blocks[0].add_op(sum_struct)
-  #sum_struct = FuncOp.from_region(
-  #    "sum_struct",
-  #    [LLVMStructType.from_type_list([IntegerType.from_width(32)])],
-  #    [LLVMStructType.from_type_list([IntegerType.from_width(32)])],
-  #    Region.from_block_list([
-  #        Block.from_callable([
-  #            LLVMStructType.from_type_list([IntegerType.from_width(32)]),
-  #            LLVMStructType.from_type_list([IntegerType.from_width(32)])],
-  #            lambda ba1, ba2: []
-  #        )
-  #    ]))
   return
 
 
