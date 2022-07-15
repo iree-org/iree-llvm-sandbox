@@ -36,13 +36,6 @@ class Stream(ParametrizedAttribute):
     return Stream([elem_type])  #type: ignore
 
 
-@irdl_attr_definition
-class ReduceFuncRefAttr(FlatSymbolRefAttr):
-  name = "iterators.reduceFuncRefAttr"
-
-  data: ParameterDef[StringAttr]
-
-
 #===------------------------------------------------------------------------===#
 # Operations
 #===------------------------------------------------------------------------===#
@@ -81,7 +74,7 @@ class ReduceOp(Operation):
   name = "iterators.reduce"
 
   input = OperandDef(Stream)
-  reduceFuncRef = AttributeDef(ReduceFuncRefAttr)
+  reduceFuncRef = AttributeDef(FlatSymbolRefAttr)
 
   result = ResultDef(Stream)
 
@@ -91,7 +84,7 @@ class ReduceOp(Operation):
           res_type: Attribute) -> 'ReduceOp':
     return ReduceOp.build(
         operands=[input],
-        attributes={"reduceFuncRef": ReduceFuncRefAttr([func])},
+        attributes={"reduceFuncRef": FlatSymbolRefAttr([func])},
         result_types=[res_type])
 
 
@@ -148,7 +141,6 @@ class Iterators:
 
   def __post_init__(self: 'Iterators'):
     self.ctx.register_attr(Stream)
-    self.ctx.register_attr(ReduceFuncRefAttr)
 
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)

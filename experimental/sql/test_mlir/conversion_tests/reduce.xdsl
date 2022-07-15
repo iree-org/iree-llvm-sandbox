@@ -12,7 +12,7 @@ module() {
 
   func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
     %input : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[42 : !i32]]]
-    %reduce : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.reduce(%input : !iterators.stream<!llvm.struct<"", [!i32]>>) ["reduceFuncRef" = !iterators.reduceFuncRefAttr<"sum_struct">]
+    %reduce : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.reduce(%input : !iterators.stream<!llvm.struct<"", [!i32]>>) ["reduceFuncRef" = @sum_struct]
     func.return()
   }
 }

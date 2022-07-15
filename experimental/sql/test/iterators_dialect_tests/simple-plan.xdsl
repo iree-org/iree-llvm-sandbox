@@ -3,7 +3,7 @@
 module() {
  func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "private"] {
     %0 : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[0 : !i32], [1 : !i32], [2 : !i32], [3 : !i32]]]
-    %1 : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.reduce(%0 : !iterators.stream<!llvm.struct<"", [!i32]>>) ["reduceFuncRef" = !iterators.reduceFuncRefAttr<"sum_struct">]
+    %1 : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.reduce(%0 : !iterators.stream<!llvm.struct<"", [!i32]>>) ["reduceFuncRef" = @sum_struct]
     iterators.sink(%1 : !iterators.stream<!llvm.struct<"", [!i32]>>)
     func.return()
   }
