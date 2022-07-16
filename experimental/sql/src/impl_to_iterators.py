@@ -77,8 +77,7 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
                                 walk_reverse=False)
   walker.rewrite_module(query)
   # Adding the sink
-  query.body.blocks[0].add_op(
-      it.SinkOp.get(query.body.blocks[0].ops[-1].results[0]))
+  query.body.blocks[0].add_op(it.SinkOp.get(query.body.blocks[0].ops[-1]))
   # Adding the return
   query.body.blocks[0].add_op(Return.get())
   # Wrapping everything into a main function

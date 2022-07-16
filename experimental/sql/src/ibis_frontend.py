@@ -44,7 +44,7 @@ def convert_literal(literal) -> Attribute:
     # np.int64 are parsed as int by ibis
     return IntegerAttr.from_int_and_width(literal, 64)
   if isinstance(literal, Decimal):
-    return StringAttr.from_str(literal)
+    return StringAttr.from_str(str(literal))
   raise Exception(f"literal conversion not yet implemented for {type(literal)}")
 
 

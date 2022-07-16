@@ -28,7 +28,7 @@ class Stream(ParametrizedAttribute):
   """
   name = "iterators.stream"
 
-  types = ParameterDef(AnyAttr())
+  types: ParameterDef[Attribute]
 
   @builder
   @staticmethod
@@ -53,7 +53,7 @@ class SampleInputOp(Operation):
   @builder
   @staticmethod
   def get(type: Attribute) -> 'SampleInputOp':
-    return SampleInputOp.build(result_types=[type])
+    return SampleInputOp.create(result_types=[type])
 
 
 @irdl_op_definition
@@ -93,8 +93,8 @@ class ReduceOp(Operation):
   @builder
   @staticmethod
   def get(argument: Operation) -> 'ReduceOp':
-    return ReduceOp.build(
-        operands=[argument],
+    return ReduceOp.create(
+        operands=[argument.result],
         result_types=[
             Stream([
                 TupleType([ArrayAttr.from_list([IntegerType.from_width(32)])])
@@ -114,7 +114,7 @@ class SinkOp(Operation):
   @builder
   @staticmethod
   def get(arguments: Operation) -> 'SinkOp':
-    return SinkOp.build(operands=[arguments])
+    return SinkOp.create(operands=[arguments.result])
 
 
 @dataclass

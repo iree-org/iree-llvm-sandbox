@@ -15,7 +15,6 @@ from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBloc
 # can have both operators and expressions in their subtrees.
 
 
-@irdl_attr_definition
 class DataType(ParametrizedAttribute):
   """
   Models a datatype in a relational query.
@@ -93,7 +92,7 @@ class String(DataType):
   """
   name = "rel_alg.string"
 
-  nullable = ParameterDef(IntegerAttr)
+  nullable: ParameterDef[IntegerAttr]
 
   @staticmethod
   @builder
@@ -136,7 +135,7 @@ class Multiply(BinOp):
   @builder
   @staticmethod
   def get(lhs: Region, rhs: Region) -> 'Multiply':
-    return Multiply.build(regions=[lhs, rhs])
+    return Multiply.create(regions=[lhs, rhs])
 
 
 @irdl_op_definition
@@ -158,7 +157,7 @@ class Literal(Expression):
   @builder
   @staticmethod
   def get(val: Attribute, type: DataType) -> 'Literal':
-    return Literal.build(attributes={"val": val, "type": type})
+    return Literal.create(attributes={"val": val, "type": type})
 
 
 @irdl_op_definition
@@ -179,7 +178,7 @@ class Column(Expression):
   @builder
   @staticmethod
   def get(col_name: str) -> 'Column':
-    return Column.build(attributes={"col_name": StringAttr.from_str(col_name)})
+    return Column.create(attributes={"col_name": StringAttr.from_str(col_name)})
 
 
 @irdl_op_definition
@@ -206,7 +205,7 @@ class Compare(Expression):
   @builder
   @staticmethod
   def get(comparator: str, left: Region, right: Region) -> 'Compare':
-    return Compare.build(
+    return Compare.create(
         attributes={"comparator": StringAttr.from_str(comparator)},
         regions=[left, right])
 
@@ -247,7 +246,7 @@ class Aggregate(Operator):
   @builder
   def get(input: Region, col_names: List[str], functions: List[str],
           res_names: List[str]) -> 'Aggregate':
-    return Aggregate.build(
+    return Aggregate.create(
         regions=[input],
         attributes={
             "col_names":
@@ -284,7 +283,7 @@ class Select(Operator):
   @staticmethod
   @builder
   def get(input: Region, predicates: Region) -> 'Select':
-    return Select.build(regions=[input, predicates])
+    return Select.create(regions=[input, predicates])
 
 
 @irdl_op_definition
@@ -312,8 +311,8 @@ class Project(Operator):
   @staticmethod
   @builder
   def get(table: Region, projections: Region, names: ArrayAttr) -> 'Project':
-    return Project.build(regions=[table, projections],
-                         attributes={"names": names})
+    return Project.create(regions=[table, projections],
+                          attributes={"names": names})
 
 
 @irdl_op_definition
@@ -338,8 +337,8 @@ class Table(Operator):
   @staticmethod
   @builder
   def get(name: str, Schema: Region) -> 'Table':
-    return Table.build(attributes={"table_name": StringAttr.from_str(name)},
-                       regions=[Schema])
+    return Table.create(attributes={"table_name": StringAttr.from_str(name)},
+                        regions=[Schema])
 
 
 @irdl_op_definition
@@ -359,8 +358,9 @@ class SchemaElement(Operator):
   elt_type = AttributeDef(DataType)
 
   @staticmethod
+  @builder
   def get(name: str, type: DataType):
-    return SchemaElement.build(attributes={
+    return SchemaElement.create(attributes={
         "elt_name": StringAttr.from_str(name),
         "elt_type": type
     })

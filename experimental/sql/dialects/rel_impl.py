@@ -21,7 +21,6 @@ from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBloc
 #===------------------------------------------------------------------------===#
 
 
-@irdl_attr_definition
 class DataType(ParametrizedAttribute):
   """
   Models a datatype in a relational implementation query.
@@ -100,7 +99,7 @@ class String(DataType):
   name = "rel_impl.string"
 
   # TODO: redefine nullable as a property of all fields
-  nullable = ParameterDef(IntegerAttr)
+  nullable: ParameterDef[IntegerAttr]
 
   @staticmethod
   @builder
@@ -142,8 +141,8 @@ class SchemaElement(ParametrizedAttribute):
   """
   name = "rel_impl.schema_element"
 
-  elt_name = ParameterDef(StringAttr)
-  elt_type = ParameterDef(DataType)
+  elt_name: ParameterDef[StringAttr]
+  elt_type: ParameterDef[DataType]
 
   @staticmethod
   @builder
@@ -165,7 +164,7 @@ class Bag(ParametrizedAttribute):
   """
   name = "rel_impl.bag"
 
-  schema = ParameterDef(ArrayOfConstraint(SchemaElement))
+  schema: ParameterDef[ArrayAttr[SchemaElement]]
 
   @staticmethod
   @builder
@@ -188,7 +187,7 @@ class Tuple(ParametrizedAttribute):
   """
   name = "rel_impl.tuple"
 
-  schema = ParameterDef(ArrayOfConstraint(SchemaElement))
+  schema: ParameterDef[ArrayAttr[SchemaElement]]
 
   @staticmethod
   @builder
@@ -231,9 +230,10 @@ class IndexByName(Expression):
   @builder
   @staticmethod
   def get(name: str, tuple: Tuple, res_type: DataType) -> 'IndexByName':
-    return IndexByName.build(operands=[tuple],
-                             result_types=[res_type],
-                             attributes={"col_name": StringAttr.from_str(name)})
+    return IndexByName.create(
+        operands=[tuple],
+        result_types=[res_type],
+        attributes={"col_name": StringAttr.from_str(name)})
 
 
 @irdl_op_definition
@@ -261,9 +261,9 @@ class BinOp(Expression):
   @staticmethod
   @builder
   def get(lhs: Operation, rhs: Operation, operator: str):
-    return BinOp.build(operands=[lhs, rhs],
-                       attributes={"operator": StringAttr.from_str(operator)},
-                       result_types=[lhs.result.typ])
+    return BinOp.create(operands=[lhs.result, rhs.result],
+                        attributes={"operator": StringAttr.from_str(operator)},
+                        result_types=[lhs.result.typ])
 
 
 @irdl_op_definition
@@ -290,9 +290,9 @@ class Compare(Expression):
   @builder
   def get(left: Operation, right: Operation,
           comparator: StringAttr) -> 'Compare':
-    return Compare.build(operands=[left, right],
-                         attributes={"comparator": comparator},
-                         result_types=[Boolean()])
+    return Compare.create(operands=[left.result, right.result],
+                          attributes={"comparator": comparator},
+                          result_types=[Boolean()])
 
 
 @irdl_op_definition
@@ -314,7 +314,7 @@ class Yield(Expression):
   @staticmethod
   @builder
   def get(ops: list[Operation]) -> 'Yield':
-    return Yield.build(operands=[ops])
+    return Yield.create(operands=[o.result for o in ops])
 
 
 @irdl_op_definition
@@ -337,7 +337,7 @@ class Literal(Expression):
   @staticmethod
   @builder
   def get(val: Attribute, res: DataType) -> 'Literal':
-    return Literal.build(attributes={"value": val}, result_types=[res])
+    return Literal.create(attributes={"value": val}, result_types=[res])
 
 
 @irdl_op_definition
@@ -361,7 +361,8 @@ class And(Expression):
   @staticmethod
   @builder
   def get(lhs: Operation, rhs: Operation) -> 'And':
-    return And.build(operands=[lhs, rhs], result_types=[Boolean()])
+    return And.create(operands=[lhs.result, rhs.result],
+                      result_types=[Boolean()])
 
 
 #===------------------------------------------------------------------------===#
@@ -395,7 +396,7 @@ class FullTableScanOp(Operator):
   @staticmethod
   @builder
   def get(name: str, result_type: Bag) -> 'FullTableScanOp':
-    return FullTableScanOp.build(
+    return FullTableScanOp.create(
         attributes={"table_name": StringAttr.from_str(name)},
         result_types=[result_type])
 
@@ -424,9 +425,9 @@ class Select(Operator):
   @builder
   @staticmethod
   def get(input: Operation, predicates: Region) -> 'Select':
-    return Select.build(operands=[input],
-                        regions=[predicates],
-                        result_types=[input.results[0].typ])
+    return Select.create(operands=[input.result],
+                         regions=[predicates],
+                         result_types=[input.results[0].typ])
 
 
 @irdl_op_definition
@@ -455,17 +456,17 @@ class Project(Operator):
   @builder
   def get(input: Operation, res_names: List[str], res_types: List[DataType],
           projection: Region) -> 'Project':
-    return Project.build(operands=[input],
-                         result_types=[Bag.get(res_names, res_types)],
-                         regions=[projection])
+    return Project.create(operands=[input.result],
+                          result_types=[Bag.get(res_names, res_types)],
+                          regions=[projection])
 
   @staticmethod
   @builder
   def from_result_type(input: Operation, res_type: Bag,
                        projection: Region) -> 'Project':
-    return Project.build(operands=[input],
-                         result_types=[res_type],
-                         regions=[projection])
+    return Project.create(operands=[input.result],
+                          result_types=[res_type],
+                          regions=[projection])
 
 
 @irdl_op_definition
@@ -501,8 +502,8 @@ class Aggregate(Operator):
   @staticmethod
   def get(input: Operation, col_names: List[str],
           functions: List[str]) -> 'Aggregate':
-    return Aggregate.build(
-        operands=[input],
+    return Aggregate.create(
+        operands=[input.result],
         attributes={
             "col_names":
                 ArrayAttr.from_list([StringAttr.from_str(c) for c in col_names]

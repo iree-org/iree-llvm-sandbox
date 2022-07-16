@@ -27,7 +27,6 @@ from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBloc
 # not single region terminators.
 
 
-@irdl_attr_definition
 class DataType(ParametrizedAttribute):
   """
   Models an ibis datatype.
@@ -105,7 +104,7 @@ class String(DataType):
   """
   name = "ibis.string"
 
-  nullable = ParameterDef(IntegerAttr)
+  nullable: ParameterDef[IntegerAttr]
 
   @builder
   @staticmethod
@@ -135,7 +134,7 @@ class TableColumn(Operation):
   @builder
   @staticmethod
   def get(table: Region, col_name: str) -> 'TableColumn':
-    return TableColumn.build(
+    return TableColumn.create(
         attributes={"col_name": StringAttr.from_str(col_name)}, regions=[table])
 
 
@@ -171,8 +170,8 @@ class Multiply(Operation):
   @staticmethod
   @builder
   def get(lhs: Region, rhs: Region, output_type: DataType) -> 'Multiply':
-    return Multiply.build(regions=[lhs, rhs],
-                          attributes={"output_type": output_type})
+    return Multiply.create(regions=[lhs, rhs],
+                           attributes={"output_type": output_type})
 
 
 @irdl_op_definition
@@ -221,12 +220,12 @@ class Selection(Operation):
   @builder
   def get(table: Region, predicates: Region, projections: Region,
           names: list[str]) -> 'Selection':
-    return Selection.build(regions=[table, predicates, projections],
-                           attributes={
-                               "names":
-                                   ArrayAttr.from_list(
-                                       [StringAttr.from_str(n) for n in names])
-                           })
+    return Selection.create(regions=[table, predicates, projections],
+                            attributes={
+                                "names":
+                                    ArrayAttr.from_list(
+                                        [StringAttr.from_str(n) for n in names])
+                            })
 
 
 @irdl_op_definition
@@ -262,7 +261,7 @@ class Aggregation(Operation):
   @staticmethod
   @builder
   def get(table: Region, metrics: Region, names: list[str]) -> 'Aggregation':
-    return Aggregation.build(
+    return Aggregation.create(
         regions=[table, metrics],
         attributes={
             "names":
@@ -297,7 +296,7 @@ class Sum(Operation):
   @staticmethod
   @builder
   def get(arg: Region) -> 'Sum':
-    return Sum.build(regions=[arg])
+    return Sum.create(regions=[arg])
 
 
 @irdl_op_definition
@@ -327,7 +326,7 @@ class Equals(Operation):
   @builder
   @staticmethod
   def get(left: Region, right: Region) -> 'Equals':
-    return Equals.build(regions=[left, right])
+    return Equals.create(regions=[left, right])
 
 
 @irdl_op_definition
@@ -357,7 +356,7 @@ class GreaterEqual(Operation):
   @builder
   @staticmethod
   def get(left: Region, right: Region) -> 'GreaterEqual':
-    return GreaterEqual.build(regions=[left, right])
+    return GreaterEqual.create(regions=[left, right])
 
 
 @irdl_op_definition
@@ -387,7 +386,7 @@ class LessThan(Operation):
   @builder
   @staticmethod
   def get(left: Region, right: Region) -> 'LessThan':
-    return LessThan.build(regions=[left, right])
+    return LessThan.create(regions=[left, right])
 
 
 @irdl_op_definition
@@ -417,7 +416,7 @@ class LessEqual(Operation):
   @builder
   @staticmethod
   def get(left: Region, right: Region) -> 'LessEqual':
-    return LessEqual.build(regions=[left, right])
+    return LessEqual.create(regions=[left, right])
 
 
 @irdl_op_definition
@@ -444,7 +443,7 @@ class UnboundTable(Operation):
   @staticmethod
   @builder
   def get(name: str, Schema: Region) -> 'UnboundTable':
-    return UnboundTable.build(
+    return UnboundTable.create(
         attributes={"table_name": StringAttr.from_str(name)}, regions=[Schema])
 
 
@@ -466,9 +465,10 @@ class SchemaElement(Operation):
   elt_name = AttributeDef(StringAttr)
   elt_type = AttributeDef(DataType)
 
+  @builder
   @staticmethod
   def get(name: str, type: DataType):
-    return SchemaElement.build(attributes={
+    return SchemaElement.create(attributes={
         "elt_name": StringAttr.from_str(name),
         "elt_type": type
     })
@@ -495,7 +495,7 @@ class Literal(Operation):
   @builder
   @staticmethod
   def get(val: Attribute, type: DataType) -> 'Literal':
-    return Literal.build(attributes={"val": val, "type": type})
+    return Literal.create(attributes={"val": val, "type": type})
 
 
 @dataclass
