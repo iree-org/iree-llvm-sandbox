@@ -5,7 +5,7 @@
 from dataclasses import dataclass
 from typing import Any, Union, List
 from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, Data, MLContext, Attribute
-from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr, IntegerType, TupleType
+from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr, IntegerType, TupleType, FlatSymbolRefAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
 
 # This mirrors a subset of the MLIR iterators dialect in a one to one way
@@ -57,6 +57,38 @@ class SampleInputOp(Operation):
 
 
 @irdl_op_definition
+class ReduceOp(Operation):
+  """
+  Reads the elements of its operand stream and reduces them to a single
+  element using the provided reduce function. The result stream is empty iff
+  the operand stream is empty. Otherwise, the elements are reduced pairwise in
+  an implementation-defined order until a single element is left, which
+  constitutes the result stream. This is only deterministic if the reduce
+  function is associative.
+
+  Example:
+  ```mlir
+  %reduced : !iterators.stream<!llvm.struct<"", !i32> = "iterators.reduce"(%input : !iterators.stream<!llvm.struct<"", !i32>>) {reduceFuncRef = !iterators.reduceFuncRefAttr<"sum">}
+  ```
+  """
+  name = "iterators.reduce"
+
+  input = OperandDef(Stream)
+  reduceFuncRef = AttributeDef(FlatSymbolRefAttr)
+
+  result = ResultDef(Stream)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, func: StringAttr,
+          res_type: Attribute) -> 'ReduceOp':
+    return ReduceOp.build(
+        operands=[input],
+        attributes={"reduceFuncRef": FlatSymbolRefAttr([func])},
+        result_types=[res_type])
+
+
+@irdl_op_definition
 class ConstantStreamOp(Operation):
   """
   Produces a stream of LLVM structs given in the array of arrays attribute
@@ -78,28 +110,14 @@ class ConstantStreamOp(Operation):
   value = AttributeDef(ArrayOfConstraint(ArrayOfConstraint(AnyAttr())))
   result = ResultDef(Stream)
 
-
-@irdl_op_definition
-class ReduceOp(Operation):
-  """
-  Reduce the input to a single tuple.
-  """
-  name = "iterators.reduce"
-
-  arguments = OperandDef(Stream)
-
-  result = ResultDef(Stream)
-
   @builder
   @staticmethod
-  def get(argument: Operation) -> 'ReduceOp':
-    return ReduceOp.create(
-        operands=[argument.result],
-        result_types=[
-            Stream([
-                TupleType([ArrayAttr.from_list([IntegerType.from_width(32)])])
-            ])
-        ])
+  def get(values: List[List[Attribute]],
+          res_type: Attribute) -> 'ConstantStreamOp':
+    return ConstantStreamOp.build(attributes={
+        "value": ArrayAttr.from_list([ArrayAttr.from_list(v) for v in values])
+    },
+                                  result_types=[res_type])
 
 
 @irdl_op_definition

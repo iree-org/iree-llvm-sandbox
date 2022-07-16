@@ -1,0 +1,31 @@
+// RUN: rel_opt.py -t mlir %s | filecheck %s
+
+module() {
+  func.func() ["sym_name" = "sum_struct", "function_type" = !fun<[!llvm.struct<"", [!i32]>, !llvm.struct<"", [!i32]>], [!llvm.struct<"", [!i32]>]>, "sym_visibility" = "private"] {
+    ^0(%lhs : !llvm.struct<"", [!i32]>, %rhs : !llvm.struct<"", [!i32]>):
+      %lhsi : !i32 = llvm.extractvalue (%lhs : !llvm.struct<"", [!i32]>)["position" = [0 : !index]]
+      %rhsi : !i32 = llvm.extractvalue (%rhs : !llvm.struct<"", [!i32]>)["position" = [0 : !index]]
+      %i  : !i32 = arith.addi(%lhsi : !i32, %rhsi : !i32)
+      %result : !llvm.struct<"", [!i32]> = llvm.insertvalue(%lhs : !llvm.struct<"", [!i32]>, %i : !i32) ["position" = [0 : !index]]
+      func.return(%result : !llvm.struct<"", [!i32]>)
+  }
+
+  func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+    %input : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[42 : !i32]]]
+    %reduce : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.reduce(%input : !iterators.stream<!llvm.struct<"", [!i32]>>) ["reduceFuncRef" = @sum_struct]
+    func.return()
+  }
+}
+
+//      CHECK:  func.func private @sum_struct(%arg0: !llvm.struct<(i32)>, %arg1: !llvm.struct<(i32)>) -> !llvm.struct<(i32)> {
+// CHECK-NEXT:    %0 = llvm.extractvalue %arg0[0 : index] : !llvm.struct<(i32)>
+// CHECK-NEXT:    %1 = llvm.extractvalue %arg1[0 : index] : !llvm.struct<(i32)>
+// CHECK-NEXT:    %2 = arith.addi %0, %1 : i32
+// CHECK-NEXT:    %3 = llvm.insertvalue %2, %arg0[0 : index] : !llvm.struct<(i32)>
+// CHECK-NEXT:    return %3 : !llvm.struct<(i32)>
+// CHECK-NEXT:  }
+// CHECK-NEXT:  func.func public @main() {
+// CHECK-NEXT:    %0 = "iterators.constantstream"() {value = [[42 : i32]]} : () -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:    %1 = "iterators.reduce"(%0) {reduceFuncRef = @sum_struct} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:    return
+// CHECK-NEXT:  }
