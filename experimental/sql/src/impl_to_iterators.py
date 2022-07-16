@@ -30,6 +30,10 @@ class RelImplRewriter(RewritePattern):
     if isinstance(type_, RelImpl.Int64):
       # TODO: this is obviously broken, but the backend currently only support i32
       return IntegerType.from_width(32)
+    if isinstance(type_, RelImpl.Decimal):
+      return IntegerType.from_width(32)
+    if isinstance(type_, RelImpl.Timestamp):
+      return IntegerType.from_width(32)
     raise Exception(f"type conversion not yet implemented for {type(type_)}")
 
   def convert_bag(self, bag: RelImpl.Bag) -> it.Stream:
