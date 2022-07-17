@@ -40,6 +40,12 @@ class RelImplRewriter(RewritePattern):
     types = [self.convert_datatype(s.elt_type) for s in tuple.schema.data]
     return LLVMStructType.from_type_list(types)
 
+  def find_index_in_schema(self, col_name: str, tuple: RelImpl.Tuple):
+    for i, curr_elem in zip(range(len(tuple.schema.data)), tuple.schema.data):
+      if curr_elem.elt_name.data == col_name:
+        return i
+    raise Exception(f"name not found in tuple schema: " + col_name)
+
   def add_sum_function(self, region: Region, elem_types: List[Attribute],
                        name: str):
     struct_type = LLVMStructType.from_type_list(elem_types)
@@ -101,8 +107,12 @@ class IndexByNameRewriter(RelImplRewriter):
             operands=[op.tuple],
             result_types=[self.convert_datatype(op.result.typ)],
             attributes={
-                "position":  # TODO: use knowledge of the schema to know which position to access
-                    ArrayAttr.from_list([IntegerAttr.from_index_int_value(0)])
+                "position":
+                    ArrayAttr.from_list([
+                        IntegerAttr.from_index_int_value(
+                            self.find_index_in_schema(op.col_name.data,
+                                                      op.tuple.typ))
+                    ])
             }))
 
 
@@ -176,6 +186,8 @@ class AggregateRewriter(RelImplRewriter):
 @dataclass
 class SelectRewriter(RelImplRewriter):
 
+  count: int = 0
+
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.Select, rewriter: PatternRewriter):
     rewriter.modify_block_argument_type(
@@ -183,12 +195,13 @@ class SelectRewriter(RelImplRewriter):
         self.convert_tuple(op.predicates.blocks[0].args[0].typ))
     new_reg = rewriter.move_region_contents_to_new_regions(op.predicates)
     op.parent_op().parent_region().blocks[0].add_op(
-        FuncOp.from_region("is_positive_struct",
+        FuncOp.from_region("s" + str(self.count),
                            [new_reg.blocks[0].args[0].typ],
                            [IntegerType.from_width(1)], new_reg))
     rewriter.replace_matched_op(
-        it.FilterOp.get(op.input.op, StringAttr.from_str("is_positive_struct"),
+        it.FilterOp.get(op.input.op, StringAttr.from_str("s" + str(self.count)),
                         self.convert_bag(op.result.typ)))
+    self.count = self.count + 1
 
 
 #===------------------------------------------------------------------------===#
@@ -207,12 +220,18 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))
   # Adding the return
   query.body.blocks[0].ops[0].body.blocks[0].add_op(Return.get())
+  index_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
+      IndexByNameRewriter(),
+  ]),
+                                      walk_regions_first=False,
+                                      apply_recursively=False,
+                                      walk_reverse=False)
+  index_walker.rewrite_module(query)
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       FullTableScanRewriter(),
       AggregateRewriter(),
       SelectRewriter(),
       LiteralRewriter(),
-      IndexByNameRewriter(),
       CompareRewriter(),
       YieldRewriter()
   ]),
