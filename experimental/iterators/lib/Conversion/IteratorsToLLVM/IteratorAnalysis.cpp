@@ -34,7 +34,7 @@ static SymbolTriple assignFunctionNames(Operation *op,
 }
 
 /// The state of ConstantStreamOp consists of a single number that corresponds
-/// to the next number returned by the iterator.
+/// to the index of the next struct returned by the iterator.
 static LLVM::LLVMStructType computeStateType(ConstantStreamOp op) {
   MLIRContext *context = op->getContext();
   Type i32 = IntegerType::get(context, /*width=*/32);
