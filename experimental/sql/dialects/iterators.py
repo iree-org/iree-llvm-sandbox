@@ -89,6 +89,35 @@ class ReduceOp(Operation):
 
 
 @irdl_op_definition
+class FilterOp(Operation):
+  """
+  Reads the elements of its operand stream and produces a stream consisting of
+  those that match the provided predicate (i.e., those on which the provided
+  predicate returns true).
+
+  Example:
+  ```mlir
+  %filtered : !iterators.stream<i32> = iterators.filter(%input : ...) {predicateRef = @is_positive} : (!iterators.stream<i32>)
+  ```
+  """
+  name = "iterators.filter"
+
+  input = OperandDef(Stream)
+  predicateRef = AttributeDef(FlatSymbolRefAttr)
+
+  result = ResultDef(Stream)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, func: StringAttr,
+          res_type: Attribute) -> 'FilterOp':
+    return FilterOp.build(
+        operands=[input],
+        attributes={"predicateRef": FlatSymbolRefAttr([func])},
+        result_types=[res_type])
+
+
+@irdl_op_definition
 class ConstantStreamOp(Operation):
   """
   Produces a stream of LLVM structs given in the array of arrays attribute
@@ -144,5 +173,6 @@ class Iterators:
 
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)
+    self.ctx.register_op(FilterOp)
     self.ctx.register_op(SinkOp)
     self.ctx.register_op(ConstantStreamOp)

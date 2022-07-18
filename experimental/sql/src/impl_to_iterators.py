@@ -8,7 +8,7 @@ from typing import List, Type, Optional
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType
 from xdsl.dialects.llvm import LLVMStructType, LLVMExtractValue, LLVMInsertValue
 from xdsl.dialects.func import FuncOp, Return
-from xdsl.dialects.arith import Addi
+from xdsl.dialects.arith import Addi, Constant, Cmpi
 
 from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, PatternRewriteWalker, PatternRewriter, op_type_rewrite_pattern
 
@@ -35,6 +35,16 @@ class RelImplRewriter(RewritePattern):
   def convert_bag(self, bag: RelImpl.Bag) -> it.Stream:
     types = [self.convert_datatype(s.elt_type) for s in bag.schema.data]
     return it.Stream.get(LLVMStructType.from_type_list(types))
+
+  def convert_tuple(self, tuple: RelImpl.Tuple) -> LLVMStructType:
+    types = [self.convert_datatype(s.elt_type) for s in tuple.schema.data]
+    return LLVMStructType.from_type_list(types)
+
+  def find_index_in_schema(self, col_name: str, tuple: RelImpl.Tuple):
+    for i, curr_elem in zip(range(len(tuple.schema.data)), tuple.schema.data):
+      if curr_elem.elt_name.data == col_name:
+        return i
+    raise Exception(f"name not found in tuple schema: " + col_name)
 
   def add_sum_function(self, region: Region, elem_types: List[Attribute],
                        name: str):
@@ -76,6 +86,70 @@ class RelImplRewriter(RewritePattern):
 # Expressions
 #===------------------------------------------------------------------------===#
 
+
+@dataclass
+class LiteralRewriter(RelImplRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.Literal, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        Constant.from_int_constant(op.value.value, op.value.typ))
+
+
+@dataclass
+class IndexByNameRewriter(RelImplRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.IndexByName,
+                        rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        LLVMExtractValue.build(
+            operands=[op.tuple],
+            result_types=[self.convert_datatype(op.result.typ)],
+            attributes={
+                "position":
+                    ArrayAttr.from_list([
+                        IntegerAttr.from_index_int_value(
+                            self.find_index_in_schema(op.col_name.data,
+                                                      op.tuple.typ))
+                    ])
+            }))
+
+
+@dataclass
+class CompareRewriter(RelImplRewriter):
+
+  def convert_comparator(self, comparator: str) -> int:
+    if comparator == "==":
+      return 0
+    elif comparator == "!=":
+      return 1
+    elif comparator == "<":
+      return 2
+    elif comparator == "<=":
+      return 3
+    elif comparator == ">":
+      return 4
+    elif comparator == ">=":
+      return 5
+    raise Exception(f"comparator conversion not yet implemented for: " +
+                    comparator)
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.Compare, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        Cmpi.get(op.left, op.right,
+                 self.convert_comparator(op.comparator.data)))
+
+
+@dataclass
+class YieldRewriter(RelImplRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.Yield, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(Return.get(*op.ops))
+
+
 #===------------------------------------------------------------------------===#
 # Operators
 #===------------------------------------------------------------------------===#
@@ -109,6 +183,27 @@ class AggregateRewriter(RelImplRewriter):
                         self.convert_bag(op.result.typ)))
 
 
+@dataclass
+class SelectRewriter(RelImplRewriter):
+
+  count: int = 0
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.Select, rewriter: PatternRewriter):
+    rewriter.modify_block_argument_type(
+        op.predicates.blocks[0].args[0],
+        self.convert_tuple(op.predicates.blocks[0].args[0].typ))
+    new_reg = rewriter.move_region_contents_to_new_regions(op.predicates)
+    op.parent_op().parent_region().blocks[0].add_op(
+        FuncOp.from_region("s" + str(self.count),
+                           [new_reg.blocks[0].args[0].typ],
+                           [IntegerType.from_width(1)], new_reg))
+    rewriter.replace_matched_op(
+        it.FilterOp.get(op.input.op, StringAttr.from_str("s" + str(self.count)),
+                        self.convert_bag(op.result.typ)))
+    self.count = self.count + 1
+
+
 #===------------------------------------------------------------------------===#
 # Conversion setup
 #===------------------------------------------------------------------------===#
@@ -125,8 +220,24 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))
   # Adding the return
   query.body.blocks[0].ops[0].body.blocks[0].add_op(Return.get())
-  walker = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [FullTableScanRewriter(), AggregateRewriter()]),
+  # IndexByNames need to be rewritten first, since otherwise, their respective
+  # operand type does not contain the schema anymore, making it impossible to
+  # lookup the position in their tuple struct.
+  index_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
+      IndexByNameRewriter(),
+  ]),
+                                      walk_regions_first=False,
+                                      apply_recursively=False,
+                                      walk_reverse=False)
+  index_walker.rewrite_module(query)
+  walker = PatternRewriteWalker(GreedyRewritePatternApplier([
+      FullTableScanRewriter(),
+      AggregateRewriter(),
+      SelectRewriter(),
+      LiteralRewriter(),
+      CompareRewriter(),
+      YieldRewriter()
+  ]),
                                 walk_regions_first=False,
                                 apply_recursively=False,
                                 walk_reverse=False)

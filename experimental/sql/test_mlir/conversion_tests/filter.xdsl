@@ -1,0 +1,29 @@
+// RUN: rel_opt.py -t mlir %s | filecheck %s
+
+module() {
+  func.func() ["sym_name" = "is_positive_struct", "function_type" = !fun<[!llvm.struct<"", [!i32]>], [!i1]>, "sym_visibility" = "private"] {
+    ^0(%struct : !llvm.struct<"", [!i32]>):
+      %i : !i32 = llvm.extractvalue (%struct : !llvm.struct<"", [!i32]>)["position" = [0 : !index]]
+      %zero  : !i32 = arith.constant() ["value" = 0 : !i32]
+      %cmp : !i1= arith.cmpi(%i :!i32, %zero : !i32) ["predicate" = 4 : !i64]
+      func.return(%cmp : !i1)
+  }
+
+  func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+    %input : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[42 : !i32]]]
+    %reduce : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.filter(%input : !iterators.stream<!llvm.struct<"", [!i32]>>) ["predicateRef" = @is_positive_struct]
+    func.return()
+  }
+}
+
+//      CHECK: func.func private @is_positive_struct(%{{.*}}: !llvm.struct<(i32)>) -> i1 {
+// CHECK-NEXT:   %{{.*}} = llvm.extractvalue %arg0[0 : index] : !llvm.struct<(i32)>
+// CHECK-NEXT:   %{{.*}} = arith.constant 0 : i32
+// CHECK-NEXT:   %{{.*}} = arith.cmpi sgt, %{{.*}}, %{{.*}} : i32
+// CHECK-NEXT:   return %{{.*}} : i1
+// CHECK-NEXT: }
+// CHECK-NEXT: func.func public @main() {
+// CHECK-NEXT:   %{{.*}} = "iterators.constantstream"() {value = [[42 : i32]]} : () -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:   %{{.*}} = "iterators.filter"(%{{.*}}) {predicateRef = @is_positive_struct} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:   return
+// CHECK-NEXT: }
