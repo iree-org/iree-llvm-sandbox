@@ -269,9 +269,10 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))
   # Adding the return
   query.body.blocks[0].ops[0].body.blocks[0].add_op(Return.get())
-  # IndexByNames need to be rewritten first, since otherwise, their respective
-  # operand type does not contain the schema anymore, making it impossible to
-  # lookup the position in their tuple struct.
+  # IndexByNames and Yields need to be rewritten first, since both need access
+  # to the rel_impl schemas to find the right position in the case of
+  # IndexByName or to find the right result type in the case of  Yield
+  # respectively.
   index_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [IndexByNameRewriter(), YieldRewriter()]),
                                       walk_regions_first=False,
