@@ -221,7 +221,7 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
   # Adding the return
   query.body.blocks[0].ops[0].body.blocks[0].add_op(Return.get())
   # IndexByNames need to be rewritten first, since otherwise, their respective
-  # operand type do not contain the schema anymore, making it impossible to
+  # operand type does not contain the schema anymore, making it impossible to
   # lookup the position in their tuple struct.
   index_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       IndexByNameRewriter(),
