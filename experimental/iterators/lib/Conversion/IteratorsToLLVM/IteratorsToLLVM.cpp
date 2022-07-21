@@ -1168,9 +1168,15 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
   // Assemble IteratorInfo for all the upstream iterators (i.e. all the defs).
   llvm::SmallVector<IteratorInfo, 8> upstreamInfos;
   for (Value operand : op->getOperands()) {
-    auto definingOp = cast<IteratorOpInterface>(operand.getDefiningOp());
-    IteratorInfo upstreamInfo =
-        iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+    IteratorInfo upstreamInfo;
+
+    // Get info about operand *iff* it is defined by an iterator op; otherwise,
+    // leave IteratorInfo empty.
+    if (operand.getDefiningOp())
+      if (auto definingOp =
+              dyn_cast<IteratorOpInterface>(operand.getDefiningOp()))
+        upstreamInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+
     upstreamInfos.push_back(upstreamInfo);
   }
 
@@ -1379,10 +1385,10 @@ static void convertIteratorOps(ModuleOp module) {
   // Convert iterator ops in worklist order.
   for (Operation *op : workList) {
     // Look up converted operands. The worklist order guarantees that they
-    // exist.
+    // exist. Use unmodified operand if it isn't produced by an iterator op.
     SmallVector<Value> operands;
     for (Value operand : op->getOperands())
-      operands.push_back(mapping.lookup(operand));
+      operands.push_back(mapping.lookupOrDefault(operand));
 
     // Convert this op.
     rewriter.setInsertionPoint(op);

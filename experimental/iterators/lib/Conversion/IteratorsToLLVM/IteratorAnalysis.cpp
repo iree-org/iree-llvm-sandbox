@@ -116,6 +116,8 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(Operation *rootOp)
                           std::back_inserter(upstreamStateTypes),
                           [&](auto operand) {
                             Operation *def = operand.getDefiningOp();
+                            if (!def || !llvm::isa<IteratorOpInterface>(def))
+                              return LLVM::LLVMStructType();
                             return getExpectedIteratorInfo(def).stateType;
                           });
           LLVM::LLVMStructType stateType =
