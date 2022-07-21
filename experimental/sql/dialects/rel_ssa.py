@@ -284,8 +284,17 @@ class Compare(Expression):
                           result_types=[Boolean()])
 
 
-@irdl_op_definition
 class Yield(Expression):
+  """
+  Parent class of operations that gridge the gap from expressions back to
+  operators by yielding the result of an expression to the encompassing
+  operator.
+  """
+  ...
+
+
+@irdl_op_definition
+class YieldValue(Expression):
   """
   Bridges the gap from expressions back to operators by yielding the result of
   an expression to the encompassing operator.
@@ -293,17 +302,39 @@ class Yield(Expression):
   Example:
 
   '''
-  rel_ssa.yield(%0 : !rel_ssa.bool)
+  rel_ssa.yield_value(%0 : !rel_impl.bool)
   '''
   """
-  name = "rel_ssa.yield"
+  name = "rel_ssa.yield_value"
+
+  op = OperandDef(AnyAttr())
+
+  @staticmethod
+  @builder
+  def get(op: Operation) -> 'YieldValue':
+    return YieldValue.create(operands=[op.result])
+
+
+@irdl_op_definition
+class YieldTuple(Expression):
+  """
+  Bridges the gap from expressions back to operators by yielding the result of
+  an expression to the encompassing operator.
+
+  Example:
+
+  '''
+  rel_ssa.yield_tuple(%0 : !rel_impl.int32)
+  '''
+  """
+  name = "rel_ssa.yield_tuple"
 
   ops = VarOperandDef(AnyAttr())
 
   @staticmethod
   @builder
-  def get(ops: list[Operation]) -> 'Yield':
-    return Yield.create(operands=[o.result for o in ops])
+  def get(ops: list[Operation]) -> 'YieldTuple':
+    return YieldTuple.create(operands=[o.result for o in ops])
 
 
 @irdl_op_definition
@@ -526,6 +557,7 @@ class RelSSA:
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
     self.ctx.register_op(Column)
-    self.ctx.register_op(Yield)
+    self.ctx.register_op(YieldValue)
+    self.ctx.register_op(YieldTuple)
     self.ctx.register_op(And)
     self.ctx.register_op(BinOp)

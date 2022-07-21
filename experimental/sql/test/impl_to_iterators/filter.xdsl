@@ -7,7 +7,7 @@ module() {
       %3 : !rel_impl.int32 = rel_impl.literal() ["value" = 0 : !i32]
       %4 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_name" = "id"]
       %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.int32, %4 : !rel_impl.int32) ["comparator" = ">"]
-      rel_impl.yield(%5 : !rel_impl.bool)
+      rel_impl.yield_value(%5 : !rel_impl.bool)
   }
 }
 

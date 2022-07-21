@@ -21,5 +21,5 @@ module() {
 // CHECK-NEXT:    %2 : !rel_ssa.int64 = rel_ssa.column() ["col_name" = "b"]
 // CHECK-NEXT:    %3 : !rel_ssa.int64 = rel_ssa.column() ["col_name" = "c"]
 // CHECK-NEXT:    %4 : !rel_ssa.int64 = rel_ssa.bin_op(%2 : !rel_ssa.int64, %3 : !rel_ssa.int64) ["operator" = "*"]
-// CHECK-NEXT:    rel_ssa.yield(%4 : !rel_ssa.int64)
+// CHECK-NEXT:    rel_ssa.yield_tuple(%4 : !rel_ssa.int64)
 // CHECK-NEXT:  }

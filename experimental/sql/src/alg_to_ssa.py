@@ -7,7 +7,9 @@ from xdsl.ir import Operation, MLContext, Region, Block
 from typing import List, Type, Optional
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr
 
-from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, PatternRewriteWalker, PatternRewriter, op_type_rewrite_pattern
+from xdsl.pattern_rewriter import (RewritePattern, GreedyRewritePatternApplier,
+                                   PatternRewriteWalker, PatternRewriter,
+                                   op_type_rewrite_pattern)
 
 import dialects.rel_alg as RelAlg
 import dialects.rel_ssa as RelSSA
@@ -71,7 +73,7 @@ class LiteralRewriter(RelAlgRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Literal, rewriter: PatternRewriter):
     new_op = RelSSA.Literal.get(op.val, self.convert_datatype(op.type))
-    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
+    rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
 
 @dataclass
@@ -81,7 +83,7 @@ class ColumnRewriter(RelAlgRewriter):
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
     res_type = self.find_type_in_parent_operator(op.col_name.data, op)
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
-    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
+    rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
 
 @dataclass
@@ -99,7 +101,7 @@ class CompareRewriter(RelAlgRewriter):
     right = rewriter.added_operations_before[-1]
 
     new_op = RelSSA.Compare.get(left, right, op.comparator)
-    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
+    rewriter.replace_matched_op([new_op, RelSSA.YieldValue.get(new_op)])
 
 
 @dataclass
@@ -122,7 +124,7 @@ class BinOpRewriter(RelAlgRewriter):
     right = rewriter.added_operations_before[-1]
 
     new_op = RelSSA.BinOp.get(left, right, self.convert_bin_op_to_str(op))
-    rewriter.replace_matched_op([new_op, RelSSA.Yield.get([new_op])])
+    rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
 
 #===------------------------------------------------------------------------===#
@@ -155,11 +157,11 @@ class ProjectYieldCombiner(RewritePattern):
   def match_and_rewrite(self, op: RelSSA.Project, rewriter: PatternRewriter):
     yielded_ops = []
     for operation in op.projection.ops:
-      if isinstance(operation, RelSSA.Yield):
+      if isinstance(operation, RelSSA.YieldTuple):
         yielded_ops.extend([o.op for o in operation.ops])
         op.projection.blocks[0].erase_op(operation)
     new_region = rewriter.move_region_contents_to_new_regions(op.projection)
-    new_region.blocks[0].add_op(RelSSA.Yield.get(yielded_ops))
+    new_region.blocks[0].add_op(RelSSA.YieldTuple.get(yielded_ops))
     rewriter.replace_matched_op(
         RelSSA.Project.from_result_type(op.input.op, op.result.typ, new_region))
 
@@ -171,15 +173,16 @@ class SelectYieldCombiner(RewritePattern):
   def match_and_rewrite(self, op: RelSSA.Select, rewriter: PatternRewriter):
     yielded_ops = []
     for operation in op.predicates.ops:
-      if isinstance(operation, RelSSA.Yield):
-        yielded_ops.extend([o.op for o in operation.ops])
+      if isinstance(operation, RelSSA.YieldValue):
+        yielded_ops.append(operation.op.op)
+        print(operation)
         op.predicates.blocks[0].erase_op(operation)
     new_region = rewriter.move_region_contents_to_new_regions(op.predicates)
     while (len(yielded_ops) > 1):
       new_and = RelSSA.And.get(yielded_ops.pop(), yielded_ops.pop())
       yielded_ops.append(new_and)
       new_region.blocks[0].add_op(new_and)
-    new_region.blocks[0].add_op(RelSSA.Yield.get(yielded_ops))
+    new_region.blocks[0].add_op(RelSSA.YieldValue.get(yielded_ops[0]))
     rewriter.replace_matched_op(RelSSA.Select.get(op.input.op, new_region))
 
 

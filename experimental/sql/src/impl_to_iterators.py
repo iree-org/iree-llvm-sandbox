@@ -172,27 +172,32 @@ class CompareRewriter(RelImplRewriter):
 
 
 @dataclass
-class YieldRewriter(RelImplRewriter):
+class YieldValueRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelImpl.Yield, rewriter: PatternRewriter):
-    if isinstance(op.parent_op(), RelImpl.Select):
-      rewriter.replace_matched_op(Return.get(*op.ops))
-    else:
-      assert (isinstance(op.parent_op(), RelImpl.Project))
-      for i, o in zip(range(len(op.ops)), op.ops):
-        rewriter.insert_op_before_matched_op(
-            LLVMInsertValue.build(
-                operands=[op.parent_block().args[0], o],
-                attributes={
-                    "position":
-                        ArrayAttr.from_list(
-                            [IntegerAttr.from_index_int_value(i)])
-                },
-                result_types=[
-                    self.convert_bag(op.parent_op().results[0].typ).types
-                ]))
-      rewriter.replace_matched_op(Return.get(op.parent_block().args[0]))
+  def match_and_rewrite(self, op: RelImpl.YieldValue,
+                        rewriter: PatternRewriter):
+    rewriter.replace_matched_op(Return.get(op.op.op))
+
+
+@dataclass
+class YieldTupleRewriter(RelImplRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.YieldTuple,
+                        rewriter: PatternRewriter):
+    for i, o in zip(range(len(op.ops)), op.ops):
+      rewriter.insert_op_before_matched_op(
+          LLVMInsertValue.build(
+              operands=[op.parent_block().args[0], o],
+              attributes={
+                  "position":
+                      ArrayAttr.from_list([IntegerAttr.from_index_int_value(i)])
+              },
+              result_types=[
+                  self.convert_bag(op.parent_op().results[0].typ).types
+              ]))
+    rewriter.replace_matched_op(Return.get(op.parent_block().args[0]))
 
 
 @dataclass
@@ -305,12 +310,12 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))
   # Adding the return
   query.body.blocks[0].ops[0].body.blocks[0].add_op(Return.get())
-  # IndexByNames and Yields need to be rewritten first, since both need access
-  # to the rel_impl schemas to find the right position in the case of
+  # IndexByNames and YieldTuples need to be rewritten first, since both need
+  # access to the rel_impl schemas to find the right position in the case of
   # IndexByName or to find the right result type in the case of  Yield
   # respectively.
   index_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
-      [IndexByNameRewriter(), YieldRewriter()]),
+      [IndexByNameRewriter(), YieldTupleRewriter()]),
                                       walk_regions_first=False,
                                       apply_recursively=False,
                                       walk_reverse=False)
@@ -322,7 +327,8 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       LiteralRewriter(),
       CompareRewriter(),
       ProjectRewriter(),
-      BinOpRewriter()
+      BinOpRewriter(),
+      YieldValueRewriter()
   ]),
                                 walk_regions_first=False,
                                 apply_recursively=False,
