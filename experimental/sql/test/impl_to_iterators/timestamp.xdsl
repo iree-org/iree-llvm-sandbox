@@ -1,0 +1,14 @@
+// RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
+
+module() {
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"date", !rel_impl.timestamp>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
+  %1 : !rel_impl.bag<[!rel_impl.schema_element<"date", !rel_impl.timestamp>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"date", !rel_impl.timestamp>]>) {
+    ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"date", !rel_impl.timestamp>]>):
+      %3 : !rel_impl.timestamp = rel_impl.literal() ["value" = "1994-10-10" ]
+      %4 : !rel_impl.timestamp = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"date", !rel_impl.timestamp>]>) ["col_name" = "date"]
+      %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.timestamp, %4 : !rel_impl.timestamp) ["comparator" = ">"]
+      rel_impl.yield(%5 : !rel_impl.bool)
+  }
+}
+
+// CHECK-NEXT:     %3 : !i32 = arith.constant() ["value" = 9048 : !i32]

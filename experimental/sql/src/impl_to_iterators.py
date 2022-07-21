@@ -14,6 +14,8 @@ from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, P
 
 import dialects.rel_impl as RelImpl
 import dialects.iterators as it
+from decimal import Decimal
+from numpy import datetime64, timedelta64
 
 # This file contains the rewrite infrastructure to translate the relational
 # implementation dialect to the iterators dialect. The current design has a
@@ -96,8 +98,24 @@ class LiteralRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.Literal, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(
-        Constant.from_int_constant(op.value.value, op.value.typ))
+    if isinstance(op.result.typ, RelImpl.Int32) or isinstance(
+        op.result.typ, RelImpl.Int64):
+      rewriter.replace_matched_op(
+          Constant.from_int_constant(op.value.value, op.value.typ))
+    elif isinstance(op.result.typ, RelImpl.Decimal):
+      print(op.value.data)
+      rewriter.replace_matched_op(
+          Constant.from_int_constant(int(Decimal(op.value.data) * Decimal(100)),
+                                     32))
+    elif isinstance(op.result.typ, RelImpl.Timestamp):
+      rewriter.replace_matched_op(
+          Constant.from_int_constant(
+              int((datetime64(op.value.data) - datetime64('1970-01-01')) //
+                  timedelta64(1, 'D')), 32))
+    else:
+      raise Exception(
+          f"lowering of literals with type {type(op.result.typ)} not yet implemented"
+      )
 
 
 @dataclass
