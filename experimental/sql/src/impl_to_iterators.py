@@ -37,7 +37,10 @@ class RelImplRewriter(RewritePattern):
     if isinstance(type_, RelImpl.Timestamp):
       return IntegerType.from_width(32)
     if isinstance(type_, RelImpl.String):
-      return LLVMStructType(["", [IntegerType.from_width(8)] * 8])
+      return LLVMStructType([
+          StringAttr.from_str(""),
+          ArrayAttr.from_list([IntegerType.from_width(8)] * 8)
+      ])
     raise Exception(f"type conversion not yet implemented for {type(type_)}")
 
   def convert_bag(self, bag: RelImpl.Bag) -> it.Stream:
