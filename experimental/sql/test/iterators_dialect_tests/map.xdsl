@@ -1,0 +1,29 @@
+// RUN: rel_opt.py %s | filecheck %s
+
+module() {
+  func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+    %input : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[0 : !i32], [1 : !i32], [2 : !i32], [3 : !i32]]]
+    %map : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.map(%input : !iterators.stream<!llvm.struct<"", [!i32]>>) ["mapFuncRef" = @double_struct]
+    func.return()
+  }
+  func.func() ["sym_name" = "double_struct", "function_type" = !fun<[!llvm.struct<"", [!i32]>], [!llvm.struct<"", [!i32]>]>, "sym_visibility" = "private"] {
+    ^0(%struct : !llvm.struct<"", [!i32]>):
+      %i : !i32 = llvm.extractvalue(%struct : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
+      %doubled : !i32 = arith.addi(%i : !i32, %i : !i32)
+      %result : !llvm.struct<"", [!i32]> = llvm.insertvalue(%struct : !llvm.struct<"", [!i32]>, %i : !i32) ["position" = [0 : !index]]
+      func.return(%result : !llvm.struct<"", [!i32]>)
+  }
+}
+
+//      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "public"] {
+// CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[0 : !i32], [1 : !i32], [2 : !i32], [3 : !i32]]]
+// CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.map(%{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>>) ["mapFuncRef" = @double_struct]
+// CHECK-NEXT:     func.return()
+// CHECK-NEXT:   }
+// CHECK-NEXT:   func.func() ["sym_name" = "double_struct", "function_type" = !fun<[!llvm.struct<"", [!i32]>], [!llvm.struct<"", [!i32]>]>, "sym_visibility" = "private"] {
+// CHECK-NEXT:     ^0(%{{.*}} : !llvm.struct<"", [!i32]>):
+// CHECK-NEXT:       %{{.*}} : !i32 = llvm.extractvalue(%{{.*}} : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
+// CHECK-NEXT:       %{{.*}} : !i32 = arith.addi(%{{.*}} : !i32, %{{.*}} : !i32)
+// CHECK-NEXT:       %{{.*}} : !llvm.struct<"", [!i32]> = llvm.insertvalue(%{{.*}} : !llvm.struct<"", [!i32]>, %{{.*}} : !i32) ["position" = [0 : !index]]
+// CHECK-NEXT:       func.return(%{{.*}} : !llvm.struct<"", [!i32]>)
+// CHECK-NEXT:   }

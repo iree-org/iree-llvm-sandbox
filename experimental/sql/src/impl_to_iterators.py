@@ -147,7 +147,35 @@ class YieldRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.Yield, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(Return.get(*op.ops))
+    if isinstance(op.parent_op(), RelImpl.Select):
+      rewriter.replace_matched_op(Return.get(*op.ops))
+    else:
+      assert (isinstance(op.parent_op(), RelImpl.Project))
+      for i, o in zip(range(len(op.ops)), op.ops):
+        rewriter.insert_op_before_matched_op(
+            LLVMInsertValue.build(
+                operands=[op.parent_block().args[0], o],
+                attributes={
+                    "position":
+                        ArrayAttr.from_list(
+                            [IntegerAttr.from_index_int_value(i)])
+                },
+                result_types=[
+                    self.convert_bag(op.parent_op().results[0].typ).types
+                ]))
+      rewriter.replace_matched_op(Return.get(op.parent_block().args[0]))
+
+
+@dataclass
+class BinOpRewriter(RelImplRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.BinOp, rewriter: PatternRewriter):
+    if op.operator.data == "+":
+      rewriter.replace_matched_op(Addi.get(op.lhs, op.rhs))
+      return
+    raise Exception(f"BinOp conversion not yet implemented for " +
+                    op.operator.data)
 
 
 #===------------------------------------------------------------------------===#
@@ -204,6 +232,27 @@ class SelectRewriter(RelImplRewriter):
     self.count = self.count + 1
 
 
+@dataclass
+class ProjectRewriter(RelImplRewriter):
+
+  count: int = 0
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.Project, rewriter: PatternRewriter):
+    rewriter.modify_block_argument_type(
+        op.projection.blocks[0].args[0],
+        self.convert_tuple(op.projection.blocks[0].args[0].typ))
+    new_reg = rewriter.move_region_contents_to_new_regions(op.projection)
+    op.parent_op().parent_region().blocks[0].add_op(
+        FuncOp.from_region("m" + str(self.count),
+                           [new_reg.blocks[0].args[0].typ],
+                           [self.convert_bag(op.result.typ).types], new_reg))
+    rewriter.replace_matched_op(
+        it.MapOp.get(op.input.op, StringAttr.from_str("m" + str(self.count)),
+                     self.convert_bag(op.result.typ)))
+    self.count = self.count + 1
+
+
 #===------------------------------------------------------------------------===#
 # Conversion setup
 #===------------------------------------------------------------------------===#
@@ -220,12 +269,12 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))
   # Adding the return
   query.body.blocks[0].ops[0].body.blocks[0].add_op(Return.get())
-  # IndexByNames need to be rewritten first, since otherwise, their respective
-  # operand type does not contain the schema anymore, making it impossible to
-  # lookup the position in their tuple struct.
-  index_walker = PatternRewriteWalker(GreedyRewritePatternApplier([
-      IndexByNameRewriter(),
-  ]),
+  # IndexByNames and Yields need to be rewritten first, since both need access
+  # to the rel_impl schemas to find the right position in the case of
+  # IndexByName or to find the right result type in the case of  Yield
+  # respectively.
+  index_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
+      [IndexByNameRewriter(), YieldRewriter()]),
                                       walk_regions_first=False,
                                       apply_recursively=False,
                                       walk_reverse=False)
@@ -236,7 +285,8 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       SelectRewriter(),
       LiteralRewriter(),
       CompareRewriter(),
-      YieldRewriter()
+      ProjectRewriter(),
+      BinOpRewriter()
   ]),
                                 walk_regions_first=False,
                                 apply_recursively=False,

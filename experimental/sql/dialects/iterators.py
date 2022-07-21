@@ -118,6 +118,34 @@ class FilterOp(Operation):
 
 
 @irdl_op_definition
+class MapOp(Operation):
+  """
+  Reads the elements of its operand stream and maps each of them to a new
+  element, i.e., transforms the input stream elementwise.
+
+  Example:
+  ```mlir
+  %mapped : (!iterators.stream<i32>) = iterators.map(%input : ... ) {"mapFuncRef" = @abs} :
+              (!iterators.stream<i32>)
+  ```
+  """
+  name = "iterators.map"
+
+  input = OperandDef(Stream)
+  mapFuncRef = AttributeDef(FlatSymbolRefAttr)
+
+  result = ResultDef(Stream)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, func: StringAttr,
+          res_type: Attribute) -> 'FilterOp':
+    return MapOp.build(operands=[input],
+                       attributes={"mapFuncRef": FlatSymbolRefAttr([func])},
+                       result_types=[res_type])
+
+
+@irdl_op_definition
 class ConstantStreamOp(Operation):
   """
   Produces a stream of LLVM structs given in the array of arrays attribute
@@ -174,5 +202,6 @@ class Iterators:
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)
     self.ctx.register_op(FilterOp)
+    self.ctx.register_op(MapOp)
     self.ctx.register_op(SinkOp)
     self.ctx.register_op(ConstantStreamOp)
