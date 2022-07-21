@@ -305,7 +305,7 @@ class Yield(Expression):
 
 
 @irdl_op_definition
-class YieldValue(Expression):
+class YieldValue(Yield):
   """
   Bridges the gap from expressions back to operators by yielding the result of
   an expression to the encompassing operator.
@@ -327,7 +327,7 @@ class YieldValue(Expression):
 
 
 @irdl_op_definition
-class YieldTuple(Expression):
+class YieldTuple(Yield):
   """
   Bridges the gap from expressions back to operators by yielding the result of
   an expression to the encompassing operator.
