@@ -35,6 +35,8 @@ class DataType(ParametrizedAttribute):
   """
   name = "ibis.datatype"
 
+  nullable: ParameterDef[IntegerAttr]
+
 
 @irdl_attr_definition
 class Decimal(DataType):
@@ -99,17 +101,10 @@ class String(DataType):
   Example:
 
   ```
-  !ibis.string<0 : !i1>
+  !ibis.string
   ```
   """
   name = "ibis.string"
-
-  nullable: ParameterDef[IntegerAttr]
-
-  @builder
-  @staticmethod
-  def get(val: int) -> 'String':
-    return String([IntegerAttr.from_int_and_width(val, 1)])
 
 
 @irdl_op_definition

@@ -3,17 +3,17 @@
 module() {
   ibis.selection() ["names" = []] {
      ibis.unbound_table() ["table_name" = "t"] {
-       ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int64]
+       ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int64<0 : !i1>]
      }
    } {
      ibis.equals() {
        ibis.table_column() ["col_name" = "id"] {
          ibis.unbound_table() ["table_name" = "t"] {
-           ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int64]
+           ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int64<0 : !i1>]
          }
        }
      } {
-       ibis.literal() ["val" = 5 : !i64, "type" = !ibis.int64]
+       ibis.literal() ["val" = 5 : !i64, "type" = !ibis.int64<0 : !i1>]
      }
    } {}
 }

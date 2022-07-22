@@ -4,7 +4,7 @@ module() {
   ibis.selection() ["names" = []] {
     // selection input
     ibis.unbound_table() ["table_name" = "t"] {
-      ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
+      ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32<0 : !i1>]
     }
   } {
     // selection predicate
@@ -12,12 +12,12 @@ module() {
       // predicate column
       ibis.table_column() ["col_name" = "id"] {
         ibis.unbound_table() ["table_name" = "t"] {
-          ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
+          ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32<0 : !i1>]
         }
       }
     } {
       // predicate literal
-      ibis.literal() ["val" = 5, "type" = !ibis.int32]
+      ibis.literal() ["val" = 5, "type" = !ibis.int32<0 : !i1>]
     }
   } {
 
