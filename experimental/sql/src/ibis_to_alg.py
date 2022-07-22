@@ -23,18 +23,22 @@ import dialects.rel_alg as RelAlg
 class IbisRewriter(RewritePattern):
 
   def convert_datatype(self, type_: ibis.DataType) -> RelAlg.DataType:
+    ret_type = None
     if isinstance(type_, ibis.String):
-      return RelAlg.String.get(type_.nullable)
-    if isinstance(type_, ibis.Int32):
-      return RelAlg.Int32()
-    if isinstance(type_, ibis.Int64):
-      return RelAlg.Int64()
-    if isinstance(type_, ibis.Timestamp):
-      return RelAlg.Timestamp()
-    if isinstance(type_, ibis.Decimal):
-      return RelAlg.Decimal()
-    raise Exception(
-        f"datatype conversion not yet implemented for {type(type_)}")
+      ret_type = RelAlg.String()
+    elif isinstance(type_, ibis.Int32):
+      ret_type = RelAlg.Int32()
+    elif isinstance(type_, ibis.Int64):
+      ret_type = RelAlg.Int64()
+    elif isinstance(type_, ibis.Timestamp):
+      ret_type = RelAlg.Timestamp()
+    elif isinstance(type_, ibis.Decimal):
+      ret_type = RelAlg.Decimal()
+    else:
+      raise Exception(
+          f"datatype conversion not yet implemented for {type(type_)}")
+    return RelAlg.Nullable([ret_type
+                           ]) if type_.nullable.value.data == 1 else ret_type
 
 
 @dataclass

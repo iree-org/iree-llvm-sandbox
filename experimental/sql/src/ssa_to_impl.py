@@ -23,7 +23,7 @@ class RelSSARewriter(RewritePattern):
 
   def convert_datatype(self, type_: RelSSA.DataType) -> RelImpl.DataType:
     if isinstance(type_, RelSSA.String):
-      return RelImpl.String.get(type_.nullable)
+      return RelImpl.String()
     if isinstance(type_, RelSSA.Int32):
       return RelImpl.Int32()
     if isinstance(type_, RelSSA.Int64):
@@ -32,6 +32,8 @@ class RelSSARewriter(RewritePattern):
       return RelImpl.Decimal()
     if isinstance(type_, RelSSA.Timestamp):
       return RelImpl.Timestamp()
+    if isinstance(type_, RelSSA.Nullable):
+      return RelImpl.Nullable([self.convert_datatype(type_.type)])
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 

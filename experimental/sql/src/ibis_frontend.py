@@ -25,15 +25,20 @@ import dialects.ibis_dialect as id
 
 def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
   if isinstance(type_, ibis.expr.datatypes.String):
-    return id.String.get(1 if type_.nullable else 0)
+    return id.String(
+        [IntegerAttr.from_int_and_width(1 if type_.nullable else 0, 1)])
   if isinstance(type_, ibis.expr.datatypes.Int32):
-    return id.Int32()
+    return id.Int32(
+        [IntegerAttr.from_int_and_width(1 if type_.nullable else 0, 1)])
   if isinstance(type_, ibis.expr.datatypes.Int64):
-    return id.Int64()
+    return id.Int64(
+        [IntegerAttr.from_int_and_width(1 if type_.nullable else 0, 1)])
   if isinstance(type_, ibis.expr.datatypes.Decimal):
-    return id.Decimal()
+    return id.Decimal(
+        [IntegerAttr.from_int_and_width(1 if type_.nullable else 0, 1)])
   if isinstance(type_, ibis.expr.datatypes.Timestamp):
-    return id.Timestamp()
+    return id.Timestamp(
+        [IntegerAttr.from_int_and_width(1 if type_.nullable else 0, 1)])
   raise KeyError(f"Unknown datatype: {type(type_)}")
 
 

@@ -6,4 +6,4 @@ table = ibis.table([("EXTENDEDPRICE", "decimal")],
 table.filter(table['EXTENDEDPRICE'] >= ibis.literal(decimal.Decimal("0.05"), "decimal(6, 2)"))
 
 
-# CHECK: ibis.literal() ["val" = "0.05", "type" = !ibis.decimal]
+# CHECK: ibis.literal() ["val" = "0.05", "type" = !ibis.decimal<1 : !i1>]
