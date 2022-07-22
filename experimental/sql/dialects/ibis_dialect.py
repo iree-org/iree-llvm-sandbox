@@ -45,6 +45,9 @@ class Decimal(DataType):
   """
   name = "ibis.decimal"
 
+  prec: ParameterDef[IntegerAttr]
+  scale: ParameterDef[IntegerAttr]
+
 
 @irdl_attr_definition
 class Timestamp(DataType):
