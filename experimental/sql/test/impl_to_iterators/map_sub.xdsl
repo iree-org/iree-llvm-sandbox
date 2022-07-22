@@ -1,0 +1,13 @@
+// RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
+
+module() {
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"c", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "t"]
+  %1 : !rel_impl.bag<[!rel_impl.schema_element<"b", !rel_impl.int32>]> = rel_impl.project(%0 : !rel_impl.bag<[!rel_impl.schema_element<"c", !rel_impl.int32>]>) {
+    ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"c", !rel_impl.int32>]>):
+    %3 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"c", !rel_impl.int32>]>) ["col_name" = "c"]
+    %4 : !rel_impl.int32 = rel_impl.bin_op(%3 : !rel_impl.int32, %3 : !rel_impl.int32) ["operator" = "-"]
+    rel_impl.yield(%4 : !rel_impl.int32)
+ }
+}
+
+// CHECK:       %{{.*}} : !i32 = arith.subi(%{{.*}} : !i32, %{{.*}} : !i32)
