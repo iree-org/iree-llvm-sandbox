@@ -29,7 +29,12 @@ class RelSSARewriter(RewritePattern):
     if isinstance(type_, RelSSA.Int64):
       return RelImpl.Int64()
     if isinstance(type_, RelSSA.Decimal):
-      return RelImpl.Decimal()
+      return RelImpl.Decimal([
+          IntegerAttr.from_int_and_width(type_.prec.value.data,
+                                         type_.prec.typ.width.data),
+          IntegerAttr.from_int_and_width(type_.scale.value.data,
+                                         type_.scale.typ.width.data)
+      ])
     if isinstance(type_, RelSSA.Timestamp):
       return RelImpl.Timestamp()
     raise Exception(
