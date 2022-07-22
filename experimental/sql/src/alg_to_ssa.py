@@ -34,7 +34,12 @@ class RelAlgRewriter(RewritePattern):
     if isinstance(type_, RelAlg.Int64):
       return RelSSA.Int64()
     if isinstance(type_, RelAlg.Decimal):
-      return RelSSA.Decimal()
+      return RelSSA.Decimal([
+          IntegerAttr.from_int_and_width(type_.prec.value.data,
+                                         type_.prec.typ.width.data),
+          IntegerAttr.from_int_and_width(type_.scale.value.data,
+                                         type_.scale.typ.width.data)
+      ])
     if isinstance(type_, RelAlg.Timestamp):
       return RelSSA.Timestamp()
     raise Exception(

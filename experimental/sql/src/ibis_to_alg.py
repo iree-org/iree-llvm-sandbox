@@ -32,7 +32,12 @@ class IbisRewriter(RewritePattern):
     if isinstance(type_, ibis.Timestamp):
       return RelAlg.Timestamp()
     if isinstance(type_, ibis.Decimal):
-      return RelAlg.Decimal()
+      return RelAlg.Decimal([
+          IntegerAttr.from_int_and_width(type_.prec.value.data,
+                                         type_.prec.typ.width.data),
+          IntegerAttr.from_int_and_width(type_.scale.value.data,
+                                         type_.scale.typ.width.data)
+      ])
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
