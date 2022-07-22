@@ -43,7 +43,7 @@ class Decimal(DataType):
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/datatypes.py#L344
   """
-  name = "ibis.decimal"
+  name = "ibis.decimal<4 : !i32, 2 : !i32>"
 
   prec: ParameterDef[IntegerAttr]
   scale: ParameterDef[IntegerAttr]
