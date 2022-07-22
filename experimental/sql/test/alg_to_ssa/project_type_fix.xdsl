@@ -3,7 +3,7 @@
 module() {
   rel_alg.project() ["names" = ["bc"]] {
     rel_alg.table() ["table_name" = "t"] {
-      rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.string<1 : !i1>]
+      rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.string]
       rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.decimal<4 : !i32, 2 : !i32>]
       rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.decimal<4 : !i32, 2 : !i32>]
     }

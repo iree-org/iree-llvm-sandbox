@@ -28,7 +28,7 @@ class RelAlgRewriter(RewritePattern):
 
   def convert_datatype(self, type_: RelAlg.DataType) -> RelSSA.DataType:
     if isinstance(type_, RelAlg.String):
-      return RelSSA.String.from_attr(type_.nullable)
+      return RelSSA.String()
     if isinstance(type_, RelAlg.Int32):
       return RelSSA.Int32()
     if isinstance(type_, RelAlg.Int64):
@@ -42,6 +42,8 @@ class RelAlgRewriter(RewritePattern):
       ])
     if isinstance(type_, RelAlg.Timestamp):
       return RelSSA.Timestamp()
+    if isinstance(type_, RelAlg.Nullable):
+      return RelSSA.Nullable([self.convert_datatype(type_.type)])
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 

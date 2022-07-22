@@ -24,7 +24,7 @@ class IbisRewriter(RewritePattern):
 
   def convert_datatype(self, type_: ibis.DataType) -> RelAlg.DataType:
     if isinstance(type_, ibis.String):
-      return RelAlg.String.get(type_.nullable)
+      return RelAlg.String()
     if isinstance(type_, ibis.Int32):
       return RelAlg.Int32()
     if isinstance(type_, ibis.Int64):
@@ -38,6 +38,8 @@ class IbisRewriter(RewritePattern):
           IntegerAttr.from_int_and_width(type_.scale.value.data,
                                          type_.scale.typ.width.data)
       ])
+    if isinstance(type_, ibis.Nullable):
+      return RelAlg.Nullable([self.convert_datatype(type_.datatype)])
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 

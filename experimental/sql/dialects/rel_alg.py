@@ -91,19 +91,25 @@ class String(DataType):
   Example:
 
   ```
-  !rel_alg.string<0: !i1>
+  !rel_alg.string
   ```
   """
   name = "rel_alg.string"
 
-  nullable: ParameterDef[IntegerAttr]
 
-  @staticmethod
-  @builder
-  def get(val: Union[int, IntegerAttr]) -> 'String':
-    if isinstance(val, IntegerAttr):
-      return String([val])
-    return String([IntegerAttr.from_int_and_width(val, 1)])
+@irdl_attr_definition
+class Nullable(DataType):
+  """
+  Models a type that is nullable.
+
+  Example:
+  ```
+  !rel_alg.nullable<!rel_alg.string>
+  ```
+  """
+  name = "rel_alg.nullable"
+
+  type: ParameterDef[DataType]
 
 
 class Expression(Operation):
@@ -381,6 +387,7 @@ class RelationalAlg:
     self.ctx.register_attr(Timestamp)
     self.ctx.register_attr(Decimal)
     self.ctx.register_attr(Int64)
+    self.ctx.register_attr(Nullable)
 
     self.ctx.register_op(Table)
     self.ctx.register_op(SchemaElement)
