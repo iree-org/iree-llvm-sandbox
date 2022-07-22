@@ -37,6 +37,8 @@ class RelImplRewriter(RewritePattern):
     if isinstance(type_, RelImpl.Timestamp):
       return IntegerType.from_width(32)
     if isinstance(type_, RelImpl.String):
+      # TODO: This is a shortcut to represent strings in some way. Adjust this
+      # to a) non-fixed length strings or b) dynamically fixed size strings.
       return LLVMStructType([
           StringAttr.from_str(""),
           ArrayAttr.from_list([IntegerType.from_width(8)] * 8)
@@ -198,6 +200,7 @@ class BinOpRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.BinOp, rewriter: PatternRewriter):
+    # TODO: Decimals might change precision here. Reflect that somehow.
     if op.operator.data == "+":
       rewriter.replace_matched_op(Addi.get(op.lhs, op.rhs))
       return
