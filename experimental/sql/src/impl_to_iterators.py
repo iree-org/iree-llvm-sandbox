@@ -14,6 +14,8 @@ from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, P
 
 import dialects.rel_impl as RelImpl
 import dialects.iterators as it
+from decimal import Decimal
+from numpy import datetime64, timedelta64
 
 # This file contains the rewrite infrastructure to translate the relational
 # implementation dialect to the iterators dialect. The current design has a
@@ -30,6 +32,17 @@ class RelImplRewriter(RewritePattern):
     if isinstance(type_, RelImpl.Int64):
       # TODO: this is obviously broken, but the backend currently only support i32
       return IntegerType.from_width(32)
+    if isinstance(type_, RelImpl.Decimal):
+      return IntegerType.from_width(32)
+    if isinstance(type_, RelImpl.Timestamp):
+      return IntegerType.from_width(32)
+    if isinstance(type_, RelImpl.String):
+      # TODO: This is a shortcut to represent strings in some way. Adjust this
+      # to a) non-fixed length strings or b) dynamically fixed size strings.
+      return LLVMStructType([
+          StringAttr.from_str(""),
+          ArrayAttr.from_list([IntegerType.from_width(8)] * 8)
+      ])
     raise Exception(f"type conversion not yet implemented for {type(type_)}")
 
   def convert_bag(self, bag: RelImpl.Bag) -> it.Stream:
@@ -92,8 +105,24 @@ class LiteralRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.Literal, rewriter: PatternRewriter):
-    rewriter.replace_matched_op(
-        Constant.from_int_constant(op.value.value, op.value.typ))
+    if isinstance(op.result.typ, RelImpl.Int32) or isinstance(
+        op.result.typ, RelImpl.Int64):
+      rewriter.replace_matched_op(
+          Constant.from_int_constant(op.value.value, op.value.typ))
+    elif isinstance(op.result.typ, RelImpl.Decimal):
+      print(op.value.data)
+      rewriter.replace_matched_op(
+          Constant.from_int_constant(int(Decimal(op.value.data) * Decimal(100)),
+                                     32))
+    elif isinstance(op.result.typ, RelImpl.Timestamp):
+      rewriter.replace_matched_op(
+          Constant.from_int_constant(
+              int((datetime64(op.value.data) - datetime64('1970-01-01')) //
+                  timedelta64(1, 'D')), 32))
+    else:
+      raise Exception(
+          f"lowering of literals with type {type(op.result.typ)} not yet implemented"
+      )
 
 
 @dataclass
@@ -171,6 +200,7 @@ class BinOpRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.BinOp, rewriter: PatternRewriter):
+    # TODO: Decimals might change precision here. Reflect that somehow.
     if op.operator.data == "+":
       rewriter.replace_matched_op(Addi.get(op.lhs, op.rhs))
       return
