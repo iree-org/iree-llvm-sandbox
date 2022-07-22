@@ -119,7 +119,6 @@ class LiteralRewriter(RelImplRewriter):
       rewriter.replace_matched_op(
           Constant.from_int_constant(op.value.value, op.value.typ))
     elif isinstance(op.result.typ, RelImpl.Decimal):
-      print(op.value.data)
       rewriter.replace_matched_op(
           Constant.from_int_constant(int(Decimal(op.value.data) * Decimal(100)),
                                      32))
