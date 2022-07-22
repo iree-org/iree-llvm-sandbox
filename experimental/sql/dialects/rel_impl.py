@@ -535,8 +535,8 @@ class Aggregate(Operator):
 
   @builder
   @staticmethod
-  def get(input: Operation, col_names: List[str],
-          functions: List[str]) -> 'Aggregate':
+  def get(input: Operation, col_names: List[str], functions: List[str],
+          res_names: List[str]) -> 'Aggregate':
     return Aggregate.create(
         operands=[input.result],
         attributes={
@@ -546,7 +546,7 @@ class Aggregate(Operator):
             "functions":
                 ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
         },
-        result_types=[Bag.get([Int32()] * len(functions), col_names)])
+        result_types=[Bag.get([Int32()] * len(functions), res_names)])
 
 
 @dataclass
