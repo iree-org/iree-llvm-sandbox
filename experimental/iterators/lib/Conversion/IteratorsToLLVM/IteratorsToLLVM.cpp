@@ -12,6 +12,8 @@
 #include "IteratorAnalysis.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Utils/MLIRSupport.h"
+#include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Arithmetic/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -46,12 +48,34 @@ struct ConvertIteratorsToLLVMPass
 /// Maps types from the Iterators dialect to corresponding types in LLVM.
 class IteratorsTypeConverter : public TypeConverter {
 public:
-  IteratorsTypeConverter() {
+  IteratorsTypeConverter(LLVMTypeConverter &llvmTypeConverter)
+      : llvmTypeConverter(llvmTypeConverter) {
     addConversion([](Type type) { return type; });
+    addConversion(convertColumnarBatchType);
     addConversion(convertTupleType);
+
+    // Convert MemRefType using LLVMTypeConverter.
+    addConversion([&](Type type) -> llvm::Optional<Type> {
+      if (type.isa<MemRefType>())
+        return llvmTypeConverter.convertType(type);
+      return llvm::None;
+    });
   }
 
 private:
+  /// Maps a ColumnarBatchType to an LLVMStruct of pointers.
+  static Optional<Type> convertColumnarBatchType(Type type) {
+    if (auto batchType = type.dyn_cast<ColumnarBatchType>()) {
+      Type i64 = IntegerType::get(type.getContext(), /*width=*/64);
+      SmallVector<Type> fieldTypes{i64};
+      fieldTypes.reserve(batchType.getTypes().size() + 1);
+      llvm::transform(batchType.getTypes(), std::back_inserter(fieldTypes),
+                      [](Type t) { return LLVMPointerType::get(t); });
+      return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
+    }
+    return llvm::None;
+  }
+
   /// Maps a TupleType to a corresponding LLVMStructType.
   static Optional<Type> convertTupleType(Type type) {
     if (auto tupleType = type.dyn_cast<TupleType>()) {
@@ -60,6 +84,8 @@ private:
     }
     return llvm::None;
   }
+
+  LLVMTypeConverter llvmTypeConverter;
 };
 
 /// Return a symbol reference to the printf function, inserting it into the
@@ -130,6 +156,65 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
   return b.create<GEPOp>(loc, LLVMPointerType::get(i8), globalPtr,
                          ArrayRef<Value>({zero, zero}));
 }
+
+/// Lowers view_as_columnar_batch to LLVM IR that extracts the bare pointers and
+/// the number of elements from the given memrefs.
+///
+/// Possible result:
+///
+/// %1 = builtin.unrealized_conversion_cast %0 :
+///        memref<3xi32> to !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///                                       array<1 x i64>, array<1 x i64>)>
+/// %2 = llvm.mlir.undef : !llvm.struct<(i64, ptr<i32>)>
+/// %3 = llvm.extractvalue %1[1] :
+///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///                      array<1 x i64>, array<1 x i64>)>
+/// %4 = llvm.extractvalue %1[3, 0] :
+///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///                      array<1 x i64>, array<1 x i64>)>
+/// %5 = llvm.insertvalue %3, %2[1 : index] : !llvm.struct<(i64, ptr<i32>)>
+/// %6 = llvm.insertvalue %4, %5[0 : index] : !llvm.struct<(i64, ptr<i32>)>
+struct ColumnarBatchFromMemrefsLowering
+    : public OpConversionPattern<ViewAsColumnarBatchOp> {
+  ColumnarBatchFromMemrefsLowering(TypeConverter &typeConverter,
+                                   MLIRContext *context,
+                                   PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(ViewAsColumnarBatchOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // Create empty struct for batch.
+    Type batchStructType = typeConverter->convertType(op.batch().getType());
+    Value batchStruct = rewriter.create<UndefOp>(loc, batchStructType);
+
+    // Extract column pointers and number of elements.
+    Value numElements;
+    for (const auto &indexedOperand : llvm::enumerate(adaptor.getOperands())) {
+      // Extract pointer and number of elements from memref descriptor.
+      MemRefDescriptor descriptor(indexedOperand.value());
+      Value ptr = descriptor.alignedPtr(rewriter, loc);
+      if (indexedOperand.index() == 0) {
+        numElements = descriptor.size(rewriter, loc, 0);
+      }
+
+      // Insert pointer into batch struct.
+      auto idx = static_cast<int64_t>(indexedOperand.index()) + 1;
+      batchStruct = createInsertValueOp(rewriter, loc, batchStruct, ptr, {idx});
+    }
+
+    // Insert number of elements.
+    batchStruct =
+        createInsertValueOp(rewriter, loc, batchStruct, numElements, {0});
+
+    // Replace original op.
+    rewriter.replaceOp(op, {batchStruct});
+
+    return success();
+  }
+};
 
 struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
   ConstantTupleLowering(TypeConverter &typeConverter, MLIRContext *context,
@@ -1490,13 +1575,15 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
 
 void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
-  patterns.add<ConstantTupleLowering, PrintTupleOpLowering, PrintOpLowering>(
-      typeConverter, patterns.getContext());
+  patterns.add<ColumnarBatchFromMemrefsLowering, ConstantTupleLowering,
+               PrintTupleOpLowering, PrintOpLowering>(typeConverter,
+                                                      patterns.getContext());
 }
 
 void ConvertIteratorsToLLVMPass::runOnOperation() {
   auto module = getOperation();
-  IteratorsTypeConverter typeConverter;
+  LLVMTypeConverter llvmTypeConverter(&getContext());
+  IteratorsTypeConverter typeConverter(llvmTypeConverter);
 
   // Convert iterator ops with custom walker.
   convertIteratorOps(module, typeConverter);

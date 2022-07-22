@@ -50,6 +50,35 @@ def Iterators_PrintOp : Iterators_Base_Op<"print"> {
   let arguments = (ins Iterators_LLVMStructOfNumerics:$element);
 }
 
+def Iterators_ViewAsColumnarBatchOp
+    : Iterators_Base_Op<"view_as_columnar_batch"> {
+  let summary = "Creates a `columnar_batch` from the given memrefs";
+  let description = [{
+    Converts a variadic number of memrefs of rank 1 into the columns of a
+    `columnar_batch` with corresponding column types. This currently only works
+    for memrefs that can be represented with a bare pointer, i.e., those with a
+    contiguous memory layout. In this case, no copy is involved. Furthermore, no
+    dynamic dimension is allowed currently (in order to avoid runtime checks).
+
+    This op may serve as an interface to other dialects and is useful for
+    creating `columnar_batch`es in unit tests.
+
+    Example:
+    ```mlir
+      %t1 = arith.constant dense<[0, 1, 2]> : tensor<3xi32>
+      %t2 = arith.constant dense<[3, 4, 5]> : tensor<3xi64>
+      %m1 = bufferization.to_memref %t1 : memref<3xi32>
+      %m2 = bufferization.to_memref %t2 : memref<3xi64>
+      %batch = "iterators.view_as_columnar_batch"(%m1, %m2)
+        : (memref<3xi32>, memref<3xi64>)
+          -> !iterators.columnar_batch<tuple<i32,i64>>
+    ```
+  }];
+  let arguments = (ins Variadic<AnyMemRef>:$memrefs);
+  let results = (outs Iterators_ColumnarBatch:$batch);
+  let hasVerifier = true;
+}
+
 //===----------------------------------------------------------------------===//
 // High-level iterators
 //===----------------------------------------------------------------------===//

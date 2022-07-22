@@ -5,7 +5,7 @@ import os
 from mlir_iterators.dialects import iterators as it
 from mlir_iterators.passmanager import PassManager
 from mlir_iterators.execution_engine import ExecutionEngine
-from mlir_iterators.ir import Context, Module, IntegerType
+from mlir_iterators.ir import Context, Module, IntegerType, TupleType
 import mlir_iterators.all_passes_registration
 
 
@@ -24,6 +24,16 @@ def testStreamType():
   st = it.StreamType.get(i32)
   # CHECK: !iterators.stream<i32>
   print(st)
+
+
+# CHECK-LABEL: TEST: testColumnarBatchType
+@run
+def testColumnarBatchType():
+  i32 = IntegerType.get_signless(32)
+  tup = TupleType.get_tuple([i32])
+  batch = it.ColumnarBatchType.get(tup)
+  # CHECK: !iterators.columnar_batch<tuple<i32>>
+  print(batch)
 
 
 @run

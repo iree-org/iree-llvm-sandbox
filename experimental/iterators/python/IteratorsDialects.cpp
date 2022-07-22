@@ -12,12 +12,25 @@
 #include <initializer_list>
 
 #include "iterators-c/Dialects.h"
+#include "mlir-c/BuiltinTypes.h"
 #include "mlir-c/IR.h"
 #include "mlir-c/Registration.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
 namespace py = pybind11;
 using namespace mlir::python::adaptors;
+
+/// Sets a python error, ready to be thrown to return control back to the
+/// python runtime.
+/// Correct usage:
+///   throw SetPyError(PyExc_ValueError, "Foobar'd");
+// Copied from llvm-project/mlir/lib/Bindings/Python/PybindUtils.cpp.
+py::error_already_set setPyError(PyObject *excClass,
+                                 const llvm::Twine &message) {
+  auto messageStr = message.str();
+  PyErr_SetString(excClass, messageStr.c_str());
+  return py::error_already_set();
+}
 
 PYBIND11_MODULE(_iteratorsDialects, mainModule) {
   //===--------------------------------------------------------------------===//
@@ -43,6 +56,24 @@ PYBIND11_MODULE(_iteratorsDialects, mainModule) {
   //
   // Types
   //
+
+  mlir_type_subclass(iteratorsModule, "ColumnarBatchType",
+                     mlirTypeIsAIteratorsColumnarBatchType)
+      .def_classmethod(
+          "get",
+          [](const py::object &cls, MlirType elementType, MlirContext context) {
+            if (!mlirTypeIsATuple(elementType)) {
+              throw setPyError(
+                  PyExc_ValueError,
+                  llvm::Twine(
+                      "invalid element_type: must be TupleType, found '") +
+                      py::repr(py::cast(elementType)).cast<std::string>() +
+                      "'.");
+            }
+            return cls(mlirIteratorsColumnarBatchTypeGet(context, elementType));
+          },
+          py::arg("cls"), py::arg("element_type"),
+          py::arg("context") = py::none());
 
   mlir_type_subclass(iteratorsModule, "StreamType",
                      mlirTypeIsAIteratorsStreamType)
