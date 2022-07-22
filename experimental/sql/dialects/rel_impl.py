@@ -308,7 +308,8 @@ class Yield(Expression):
 class YieldValue(Yield):
   """
   Bridges the gap from expressions back to operators by yielding the result of
-  an expression to the encompassing operator.
+  an expression to the encompassing operator. This `yield` is used for
+  operations that want a value as the result of executing the region.
 
   Example:
 
@@ -330,7 +331,10 @@ class YieldValue(Yield):
 class YieldTuple(Yield):
   """
   Bridges the gap from expressions back to operators by yielding the result of
-  an expression to the encompassing operator.
+  an expression to the encompassing operator. This `yield` is used for
+  operations that want new tuples as the result of executing the region. This
+  resulting tuple consists of the variadic operands of the `YieldTuple` in that
+  order.
 
   Example:
 
