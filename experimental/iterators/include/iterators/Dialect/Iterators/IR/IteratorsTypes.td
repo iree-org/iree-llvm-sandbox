@@ -14,6 +14,7 @@ include "iterators/Dialect/Iterators/IR/IteratorsInterfaces.td"
 include "mlir/Dialect/LLVMIR/LLVMOpBase.td"
 include "mlir/IR/AttrTypeBase.td"
 include "mlir/IR/BuiltinAttributes.td"
+include "mlir/IR/BuiltinTypes.td"
 include "mlir/IR/OpBase.td"
 
 // Base class for Iterators dialect types.
@@ -147,6 +148,27 @@ def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
                         Iterators_NumericArrayAttr.predicate>]>,
           "and where the inner arrays consist of numeric values">
       ]>;
+
+//===----------------------------------------------------------------------===//
+// Element types
+//===----------------------------------------------------------------------===//
+
+def Iterators_ColumnarBatch : Iterators_Type<"ColumnarBatch", "columnar_batch"> {
+  let summary = "Batch of tuples in columnar form";
+  let description = [{
+    A batch of tuples in columnar form, i.e., a horizontal slice of a table
+    represented by a collection of columns, each holding elements of the same
+    type and all with the same number of elements, where the elements at
+    matching indices represent a tuple.
+  }];
+  let parameters = (ins Builtin_Tuple:$elementType);
+  let assemblyFormat = "`<` qualified($elementType) `>`";
+  let extraClassDeclaration = [{
+    ::llvm::ArrayRef<::mlir::Type> getTypes() {
+      return this->getElementType().cast<TupleType>().getTypes();
+    }
+  }];
+}
 
 //===----------------------------------------------------------------------===//
 // State of low-level iterators

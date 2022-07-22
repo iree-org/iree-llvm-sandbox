@@ -24,6 +24,13 @@ extern "C" {
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Iterators, iterators);
 
 MLIR_CAPI_EXPORTED
+bool mlirTypeIsAIteratorsColumnarBatchType(MlirType type);
+
+MLIR_CAPI_EXPORTED
+MlirType mlirIteratorsColumnarBatchTypeGet(MlirContext context,
+                                           MlirType elementType);
+
+MLIR_CAPI_EXPORTED
 bool mlirTypeIsAIteratorsStreamType(MlirType type);
 
 MLIR_CAPI_EXPORTED

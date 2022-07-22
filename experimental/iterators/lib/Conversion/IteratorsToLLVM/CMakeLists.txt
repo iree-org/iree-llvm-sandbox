@@ -10,6 +10,7 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
   MLIRFuncDialect
   MLIRFuncTransforms
   MLIRIterators
+  MLIRLLVMCommonConversion
   MLIRLLVMDialect
   MLIRPass
   MLIRSCFDialect
