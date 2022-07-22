@@ -1,4 +1,4 @@
-// RUN: rel_opt.py -p impl-to-iterators %s | FileCheck %s
+// RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
 
 module() {
   %0 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
