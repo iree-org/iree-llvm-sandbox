@@ -198,7 +198,7 @@ class YieldTupleRewriter(RelImplRewriter):
           },
           result_types=[res_type])
       rewriter.insert_op_before_matched_op(new_tuple)
-    rewriter.replace_matched_op(Return.get(op.parent_block().args[0]))
+    rewriter.replace_matched_op(Return.get(new_tuple))
 
 
 @dataclass
