@@ -8,7 +8,7 @@ from typing import List, Type, Optional
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType
 from xdsl.dialects.llvm import LLVMStructType, LLVMExtractValue, LLVMInsertValue
 from xdsl.dialects.func import FuncOp, Return
-from xdsl.dialects.arith import Addi, Constant, Cmpi
+from xdsl.dialects.arith import Addi, Constant, Cmpi, Muli, Subi
 
 from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, PatternRewriteWalker, PatternRewriter, op_type_rewrite_pattern
 
@@ -173,6 +173,12 @@ class BinOpRewriter(RelImplRewriter):
   def match_and_rewrite(self, op: RelImpl.BinOp, rewriter: PatternRewriter):
     if op.operator.data == "+":
       rewriter.replace_matched_op(Addi.get(op.lhs, op.rhs))
+      return
+    if op.operator.data == "*":
+      rewriter.replace_matched_op(Muli.get(op.lhs, op.rhs))
+      return
+    if op.operator.data == "-":
+      rewriter.replace_matched_op(Subi.get(op.lhs, op.rhs))
       return
     raise Exception(f"BinOp conversion not yet implemented for " +
                     op.operator.data)
