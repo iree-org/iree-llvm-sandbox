@@ -57,15 +57,18 @@ class Int64(DataType):
 @irdl_attr_definition
 class Decimal(DataType):
   """
-  Models a decimal type in a relational SSA query.
+  Models a decimal type in a relational SSA query with precision `prec` and scale `scale`.
 
   Example:
 
   ```
-  !rel_ssa.decimal
+  !rel_ssa.decimal<4 : !i32, 2 : !i32>
   ```
   """
   name = "rel_ssa.decimal"
+
+  prec: ParameterDef[IntegerAttr]
+  scale: ParameterDef[IntegerAttr]
 
 
 @irdl_attr_definition
