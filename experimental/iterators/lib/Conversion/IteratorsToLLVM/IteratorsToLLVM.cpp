@@ -50,9 +50,9 @@ public:
   }
 
 private:
-  /// Maps a TupleType to a corresponding LLVMStructType
+  /// Maps a TupleType to a corresponding LLVMStructType.
   static Optional<Type> convertTupleType(Type type) {
-    if (TupleType tupleType = type.dyn_cast<TupleType>()) {
+    if (auto tupleType = type.dyn_cast<TupleType>()) {
       return LLVMStructType::getNewIdentified(type.getContext(), "tuple",
                                               tupleType.getTypes());
     }
