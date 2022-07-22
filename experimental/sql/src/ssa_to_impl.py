@@ -100,13 +100,22 @@ class BinOpRewriter(RelSSARewriter):
 
 
 @dataclass
-class YieldRewriter(RelSSARewriter):
+class YieldTupleRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelSSA.Yield, rewriter: PatternRewriter):
+  def match_and_rewrite(self, op: RelSSA.YieldTuple, rewriter: PatternRewriter):
     # TODO: This is a hack to circumvent the FrozenList. Could this be done cleaner?
     rewriter.replace_matched_op(
-        [RelImpl.Yield.get([o.op for o in op.operands])])
+        [RelImpl.YieldTuple.get([o.op for o in op.operands])])
+
+
+@dataclass
+class YieldValueRewriter(RelSSARewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.YieldValue, rewriter: PatternRewriter):
+    # TODO: This is a hack to circumvent the FrozenList. Could this be done cleaner?
+    rewriter.replace_matched_op([RelImpl.YieldValue.get(op.op.op)])
 
 
 #===------------------------------------------------------------------------===#
@@ -181,7 +190,8 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       LiteralRewriter(),
       ColumnRewriter(),
       CompareRewriter(),
-      YieldRewriter(),
+      YieldTupleRewriter(),
+      YieldValueRewriter(),
       ProjectRewriter(),
       AndRewriter(),
       BinOpRewriter()

@@ -10,7 +10,7 @@ module() {
       %6 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 7 : !i64]
       %7 : !rel_ssa.bool = rel_ssa.compare(%5 : !rel_ssa.int32, %6 : !rel_ssa.int32) ["comparator" = ">"]
       %8 : !rel_ssa.bool = rel_ssa.and(%7 : !rel_ssa.bool, %4 : !rel_ssa.bool)
-      rel_ssa.yield(%8 : !rel_ssa.bool)
+      rel_ssa.yield_value(%8 : !rel_ssa.bool)
   }
 }
 

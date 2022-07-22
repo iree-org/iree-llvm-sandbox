@@ -7,7 +7,7 @@ module() {
       %3 : !rel_impl.timestamp = rel_impl.literal() ["value" = "1994-10-10" ]
       %4 : !rel_impl.timestamp = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"date", !rel_impl.timestamp>]>) ["col_name" = "date"]
       %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.timestamp, %4 : !rel_impl.timestamp) ["comparator" = ">"]
-      rel_impl.yield(%5 : !rel_impl.bool)
+      rel_impl.yield_value(%5 : !rel_impl.bool)
   }
 }
 

@@ -6,7 +6,7 @@ module() {
     ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"c", !rel_impl.int32>]>):
     %3 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"c", !rel_impl.int32>]>) ["col_name" = "c"]
     %4 : !rel_impl.int32 = rel_impl.bin_op(%3 : !rel_impl.int32, %3 : !rel_impl.int32) ["operator" = "*"]
-    rel_impl.yield(%4 : !rel_impl.int32)
+    rel_impl.yield_tuple(%4 : !rel_impl.int32)
  }
 }
 

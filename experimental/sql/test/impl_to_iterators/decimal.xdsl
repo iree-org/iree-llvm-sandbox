@@ -7,7 +7,7 @@ module() {
       %3 : !rel_impl.decimal = rel_impl.literal() ["value" = "0.05" ]
       %4 : !rel_impl.decimal = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"price", !rel_impl.decimal>]>) ["col_name" = "price"]
       %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.decimal, %4 : !rel_impl.decimal) ["comparator" = ">"]
-      rel_impl.yield(%5 : !rel_impl.bool)
+      rel_impl.yield_value(%5 : !rel_impl.bool)
   }
 }
 
