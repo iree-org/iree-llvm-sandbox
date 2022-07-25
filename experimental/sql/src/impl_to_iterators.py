@@ -8,7 +8,7 @@ from typing import List, Type, Optional
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType
 from xdsl.dialects.llvm import LLVMStructType, LLVMExtractValue, LLVMInsertValue, LLVMMLIRUndef
 from xdsl.dialects.func import FuncOp, Return
-from xdsl.dialects.arith import Addi, Constant, Cmpi, Muli, Subi
+from xdsl.dialects.arith import Addi, Constant, Cmpi, Muli, Subi, AndI
 
 from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, PatternRewriteWalker, PatternRewriter, op_type_rewrite_pattern
 
@@ -27,11 +27,12 @@ from numpy import datetime64, timedelta64
 class RelImplRewriter(RewritePattern):
 
   def convert_datatype(self, type_: RelImpl.DataType) -> Attribute:
+    if isinstance(type_, RelImpl.Boolean):
+      return IntegerType.from_width(1)
     if isinstance(type_, RelImpl.Int32):
       return IntegerType.from_width(32)
     if isinstance(type_, RelImpl.Int64):
-      # TODO: this is obviously broken, but the backend currently only support i32
-      return IntegerType.from_width(32)
+      return IntegerType.from_width(64)
     if isinstance(type_, RelImpl.Decimal):
       return IntegerType.from_width(32)
     if isinstance(type_, RelImpl.Timestamp):
@@ -101,6 +102,14 @@ class RelImplRewriter(RewritePattern):
 
 
 @dataclass
+class AndRewriter(RelImplRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelImpl.And, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(AndI.get(op.lhs, op.rhs))
+
+
+@dataclass
 class LiteralRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
@@ -110,7 +119,6 @@ class LiteralRewriter(RelImplRewriter):
       rewriter.replace_matched_op(
           Constant.from_int_constant(op.value.value, op.value.typ))
     elif isinstance(op.result.typ, RelImpl.Decimal):
-      print(op.value.data)
       rewriter.replace_matched_op(
           Constant.from_int_constant(int(Decimal(op.value.data) * Decimal(100)),
                                      32))
@@ -149,7 +157,7 @@ class IndexByNameRewriter(RelImplRewriter):
 class CompareRewriter(RelImplRewriter):
 
   def convert_comparator(self, comparator: str) -> int:
-    if comparator == "==":
+    if comparator == "=":
       return 0
     elif comparator == "!=":
       return 1
@@ -329,7 +337,8 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
       CompareRewriter(),
       ProjectRewriter(),
       BinOpRewriter(),
-      YieldValueRewriter()
+      YieldValueRewriter(),
+      AndRewriter()
   ]),
                                 walk_regions_first=False,
                                 apply_recursively=False,

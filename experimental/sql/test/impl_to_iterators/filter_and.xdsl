@@ -1,0 +1,18 @@
+// RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
+
+module() {
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "t"]
+  %1 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]>) {
+  ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]>):
+    %3 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]>) ["col_name" = "id"]
+    %4 : !rel_impl.int32 = rel_impl.literal() ["value" = 5 : !i64]
+    %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.int32, %4 : !rel_impl.int32) ["comparator" = "="]
+    %6 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]>) ["col_name" = "b"]
+    %7 : !rel_impl.int32 = rel_impl.literal() ["value" = 7 : !i64]
+    %8 : !rel_impl.bool = rel_impl.compare(%6 : !rel_impl.int32, %7 : !rel_impl.int32) ["comparator" = ">"]
+    %9 : !rel_impl.bool = rel_impl.and(%8 : !rel_impl.bool, %5 : !rel_impl.bool)
+    rel_impl.yield_value(%9 : !rel_impl.bool)
+  }
+}
+
+// CHECK: %{{.*}} : !i1 = arith.andi(%{{.*}} : !i1, %{{.*}} : !i1)
