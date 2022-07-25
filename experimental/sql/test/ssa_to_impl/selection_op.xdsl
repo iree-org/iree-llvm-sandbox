@@ -6,7 +6,7 @@ module() {
         %2 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i32]
         %3 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
         %4 : !rel_ssa.bool = rel_ssa.compare(%2 : !rel_ssa.int32, %3 : !rel_ssa.int32) ["comparator" = "="]
-        rel_ssa.yield(%4 : !rel_ssa.bool)
+        rel_ssa.yield_value(%4 : !rel_ssa.bool)
     }
 }
 
@@ -16,5 +16,5 @@ module() {
 // CHECK-NEXT:        %3 : !rel_impl.int32 = rel_impl.literal() ["value" = 5 : !i32]
 // CHECK-NEXT:        %4 : !rel_impl.int32 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_name" = "id"]
 // CHECK-NEXT:        %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.int32, %4 : !rel_impl.int32) ["comparator" = "="]
-// CHECK-NEXT:        rel_impl.yield(%5 : !rel_impl.bool)
+// CHECK-NEXT:        rel_impl.yield_value(%5 : !rel_impl.bool)
 // CHECK-NEXT:    }
