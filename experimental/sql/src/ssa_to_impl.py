@@ -172,8 +172,10 @@ class AggregateRewriter(RelSSARewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelSSA.Aggregate, rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelImpl.Aggregate.get(op.input.op, [c.data for c in op.col_names.data],
-                              [f.data for f in op.functions.data]))
+        RelImpl.Aggregate.get(
+            op.input.op, [c.data for c in op.col_names.data],
+            [f.data for f in op.functions.data],
+            [s.elt_name.data for s in op.result.typ.schema.data]))
 
 
 #===------------------------------------------------------------------------===#
