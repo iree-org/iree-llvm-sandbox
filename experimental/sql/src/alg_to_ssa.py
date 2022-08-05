@@ -128,6 +128,7 @@ class BinOpRewriter(RelAlgRewriter):
     rewriter.inline_block_before_matched_op(op.rhs.blocks[0])
     right = rewriter.added_operations_before[-1]
 
+    # TODO: Make Decimals change their prec and scale on certain operations.
     new_op = RelSSA.BinOp.get(left, right, self.convert_bin_op_to_str(op))
     rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
