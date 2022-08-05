@@ -39,15 +39,19 @@ class Int32(DataType):
 @irdl_attr_definition
 class Decimal(DataType):
   """
-  Models a decimal type in a relational query.
+  Models a decimal type in a relational query with precision `prec` and scale
+  `scale`.
 
   Example:
 
   ```
-  !rel_alg.decimal
+  !rel_alg.decimal<4 : !i32, 2 : !i32>
   ```
   """
   name = "rel_alg.decimal"
+
+  prec: ParameterDef[IntegerAttr]
+  scale: ParameterDef[IntegerAttr]
 
 
 @irdl_attr_definition

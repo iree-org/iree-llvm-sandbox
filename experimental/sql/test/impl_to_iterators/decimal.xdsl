@@ -1,12 +1,12 @@
 // RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
 
 module() {
-  %0 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
-  %1 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal>]>) {
-    ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"price", !rel_impl.decimal>]>):
-      %3 : !rel_impl.decimal = rel_impl.literal() ["value" = "0.05" ]
-      %4 : !rel_impl.decimal = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"price", !rel_impl.decimal>]>) ["col_name" = "price"]
-      %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.decimal, %4 : !rel_impl.decimal) ["comparator" = ">"]
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal<4 : !i32, 2 : !i32>>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
+  %1 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal<4 : !i32, 2 : !i32>>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"price", !rel_impl.decimal<4 : !i32, 2 : !i32>>]>) {
+    ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"price", !rel_impl.decimal<4 : !i32, 2 : !i32>>]>):
+      %3 : !rel_impl.decimal<4 : !i32, 2 : !i32> = rel_impl.literal() ["value" = "0.05" ]
+      %4 : !rel_impl.decimal<4 : !i32, 2 : !i32> = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"price", !rel_impl.decimal<4 : !i32, 2 : !i32>>]>) ["col_name" = "price"]
+      %5 : !rel_impl.bool = rel_impl.compare(%3 : !rel_impl.decimal<4 : !i32, 2 : !i32>, %4 : !rel_impl.decimal<4 : !i32, 2 : !i32>) ["comparator" = ">"]
       rel_impl.yield_value(%5 : !rel_impl.bool)
   }
 }

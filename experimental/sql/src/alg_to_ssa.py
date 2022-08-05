@@ -34,7 +34,12 @@ class RelAlgRewriter(RewritePattern):
     if isinstance(type_, RelAlg.Int64):
       return RelSSA.Int64()
     if isinstance(type_, RelAlg.Decimal):
-      return RelSSA.Decimal()
+      return RelSSA.Decimal([
+          IntegerAttr.from_int_and_width(type_.prec.value.data,
+                                         type_.prec.typ.width.data),
+          IntegerAttr.from_int_and_width(type_.scale.value.data,
+                                         type_.scale.typ.width.data)
+      ])
     if isinstance(type_, RelAlg.Timestamp):
       return RelSSA.Timestamp()
     raise Exception(
@@ -123,6 +128,7 @@ class BinOpRewriter(RelAlgRewriter):
     rewriter.inline_block_before_matched_op(op.rhs.blocks[0])
     right = rewriter.added_operations_before[-1]
 
+    # TODO: Make Decimals change their prec and scale on certain operations.
     new_op = RelSSA.BinOp.get(left, right, self.convert_bin_op_to_str(op))
     rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 

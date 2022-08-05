@@ -31,7 +31,10 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
   if isinstance(type_, ibis.expr.datatypes.Int64):
     return id.Int64()
   if isinstance(type_, ibis.expr.datatypes.Decimal):
-    return id.Decimal()
+    return id.Decimal([
+        IntegerAttr.from_int_and_width(type_.precision, 32),
+        IntegerAttr.from_int_and_width(type_.scale, 32)
+    ])
   if isinstance(type_, ibis.expr.datatypes.Timestamp):
     return id.Timestamp()
   raise KeyError(f"Unknown datatype: {type(type_)}")
