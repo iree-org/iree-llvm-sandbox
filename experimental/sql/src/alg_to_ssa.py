@@ -141,6 +141,7 @@ class BinOpRewriter(RelAlgRewriter):
 @dataclass
 class ProjectRewriter(RelAlgRewriter):
 
+  # TODO: This could be implemented in a more natural way using Analysis Passes in MLIR.
   def find_type_of_expression(self, op: RelAlg.Expression,
                               input_bag: RelSSA.Bag) -> RelSSA.DataType:
     if isinstance(op, RelAlg.Column):
