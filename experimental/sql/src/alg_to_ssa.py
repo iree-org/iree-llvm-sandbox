@@ -148,6 +148,7 @@ class ProjectRewriter(RelAlgRewriter):
     if isinstance(op, RelAlg.Literal):
       return op.type
     if isinstance(op, RelAlg.BinOp):
+      # This uses the assumption that the lhs and rhs have the same type.
       return self.find_type_of_expression(op.lhs.op, input_bag)
     raise Exception(f"expression conversion not yet implemented for {type(op)}")
 
