@@ -5,7 +5,8 @@ module() {
         ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
         ibis.schema_element() ["elt_name" = "price", "elt_type" = !ibis.decimal<4 : !i32, 2 : !i32>]
         ibis.schema_element() ["elt_name" = "time", "elt_type" = !ibis.timestamp]
-        ibis.schema_element() ["elt_name" = "name", "elt_type" = !ibis.string<1 : !i1>]
+        ibis.schema_element() ["elt_name" = "name", "elt_type" = !ibis.string]
+        ibis.schema_element() ["elt_name" = "second_name", "elt_type" = !ibis.nullable<!ibis.string>]
     }
 }
 
@@ -13,5 +14,6 @@ module() {
 // CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
 // CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "price", "elt_type" = !rel_alg.decimal<4 : !i32, 2 : !i32>]
 // CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "time", "elt_type" = !rel_alg.timestamp]
-// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "name", "elt_type" = !rel_alg.string<1 : !i1>]
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "name", "elt_type" = !rel_alg.string]
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "second_name", "elt_type" = !rel_alg.nullable<!rel_alg.string>]
 // CHECK-Next: }

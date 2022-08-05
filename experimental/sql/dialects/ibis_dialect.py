@@ -37,6 +37,16 @@ class DataType(ParametrizedAttribute):
 
 
 @irdl_attr_definition
+class Nullable(DataType):
+  """
+  Models the fact that an ibis datatype is nullable.
+  """
+  name = "ibis.nullable"
+
+  datatype: ParameterDef[DataType]
+
+
+@irdl_attr_definition
 class Decimal(DataType):
   """
   Models the ibis decimal type.
@@ -102,17 +112,10 @@ class String(DataType):
   Example:
 
   ```
-  !ibis.string<0 : !i1>
+  !ibis.string
   ```
   """
   name = "ibis.string"
-
-  nullable: ParameterDef[IntegerAttr]
-
-  @builder
-  @staticmethod
-  def get(val: int) -> 'String':
-    return String([IntegerAttr.from_int_and_width(val, 1)])
 
 
 @irdl_op_definition
@@ -512,6 +515,7 @@ class Ibis:
     self.ctx.register_attr(Int64)
     self.ctx.register_attr(Decimal)
     self.ctx.register_attr(Timestamp)
+    self.ctx.register_attr(Nullable)
 
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)

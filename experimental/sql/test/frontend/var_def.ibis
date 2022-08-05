@@ -6,20 +6,20 @@ table.filter(cond)
 
 #      CHECK: ibis.selection() ["names" = []] {
 # CHECK-NEXT:    ibis.unbound_table() ["table_name" = "t"] {
-# CHECK-NEXT:      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
-# CHECK-NEXT:      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
-# CHECK-NEXT:      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+# CHECK-NEXT:      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+# CHECK-NEXT:      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
 # CHECK-NEXT:    }
 # CHECK-NEXT:  } {
 # CHECK-NEXT:    ibis.equals() {
 # CHECK-NEXT:      ibis.table_column() ["col_name" = "a"] {
 # CHECK-NEXT:        ibis.unbound_table() ["table_name" = "t"] {
-# CHECK-NEXT:          ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string<1 : !i1>]
-# CHECK-NEXT:          ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
-# CHECK-NEXT:          ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+# CHECK-NEXT:          ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+# CHECK-NEXT:          ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:          ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
 # CHECK-NEXT:        }
 # CHECK-NEXT:      }
 # CHECK-NEXT:    } {
-# CHECK-NEXT:      ibis.literal() ["val" = "AS", "type" = !ibis.string<1 : !i1>]
+# CHECK-NEXT:      ibis.literal() ["val" = "AS", "type" = !ibis.nullable<!ibis.string>]
 # CHECK-NEXT:    }
 # CHECK-NEXT:  } {}

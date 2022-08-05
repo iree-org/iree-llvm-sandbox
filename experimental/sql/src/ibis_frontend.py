@@ -24,20 +24,24 @@ import dialects.ibis_dialect as id
 
 
 def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
+  ret_type = None
   if isinstance(type_, ibis.expr.datatypes.String):
-    return id.String.get(1 if type_.nullable else 0)
-  if isinstance(type_, ibis.expr.datatypes.Int32):
-    return id.Int32()
-  if isinstance(type_, ibis.expr.datatypes.Int64):
-    return id.Int64()
-  if isinstance(type_, ibis.expr.datatypes.Decimal):
-    return id.Decimal([
+    ret_type = id.String()
+  elif isinstance(type_, ibis.expr.datatypes.Int32):
+    ret_type = id.Int32()
+  elif isinstance(type_, ibis.expr.datatypes.Int64):
+    ret_type = id.Int64()
+  elif isinstance(type_, ibis.expr.datatypes.Timestamp):
+    ret_type = id.Timestamp()
+  elif isinstance(type_, ibis.expr.datatypes.Decimal):
+    ret_type = id.Decimal([
         IntegerAttr.from_int_and_width(type_.precision, 32),
         IntegerAttr.from_int_and_width(type_.scale, 32)
     ])
-  if isinstance(type_, ibis.expr.datatypes.Timestamp):
-    return id.Timestamp()
-  raise KeyError(f"Unknown datatype: {type(type_)}")
+  else:
+    raise Exception(
+        f"datatype conversion not yet implemented for {type(type_)}")
+  return id.Nullable([ret_type]) if type_.nullable else ret_type
 
 
 def convert_literal(literal) -> Attribute:

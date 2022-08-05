@@ -94,23 +94,25 @@ class String(DataType):
   Example:
 
   ```
-  !rel_ssa.string<0: !i1>
+  !rel_ssa.string
   ```
   """
   name = "rel_ssa.string"
 
-  # TODO: redefine nullable as a property of all fields
-  nullable: ParameterDef[IntegerAttr]
 
-  @staticmethod
-  @builder
-  def from_int(is_nullable: int) -> 'String':
-    return String([IntegerAttr.from_int_and_width(is_nullable, 1)])
+@irdl_attr_definition
+class Nullable(DataType):
+  """
+  Models a type that is nullable.
 
-  @staticmethod
-  @builder
-  def from_attr(is_nullable: IntegerAttr) -> 'String':
-    return String([is_nullable])
+  Example:
+  ```
+  !rel_ssa.nullable<!rel_ssa.string>
+  ```
+  """
+  name = "rel_ssa.nullable"
+
+  type: ParameterDef[DataType]
 
 
 #===------------------------------------------------------------------------===#
@@ -550,6 +552,7 @@ class RelSSA:
     self.ctx.register_attr(DataType)
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
+    self.ctx.register_attr(Nullable)
     self.ctx.register_attr(Timestamp)
     self.ctx.register_attr(Decimal)
     self.ctx.register_attr(String)
