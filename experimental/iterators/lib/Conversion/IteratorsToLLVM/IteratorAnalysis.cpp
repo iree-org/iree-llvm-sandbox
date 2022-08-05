@@ -35,7 +35,9 @@ static SymbolTriple assignFunctionNames(Operation *op,
 
 /// The state of ConstantStreamOp consists of a single number that corresponds
 /// to the index of the next struct returned by the iterator.
-static LLVM::LLVMStructType computeStateType(ConstantStreamOp op) {
+static LLVM::LLVMStructType
+computeStateType(ConstantStreamOp op,
+                 llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) {
   MLIRContext *context = op->getContext();
   Type i32 = IntegerType::get(context, /*width=*/32);
   return LLVM::LLVMStructType::getNewIdentified(
@@ -45,25 +47,29 @@ static LLVM::LLVMStructType computeStateType(ConstantStreamOp op) {
 /// The state of FilterOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 static LLVM::LLVMStructType
-computeStateType(FilterOp op, LLVM::LLVMStructType upstreamStateType) {
+computeStateType(FilterOp op,
+                 llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) {
   return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.filter_state", {upstreamStateType});
+      op->getContext(), "iterators.filter_state", {upstreamStateTypes[0]});
 }
 
 /// The state of MapOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 static LLVM::LLVMStructType
-computeStateType(MapOp op, LLVM::LLVMStructType upstreamStateType) {
+computeStateType(MapOp op,
+                 llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) {
   return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.map_state", {upstreamStateType});
+      op->getContext(), "iterators.map_state", {upstreamStateTypes[0]});
 }
 
 /// The state of ReduceOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 static LLVM::LLVMStructType
-computeStateType(ReduceOp op, LLVM::LLVMStructType upstreamStateType) {
+computeStateType(ReduceOp op,
+                 llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) {
+  assert(upstreamStateTypes.size() == 1);
   return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.reduce_state", {upstreamStateType});
+      op->getContext(), "iterators.reduce_state", {upstreamStateTypes[0]});
 }
 
 /// Build IteratorInfo, assigning new unique names as needed.
@@ -103,20 +109,17 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(Operation *rootOp)
   /// before any def.
   rootOp->walk([&](IteratorOpInterface iteratorOp) {
     llvm::TypeSwitch<Operation *, void>(iteratorOp)
-        /// The state of ConstantStreamOp consists of a single number that
-        /// corresponds to the next number returned by the iterator.
-        .Case<ConstantStreamOp>([&](auto op) {
-          auto stateType = computeStateType(op);
-          setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));
-        })
-        /// The respective state of FilterOp, MapOp, and ReduceOp only consist
-        /// of the state of its upstream iterator, i.e., the state of the
-        /// iterator that produces its input stream.
-        // TODO: Verifiers that op.input does not come from a bbArg.
-        .Case<FilterOp, MapOp, ReduceOp>([&](auto op) {
-          Operation *def = op.input().getDefiningOp();
-          auto stateType =
-              computeStateType(op, getExpectedIteratorInfo(def).stateType);
+        // TODO: Verify that operands do not come from bbArgs.
+        .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
+          llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes;
+          llvm::transform(op->getOperands(),
+                          std::back_inserter(upstreamStateTypes),
+                          [&](auto operand) {
+                            Operation *def = operand.getDefiningOp();
+                            return getExpectedIteratorInfo(def).stateType;
+                          });
+          LLVM::LLVMStructType stateType =
+              computeStateType(op, upstreamStateTypes);
           setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));
         })
         .Default([&](auto op) { assert(false && "Unexpected op"); });
