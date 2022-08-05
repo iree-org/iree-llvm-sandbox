@@ -141,6 +141,18 @@ class BinOpRewriter(RelAlgRewriter):
 @dataclass
 class ProjectRewriter(RelAlgRewriter):
 
+  # TODO: This could be implemented in a more natural way using Analysis Passes in MLIR.
+  def find_type_of_expression(self, op: RelAlg.Expression,
+                              input_bag: RelSSA.Bag) -> RelSSA.DataType:
+    if isinstance(op, RelAlg.Column):
+      return input_bag.lookup_type_in_schema(op.col_name.data)
+    if isinstance(op, RelAlg.Literal):
+      return op.type
+    if isinstance(op, RelAlg.BinOp):
+      # This uses the assumption that the lhs and rhs have the same type.
+      return self.find_type_of_expression(op.lhs.op, input_bag)
+    raise Exception(f"expression conversion not yet implemented for {type(op)}")
+
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input)
@@ -149,8 +161,7 @@ class ProjectRewriter(RelAlgRewriter):
         RelSSA.Project.get(
             rewriter.added_operations_before[-1],
             [n.data for n in op.names.data], [
-                input_bag.lookup_type_in_schema(op.col_name.data) if isinstance(
-                    op, RelAlg.Column) else RelSSA.Int64()
+                self.find_type_of_expression(op, input_bag)
                 for op in op.projections.ops
             ], rewriter.move_region_contents_to_new_regions(op.projections)))
     rewriter.erase_matched_op()
