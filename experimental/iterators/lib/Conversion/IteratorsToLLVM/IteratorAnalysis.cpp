@@ -110,7 +110,14 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(Operation *rootOp)
   rootOp->walk([&](IteratorOpInterface iteratorOp) {
     llvm::TypeSwitch<Operation *, void>(iteratorOp)
         // TODO: Verify that operands do not come from bbArgs.
-        .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
+        .Case<
+            // clang-format off
+            ConstantStreamOp,
+            FilterOp,
+            MapOp,
+            ReduceOp
+            // clang-format on
+            >([&](auto op) {
           llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes;
           llvm::transform(op->getOperands(),
                           std::back_inserter(upstreamStateTypes),

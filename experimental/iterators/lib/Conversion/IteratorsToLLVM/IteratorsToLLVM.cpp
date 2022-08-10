@@ -1048,7 +1048,14 @@ static Value buildOpenBody(Operation *op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
+      .Case<
+          // clang-format off
+          ConstantStreamOp,
+          FilterOp,
+          MapOp,
+          ReduceOp
+          // clang-format on
+          >([&](auto op) {
         return buildOpenBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -1058,7 +1065,14 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(Operation *op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   return llvm::TypeSwitch<Operation *, llvm::SmallVector<Value, 4>>(op)
-      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
+      .Case<
+          // clang-format off
+          ConstantStreamOp,
+          FilterOp,
+          MapOp,
+          ReduceOp
+          // clang-format on
+          >([&](auto op) {
         return buildNextBody(op, rewriter, initialState, upstreamInfos,
                              elementType);
       });
@@ -1069,7 +1083,14 @@ static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
+      .Case<
+          // clang-format off
+          ConstantStreamOp,
+          FilterOp,
+          MapOp,
+          ReduceOp
+          // clang-format on
+          >([&](auto op) {
         return buildCloseBody(op, rewriter, initialState, upstreamInfos);
       });
 }
@@ -1079,7 +1100,14 @@ static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
                                 ValueRange upstreamStates) {
   return llvm::TypeSwitch<Operation *, Value>(op)
-      .Case<ConstantStreamOp, FilterOp, MapOp, ReduceOp>([&](auto op) {
+      .Case<
+          // clang-format off
+          ConstantStreamOp,
+          FilterOp,
+          MapOp,
+          ReduceOp
+          // clang-format on
+          >([&](auto op) {
         return buildStateCreation(op, rewriter, stateType, upstreamStates);
       });
 }
