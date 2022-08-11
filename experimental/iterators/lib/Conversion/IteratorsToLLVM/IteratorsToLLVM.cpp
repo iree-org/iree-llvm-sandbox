@@ -431,7 +431,7 @@ static Value buildCloseBody(ConstantStreamOp op, RewriterBase &rewriter,
 /// return %1 : !llvm.struct<"iterators.constant_stream_state", (i32)>
 static Value buildStateCreation(ConstantStreamOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
-                                ValueRange upstreamStates) {
+                                ValueRange /*operands*/) {
   return rewriter.create<UndefOp>(op.getLoc(), stateType);
 }
 
@@ -613,10 +613,10 @@ static Value buildCloseBody(FilterOp op, RewriterBase &rewriter,
 ///          !llvm.struct<"iterators.filter_state", (!nested_state)>
 static Value buildStateCreation(FilterOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
-                                ValueRange upstreamStates) {
+                                ValueRange operands) {
   Location loc = op.getLoc();
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-  Value upstreamState = upstreamStates[0];
+  Value upstreamState = operands[0];
   return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
@@ -776,10 +776,10 @@ static Value buildCloseBody(MapOp op, RewriterBase &rewriter,
 ///          !llvm.struct<"iterators.filter_state", (!nested_state)>
 static Value buildStateCreation(MapOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
-                                ValueRange upstreamStates) {
+                                ValueRange operands) {
   Location loc = op.getLoc();
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-  Value upstreamState = upstreamStates[0];
+  Value upstreamState = operands[0];
   return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
@@ -989,10 +989,10 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
 static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
-                                ValueRange upstreamStates) {
+                                ValueRange operands) {
   Location loc = op.getLoc();
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-  Value upstreamState = upstreamStates[0];
+  Value upstreamState = operands[0];
   return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
@@ -1098,7 +1098,7 @@ static Value buildCloseBody(Operation *op, RewriterBase &rewriter,
 /// Type-switching proxy for builders of iterator state creation.
 static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType,
-                                ValueRange upstreamStates) {
+                                ValueRange operands) {
   return llvm::TypeSwitch<Operation *, Value>(op)
       .Case<
           // clang-format off
@@ -1108,7 +1108,7 @@ static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
           ReduceOp
           // clang-format on
           >([&](auto op) {
-        return buildStateCreation(op, rewriter, stateType, upstreamStates);
+        return buildStateCreation(op, rewriter, stateType, operands);
       });
 }
 
@@ -1396,7 +1396,7 @@ static Value convertIteratorOp(Operation *op, ValueRange operands,
 /// 2. The custom walker traverses the iterator ops in use-def order, converting
 ///    each iterator in an op-specific way providing the converted operands
 ///    (which it has walked before) to the conversion logic.
-static void convertIteratorOps(ModuleOp module) {
+static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
   IRRewriter rewriter(module.getContext());
   IteratorAnalysis analysis(module);
   BlockAndValueMapping mapping;
@@ -1412,15 +1412,35 @@ static void convertIteratorOps(ModuleOp module) {
 
   // Convert iterator ops in worklist order.
   for (Operation *op : workList) {
+    rewriter.setInsertionPoint(op);
+
     // Look up converted operands. The worklist order guarantees that they
-    // exist. Use unmodified operand if it isn't produced by an iterator op.
-    SmallVector<Value> operands;
-    for (Value operand : op->getOperands())
-      operands.push_back(mapping.lookupOrDefault(operand));
+    // exist. Use type converter if it isn't produced by an iterator op.
+    SmallVector<Value> mappedOperands;
+    for (Value operand : op->getOperands()) {
+      // Try mapping produced by analysis. This works for operands produced by
+      // iterator ops.
+      Value mappedOperand = mapping.lookupOrNull(operand);
+
+      // In the other cases (i.e., non-iterator operands), insert unrealized
+      // conversion cast to provide conversion with an operand of the converted
+      // type similar to the standard dialect conversion.
+      if (!mappedOperand) {
+        Location loc = op->getLoc();
+        Type convertedType = typeConverter.convertType(operand.getType());
+        if (convertedType != operand.getType()) {
+          mappedOperand = rewriter
+                              .create<UnrealizedConversionCastOp>(
+                                  loc, convertedType, operand)
+                              .getResult(0);
+        }
+      }
+
+      mappedOperands.push_back(mappedOperand);
+    }
 
     // Convert this op.
-    rewriter.setInsertionPoint(op);
-    Value converted = convertIteratorOp(op, operands, rewriter, analysis);
+    Value converted = convertIteratorOp(op, mappedOperands, rewriter, analysis);
     if (converted)
       mapping.map(op->getResult(0), converted);
     else
@@ -1440,9 +1460,10 @@ void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
 
 void ConvertIteratorsToLLVMPass::runOnOperation() {
   auto module = getOperation();
+  IteratorsTypeConverter typeConverter;
 
   // Convert iterator ops with custom walker.
-  convertIteratorOps(module);
+  convertIteratorOps(module, typeConverter);
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
@@ -1450,7 +1471,6 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
                          scf::SCFDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
-  IteratorsTypeConverter typeConverter;
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);
   if (failed(applyFullConversion(module, target, std::move(patterns))))
     signalPassFailure();
