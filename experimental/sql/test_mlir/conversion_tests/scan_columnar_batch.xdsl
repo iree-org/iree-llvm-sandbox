@@ -1,0 +1,19 @@
+// RUN: rel_opt.py -t mlir %s | filecheck %s
+
+module() {
+  func.func() ["sym_name" = "main", "function_type" = !fun<[!iterators.columnar_batch<!tuple<[!i32, !i64, !i64]>>], []>, "sym_visibility" = "public"] {
+    ^0(%input : !iterators.columnar_batch<!tuple<[!i32, !i64, !i64]>>):
+      %stream : !iterators.stream<!llvm.struct<"", [!i32, !i64, !i64]>> = iterators.scan_columnar_batch(%input : !iterators.columnar_batch<!tuple<[!i32, !i64, !i64]>>)
+      iterators.sink(%stream : !iterators.stream<!llvm.struct<"", [!i32, !i64, !i64]>>)
+      func.return()
+  }
+}
+
+
+// CHECK-NEXT: func.func @main(%input: !iterators.columnar_batch<tuple<i32, i64, i64>>) {
+// CHECK-NEXT:   %stream = "iterators.scan_columnar_batch"(%input)
+// CHECK-NEXT:   : (!iterators.columnar_batch<tuple<i32, i64, i64>>)
+// CHECK-NEXT:       -> !iterators.stream<!llvm.struct<(i32, i64, i64)>>
+// CHECK-NEXT:   "iterators.sink"(%stream) : (!iterators.stream<!llvm.struct<(i32, i64, i64)>>) -> ()
+// CHECK-NEXT:   return
+// CHECK-NEXT: }

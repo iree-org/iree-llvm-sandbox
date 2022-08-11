@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 from xdsl.ir import Operation, MLContext, Region, Block, Attribute
-from typing import List, Type, Optional
+from typing import List, Type, Optional, Tuple
 from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType
 from xdsl.dialects.llvm import LLVMStructType, LLVMExtractValue, LLVMInsertValue, LLVMMLIRUndef
 from xdsl.dialects.func import FuncOp, Return
@@ -23,42 +23,46 @@ from numpy import datetime64, timedelta64
 # `Rewriter`s. All other `Rewriter`s inherit from that class.
 
 
+def convert_datatype(type_: RelImpl.DataType) -> Attribute:
+  if isinstance(type_, RelImpl.Boolean):
+    return IntegerType.from_width(1)
+  if isinstance(type_, RelImpl.Int32):
+    return IntegerType.from_width(32)
+  if isinstance(type_, RelImpl.Int64):
+    return IntegerType.from_width(64)
+  if isinstance(type_, RelImpl.Decimal):
+    return IntegerType.from_width(32)
+  if isinstance(type_, RelImpl.Timestamp):
+    return IntegerType.from_width(32)
+  if isinstance(type_, RelImpl.String):
+    # TODO: This is a shortcut to represent strings in some way. Adjust this
+    # to a) non-fixed length strings or b) dynamically fixed size strings.
+    return LLVMStructType([
+        StringAttr.from_str(""),
+        ArrayAttr.from_list([IntegerType.from_width(8)] * 8)
+    ])
+  raise Exception(f"type conversion not yet implemented for {type(type_)}")
+
+
+def convert_bag(bag: RelImpl.Bag) -> it.Stream:
+  types = [convert_datatype(s.elt_type) for s in bag.schema.data]
+  return it.Stream.get(LLVMStructType.from_type_list(types))
+
+
+def convert_tuple(tuple: RelImpl.Tuple) -> LLVMStructType:
+  types = [convert_datatype(s.elt_type) for s in tuple.schema.data]
+  return LLVMStructType.from_type_list(types)
+
+
+def find_index_in_schema(col_name: str, tuple: RelImpl.Tuple):
+  for i, curr_elem in zip(range(len(tuple.schema.data)), tuple.schema.data):
+    if curr_elem.elt_name.data == col_name:
+      return i
+  raise Exception(f"name not found in tuple schema: " + col_name)
+
+
 @dataclass
 class RelImplRewriter(RewritePattern):
-
-  def convert_datatype(self, type_: RelImpl.DataType) -> Attribute:
-    if isinstance(type_, RelImpl.Boolean):
-      return IntegerType.from_width(1)
-    if isinstance(type_, RelImpl.Int32):
-      return IntegerType.from_width(32)
-    if isinstance(type_, RelImpl.Int64):
-      return IntegerType.from_width(64)
-    if isinstance(type_, RelImpl.Decimal):
-      return IntegerType.from_width(32)
-    if isinstance(type_, RelImpl.Timestamp):
-      return IntegerType.from_width(32)
-    if isinstance(type_, RelImpl.String):
-      # TODO: This is a shortcut to represent strings in some way. Adjust this
-      # to a) non-fixed length strings or b) dynamically fixed size strings.
-      return LLVMStructType([
-          StringAttr.from_str(""),
-          ArrayAttr.from_list([IntegerType.from_width(8)] * 8)
-      ])
-    raise Exception(f"type conversion not yet implemented for {type(type_)}")
-
-  def convert_bag(self, bag: RelImpl.Bag) -> it.Stream:
-    types = [self.convert_datatype(s.elt_type) for s in bag.schema.data]
-    return it.Stream.get(LLVMStructType.from_type_list(types))
-
-  def convert_tuple(self, tuple: RelImpl.Tuple) -> LLVMStructType:
-    types = [self.convert_datatype(s.elt_type) for s in tuple.schema.data]
-    return LLVMStructType.from_type_list(types)
-
-  def find_index_in_schema(self, col_name: str, tuple: RelImpl.Tuple):
-    for i, curr_elem in zip(range(len(tuple.schema.data)), tuple.schema.data):
-      if curr_elem.elt_name.data == col_name:
-        return i
-    raise Exception(f"name not found in tuple schema: " + col_name)
 
   def add_sum_function(self, region: Region, elem_types: List[Attribute],
                        name: str):
@@ -140,17 +144,17 @@ class IndexByNameRewriter(RelImplRewriter):
   def match_and_rewrite(self, op: RelImpl.IndexByName,
                         rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        LLVMExtractValue.build(
-            operands=[op.tuple],
-            result_types=[self.convert_datatype(op.result.typ)],
-            attributes={
-                "position":
-                    ArrayAttr.from_list([
-                        IntegerAttr.from_index_int_value(
-                            self.find_index_in_schema(op.col_name.data,
-                                                      op.tuple.typ))
-                    ])
-            }))
+        LLVMExtractValue.build(operands=[op.tuple],
+                               result_types=[convert_datatype(op.result.typ)],
+                               attributes={
+                                   "position":
+                                       ArrayAttr.from_list([
+                                           IntegerAttr.from_index_int_value(
+                                               find_index_in_schema(
+                                                   op.col_name.data,
+                                                   op.tuple.typ))
+                                       ])
+                               }))
 
 
 @dataclass
@@ -194,7 +198,7 @@ class YieldTupleRewriter(RelImplRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.YieldTuple,
                         rewriter: PatternRewriter):
-    res_type = self.convert_bag(op.parent_op().results[0].typ).types
+    res_type = convert_bag(op.parent_op().results[0].typ).types
     new_tuple = LLVMMLIRUndef.build(result_types=[res_type])
     rewriter.insert_op_before_matched_op(new_tuple)
     for i, o in zip(range(len(op.ops)), op.ops):
@@ -236,16 +240,14 @@ class BinOpRewriter(RelImplRewriter):
 @dataclass
 class FullTableScanRewriter(RelImplRewriter):
 
+  table_mapping: dict[str, it.ColumnarBatch]
+
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.FullTableScanOp,
                         rewriter: PatternRewriter):
-    # TODO: Change this once loading from input is supported
     rewriter.replace_matched_op(
-        it.ConstantStreamOp.get([[IntegerAttr.from_int_and_width(0, 32)],
-                                 [IntegerAttr.from_int_and_width(1, 32)],
-                                 [IntegerAttr.from_int_and_width(2, 32)],
-                                 [IntegerAttr.from_int_and_width(3, 32)]],
-                                self.convert_bag(op.result.typ)))
+        it.ScanColumnarBatch.get(self.table_mapping[op.table_name.data],
+                                 convert_bag(op.result.typ)))
 
 
 @dataclass
@@ -254,11 +256,11 @@ class AggregateRewriter(RelImplRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.Aggregate, rewriter: PatternRewriter):
     self.add_sum_function(op.parent_op().parent_region(),
-                          self.convert_bag(op.result.typ).types.types.data,
+                          convert_bag(op.result.typ).types.types.data,
                           "sum_struct")
     rewriter.replace_matched_op(
         it.ReduceOp.get(op.input.op, StringAttr.from_str("sum_struct"),
-                        self.convert_bag(op.result.typ)))
+                        convert_bag(op.result.typ)))
 
 
 @dataclass
@@ -270,7 +272,7 @@ class SelectRewriter(RelImplRewriter):
   def match_and_rewrite(self, op: RelImpl.Select, rewriter: PatternRewriter):
     rewriter.modify_block_argument_type(
         op.predicates.blocks[0].args[0],
-        self.convert_tuple(op.predicates.blocks[0].args[0].typ))
+        convert_tuple(op.predicates.blocks[0].args[0].typ))
     new_reg = rewriter.move_region_contents_to_new_regions(op.predicates)
     op.parent_op().parent_region().blocks[0].add_op(
         FuncOp.from_region("s" + str(self.count),
@@ -278,7 +280,7 @@ class SelectRewriter(RelImplRewriter):
                            [IntegerType.from_width(1)], new_reg))
     rewriter.replace_matched_op(
         it.FilterOp.get(op.input.op, StringAttr.from_str("s" + str(self.count)),
-                        self.convert_bag(op.result.typ)))
+                        convert_bag(op.result.typ)))
     self.count = self.count + 1
 
 
@@ -291,15 +293,15 @@ class ProjectRewriter(RelImplRewriter):
   def match_and_rewrite(self, op: RelImpl.Project, rewriter: PatternRewriter):
     rewriter.modify_block_argument_type(
         op.projection.blocks[0].args[0],
-        self.convert_tuple(op.projection.blocks[0].args[0].typ))
+        convert_tuple(op.projection.blocks[0].args[0].typ))
     new_reg = rewriter.move_region_contents_to_new_regions(op.projection)
     op.parent_op().parent_region().blocks[0].add_op(
         FuncOp.from_region("m" + str(self.count),
                            [new_reg.blocks[0].args[0].typ],
-                           [self.convert_bag(op.result.typ).types], new_reg))
+                           [convert_bag(op.result.typ).types], new_reg))
     rewriter.replace_matched_op(
         it.MapOp.get(op.input.op, StringAttr.from_str("m" + str(self.count)),
-                     self.convert_bag(op.result.typ)))
+                     convert_bag(op.result.typ)))
     self.count = self.count + 1
 
 
@@ -308,12 +310,41 @@ class ProjectRewriter(RelImplRewriter):
 #===------------------------------------------------------------------------===#
 
 
+def get_batch_and_name_list(
+    op: FuncOp) -> Tuple[list[str], list[it.ColumnarBatch]]:
+  batches = []
+  names = []
+  for o in op.body.ops:
+    if isinstance(o, RelImpl.FullTableScanOp):
+      curr_batch = it.ColumnarBatch.get(
+          TupleType([
+              ArrayAttr.from_list([
+                  convert_datatype(e.elt_type) for e in o.result.typ.schema.data
+              ])
+          ]))
+      batches.append(curr_batch)
+      names.append(o.table_name.data)
+
+  return names, batches
+
+
 def impl_to_iterators(ctx: MLContext, query: ModuleOp):
 
+  names, batches = get_batch_and_name_list(query)
+
+  table_mapping = {}
+
   # Wrapping everything into a main function
-  f = FuncOp.from_region("main", [], [],
-                         Region.from_block_list([query.body.detach_block(0)]))
+  body_block = Block.from_arg_types(batches)
+  body_block.add_ops(
+      [query.body.blocks[0].detach_op(o) for o in query.body.blocks[0].ops])
+  query.body.detach_block(0)
+  f = FuncOp.from_region("main", batches, [],
+                         Region.from_block_list([body_block]))
   query.body.add_block(Block.from_ops([f]))
+  # Populating a mapping from table names to BlockArguments
+  for n, b in zip(names, f.body.blocks[0].args):
+    table_mapping[n] = b
   # Adding the sink
   query.body.blocks[0].ops[0].body.blocks[0].add_op(
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))
@@ -330,7 +361,7 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
                                       walk_reverse=False)
   index_walker.rewrite_module(query)
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
-      FullTableScanRewriter(),
+      FullTableScanRewriter(table_mapping),
       AggregateRewriter(),
       SelectRewriter(),
       LiteralRewriter(),
