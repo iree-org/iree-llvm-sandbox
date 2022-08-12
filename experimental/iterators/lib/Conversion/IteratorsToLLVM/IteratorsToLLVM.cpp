@@ -429,9 +429,10 @@ static Value buildCloseBody(ConstantStreamOp op, RewriterBase &rewriter,
 /// %1 = llvm.insertvalue %0, %arg0[0 : index] :
 ///          !llvm.struct<"iterators.constant_stream_state", (i32)>
 /// return %1 : !llvm.struct<"iterators.constant_stream_state", (i32)>
-static Value buildStateCreation(ConstantStreamOp op, RewriterBase &rewriter,
-                                LLVM::LLVMStructType stateType,
-                                ValueRange /*operands*/) {
+static Value buildStateCreation(ConstantStreamOp op,
+                                ConstantStreamOp::Adaptor /*adaptor*/,
+                                RewriterBase &rewriter,
+                                LLVM::LLVMStructType stateType) {
   return rewriter.create<UndefOp>(op.getLoc(), stateType);
 }
 
@@ -611,12 +612,12 @@ static Value buildCloseBody(FilterOp op, RewriterBase &rewriter,
 ///                                     (!nested_state)>
 /// %2 = llvm.insertvalue %0, %1[0 : index] :
 ///          !llvm.struct<"iterators.filter_state", (!nested_state)>
-static Value buildStateCreation(FilterOp op, RewriterBase &rewriter,
-                                LLVM::LLVMStructType stateType,
-                                ValueRange operands) {
+static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
+                                RewriterBase &rewriter,
+                                LLVM::LLVMStructType stateType) {
   Location loc = op.getLoc();
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-  Value upstreamState = operands[0];
+  Value upstreamState = adaptor.input();
   return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
@@ -774,12 +775,12 @@ static Value buildCloseBody(MapOp op, RewriterBase &rewriter,
 /// %1 = llvm.mlir.undef : !llvm.struct<"iterators.map_state", (!nested_state)>
 /// %2 = llvm.insertvalue %0, %1[0 : index] :
 ///          !llvm.struct<"iterators.filter_state", (!nested_state)>
-static Value buildStateCreation(MapOp op, RewriterBase &rewriter,
-                                LLVM::LLVMStructType stateType,
-                                ValueRange operands) {
+static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
+                                RewriterBase &rewriter,
+                                LLVM::LLVMStructType stateType) {
   Location loc = op.getLoc();
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-  Value upstreamState = operands[0];
+  Value upstreamState = adaptor.input();
   return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
@@ -987,12 +988,12 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 ///                                     (!nested_state)>
 /// %2 = llvm.insertvalue %0, %1[0 : index] :
 ///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
-static Value buildStateCreation(ReduceOp op, RewriterBase &rewriter,
-                                LLVM::LLVMStructType stateType,
-                                ValueRange operands) {
+static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
+                                RewriterBase &rewriter,
+                                LLVM::LLVMStructType stateType) {
   Location loc = op.getLoc();
   Value undefState = rewriter.create<UndefOp>(loc, stateType);
-  Value upstreamState = operands[0];
+  Value upstreamState = adaptor.input();
   return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
 }
 
@@ -1108,7 +1109,9 @@ static Value buildStateCreation(IteratorOpInterface op, RewriterBase &rewriter,
           ReduceOp
           // clang-format on
           >([&](auto op) {
-        return buildStateCreation(op, rewriter, stateType, operands);
+        using OpAdaptor = typename decltype(op)::Adaptor;
+        OpAdaptor adaptor(operands, op->getAttrDictionary());
+        return buildStateCreation(op, adaptor, rewriter, stateType);
       });
 }
 
