@@ -105,7 +105,7 @@ class LookupFuncType<string opName, string symbolName>
             "       .getFunctionType()">;
 
 /// A predicate, that is, a function with a signature of the form (T) -> i1.
-class Iterators_Predicate
+class Iterators_PredicateFunctionType
   : Type<And<[FunctionType.predicate,
               CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 1">,
               CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">,
@@ -117,14 +117,14 @@ class Iterators_Predicate
          "FunctionType">;
 
 /// A FlatSymbolRef referring to a predicate.
-def Iterators_PredicateRefAttr
+def Iterators_PredicateFunctionSymbol
   : Confined<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
                       LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
-                      Iterators_Predicate<>.predicate>,
-          "referring to a " # Iterators_Predicate<>.summary>
+                      Iterators_PredicateFunctionType<>.predicate>,
+          "referring to a " # Iterators_PredicateFunctionType<>.summary>
       ]>;
 
 def Iterators_FilterOp : Iterators_Op<"filter",
@@ -145,7 +145,7 @@ def Iterators_FilterOp : Iterators_Op<"filter",
   }];
   let arguments = (ins
       Iterators_StreamOfLLVMStructOfNumerics:$input,
-      Iterators_PredicateRefAttr:$predicateRef
+      Iterators_PredicateFunctionSymbol:$predicateRef
     );
   let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
   let extraClassDeclaration = [{
@@ -157,7 +157,7 @@ def Iterators_FilterOp : Iterators_Op<"filter",
 }
 
 /// A predicate, that is, a function with a signature of the form (T) -> i1.
-class Iterators_MapFunc
+class Iterators_MapFunctionType
   : Type<And<[FunctionType.predicate,
               CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 1">,
               CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">
@@ -166,14 +166,14 @@ class Iterators_MapFunc
          "FunctionType">;
 
 /// A FlatSymbolRef referring to a predicate.
-def Iterators_MapFuncRefAttr
+def Iterators_MapFunctionSymbol
   : Confined<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
                       LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
-                      Iterators_MapFunc<>.predicate>,
-          "referring to a " # Iterators_MapFunc<>.summary>
+                      Iterators_MapFunctionType<>.predicate>,
+          "referring to a " # Iterators_MapFunctionType<>.summary>
       ]>;
 
 def Iterators_MapOp : Iterators_Op<"map",
@@ -196,7 +196,7 @@ def Iterators_MapOp : Iterators_Op<"map",
   }];
   let arguments = (ins
       Iterators_StreamOfLLVMStructOfNumerics:$input,
-      Iterators_MapFuncRefAttr:$mapFuncRef
+      Iterators_MapFunctionSymbol:$mapFuncRef
     );
   let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
   let extraClassDeclaration = [{
@@ -209,7 +209,7 @@ def Iterators_MapOp : Iterators_Op<"map",
 
 /// A reduce function, that is, a function with a signature of the form
 /// (T, T) -> T.
-class Iterators_ReduceFunc
+class Iterators_ReduceFunctionType
   : Type<And<[FunctionType.predicate,
               CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 2">,
               CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">,
@@ -223,14 +223,14 @@ class Iterators_ReduceFunc
          "FunctionType">;
 
 /// A FlatSymbolRef referring to a reduce function.
-def Iterators_ReduceFuncRefAttr
+def Iterators_ReduceFunctionSymbol
   : Confined<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
                       LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
-                      Iterators_ReduceFunc<>.predicate>,
-          "referring to a " # Iterators_ReduceFunc<>.summary>
+                      Iterators_ReduceFunctionType<>.predicate>,
+          "referring to a " # Iterators_ReduceFunctionType<>.summary>
       ]>;
 
 def Iterators_ReduceOp : Iterators_Op<"reduce",
@@ -254,7 +254,7 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
   }];
   let arguments = (ins
       Iterators_StreamOfLLVMStructOfNumerics:$input,
-      Iterators_ReduceFuncRefAttr:$reduceFuncRef
+      Iterators_ReduceFunctionSymbol:$reduceFuncRef
     );
   let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
   let extraClassDeclaration = [{
