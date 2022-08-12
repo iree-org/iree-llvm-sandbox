@@ -41,6 +41,8 @@ def convert_datatype(type_: RelImpl.DataType) -> Attribute:
         StringAttr.from_str(""),
         ArrayAttr.from_list([IntegerType.from_width(8)] * 8)
     ])
+  if isinstance(type_, RelImpl.Nullable):
+    return convert_datatype(type_.type)
   raise Exception(f"type conversion not yet implemented for {type(type_)}")
 
 
