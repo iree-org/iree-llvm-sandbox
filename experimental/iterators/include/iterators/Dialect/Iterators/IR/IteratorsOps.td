@@ -11,6 +11,7 @@
 
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
+include "iterators/Dialect/Tabular/IR/TabularTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpBase.td"
 
@@ -263,6 +264,29 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
           *this, reduceFuncRefAttr());
     }
   }];
+}
+
+def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
+    [AllMatch<["$input.getType().cast<TabularViewType>().getColumnTypes()",
+               "$result.getType().cast<StreamType>().getElementType()"
+               "    .cast<LLVM::LLVMStructType>().getBody()"],
+              "the field types of the LLVM struct in the result stream must "
+              "match the column types of the tabular view given as input">]> {
+  let summary = "Extracts the tuples from a tabular view as LLVM structs";
+  let description = [{
+    Produces a stream of LLVM structs from a given `tabular_view` (i.e., "scans"
+    the given `tabular_view`). Each LLVM struct represents one row, and the op
+    produces all rows in ascending order.
+
+    Example:
+    ```mlir
+    %stream = "iterators.tabular_view_to_stream"(%view)
+      : (!iterators.tabular_view<!t1, ..., !tn>)
+        -> !iterators.stream<!llvm.struct<(!t1, ..., !tn)>>
+    ```
+  }];
+  let arguments = (ins Tabular_TabularView:$input);
+  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
 }
 
 /// The sink op is a special op that only consumes a stream of values and

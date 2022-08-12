@@ -99,6 +99,24 @@ LLVMStructType StateTypeComputer::operator()(
       op->getContext(), "iterators.reduce_state", {upstreamStateTypes[0]});
 }
 
+/// The state of TabularViewToStreamOp consists of a single number that
+/// corresponds to the index of the next struct returned by the iterator and the
+/// input tabular view. Pseudo-code:
+///
+/// template <typename TabularViewType>
+/// struct { int64_t currentIndex; TabularViewType view; }
+template <>
+LLVMStructType StateTypeComputer::operator()(
+    TabularViewToStreamOp op,
+    llvm::SmallVector<LLVM::LLVMStructType> /*upstreamStateTypes*/) {
+  MLIRContext *context = op->getContext();
+  Type i64 = IntegerType::get(context, /*width=*/64);
+  Type viewType = typeConverter.convertType(op.input().getType());
+  return LLVM::LLVMStructType::getNewIdentified(
+      op->getContext(), "iterators.tabular_view_to_stream_state",
+      {i64, viewType});
+}
+
 /// Build IteratorInfo, assigning new unique names as needed. Takes the
 /// `LLVMStructType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
@@ -144,7 +162,8 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             ConstantStreamOp,
             FilterOp,
             MapOp,
-            ReduceOp
+            ReduceOp,
+            TabularViewToStreamOp
             // clang-format on
             >([&](auto op) {
           llvm::SmallVector<LLVMStructType> upstreamStateTypes;

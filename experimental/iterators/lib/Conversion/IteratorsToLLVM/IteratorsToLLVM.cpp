@@ -10,7 +10,9 @@
 
 #include "../PassDetail.h"
 #include "IteratorAnalysis.h"
+#include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Utils/MLIRSupport.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Arithmetic/Utils/Utils.h"
@@ -49,6 +51,7 @@ public:
   IteratorsTypeConverter() {
     addConversion([](Type type) { return type; });
     addConversion(convertTupleType);
+    addConversion(TabularTypeConverter::convertTabularViewType);
   }
 
 private:
@@ -1026,6 +1029,183 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
 }
 
 //===----------------------------------------------------------------------===//
+// TabularViewToStreamOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that (re) sets the current index to zero. Possible output:
+///
+/// %0 = llvm.mlir.constant(0 : i64) : i64
+/// %1 = llvm.insertvalue %0, %arg0[0 : index] :
+///          !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                       (i64, !tabular_view_type)>
+static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Insert constant zero into state.
+  Type i64 = b.getI64Type();
+  Attribute zeroAttr = b.getI64IntegerAttr(0);
+  Value zeroValue = b.create<LLVM::ConstantOp>(i64, zeroAttr);
+  Value updatedState = createInsertValueOp(b, initialState, zeroValue, {0});
+
+  return updatedState;
+}
+
+/// Builds IR that assembles an element from the values in the buffers at the
+/// current index and increments that index. Pseudo-code: Pseudo-code:
+///
+/// tuple = (buffer[current_index] for buffer in input)
+/// current_index++
+/// return tuple
+///
+/// Possible output:
+///
+/// %0 = llvm.extractvalue %arg0[0 : index] :
+///          !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                       (i64, !tabular_view_type)>
+/// %1 = llvm.extractvalue %arg0[1 : index] :
+///          !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                       (i64, !tabular_view_type)>
+/// %2 = llvm.extractvalue %1[0 : index] : !llvm.!tabular_view_type
+/// %3 = arith.cmpi slt, %0, %2 : i64
+/// %4:2 = scf.if %3 -> (!llvm.struct<"iterators.tabular_view_to_stream_state",
+///                                   (i64, !tabular_view_type)>,
+///                      !element_type) {
+///   %c1_i64 = arith.constant 1 : i64
+///   %5 = arith.addi %0, %c1_i64 : i64
+///   %6 = llvm.insertvalue %5, %arg0[0 : index] :
+///            !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                         (i64, !tabular_view_type)>
+///   %7 = llvm.mlir.undef : !element_type
+///   %8 = llvm.extractvalue %1[1 : index] : !llvm.!tabular_view_type
+///   %9 = llvm.getelementptr %8[%0] :
+///            (!llvm.ptr<!column_type_0>, i64) -> !llvm.ptr<!column_type_0>
+///   %10 = llvm.load %9 : !llvm.ptr<!column_type_0>
+///   %11 = llvm.insertvalue %10, %7[0 : index] : !element_type
+///   scf.yield %6, %11 :
+///       !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                    (i64, !tabular_view_type)>,
+///       !element_type
+/// } else {
+///   %5 = llvm.mlir.undef : !element_type
+///   scf.yield %arg0, %5 :
+///       !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                    (i64, !tabular_view_type)>,
+///       !element_type
+/// }
+static llvm::SmallVector<Value, 4>
+buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op->getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type i64 = b.getI64Type();
+
+  auto elementStructType = elementType.cast<LLVMStructType>();
+
+  // Extract current index.
+  Value currentIndex = createExtractValueOp(b, i64, initialState, {0});
+
+  // Extract input column buffers.
+  auto stateType = initialState.getType().cast<LLVMStructType>();
+  Type structOfInputBuffersType = stateType.getBody()[1];
+  Value structOfInputBuffers =
+      createExtractValueOp(b, structOfInputBuffersType, initialState, {1});
+
+  // Test if we have reached the end of the range.
+  Value lastIndex = createExtractValueOp(b, i64, structOfInputBuffers, {0});
+
+  ArithBuilder ab(b, b.getLoc());
+  Value hasNext = ab.slt(currentIndex, lastIndex);
+  auto ifOp = b.create<scf::IfOp>(
+      TypeRange{initialState.getType(), elementType}, hasNext,
+      /*thenBuilder=*/
+      [&](OpBuilder &builder, Location loc) {
+        ImplicitLocOpBuilder b(loc, builder);
+
+        // Increment index and update state.
+        Value one = b.create<arith::ConstantIntOp>(/*value=*/1,
+                                                   /*width=*/64);
+        ArithBuilder ab(b, b.getLoc());
+        Value updatedCurrentIndex = ab.add(currentIndex, one);
+        Value updatedState =
+            createInsertValueOp(b, initialState, updatedCurrentIndex, {0});
+
+        // Assemble field values from values at current index of column
+        // buffers.
+        Value nextElement = b.create<UndefOp>(elementType);
+        for (const auto &indexedFieldType :
+             llvm::enumerate(elementStructType.getBody())) {
+          auto fieldIndex = static_cast<int64_t>(indexedFieldType.index());
+          Type fieldType = indexedFieldType.value();
+          Type columnPointerType = LLVMPointerType::get(fieldType);
+
+          // Extract column pointer.
+          Value columnPtr = createExtractValueOp(
+              b, columnPointerType, structOfInputBuffers, {fieldIndex + 1});
+
+          // Get element pointer.
+          Value gep = b.create<GEPOp>(columnPointerType, columnPtr,
+                                      ValueRange{currentIndex});
+
+          // Load.
+          Value fieldValue = b.create<LoadOp>(gep);
+
+          // Insert into next element struct.
+          nextElement =
+              createInsertValueOp(b, nextElement, fieldValue, {fieldIndex});
+        }
+
+        b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
+      },
+      /*elseBuilder=*/
+      [&](OpBuilder &builder, Location loc) {
+        // Don't modify state; return undef element.
+        ImplicitLocOpBuilder b(loc, builder);
+        Value nextElement = b.create<UndefOp>(elementType);
+        b.create<scf::YieldOp>(ValueRange{initialState, nextElement});
+      });
+
+  Value finalState = ifOp->getResult(0);
+  Value nextElement = ifOp.getResult(1);
+  return {finalState, hasNext, nextElement};
+}
+
+/// Builds IR that does nothing. The TabularViewToStreamOp does not need to do
+/// anything on close.
+static Value buildCloseBody(TabularViewToStreamOp /*op*/,
+                            OpBuilder & /*rewriter*/, Value initialState,
+                            ArrayRef<IteratorInfo> /*upstreamInfos*/) {
+  return initialState;
+}
+
+/// Builds IR that initializes the iterator state with the columnar input
+/// buffers and an undefined current index. Possible output:
+///
+/// %0 = ...
+/// %1 = llvm.mlir.undef :
+///          !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                       (i64, !tabular_view_type)>
+/// %2 = llvm.insertvalue %0, %1[1 : index] :
+///          !llvm.struct<"iterators.tabular_view_to_stream_state",
+///                       (i64, !tabular_view_type)>
+static Value buildStateCreation(TabularViewToStreamOp op,
+                                TabularViewToStreamOp::Adaptor adaptor,
+                                OpBuilder &builder,
+                                LLVM::LLVMStructType stateType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Insert input into iterator state.
+  Value iteratorState = b.create<UndefOp>(stateType);
+  Value input = adaptor.input();
+  iteratorState = createInsertValueOp(b, iteratorState, input, {1});
+
+  return iteratorState;
+}
+
+//===----------------------------------------------------------------------===//
 // Helpers for creating Open/Next/Close functions and state creation.
 //===----------------------------------------------------------------------===//
 
@@ -1082,7 +1262,8 @@ static Value buildOpenBody(Operation *op, OpBuilder &builder,
           ConstantStreamOp,
           FilterOp,
           MapOp,
-          ReduceOp
+          ReduceOp,
+          TabularViewToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildOpenBody(op, builder, initialState, upstreamInfos);
@@ -1099,7 +1280,8 @@ buildNextBody(Operation *op, OpBuilder &builder, Value initialState,
           ConstantStreamOp,
           FilterOp,
           MapOp,
-          ReduceOp
+          ReduceOp,
+          TabularViewToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildNextBody(op, builder, initialState, upstreamInfos,
@@ -1117,7 +1299,8 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
           ConstantStreamOp,
           FilterOp,
           MapOp,
-          ReduceOp
+          ReduceOp,
+          TabularViewToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildCloseBody(op, builder, initialState, upstreamInfos);
@@ -1134,7 +1317,8 @@ static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
           ConstantStreamOp,
           FilterOp,
           MapOp,
-          ReduceOp
+          ReduceOp,
+          TabularViewToStreamOp
           // clang-format on
           >([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;
@@ -1542,7 +1726,7 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
   typeConverter.addSourceMaterialization(addUnrealizedCast);
   typeConverter.addTargetMaterialization(addUnrealizedCast);
 
-  if (failed(applyFullConversion(module, target, std::move(patterns))))
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
 
