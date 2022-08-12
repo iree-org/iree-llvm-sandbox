@@ -294,6 +294,30 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
   }];
 }
 
+def Iterators_ScanColumnarBatchOp : Iterators_Op<"scan_columnar_batch",
+    [AllMatch<["$batch.getType().cast<ColumnarBatchType>().getTypes()",
+               "$result.getType().cast<StreamType>().getElementType()"
+               "    .cast<LLVM::LLVMStructType>().getBody()"],
+              "the field types of the LLVM struct in the result stream must "
+              "match the types of the input batch">]> {
+  let summary = "Extracts the tuples from a columnar batch";
+  let description = [{
+    Produces a stream of LLVM structs from a given `columnar_batch` (i.e.,
+    "scans" the given `columnar_batch`). Each LLVM struct is assembled from the
+    values in the different columns at the same index, and the op produces the
+    tuples at all indices in ascending order.
+
+    Example:
+    ```mlir
+    %stream = "iterators.scan_columnar_batch"(%batch)
+      : (!iterators.columnar_batch<!tuple_type>)
+        -> !iterators.stream<!struct_type>
+    ```
+  }];
+  let arguments = (ins Iterators_ColumnarBatch:$batch);
+  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+}
+
 /// The sink op is a special op that only consumes a stream of values and
 /// produces nothing.
 /// It is not marked with Iterators_IteratorOpInterface.

@@ -99,6 +99,24 @@ LLVMStructType StateTypeComputer::operator()(
       op->getContext(), "iterators.reduce_state", {upstreamStateTypes[0]});
 }
 
+/// The state of ScanColumnarBatchOp consists of a single number that
+/// corresponds to the index of the next struct returned by the iterator and the
+/// input columnar batch. Pseudo-code:
+///
+/// template <typename BatchType>
+/// struct { int64_t currentIndex; BatchType batch; }
+template <>
+LLVMStructType StateTypeComputer::operator()(
+    ScanColumnarBatchOp op,
+    llvm::SmallVector<LLVM::LLVMStructType> /*upstreamStateTypes*/) {
+  MLIRContext *context = op->getContext();
+  Type i64 = IntegerType::get(context, /*width=*/64);
+  Type batchType = typeConverter.convertType(op.batch().getType());
+  return LLVM::LLVMStructType::getNewIdentified(
+      op->getContext(), "iterators.scan_columnar_batch_state",
+      {i64, batchType});
+}
+
 /// Build IteratorInfo, assigning new unique names as needed. Takes the
 /// `LLVMStructType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
@@ -144,7 +162,8 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             ConstantStreamOp,
             FilterOp,
             MapOp,
-            ReduceOp
+            ReduceOp,
+            ScanColumnarBatchOp
             // clang-format on
             >([&](auto op) {
           llvm::SmallVector<LLVMStructType> upstreamStateTypes;

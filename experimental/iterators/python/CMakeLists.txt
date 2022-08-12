@@ -36,6 +36,13 @@ declare_mlir_python_extension(IteratorsPythonSources.PassesExtension
   IteratorsCAPI
 )
 
+declare_mlir_python_sources(IteratorsPythonSources.ExecutionEngine
+  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_iterators"
+  ADD_TO_PARENT IteratorsPythonSources
+  SOURCES_GLOB
+    runtime/*.py
+)
+
 # ###############################################################################
 # Common CAPI
 # ###############################################################################
