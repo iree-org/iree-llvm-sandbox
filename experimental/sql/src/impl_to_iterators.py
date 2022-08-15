@@ -5,7 +5,7 @@
 from dataclasses import dataclass
 from xdsl.ir import Operation, MLContext, Region, Block, Attribute
 from typing import List, Type, Optional, Tuple
-from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType
+from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, IntegerType, TupleType, UnitAttr
 from xdsl.dialects.llvm import LLVMStructType, LLVMExtractValue, LLVMInsertValue, LLVMMLIRUndef
 from xdsl.dialects.func import FuncOp, Return
 from xdsl.dialects.arith import Addi, Constant, Cmpi, Muli, Subi, AndI
@@ -15,7 +15,9 @@ from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, P
 import dialects.rel_impl as RelImpl
 import dialects.iterators as it
 from decimal import Decimal
-from numpy import datetime64, timedelta64
+from datetime import datetime
+from numpy import datetime64
+from time import mktime
 
 # This file contains the rewrite infrastructure to translate the relational
 # implementation dialect to the iterators dialect. The current design has a
@@ -31,9 +33,9 @@ def convert_datatype(type_: RelImpl.DataType) -> Attribute:
   if isinstance(type_, RelImpl.Int64):
     return IntegerType.from_width(64)
   if isinstance(type_, RelImpl.Decimal):
-    return IntegerType.from_width(32)
+    return IntegerType.from_width(64)
   if isinstance(type_, RelImpl.Timestamp):
-    return IntegerType.from_width(32)
+    return IntegerType.from_width(64)
   if isinstance(type_, RelImpl.String):
     # TODO: This is a shortcut to represent strings in some way. Adjust this
     # to a) non-fixed length strings or b) dynamically fixed size strings.
@@ -89,7 +91,8 @@ class RelImplRewriter(RewritePattern):
                         attributes=
                         {"position": ArrayAttr.from_list([index_attr])},
                         operands=[ba2]),
-                    s := Addi.get(l, r),
+                    s := Addi.build(operands=[l, r],
+                                    result_types=[l.results[0].typ]),
                     res := LLVMInsertValue.build(
                         result_types=[struct_type],
                         operands=[ba1, s],
@@ -120,23 +123,29 @@ class LiteralRewriter(RelImplRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.Literal, rewriter: PatternRewriter):
-    if isinstance(op.result.typ, RelImpl.Int32) or isinstance(
-        op.result.typ, RelImpl.Int64):
+    type = op.result.typ
+    if isinstance(type, RelImpl.Nullable):
+      type = type.type
+    if isinstance(type, RelImpl.Int32) or isinstance(type, RelImpl.Int64):
       rewriter.replace_matched_op(
           Constant.from_int_constant(op.value.value, op.value.typ))
-    elif isinstance(op.result.typ, RelImpl.Decimal):
+    elif isinstance(type, RelImpl.Decimal):
       rewriter.replace_matched_op(
           Constant.from_int_constant(int(Decimal(op.value.data) * Decimal(100)),
-                                     32))
-    elif isinstance(op.result.typ, RelImpl.Timestamp):
+                                     64))
+    elif isinstance(type, RelImpl.Timestamp):
+      d = datetime64(op.value.data)
       rewriter.replace_matched_op(
           Constant.from_int_constant(
-              int((datetime64(op.value.data) - datetime64('1970-01-01')) //
-                  timedelta64(1, 'D')), 32))
+              int(
+                  mktime(
+                      datetime(
+                          d.astype(object).year,
+                          d.astype(object).month,
+                          d.astype(object).day).timetuple())), 64))
     else:
       raise Exception(
-          f"lowering of literals with type {type(op.result.typ)} not yet implemented"
-      )
+          f"lowering of literals with type {type(type)} not yet implemented")
 
 
 @dataclass
@@ -222,10 +231,12 @@ class BinOpRewriter(RelImplRewriter):
   def match_and_rewrite(self, op: RelImpl.BinOp, rewriter: PatternRewriter):
     # TODO: Decimals might change precision here. Reflect that somehow.
     if op.operator.data == "+":
-      rewriter.replace_matched_op(Addi.get(op.lhs, op.rhs))
+      rewriter.replace_matched_op(
+          Addi.build(operands=[op.lhs, op.rhs], result_types=[op.lhs.typ]))
       return
     if op.operator.data == "*":
-      rewriter.replace_matched_op(Muli.get(op.lhs, op.rhs))
+      rewriter.replace_matched_op(
+          Muli.build(operands=[op.lhs, op.rhs], result_types=[op.lhs.typ]))
       return
     if op.operator.data == "-":
       rewriter.replace_matched_op(Subi.get(op.lhs, op.rhs))
@@ -349,6 +360,7 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
   query.body.detach_block(0)
   f = FuncOp.from_region("main", batches, [],
                          Region.from_block_list([body_block]))
+  f.attributes['llvm.emit_c_interface'] = UnitAttr([])
   query.body.add_block(Block.from_ops([f]))
   # Populating a mapping from table names to BlockArguments
   for n, b in zip(names, f.body.blocks[0].args):

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from dataclasses import dataclass
-from typing import Any, Union, List
+from typing import Any, Union, List, Optional
 from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, Data, MLContext, Attribute
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
 from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
@@ -179,6 +179,15 @@ class Bag(ParametrizedAttribute):
   def get(types: list[DataType], names: list[str]) -> 'Bag':
     schema_elts = [SchemaElement.get(n, t) for n, t in zip(names, types)]
     return Bag([ArrayAttr.from_list(schema_elts)])
+
+  def lookup_type_in_schema(self, name: str) -> Optional[DataType]:
+    """
+    Looks up the type of name in the schema of this bag.
+    """
+    for s in self.schema.data:
+      if s.elt_name.data == name:
+        return s.elt_type
+    return None
 
 
 @irdl_attr_definition
@@ -554,7 +563,11 @@ class Aggregate(Operator):
             "functions":
                 ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
         },
-        result_types=[Bag.get([Int32()] * len(functions), res_names)])
+        result_types=[
+            Bag.get(
+                [input.result.typ.lookup_type_in_schema(n) for n in col_names],
+                res_names)
+        ])
 
 
 @dataclass

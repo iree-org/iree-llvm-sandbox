@@ -5,7 +5,7 @@ module() {
     %1 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
 }
 
-//      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[!iterators.columnar_batch<!tuple<[!i32]>>], []>, "sym_visibility" = "private"] {
+//      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[!iterators.columnar_batch<!tuple<[!i32]>>], []>, "sym_visibility" = "private", "llvm.emit_c_interface"] {
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>):
 // CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.scan_columnar_batch(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>)
 // CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.reduce(%{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>>) ["reduceFuncRef" = @sum_struct]
