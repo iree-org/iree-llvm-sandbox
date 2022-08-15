@@ -133,12 +133,11 @@ class LiteralRewriter(RelImplRewriter):
           Constant.from_int_constant(int(Decimal(op.value.data) * Decimal(100)),
                                      64))
     elif isinstance(type, RelImpl.Timestamp):
+      epoch = datetime.utcfromtimestamp(0)
       rewriter.replace_matched_op(
           Constant.from_int_constant(
-              int(
-                  mktime(
-                      datetime.strptime(op.value.data, "%Y-%m-%d").replace(
-                          tzinfo=timezone.utc).timetuple())), 64))
+              int((datetime.strptime(op.value.data, "%Y-%m-%d") -
+                   epoch).total_seconds()), 64))
     else:
       raise Exception(
           f"lowering of literals with type {type(type)} not yet implemented")
