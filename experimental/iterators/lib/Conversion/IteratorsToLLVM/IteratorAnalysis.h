@@ -20,12 +20,19 @@ namespace iterators {
 
 class IteratorOpInterface;
 
-/// Information about each op constructed by IteratorAnalysis.
+/// Information about each iterator op constructed by IteratorAnalysis.
 struct IteratorInfo {
   /// Takes the `LLVM::LLVMStructType` as a parameter, to ensure proper build
   /// order (all uses are visited before any def).
   IteratorInfo(IteratorOpInterface op, NameAssigner &nameAssigner,
                LLVM::LLVMStructType t);
+
+  // Rule of five: default constructors/assignment operators
+  IteratorInfo() = default;
+  IteratorInfo(const IteratorInfo &other) = default;
+  IteratorInfo(IteratorInfo &&other) = default;
+  IteratorInfo &operator=(const IteratorInfo &other) = default;
+  IteratorInfo &operator=(IteratorInfo &&other) = default;
 
   // Pre-assigned symbols that should be used for the Open/Next/Close
   // functions of this iterator.
@@ -42,7 +49,8 @@ struct IteratorInfo {
 /// The state type of each iterator usually consists of a private part, which
 /// the iterator accesses in its Open/Next/Close logic, as well as the state of
 /// all of its transitive upstream iterators, i.e., the iterators that produce
-/// the operand streams.
+/// the operand streams. Ignores non-iterator ops, i.e., those that do not
+/// implement IteratorOpInterface.
 class IteratorAnalysis {
   using OperationMap = llvm::DenseMap<Operation *, IteratorInfo>;
 
