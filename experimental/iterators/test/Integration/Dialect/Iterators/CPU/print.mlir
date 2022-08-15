@@ -2,9 +2,17 @@
 // RUN: mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
+func.func @print_empty_tuple(%tuple : tuple<>) -> () {
+  "iterators.printtuple"(%tuple) : (tuple<>) -> ()
+  return
+}
+
 func.func @main() {
   %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
   "iterators.printtuple"(%empty_tuple) : (tuple<>) -> ()
+  // CHECK:      ()
+
+  func.call @print_empty_tuple(%empty_tuple) : (tuple<>) -> ()
   // CHECK:      ()
 
   %one_field_tuple = "iterators.constanttuple"() { values = [1 : i32] } : () -> tuple<i32>

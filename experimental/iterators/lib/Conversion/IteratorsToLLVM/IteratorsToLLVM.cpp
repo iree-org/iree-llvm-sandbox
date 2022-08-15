@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Arithmetic/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -1470,11 +1471,39 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<arith::ArithmeticDialect, FuncDialect, LLVMDialect,
+  target.addLegalDialect<arith::ArithmeticDialect, LLVMDialect,
                          scf::SCFDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
+
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);
+
+  // Add patterns that converts function signature and calls.
+  populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(patterns,
+                                                           typeConverter);
+  populateCallOpTypeConversionPattern(patterns, typeConverter);
+
+  // Force application of that pattern if signature is not legal yet.
+  target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+    return typeConverter.isSignatureLegal(op.getFunctionType());
+  });
+  target.addDynamicallyLegalOp<func::ReturnOp>([&](func::ReturnOp op) {
+    return typeConverter.isLegal(op.getOperandTypes());
+  });
+  target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
+    return typeConverter.isSignatureLegal(op.getCalleeType());
+  });
+
+  // Use UnrealizedConversionCast as materializations, which have to be cleaned
+  // up by later passes.
+  auto addUnrealizedCast = [](OpBuilder &builder, Type type, ValueRange inputs,
+                              Location loc) {
+    auto cast = builder.create<UnrealizedConversionCastOp>(loc, type, inputs);
+    return Optional<Value>(cast.getResult(0));
+  };
+  typeConverter.addSourceMaterialization(addUnrealizedCast);
+  typeConverter.addTargetMaterialization(addUnrealizedCast);
+
   if (failed(applyFullConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
