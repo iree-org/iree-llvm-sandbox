@@ -15,7 +15,7 @@ from xdsl.pattern_rewriter import RewritePattern, GreedyRewritePatternApplier, P
 import dialects.rel_impl as RelImpl
 import dialects.iterators as it
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone
 from time import mktime
 
 # This file contains the rewrite infrastructure to translate the relational
@@ -137,8 +137,8 @@ class LiteralRewriter(RelImplRewriter):
           Constant.from_int_constant(
               int(
                   mktime(
-                      datetime.strptime(op.value.data,
-                                        "%Y-%m-%d").timetuple())), 64))
+                      datetime.strptime(op.value.data, "%Y-%m-%d").replace(
+                          tzinfo=timezone.utc).timetuple())), 64))
     else:
       raise Exception(
           f"lowering of literals with type {type(type)} not yet implemented")
