@@ -314,10 +314,16 @@ class ProjectRewriter(RelImplRewriter):
 
 def get_batch_and_name_list(
     op: FuncOp) -> Tuple[list[str], list[it.ColumnarBatch]]:
+  """
+  Scans over all the operations of a top-level function op and returns a list of
+  the table_names and a list of the batches these tables correspond to.
+  """
   batches = []
   names = []
   for o in op.body.ops:
-    if isinstance(o, RelImpl.FullTableScanOp):
+    if isinstance(
+        o,
+        RelImpl.FullTableScanOp) and not names.__contains__(o.table_name.data):
       curr_batch = it.ColumnarBatch.get(
           TupleType([
               ArrayAttr.from_list([
@@ -327,12 +333,12 @@ def get_batch_and_name_list(
       batches.append(curr_batch)
       names.append(o.table_name.data)
 
-  return names, batches
+  return batches, names
 
 
 def impl_to_iterators(ctx: MLContext, query: ModuleOp):
 
-  names, batches = get_batch_and_name_list(query)
+  batches, names = get_batch_and_name_list(query)
 
   table_mapping = {}
 
