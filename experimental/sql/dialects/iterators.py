@@ -36,6 +36,21 @@ class Stream(ParametrizedAttribute):
     return Stream([elem_type])  #type: ignore
 
 
+@irdl_attr_definition
+class ColumnarBatch(ParametrizedAttribute):
+  """
+  Batch of tuples in columnar form
+  """
+  name = "iterators.columnar_batch"
+
+  elementType: ParameterDef[TupleType]
+
+  @builder
+  @staticmethod
+  def get(elem_type: TupleType) -> 'ColumnarBatch':
+    return ColumnarBatch([elem_type])
+
+
 #===------------------------------------------------------------------------===#
 # Operations
 #===------------------------------------------------------------------------===#
@@ -54,6 +69,22 @@ class SampleInputOp(Operation):
   @staticmethod
   def get(type: Attribute) -> 'SampleInputOp':
     return SampleInputOp.create(result_types=[type])
+
+
+@irdl_op_definition
+class ScanColumnarBatch(Operation):
+  """
+  Extracts the tuples from a columnar batch.
+  """
+  name = "iterators.scan_columnar_batch"
+
+  input = OperandDef(ColumnarBatch)
+  result = ResultDef(Stream)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, result_type: Stream) -> 'ScanColumnarBatch':
+    return ScanColumnarBatch.build(operands=[input], result_types=[result_type])
 
 
 @irdl_op_definition
@@ -198,6 +229,7 @@ class Iterators:
 
   def __post_init__(self: 'Iterators'):
     self.ctx.register_attr(Stream)
+    self.ctx.register_attr(ColumnarBatch)
 
     self.ctx.register_op(SampleInputOp)
     self.ctx.register_op(ReduceOp)
@@ -205,3 +237,4 @@ class Iterators:
     self.ctx.register_op(MapOp)
     self.ctx.register_op(SinkOp)
     self.ctx.register_op(ConstantStreamOp)
+    self.ctx.register_op(ScanColumnarBatch)

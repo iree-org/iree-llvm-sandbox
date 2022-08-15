@@ -11,14 +11,15 @@ module() {
   }
 }
 
-//      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[], []>, "sym_visibility" = "private"] {
-// CHECK-NEXT:   %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.constantstream() ["value" = [[0 : !i32], [1 : !i32], [2 : !i32], [3 : !i32]]]
+//      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[!iterators.columnar_batch<!tuple<[!i32]>>], []>, "sym_visibility" = "private"] {
+// CHECK-NEXT:   ^{{.*}}(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>):
+// CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.scan_columnar_batch(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>)
 // CHECK-NEXT:   %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.filter(%{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>>) ["predicateRef" = @s0]
 // CHECK-NEXT:   iterators.sink(%{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>>)
 // CHECK-NEXT:   func.return()
 // CHECK-NEXT: }
 // CHECK-NEXT: func.func() ["sym_name" = "s0", "function_type" = !fun<[!llvm.struct<"", [!i32]>], [!i1]>, "sym_visibility" = "private"] {
-// CHECK-NEXT:   ^0(%{{.*}} : !llvm.struct<"", [!i32]>):
+// CHECK-NEXT:   ^{{.*}}(%{{.*}} : !llvm.struct<"", [!i32]>):
 // CHECK-NEXT:     %{{.*}} : !i32 = arith.constant() ["value" = 0 : !i32]
 // CHECK-NEXT:     %{{.*}} : !i32 = llvm.extractvalue(%{{.*}} : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
 // CHECK-NEXT:     %{{.*}} : !i1 = arith.cmpi(%{{.*}} : !i32, %{{.*}} : !i32) ["predicate" = 4 : !i64]
