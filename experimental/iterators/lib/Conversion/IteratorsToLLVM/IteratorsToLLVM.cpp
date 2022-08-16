@@ -126,10 +126,9 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
                         PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
-  LogicalResult match(ConstantTupleOp op) const override { return success(); }
-
-  void rewrite(ConstantTupleOp op, OpAdaptor adaptor,
-               ConversionPatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(ConstantTupleOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
 
     // Convert tuple type.
@@ -155,6 +154,7 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
     }
 
     rewriter.replaceOp(op, structValue);
+    return success();
   }
 };
 
@@ -164,11 +164,11 @@ struct PrintTupleOpLowering : public OpConversionPattern<PrintTupleOp> {
                        PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
-  LogicalResult match(PrintTupleOp op) const override { return success(); }
-
-  void rewrite(PrintTupleOp op, OpAdaptor adaptor,
-               ConversionPatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(PrintTupleOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     rewriter.replaceOpWithNewOp<PrintOp>(op, adaptor.tuple());
+    return success();
   }
 };
 
@@ -177,10 +177,9 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
                   PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
-  LogicalResult match(PrintOp op) const override { return success(); }
-
-  void rewrite(PrintOp op, OpAdaptor adaptor,
-               ConversionPatternRewriter &rewriter) const override {
+  LogicalResult
+  matchAndRewrite(PrintOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Type i32 = rewriter.getI32Type();
 
@@ -238,6 +237,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
     rewriter.create<LLVM::CallOp>(loc, i32, printfRef, values);
     rewriter.eraseOp(op);
+    return success();
   }
 };
 
