@@ -11,4 +11,4 @@ module() {
   }
 }
 
-// CHECK:     %{{.*}} : !i32 = arith.constant() ["value" = 9048 : !i32]
+// CHECK:     %{{.*}} : !i64 = arith.constant() ["value" = 781747200 : !i64]
