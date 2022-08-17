@@ -179,7 +179,7 @@ def optimize_projections(ctx: MLContext, query: ModuleOp):
   projection_fuser_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [ProjectionFuser()]),
                                                  walk_regions_first=False,
-                                                 apply_recursively=False,
+                                                 apply_recursively=True,
                                                  walk_reverse=False)
   projection_fuser_walker.rewrite_module(query)
 
