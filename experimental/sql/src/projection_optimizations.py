@@ -14,9 +14,9 @@ from xdsl.pattern_rewriter import (RewritePattern, GreedyRewritePatternApplier,
 import dialects.rel_alg as RelAlg
 
 # This file contains several rewrites on the rel_alg level, all of which concern
-# projections. Currently, there are two rewriters. The first one introduces a
-# projection before any operator, the second one removes projetions that are
-# just identity mappings.
+# projections. Currently, there are three rewriters. The first one introduces a
+# projection before any operator, the second one fuses subsequent projections,
+# and the third one removes projetions that are just identity mappings.
 
 
 @dataclass
@@ -104,6 +104,9 @@ class ProjectionInference(ProjectionOptimizer):
 
 @dataclass
 class ProjectionFuser(ProjectionOptimizer):
+
+  # This rewriter fuses two subsequent projections. Currently, it only works on
+  # renaming style projections, but it will be extended in the future.
 
   def rename_expr(self, op: RelAlg.Expression, map: dict[str,
                                                          str]) -> Operation:
