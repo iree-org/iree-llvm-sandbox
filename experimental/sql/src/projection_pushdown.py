@@ -14,7 +14,9 @@ from xdsl.pattern_rewriter import (RewritePattern, GreedyRewritePatternApplier,
 import dialects.rel_alg as RelAlg
 
 # This file contains several rewrites on the rel_alg level, all of which concern
-# projections.
+# projections. Currently, there are two rewriters. The first one introduces a
+# projection before any operator, the second one removes projetions that are
+# just identity mappings.
 
 
 @dataclass
