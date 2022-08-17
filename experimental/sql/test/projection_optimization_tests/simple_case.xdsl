@@ -1,4 +1,4 @@
-// RUN: rel_opt.py -p projection-pushdown %s | filecheck %s
+// RUN: rel_opt.py -p optimize-projections %s | filecheck %s
 
 module() {
   rel_alg.project() ["names" = ["id"]] {

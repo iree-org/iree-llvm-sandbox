@@ -124,7 +124,7 @@ class IdentityProjectionRemover(ProjectionOptimizer):
       rewriter.replace_matched_op(new_op)
 
 
-def projection_pushdown(ctx: MLContext, query: ModuleOp):
+def optimize_projections(ctx: MLContext, query: ModuleOp):
   infer_projections_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [ProjectionInference()]),
                                                   walk_regions_first=False,
