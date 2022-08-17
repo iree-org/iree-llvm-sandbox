@@ -1,0 +1,39 @@
+// RUN: rel_opt.py -p optimize-projections %s
+// This test currently fails, but shows a potential improvement.
+
+module() {
+  rel_alg.project() ["names" = ["c"]] {
+    rel_alg.select() {
+        rel_alg.table() ["table_name" = "t"] {
+            rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
+            rel_alg.schema_element() ["elt_name" = "price", "elt_type" = !rel_alg.int32]
+        }
+    } {
+        rel_alg.compare() ["comparator" = "="] {
+            rel_alg.column() ["col_name" = "id"]
+        } {
+            rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.int32]
+        }
+    }
+  } {
+    rel_alg.column() ["col_name" = "id"]
+  }
+}
+
+
+//      CHECK:  rel_alg.select() {
+// CHECK-NEXT:    rel_alg.project() ["names" = ["c"]] {
+// CHECK-NEXT:      rel_alg.table() ["table_name" = "t"] {
+// CHECK-NEXT:        rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
+// CHECK-NEXT:        rel_alg.schema_element() ["elt_name" = "price", "elt_type" = !rel_alg.int32]
+// CHECK-NEXT:      }
+// CHECK-NEXT:    } {
+// CHECK-NEXT:      rel_alg.column() ["col_name" = "id"]
+// CHECK-NEXT:    }
+// CHECK-NEXT:  } {
+// CHECK-NEXT:    rel_alg.compare() ["comparator" = "="] {
+// CHECK-NEXT:      rel_alg.column() ["col_name" = "c"]
+// CHECK-NEXT:    } {
+// CHECK-NEXT:      rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.int32]
+// CHECK-NEXT:    }
+// CHECK-NEXT:  }

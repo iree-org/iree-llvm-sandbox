@@ -103,6 +103,47 @@ class ProjectionInference(ProjectionOptimizer):
 
 
 @dataclass
+class ProjectionFuser(ProjectionOptimizer):
+
+  def rename_expr(self, op: RelAlg.Expression, map: dict[str,
+                                                         str]) -> Operation:
+    if isinstance(op, RelAlg.Column):
+      return RelAlg.Column.get(map[op.col_name.data])
+    if isinstance(op, RelAlg.Multiply):
+      return RelAlg.Multiply.get(
+          Region.from_operation_list([self.rename_expr(op.lhs, map)]),
+          Region.from_operation_list([self.rename_expr(op.rhs, map)]))
+    if isinstance(op, RelAlg.Literal):
+      return RelAlg.Literal.get(op.val, op.type)
+    if isinstance(op, RelAlg.Compare):
+      return RelAlg.Multiply.get(
+          op.comparator.data,
+          Region.from_operation_list([self.rename_expr(op.left, map)]),
+          Region.from_operation_list([self.rename_expr(op.right, map)]))
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
+    if not isinstance(op.input.op, RelAlg.Project):
+      return
+
+    child_cols = self.flatten(
+        [self.find_cols_in_expr(o) for o in op.input.op.projections.ops])
+    child_res = [s.data for s in op.input.op.names.data]
+    # If the child projection simply projects onto a subset, we can just infer
+    # its column mapping and apply it on the parents projection.
+    if len(child_cols) == len(child_res) and all(
+        [isinstance(o, RelAlg.Column) for o in op.input.op.projections.ops]):
+      child_dict = dict(zip(child_cols, child_res))
+
+      rewriter.replace_matched_op(
+          RelAlg.Project.get(
+              rewriter.move_region_contents_to_new_regions(op.input.op.input),
+              Region.from_operation_list([
+                  self.rename_expr(o, child_dict) for o in op.projections.ops
+              ]), op.names))
+
+
+@dataclass
 class IdentityProjectionRemover(ProjectionOptimizer):
 
   @op_type_rewrite_pattern
@@ -132,9 +173,16 @@ def optimize_projections(ctx: MLContext, query: ModuleOp):
                                                   walk_reverse=False)
   infer_projections_walker.rewrite_module(query)
 
+  projection_fuser_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
+      [ProjectionFuser()]),
+                                                 walk_regions_first=False,
+                                                 apply_recursively=False,
+                                                 walk_reverse=False)
+  projection_fuser_walker.rewrite_module(query)
+
   identity_projection_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [IdentityProjectionRemover()]),
-                                                    walk_regions_first=False,
+                                                    walk_regions_first=True,
                                                     apply_recursively=False,
                                                     walk_reverse=False)
   identity_projection_walker.rewrite_module(query)
