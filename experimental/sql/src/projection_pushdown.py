@@ -85,6 +85,8 @@ class ProjectionInference(ProjectionOptimizer):
         Region.from_operation_list([RelAlg.Column.get(s) for s in cols]),
         ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
 
+    # TODO: I mainly need this pattern match to call the proper builder. This
+    # could maybe be done nicer.
     if isinstance(op, RelAlg.Select):
       rewriter.replace_matched_op(
           RelAlg.Select.get(
@@ -118,50 +120,6 @@ class IdentityProjectionRemover(ProjectionOptimizer):
                         ] and input_schema == output_schema:
       new_op = op.input.blocks[0].detach_op(op.input.op)
       rewriter.replace_matched_op(new_op)
-
-
-@dataclass
-class PushThroughSelect(ProjectionOptimizer):
-
-  @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
-    if not isinstance(op.input.op, RelAlg.Select):
-      return
-
-    select_cols = [
-        elem for sublist in (
-            self.find_cols_in_expr(o) for o in op.input.op.predicates.ops)
-        for elem in sublist
-    ]
-
-    project_cols = [
-        elem for sublist in (self.find_cols_in_expr(o)
-                             for o in op.projections.ops) for elem in sublist
-    ]
-
-    result_cols = [s.data for s in op.names.data]
-
-    # TODO: handle renames of columns
-
-    # TODO: think about what happens on aggregate. Aggregate is very similar to
-    # project in what it does with schemas
-
-    # Check whether all cols in the select are contained in the project.
-    if all(item in project_cols for item in select_cols):
-      new_proj = RelAlg.Project.get(
-          rewriter.move_region_contents_to_new_regions(op.input.op.input),
-          Region.from_operation_list(
-              [RelAlg.Column.get(n) for n in project_cols]),
-          ArrayAttr.from_list([StringAttr.from_str(s) for s in project_cols]))
-      new_sel = RelAlg.Select.get(
-          Region.from_operation_list([new_proj]),
-          rewriter.move_region_contents_to_new_regions(op.input.op.predicates))
-
-      new_proj2 = RelAlg.Project.get(
-          Region.from_operation_list([new_sel]),
-          rewriter.move_region_contents_to_new_regions(op.projections),
-          ArrayAttr.from_list([StringAttr.from_str(s) for s in result_cols]))
-      rewriter.replace_matched_op(new_proj2)
 
 
 def projection_pushdown(ctx: MLContext, query: ModuleOp):
