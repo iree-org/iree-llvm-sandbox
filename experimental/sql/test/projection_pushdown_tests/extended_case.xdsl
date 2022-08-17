@@ -1,9 +1,33 @@
 // RUN: rel_opt.py -p projection-pushdown %s | filecheck %s
 
 module() {
-    rel_alg.aggregate() ["col_names" = ["im"], "functions" = ["sum"], "res_names" = ["b"]] {
-        rel_alg.table() ["table_name" = "t"] {
-            rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
+  rel_alg.aggregate() ["col_names" = ["im"], "functions" = ["sum"], "res_names" = ["revenue"]] {
+    rel_alg.project() ["names" = ["im"]] {
+      rel_alg.select() {
+        rel_alg.table() ["table_name" = "lineitem"] {
+          rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.int64]
+          rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.int64]
+          rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.int64]
+          rel_alg.schema_element() ["elt_name" = "d", "elt_type" = !rel_alg.int64]
         }
+      } {
+        rel_alg.compare() ["comparator" = "<="] {
+          rel_alg.column() ["col_name" = "a"]
+        } {
+          rel_alg.literal() ["val" = 7 : !i64, "type" = !rel_alg.int64]
+        }
+        rel_alg.compare() ["comparator" = "<"] {
+          rel_alg.column() ["col_name" = "b"]
+        } {
+          rel_alg.literal() ["val" = 24 : !i64, "type" = !rel_alg.int64]
+        }
+      }
+    } {
+      rel_alg.multiply() {
+        rel_alg.column() ["col_name" = "b"]
+      } {
+        rel_alg.column() ["col_name" = "c"]
+      }
     }
+  }
 }

@@ -50,6 +50,19 @@ class ProjectionOptimizer(RewritePattern):
     if isinstance(op, RelAlg.Aggregate):
       return [s.data for s in op.col_names.data]
 
+  def find_schema(self, op: RelAlg.Operator) -> list[str]:
+    """
+    Returns the list of cols that are the input schema of this operation.
+    """
+    if isinstance(op, RelAlg.Table):
+      return [o.elt_name.data for o in op.schema.ops]
+    if isinstance(op, RelAlg.Select):
+      return self.find_schema(op.input.op)
+    if isinstance(op, RelAlg.Project):
+      return [s.data for s in op.names.data]
+    if isinstance(op, RelAlg.Aggregate):
+      return [s.data for s in op.col_names.data]
+
 
 @dataclass
 class ProjectionInference(ProjectionOptimizer):
@@ -97,9 +110,12 @@ class IdentityProjectionRemover(ProjectionOptimizer):
     if not all([isinstance(o, RelAlg.Column) for o in op.projections.ops]):
       return
 
-    cols = self.flatten([self.find_cols_in_expr(o) for o in op.projections.ops])
+    input_schema = self.find_schema(op.input.op)
+    output_schema = self.flatten(
+        [self.find_cols_in_expr(o) for o in op.projections.ops])
 
-    if cols == [s.data for s in op.names.data]:
+    if output_schema == [s.data for s in op.names.data
+                        ] and input_schema == output_schema:
       new_op = op.input.blocks[0].detach_op(op.input.op)
       rewriter.replace_matched_op(new_op)
 
