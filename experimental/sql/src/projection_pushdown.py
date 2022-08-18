@@ -16,7 +16,7 @@ import dialects.rel_alg as RelAlg
 # This file contains several rewrites that all compose to classic projection
 # pushdown. Currently, this works in three steps and, hence, has three
 # rewriters. The first one introduces a projection before any operator, the
-# second one fuses subsequent projections, and the third one removes projetions
+# second one fuses subsequent projections, and the third one removes projections
 # that are just identity mappings.
 
 
