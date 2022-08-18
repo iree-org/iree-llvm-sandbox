@@ -13,15 +13,17 @@ from xdsl.pattern_rewriter import (RewritePattern, GreedyRewritePatternApplier,
 
 import dialects.rel_alg as RelAlg
 
-# This file contains several rewrites on the rel_alg level, all of which concern
-# projections. Currently, there are three rewriters. The first one introduces a
-# projection before any operator, the second one fuses subsequent projections,
-# and the third one removes projetions that are just identity mappings.
+# This file contains several rewrites that all compose to classic projection
+# pushdown. Currently, this works in three steps and, hence, has three
+# rewriters. The first one introduces a projection before any operator, the
+# second one fuses subsequent projections, and the third one removes projetions
+# that are just identity mappings.
 
 
 @dataclass
 class ProjectionOptimizer(RewritePattern):
 
+  # TODO: Move these functions to a utils file?
   def flatten(self, l: list[list[str]]) -> list[str]:
     return [elem for sublist in l for elem in sublist]
 
@@ -79,27 +81,15 @@ class ProjectionInference(ProjectionOptimizer):
         op, RelAlg.Table) or isinstance(op, RelAlg.SchemaElement):
       return
     cols = list(dict.fromkeys(self.find_cols_upstream(op)))
-    if cols.__contains__(None):
+    if None in cols:
       return
 
     new_proj = RelAlg.Project.get(
-        rewriter.move_region_contents_to_new_regions(op.input),
+        Region.from_operation_list([op.input.op.clone()]),
         Region.from_operation_list([RelAlg.Column.get(s) for s in cols]),
         ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
 
-    # TODO: I mainly need this pattern match to call the proper builder. This
-    # could maybe be done nicer.
-    if isinstance(op, RelAlg.Select):
-      rewriter.replace_matched_op(
-          RelAlg.Select.get(
-              Region.from_operation_list([new_proj]),
-              rewriter.move_region_contents_to_new_regions(op.predicates)))
-    elif isinstance(op, RelAlg.Aggregate):
-      rewriter.replace_matched_op(
-          RelAlg.Aggregate.get(Region.from_operation_list([new_proj]),
-                               [s.data for s in op.col_names.data],
-                               [s.data for s in op.functions.data],
-                               [s.data for s in op.res_names.data]))
+    rewriter.replace_op(op.input.op, new_proj)
 
 
 @dataclass
@@ -108,42 +98,31 @@ class ProjectionFuser(ProjectionOptimizer):
   # This rewriter fuses two subsequent projections. Currently, it only works on
   # renaming style projections, but it will be extended in the future.
 
-  def rename_expr(self, op: RelAlg.Expression, map: dict[str,
-                                                         str]) -> Operation:
+  def replace_expr(self, op: RelAlg.Expression, map: dict[str,
+                                                          RelAlg.Expression],
+                   rewriter: PatternRewriter):
     if isinstance(op, RelAlg.Column):
-      return RelAlg.Column.get(map[op.col_name.data])
-    if isinstance(op, RelAlg.Multiply):
-      return RelAlg.Multiply.get(
-          Region.from_operation_list([self.rename_expr(op.lhs, map)]),
-          Region.from_operation_list([self.rename_expr(op.rhs, map)]))
-    if isinstance(op, RelAlg.Literal):
-      return RelAlg.Literal.get(op.val, op.type)
-    if isinstance(op, RelAlg.Compare):
-      return RelAlg.Multiply.get(
-          op.comparator.data,
-          Region.from_operation_list([self.rename_expr(op.left, map)]),
-          Region.from_operation_list([self.rename_expr(op.right, map)]))
+      rewriter.replace_op(op, map[op.col_name.data].clone())
+    else:
+      for r in op.regions:
+        self.replace_expr(r.op, map, rewriter)
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
     if not isinstance(op.input.op, RelAlg.Project):
       return
 
-    child_cols = self.flatten(
-        [self.find_cols_in_expr(o) for o in op.input.op.projections.ops])
+    child_expr = op.input.op.projections.ops
     child_res = [s.data for s in op.input.op.names.data]
-    # If the child projection simply projects onto a subset, we can just infer
-    # its column mapping and apply it on the parents projection.
-    if len(child_cols) == len(child_res) and all(
-        [isinstance(o, RelAlg.Column) for o in op.input.op.projections.ops]):
-      child_dict = dict(zip(child_cols, child_res))
 
-      rewriter.replace_matched_op(
-          RelAlg.Project.get(
-              rewriter.move_region_contents_to_new_regions(op.input.op.input),
-              Region.from_operation_list([
-                  self.rename_expr(o, child_dict) for o in op.projections.ops
-              ]), op.names))
+    child_dict = dict(zip(child_res, op.input.op.projections.ops))
+    new_projections = rewriter.move_region_contents_to_new_regions(
+        op.projections)
+    self.replace_expr(new_projections.op, child_dict, rewriter)
+    rewriter.replace_matched_op(
+        RelAlg.Project.get(
+            rewriter.move_region_contents_to_new_regions(op.input.op.input),
+            new_projections, op.names))
 
 
 @dataclass
@@ -168,7 +147,7 @@ class IdentityProjectionRemover(ProjectionOptimizer):
       rewriter.replace_matched_op(new_op)
 
 
-def optimize_projections(ctx: MLContext, query: ModuleOp):
+def projection_pushdown(ctx: MLContext, query: ModuleOp):
   infer_projections_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [ProjectionInference()]),
                                                   walk_regions_first=False,
