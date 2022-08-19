@@ -211,7 +211,6 @@ class SelectYieldCombiner(RewritePattern):
     for operation in op.predicates.ops:
       if isinstance(operation, RelSSA.YieldValue):
         yielded_ops.append(operation.op.op)
-        print(operation)
         op.predicates.blocks[0].erase_op(operation)
     new_region = rewriter.move_region_contents_to_new_regions(op.predicates)
     while (len(yielded_ops) > 1):

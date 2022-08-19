@@ -1,0 +1,52 @@
+// RUN: rel_opt.py -p fuse-proj-into-scan  %s | filecheck %s
+
+module() {
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "lineitem"]
+  %1 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.project(%0 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>) {
+  ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>):
+    %3 : !rel_impl.int64 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>) ["col_name" = "a"]
+    %4 : !rel_impl.int64 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>) ["col_name" = "b"]
+    %5 : !rel_impl.int64 = rel_impl.index_by_name(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>) ["col_name" = "c"]
+    rel_impl.yield_tuple(%3 : !rel_impl.int64, %4 : !rel_impl.int64, %5 : !rel_impl.int64)
+  }
+  %6 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.select(%1 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) {
+  ^1(%7 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>):
+    %8 : !rel_impl.int64 = rel_impl.index_by_name(%7 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "a"]
+    %9 : !rel_impl.int64 = rel_impl.literal() ["value" = 7 : !i64]
+    %10 : !rel_impl.bool = rel_impl.compare(%8 : !rel_impl.int64, %9 : !rel_impl.int64) ["comparator" = "<="]
+    %11 : !rel_impl.int64 = rel_impl.index_by_name(%7 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "b"]
+    %12 : !rel_impl.int64 = rel_impl.literal() ["value" = 24 : !i64]
+    %13 : !rel_impl.bool = rel_impl.compare(%11 : !rel_impl.int64, %12 : !rel_impl.int64) ["comparator" = "<"]
+    %14 : !rel_impl.bool = rel_impl.and(%13 : !rel_impl.bool, %10 : !rel_impl.bool)
+    rel_impl.yield_value(%14 : !rel_impl.bool)
+  }
+  %15 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]> = rel_impl.project(%6 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) {
+  ^2(%16 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>):
+    %17 : !rel_impl.int64 = rel_impl.index_by_name(%16 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "b"]
+    %18 : !rel_impl.int64 = rel_impl.index_by_name(%16 : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "c"]
+    %19 : !rel_impl.int64 = rel_impl.bin_op(%17 : !rel_impl.int64, %18 : !rel_impl.int64) ["operator" = "*"]
+    rel_impl.yield_tuple(%19 : !rel_impl.int64)
+  }
+  %20 : !rel_impl.bag<[!rel_impl.schema_element<"revenue", !rel_impl.int64>]> = rel_impl.aggregate(%15 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]>) ["col_names" = ["im"], "functions" = ["sum"]]
+}
+
+//      CHECK:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "lineitem", "cols" = ["a", "b", "c"]]
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.select(%{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) {
+// CHECK-NEXT:  ^0(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>):
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.index_by_name(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "a"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.literal() ["value" = 7 : !i64]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.bool = rel_impl.compare(%{{.*}} : !rel_impl.int64, %{{.*}} : !rel_impl.int64) ["comparator" = "<="]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.index_by_name(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "b"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.literal() ["value" = 24 : !i64]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.bool = rel_impl.compare(%{{.*}} : !rel_impl.int64, %{{.*}} : !rel_impl.int64) ["comparator" = "<"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.bool = rel_impl.and(%{{.*}} : !rel_impl.bool, %{{.*}} : !rel_impl.bool)
+// CHECK-NEXT:    rel_impl.yield_value(%{{.*}} : !rel_impl.bool)
+// CHECK-NEXT:  }
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]> = rel_impl.project(%{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) {
+// CHECK-NEXT:  ^1(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>):
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.index_by_name(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "b"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.index_by_name(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_name" = "c"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.bin_op(%{{.*}} : !rel_impl.int64, %{{.*}} : !rel_impl.int64) ["operator" = "*"]
+// CHECK-NEXT:    rel_impl.yield_tuple(%{{.*}} : !rel_impl.int64)
+// CHECK-NEXT:  }
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"revenue", !rel_impl.int64>]> = rel_impl.aggregate(%10 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]>) ["col_names" = ["im"], "functions" = ["sum"]]
