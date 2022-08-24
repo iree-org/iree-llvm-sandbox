@@ -297,7 +297,7 @@ class Select(Operator):
 
 
 @irdl_op_definition
-class InnerJoin(Operation):
+class InnerJoin(Operator):
   """
   Joins table `left` with table `right` under condition `predicates`. An empty
   region for `predicates` means that this operation is just a cartesian product.

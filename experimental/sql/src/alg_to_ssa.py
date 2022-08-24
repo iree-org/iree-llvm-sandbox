@@ -57,9 +57,10 @@ class RelAlgRewriter(RewritePattern):
     parent_op = op.parent_op()
     while (parent_op and not isinstance(parent_op, ModuleOp)):
       if isinstance(parent_op, RelSSA.Operator):
-        type_ = parent_op.operands[0].typ.lookup_type_in_schema(name)
-        if type_:
-          return type_
+        for o in parent_op.operands:
+          type_ = o.typ.lookup_type_in_schema(name)
+          if type_:
+            return type_
         raise Exception(f"element not found in parent schema: {name}")
       parent_op = parent_op.parent_op()
     raise Exception(f"element not found in parent schema: {name}")
@@ -138,6 +139,23 @@ class BinOpRewriter(RelAlgRewriter):
 #===------------------------------------------------------------------------===#
 # Operators
 #===------------------------------------------------------------------------===#
+
+
+@dataclass
+class InnerJoinRewriter(RelAlgRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.InnerJoin, rewriter: PatternRewriter):
+    rewriter.inline_block_before_matched_op(op.left.blocks[0])
+    left = rewriter.added_operations_before[-1]
+    rewriter.inline_block_before_matched_op(op.right.blocks[0])
+    right = rewriter.added_operations_before[-1]
+
+    rewriter.insert_op_before_matched_op(
+        RelSSA.InnerJoin.get(
+            left, right,
+            rewriter.move_region_contents_to_new_regions(op.predicates)))
+    rewriter.erase_matched_op()
 
 
 @dataclass
@@ -259,7 +277,8 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
       TableRewriter(),
       SelectRewriter(),
       AggregateRewriter(),
-      ProjectRewriter()
+      ProjectRewriter(),
+      InnerJoinRewriter()
   ]),
                                          walk_regions_first=True,
                                          apply_recursively=True,

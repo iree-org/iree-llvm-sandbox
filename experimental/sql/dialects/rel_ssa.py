@@ -495,6 +495,45 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class InnerJoin(Operator):
+  """
+  Joins table `left` with table `right` under condition `predicates`. An empty
+  region for `predicates` means that this operation is just a cartesian product.
+
+  Example:
+
+  '''
+  %2 : !rel_ssa.bag<...> = rel_ssa.inner_join(%0 : !rel_ssa.bag<...>, %1 : !rel_ssa.bag<...>) {
+    ...
+    rel_ssa.yield_value(%3 : !rel_ssa.bool)
+  }
+  '''
+  """
+  name = "rel_ssa.inner_join"
+
+  left = OperandDef(Bag)
+  right = OperandDef(Bag)
+  predicates = SingleBlockRegionDef()
+
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(left: Operation, right: Operation, predicates: Region) -> 'InnerJoin':
+    return InnerJoin.create(
+        regions=[predicates],
+        operands=[left.result, right.result],
+        result_types=[
+            Bag.get(
+                [e.elt_name.data for e in left.result.typ.schema.data] +
+                [e.elt_name.data for e in right.result.typ.schema.data],
+                [e.elt_type for e in left.result.typ.schema.data] +
+                [e.elt_type for e in right.result.typ.schema.data],
+            )
+        ])
+
+
+@irdl_op_definition
 class Aggregate(Operator):
   """
   Applies the ith function of `functions` to the ith column name of `col_names`
@@ -563,6 +602,7 @@ class RelSSA:
     self.ctx.register_op(Table)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(Project)
+    self.ctx.register_op(InnerJoin)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
