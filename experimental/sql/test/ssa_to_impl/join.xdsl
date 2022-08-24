@@ -1,0 +1,22 @@
+// RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
+
+module() {
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.int64>, !rel_ssa.schema_element<"b", !rel_ssa.int64>]> = rel_ssa.table() ["table_name" = "t"]
+  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"c", !rel_ssa.int64>, !rel_ssa.schema_element<"d", !rel_ssa.int64>]> = rel_ssa.table() ["table_name" = "u"]
+  %2 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.int64>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>, !rel_ssa.schema_element<"d", !rel_ssa.int64>]> = rel_ssa.inner_join(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.int64>, !rel_ssa.schema_element<"b", !rel_ssa.int64>]>, %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"c", !rel_ssa.int64>, !rel_ssa.schema_element<"d", !rel_ssa.int64>]>) {
+    %3 : !rel_ssa.int64 = rel_ssa.column() ["col_name" = "a"]
+    %4 : !rel_ssa.int64 = rel_ssa.column() ["col_name" = "c"]
+    %5 : !rel_ssa.bool = rel_ssa.compare(%3 : !rel_ssa.int64, %4 : !rel_ssa.int64) ["comparator" = "="]
+    rel_ssa.yield_value(%5 : !rel_ssa.bool)
+  }
+}
+
+//      CHECK:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "t"]
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "u"]
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]> = rel_impl.nested_loop_join(%{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>]>, %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>) {
+// CHECK-NEXT:  ^{{.*}}(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>]>, %{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>):
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.index_by_name(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>]>) ["col_name" = "a"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.index_by_name(%{{.*}} : !rel_impl.tuple<[!rel_impl.schema_element<"c", !rel_impl.int64>, !rel_impl.schema_element<"d", !rel_impl.int64>]>) ["col_name" = "c"]
+// CHECK-NEXT:    %{{.*}} : !rel_impl.bool = rel_impl.compare(%{{.*}} : !rel_impl.int64, %{{.*}} : !rel_impl.int64) ["comparator" = "="]
+// CHECK-NEXT:    rel_impl.yield_value(%{{.*}} : !rel_impl.bool)
+// CHECK-NEXT:  }

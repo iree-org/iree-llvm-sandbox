@@ -72,10 +72,15 @@ class ColumnRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelSSA.Column, rewriter: PatternRewriter):
-    # TODO: In this current version, there is only one block_arg, so it is clear
-    # what to access here. What if this is not the case?
+    # NOTE: This relies on the fact that all input columns have different names.
+    tuple_arg = None
+    for arg in op.parent.args:
+      if op.col_name.data in [s.elt_name.data for s in arg.typ.schema.data]:
+        tuple_arg = arg
+        break
+    assert tuple_arg
     rewriter.replace_matched_op([
-        RelImpl.IndexByName.get(op.col_name.data, op.parent.args[0],
+        RelImpl.IndexByName.get(op.col_name.data, tuple_arg,
                                 self.convert_datatype(op.result.typ))
     ])
 
@@ -149,6 +154,26 @@ class ProjectRewriter(RelSSARewriter):
 
 
 @dataclass
+class InnerJoinRewriter(RelSSARewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.InnerJoin, rewriter: PatternRewriter):
+    predicates = Region.from_block_list([
+        Block.from_arg_types([
+            self.create_tuple_of_bag(op.left.typ),
+            self.create_tuple_of_bag(op.right.typ)
+        ])
+    ])
+    # The following loop moves the operations of (the old) op.predicates to the
+    # predicates region of the new operation.
+    for o in op.predicates.blocks[0].ops:
+      op.predicates.blocks[0].detach_op(o)
+      predicates.blocks[0].add_op(o)
+    rewriter.replace_matched_op(
+        RelImpl.NestedLoopJoin.get(op.left.op, op.right.op, predicates))
+
+
+@dataclass
 class SelectRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
@@ -203,6 +228,7 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       YieldValueRewriter(),
       ProjectRewriter(),
       AndRewriter(),
+      InnerJoinRewriter(),
       BinOpRewriter()
   ]),
                                 walk_regions_first=False,

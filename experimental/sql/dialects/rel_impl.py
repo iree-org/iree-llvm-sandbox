@@ -483,6 +483,45 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class NestedLoopJoin(Operator):
+  """
+  Performs a nested loop join of `left` with `right` under condition
+  `predicates`. An empty region for `predicates` means that this operation is
+  just a cartesian product.
+
+  Example:
+
+  '''
+  %2 : !rel_impl.bag<...> = rel_impl.nested_loop_join(%0 : !rel_impl.bag<...>, %1 : !rel_impl.bag<...>) {
+    ...
+    rel_impl.yield_value(%3 : !rel_impl.bool)
+  }
+  '''
+  """
+  name = "rel_impl.nested_loop_join"
+
+  left = OperandDef(Bag)
+  right = OperandDef(Bag)
+  predicates = SingleBlockRegionDef()
+
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(left: Operation, right: Operation,
+          predicates: Region) -> 'NestedLoopJoin':
+    return NestedLoopJoin.create(
+        regions=[predicates],
+        operands=[left.result, right.result],
+        result_types=[
+            Bag.get([e.elt_type for e in left.result.typ.schema.data] +
+                    [e.elt_type for e in right.result.typ.schema.data],
+                    [e.elt_name.data for e in left.result.typ.schema.data] +
+                    [e.elt_name.data for e in right.result.typ.schema.data])
+        ])
+
+
+@irdl_op_definition
 class Project(Operator):
   """
   Projects the input table s.t. every tuple is transformed to the yielded values
@@ -589,6 +628,7 @@ class RelImpl:
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
+    self.ctx.register_op(NestedLoopJoin)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(FullTableScanOp)
     self.ctx.register_op(Literal)
