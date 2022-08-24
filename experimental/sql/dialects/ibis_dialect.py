@@ -280,7 +280,7 @@ class InnerJoin(Operation):
   """
   Models an ibis inner join of table `left` with table `right` and the condition
   `predicates`. An empty region for `predicates` means that this operation is
-  just a cartesion product.
+  just a cartesian product.
 
   Example:
 

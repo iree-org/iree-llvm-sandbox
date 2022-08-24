@@ -151,6 +151,18 @@ class SelectionRewriter(IbisRewriter):
 
 
 @dataclass
+class InnerJoinRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.InnerJoin, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.InnerJoin.get(
+            rewriter.move_region_contents_to_new_regions(op.left),
+            rewriter.move_region_contents_to_new_regions(op.right),
+            rewriter.move_region_contents_to_new_regions(op.predicates)))
+
+
+@dataclass
 class AggregationRewriter(IbisRewriter):
 
   def get_col_name_and_function(self, metric_op: Operation) -> Tuple[str, str]:
@@ -186,6 +198,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       UnboundTableRewriter(),
       SchemaElementRewriter(),
       SelectionRewriter(),
+      InnerJoinRewriter(),
       EqualsRewriter(),
       GreaterEqualRewriter(),
       LessEqualRewriter(),

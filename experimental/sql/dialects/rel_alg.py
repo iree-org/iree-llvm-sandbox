@@ -297,6 +297,36 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class InnerJoin(Operation):
+  """
+  Joins table `left` with table `right` under condition `predicates`. An empty
+  region for `predicates` means that this operation is just a cartesian product.
+
+  Example:
+
+  '''
+  rel_alg.inner_join() {
+    rel_alg.table() ...
+  } {
+    rel_alg.table() ...
+  } {
+    rel_alg.compare() ...
+  }
+  '''
+  """
+  name = "rel_alg.inner_join"
+
+  left = SingleBlockRegionDef()
+  right = SingleBlockRegionDef()
+  predicates = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(left: Region, right: Region, predicates: Region) -> 'InnerJoin':
+    return InnerJoin.create(regions=[left, right, predicates])
+
+
+@irdl_op_definition
 class Project(Operator):
   """
   Projects the input table s.t. the output has as the ith column a column with
@@ -393,6 +423,7 @@ class RelationalAlg:
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
+    self.ctx.register_op(InnerJoin)
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
