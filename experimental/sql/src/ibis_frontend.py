@@ -103,6 +103,15 @@ def visit(  #type: ignore
   return id.UnboundTable.get(op.name, schema)
 
 
+@dispatch(ibis.expr.operations.relations.InnerJoin)
+def visit(op: ibis.expr.operations.relations.InnerJoin) -> Operation:
+  return id.InnerJoin.get(
+      Region.from_operation_list([visit(op.left)]),
+      Region.from_operation_list([visit(op.right)]),
+      Region.from_operation_list(
+          [visit(op.predicates[0])] if op.predicates else []))
+
+
 @dispatch(ibis.expr.operations.relations.Selection)
 def visit(  #type: ignore
     op: ibis.expr.operations.relations.Selection) -> Operation:

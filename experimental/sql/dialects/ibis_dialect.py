@@ -276,6 +276,37 @@ class Aggregation(Operation):
 
 
 @irdl_op_definition
+class InnerJoin(Operation):
+  """
+  Models an ibis inner join of table `left` with table `right` and the condition
+  `predicates`. An empty region for `predicates` means that this operation is
+  just a cartesion product.
+
+  Example:
+
+  '''
+  ibis.inner_join() {
+    ibis.unbound_table() ...
+  } {
+    ibis.unbound_table() ...
+  } {
+    ibis.equals() ...
+  }
+  '''
+  """
+  name = "ibis.inner_join"
+
+  left = SingleBlockRegionDef()
+  right = SingleBlockRegionDef()
+  predicates = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(left: Region, right: Region, predicates: Region) -> 'InnerJoin':
+    return InnerJoin.create(regions=[left, right, predicates])
+
+
+@irdl_op_definition
 class Sum(Operation):
   """
   Sums up all the elements of the column given in arg based on the encompassing
@@ -520,6 +551,7 @@ class Ibis:
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
+    self.ctx.register_op(InnerJoin)
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Equals)
     self.ctx.register_op(GreaterEqual)
