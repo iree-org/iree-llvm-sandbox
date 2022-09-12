@@ -20,6 +20,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -65,21 +66,27 @@ private:
 /// module if necessary.
 static FlatSymbolRefAttr lookupOrInsertPrintf(OpBuilder &builder,
                                               ModuleOp module) {
+  MLIRContext *context = builder.getContext();
+  Location loc = module->getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type i8 = builder.getI8Type();
+  Type i32 = builder.getI32Type();
+
   if (module.lookupSymbol<LLVMFuncOp>("printf"))
-    return SymbolRefAttr::get(builder.getContext(), "printf");
+    return SymbolRefAttr::get(context, "printf");
 
   // Create a function declaration for printf, the signature is:
   //   * `i32 (i8*, ...)`
-  LLVMPointerType charPointerType = LLVMPointerType::get(builder.getI8Type());
+  LLVMPointerType charPointerType = LLVMPointerType::get(i8);
   LLVMFunctionType printfFunctionType =
-      LLVMFunctionType::get(builder.getI32Type(), charPointerType,
+      LLVMFunctionType::get(i32, charPointerType,
                             /*isVarArg=*/true);
 
   // Insert the printf function into the body of the parent module.
-  OpBuilder::InsertionGuard insertGuard(builder);
-  builder.setInsertionPointToStart(module.getBody());
-  builder.create<LLVMFuncOp>(module.getLoc(), "printf", printfFunctionType);
-  return SymbolRefAttr::get(builder.getContext(), "printf");
+  OpBuilder::InsertionGuard insertGuard(b);
+  b.setInsertionPointToStart(module.getBody());
+  b.create<LLVMFuncOp>("printf", printfFunctionType);
+  return SymbolRefAttr::get(context, "printf");
 }
 
 /// Return a value representing an access into a global string with the given
@@ -88,6 +95,9 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
                                      Twine value, ModuleOp module,
                                      bool makeUnique) {
   Location loc = module->getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type i8 = b.getI8Type();
+  Type i64 = b.getI64Type();
 
   // Determine name of global.
   llvm::SmallString<64> candidateName;
@@ -102,24 +112,23 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
 
   // Create the global at the entry of the module.
   GlobalOp global;
-  StringAttr nameAttr = builder.getStringAttr(candidateName);
+  StringAttr nameAttr = b.getStringAttr(candidateName);
   if (!(global = module.lookupSymbol<GlobalOp>(nameAttr))) {
-    StringAttr valueAttr = builder.getStringAttr(value);
-    LLVMArrayType globalType =
-        LLVMArrayType::get(builder.getI8Type(), valueAttr.size());
-    OpBuilder::InsertionGuard insertGuard(builder);
-    builder.setInsertionPointToStart(module.getBody());
-    global = builder.create<GlobalOp>(loc, globalType, /*isConstant=*/true,
-                                      Linkage::Internal, nameAttr, valueAttr,
-                                      /*alignment=*/0);
+    StringAttr valueAttr = b.getStringAttr(value);
+    LLVMArrayType globalType = LLVMArrayType::get(i8, valueAttr.size());
+    OpBuilder::InsertionGuard insertGuard(b);
+    b.setInsertionPointToStart(module.getBody());
+    global = b.create<GlobalOp>(globalType, /*isConstant=*/true,
+                                Linkage::Internal, nameAttr, valueAttr,
+                                /*alignment=*/0);
   }
 
   // Get the pointer to the first character in the global string.
-  Value globalPtr = builder.create<AddressOfOp>(loc, global);
-  Value zero = builder.create<LLVM::ConstantOp>(loc, builder.getI64Type(),
-                                                builder.getI64IntegerAttr(0));
-  return builder.create<GEPOp>(loc, LLVMPointerType::get(builder.getI8Type()),
-                               globalPtr, ArrayRef<Value>({zero, zero}));
+  Value globalPtr = b.create<AddressOfOp>(global);
+  Attribute zeroAttr = builder.getI64IntegerAttr(0);
+  Value zero = b.create<LLVM::ConstantOp>(i64, zeroAttr);
+  return b.create<GEPOp>(loc, LLVMPointerType::get(i8), globalPtr,
+                         ArrayRef<Value>({zero, zero}));
 }
 
 struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
@@ -255,22 +264,24 @@ static Value buildOpenBody(ConstantStreamOp op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Insert constant zero into state.
-  Type i32 = rewriter.getI32Type();
-  Attribute zeroAttr = rewriter.getI32IntegerAttr(0);
-  Value zeroValue = rewriter.create<LLVM::ConstantOp>(loc, i32, zeroAttr);
+  Type i32 = builder.getI32Type();
+  Attribute zeroAttr = builder.getI32IntegerAttr(0);
+  Value zeroValue = builder.create<LLVM::ConstantOp>(i32, zeroAttr);
   Value updatedState =
-      createInsertValueOp(rewriter, loc, initialState, zeroValue, {0});
+      createInsertValueOp(builder, loc, initialState, zeroValue, {0});
 
   return updatedState;
 }
 
 /// Creates a constant global array with the constant stream data provided in
 /// the $value attribute of the given op.
-static GlobalOp buildGlobalData(ConstantStreamOp op, RewriterBase &rewriter,
+static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &rewriter,
                                 Type elementType) {
   Location loc = op->getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Find unique global name.
   auto module = op->getParentOfType<ModuleOp>();
@@ -284,39 +295,39 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, RewriterBase &rewriter,
     }
     uniqueNumber++;
   }
-  StringAttr nameAttr = rewriter.getStringAttr(candidateName);
+  StringAttr nameAttr = builder.getStringAttr(candidateName);
 
   // Create global op.
   ArrayAttr valueAttr = op.value();
   LLVMArrayType globalType = LLVMArrayType::get(elementType, valueAttr.size());
-  OpBuilder::InsertionGuard insertGuard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
+  OpBuilder::InsertionGuard insertGuard(builder);
+  builder.setInsertionPointToStart(module.getBody());
   auto globalArray =
-      rewriter.create<GlobalOp>(loc, globalType, /*isConstant=*/true,
-                                Linkage::Internal, nameAttr, Attribute());
+      builder.create<GlobalOp>(globalType, /*isConstant=*/true,
+                               Linkage::Internal, nameAttr, Attribute());
 
   // Create initializer for global. Since arrays of arrays cannot be passed
   // to GlobalOp as attribute, we need to write an initializer that inserts
   // the data from the $value attribute one by one into the global array.
-  rewriter.createBlock(&globalArray.getInitializer());
-  Value initValue = rewriter.create<UndefOp>(loc, globalType);
+  builder.createBlock(&globalArray.getInitializer());
+  Value initValue = builder.create<UndefOp>(globalType);
 
   for (auto &elementAttr :
        llvm::enumerate(valueAttr.getAsValueRange<ArrayAttr>())) {
-    Value structValue = rewriter.create<UndefOp>(loc, elementType);
+    Value structValue = builder.create<UndefOp>(elementType);
     for (auto &fieldAttr : llvm::enumerate(elementAttr.value())) {
-      auto value = rewriter.create<LLVM::ConstantOp>(
-          loc, fieldAttr.value().getType(), fieldAttr.value());
+      auto value = builder.create<LLVM::ConstantOp>(fieldAttr.value().getType(),
+                                                    fieldAttr.value());
       structValue =
-          createInsertValueOp(rewriter, loc, structValue, value,
+          createInsertValueOp(builder, loc, structValue, value,
                               {static_cast<int64_t>(fieldAttr.index())});
     }
     initValue =
-        createInsertValueOp(rewriter, loc, initValue, structValue,
+        createInsertValueOp(builder, loc, initValue, structValue,
                             {static_cast<int64_t>(elementAttr.index())});
   }
 
-  rewriter.create<LLVM::ReturnOp>(loc, initValue);
+  builder.create<LLVM::ReturnOp>(initValue);
 
   return globalArray;
 }
@@ -363,51 +374,52 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, RewriterBase &rewriter,
 static llvm::SmallVector<Value, 4>
 buildNextBody(ConstantStreamOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
-  Type i32 = rewriter.getI32Type();
   Location loc = op->getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+  Type i32 = builder.getI32Type();
 
   // Extract current index.
   Value currentIndex =
-      createExtractValueOp(rewriter, loc, i32, initialState, {0});
+      createExtractValueOp(builder, loc, i32, initialState, {0});
 
   // Test if we have reached the end of the range.
   int64_t numElements = op.value().size();
-  Value lastIndex =
-      rewriter.create<arith::ConstantIntOp>(loc, /*value=*/numElements,
-                                            /*width=*/32);
-  ArithBuilder ab(rewriter, op.getLoc());
+  Value lastIndex = builder.create<arith::ConstantIntOp>(/*value=*/numElements,
+                                                         /*width=*/32);
+  ArithBuilder ab(builder, builder.getLoc());
   Value hasNext = ab.slt(currentIndex, lastIndex);
-  auto ifOp = rewriter.create<scf::IfOp>(
-      loc, TypeRange{initialState.getType(), elementType}, hasNext,
+  auto ifOp = builder.create<scf::IfOp>(
+      TypeRange{initialState.getType(), elementType}, hasNext,
       /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
+        ImplicitLocOpBuilder b(loc, builder);
+
         // Increment index and update state.
-        Value one = builder.create<arith::ConstantIntOp>(loc, /*value=*/1,
-                                                         /*width=*/32);
-        ArithBuilder ab(builder, loc);
+        Value one = b.create<arith::ConstantIntOp>(/*value=*/1,
+                                                   /*width=*/32);
+        ArithBuilder ab(b, b.getLoc());
         Value updatedCurrentIndex = ab.add(currentIndex, one);
-        Value updatedState = createInsertValueOp(rewriter, loc, initialState,
-                                                 updatedCurrentIndex, {0});
+        Value updatedState =
+            createInsertValueOp(b, loc, initialState, updatedCurrentIndex, {0});
 
         // Load element from global data at current index.
-        GlobalOp globalArray = buildGlobalData(op, rewriter, elementType);
-        Value globalPtr = rewriter.create<AddressOfOp>(loc, globalArray);
-        Value zero = rewriter.create<arith::ConstantIntOp>(loc, /*value=*/0,
-                                                           /*width=*/32);
-        Value gep =
-            rewriter.create<GEPOp>(loc, LLVMPointerType::get(elementType),
-                                   globalPtr, ValueRange{zero, currentIndex});
-        Value nextElement = rewriter.create<LoadOp>(loc, gep);
+        GlobalOp globalArray = buildGlobalData(op, b, elementType);
+        Value globalPtr = b.create<AddressOfOp>(globalArray);
+        Value zero = b.create<arith::ConstantIntOp>(/*value=*/0,
+                                                    /*width=*/32);
+        Value gep = b.create<GEPOp>(LLVMPointerType::get(elementType),
+                                    globalPtr, ValueRange{zero, currentIndex});
+        Value nextElement = b.create<LoadOp>(gep);
 
-        builder.create<scf::YieldOp>(loc,
-                                     ValueRange{updatedState, nextElement});
+        b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
       },
       /*elseBuilder=*/
       [&](OpBuilder &builder, Location loc) {
+        ImplicitLocOpBuilder b(loc, builder);
+
         // Don't modify state; return undef element.
-        Value nextElement = rewriter.create<UndefOp>(loc, elementType);
-        builder.create<scf::YieldOp>(loc,
-                                     ValueRange{initialState, nextElement});
+        Value nextElement = b.create<UndefOp>(elementType);
+        b.create<scf::YieldOp>(ValueRange{initialState, nextElement});
       });
 
   Value finalState = ifOp->getResult(0);
@@ -453,20 +465,22 @@ static Value buildOpenBody(FilterOp op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
-  auto openCallOp = rewriter.create<func::CallOp>(
-      loc, openFunc, upstreamStateType, initialUpstreamState);
+  auto openCallOp = builder.create<func::CallOp>(openFunc, upstreamStateType,
+                                                 initialUpstreamState);
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+  Value updatedState = createInsertValueOp(builder, loc, initialState,
                                            updatedUpstreamState, {0});
 
   return updatedState;
@@ -508,6 +522,7 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
@@ -515,12 +530,14 @@ buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
       createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
 
   // Main while loop.
-  Type i1 = rewriter.getI1Type();
+  Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {upstreamStateType, i1, elementType};
   scf::WhileOp whileOp = scf::createWhileOp(
-      rewriter, loc, nextResultTypes, initialUpstreamState,
+      builder, loc, nextResultTypes, initialUpstreamState,
       /*beforeBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        ImplicitLocOpBuilder b(loc, builder);
+
         Value upstreamState = args[0];
         SymbolRefAttr nextFunc = upstreamInfos[0].nextFunc;
         auto nextCall = builder.create<func::CallOp>(
@@ -529,15 +546,17 @@ buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
         Value nextElement = nextCall->getResult(2);
 
         // If we got an element, apply predicate.
-        auto ifOp = rewriter.create<scf::IfOp>(
-            loc, i1, hasNext,
+        auto ifOp = b.create<scf::IfOp>(
+            i1, hasNext,
             /*ifBuilder=*/
             [&](OpBuilder &builder, Location loc) {
+              ImplicitLocOpBuilder b(loc, builder);
+
               // Call predicate.
-              auto predicateCall = builder.create<func::CallOp>(
-                  loc, i1, op.predicateRef(), ValueRange{nextElement});
+              auto predicateCall = b.create<func::CallOp>(
+                  i1, op.predicateRef(), ValueRange{nextElement});
               Value isMatch = predicateCall->getResult(0);
-              builder.create<scf::YieldOp>(loc, isMatch);
+              b.create<scf::YieldOp>(loc, isMatch);
             },
             /*elseBuilder=*/
             [&](OpBuilder &builder, Location loc) {
@@ -550,14 +569,13 @@ buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
         // upstream (i.e., hasNext) and (2) that element did not match,i.e.,
         // !hasMatchingNext = xor(hasMatchingNext, true).
         Value constTrue =
-            builder.create<arith::ConstantIntOp>(loc, /*value=*/1, /*width=*/1);
+            b.create<arith::ConstantIntOp>(/*value=*/1, /*width=*/1);
         Value hasNoMatchingNext =
-            builder.create<arith::XOrIOp>(loc, hasMatchingNext, constTrue);
+            b.create<arith::XOrIOp>(hasMatchingNext, constTrue);
         Value loopCondition =
-            builder.create<arith::AndIOp>(loc, hasNext, hasNoMatchingNext);
+            b.create<arith::AndIOp>(hasNext, hasNoMatchingNext);
 
-        builder.create<scf::ConditionOp>(loc, loopCondition,
-                                         nextCall->getResults());
+        b.create<scf::ConditionOp>(loopCondition, nextCall->getResults());
       },
       /*afterBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
@@ -568,7 +586,7 @@ buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
   // Update state.
   Value finalUpstreamState = whileOp->getResult(0);
   Value finalState =
-      createInsertValueOp(rewriter, loc, initialState, finalUpstreamState, {0});
+      createInsertValueOp(builder, loc, initialState, finalUpstreamState, {0});
   Value hasNext = whileOp->getResult(1);
   Value nextElement = whileOp->getResult(2);
 
@@ -587,20 +605,22 @@ static Value buildCloseBody(FilterOp op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
-  auto closeCallOp = rewriter.create<func::CallOp>(
-      loc, closeFunc, upstreamStateType, initialUpstreamState);
+  auto closeCallOp = builder.create<func::CallOp>(closeFunc, upstreamStateType,
+                                                  initialUpstreamState);
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(rewriter, loc, initialState, updatedUpstreamState,
+  return createInsertValueOp(builder, loc, initialState, updatedUpstreamState,
                              {0})
       .getResult();
 }
@@ -617,9 +637,10 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
                                 RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType) {
   Location loc = op.getLoc();
-  Value undefState = rewriter.create<UndefOp>(loc, stateType);
+  ImplicitLocOpBuilder builder(loc, rewriter);
+  Value undefState = builder.create<UndefOp>(stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
+  return createInsertValueOp(builder, loc, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -637,20 +658,22 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
 static Value buildOpenBody(MapOp op, RewriterBase &rewriter, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
-  auto openCallOp = rewriter.create<func::CallOp>(
-      loc, openFunc, upstreamStateType, initialUpstreamState);
+  auto openCallOp = builder.create<func::CallOp>(openFunc, upstreamStateType,
+                                                 initialUpstreamState);
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+  Value updatedState = createInsertValueOp(builder, loc, initialState,
                                            updatedUpstreamState, {0});
 
   return updatedState;
@@ -692,11 +715,12 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(MapOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Extract input element type.
   StreamType inputStreamType = op.input().getType().dyn_cast<StreamType>();
@@ -704,37 +728,39 @@ buildNextBody(MapOp op, RewriterBase &rewriter, Value initialState,
   Type inputElementType = inputStreamType.getElementType();
 
   // Call next.
-  Type i1 = rewriter.getI1Type();
+  Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {upstreamStateType, i1, inputElementType};
   SymbolRefAttr nextFunc = upstreamInfos[0].nextFunc;
-  auto nextCall = rewriter.create<func::CallOp>(loc, nextFunc, nextResultTypes,
-                                                initialUpstreamState);
+  auto nextCall = builder.create<func::CallOp>(nextFunc, nextResultTypes,
+                                               initialUpstreamState);
   Value hasNext = nextCall->getResult(1);
   Value nextElement = nextCall->getResult(2);
 
   // If we got an element, apply map function.
-  auto ifOp = rewriter.create<scf::IfOp>(
-      loc, elementType, hasNext,
+  auto ifOp = builder.create<scf::IfOp>(
+      elementType, hasNext,
       /*ifBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         // Apply map function.
-        auto mapCall = builder.create<func::CallOp>(
-            loc, elementType, op.mapFuncRef(), ValueRange{nextElement});
+        ImplicitLocOpBuilder b(loc, builder);
+        auto mapCall = b.create<func::CallOp>(elementType, op.mapFuncRef(),
+                                              ValueRange{nextElement});
         Value mappedElement = mapCall->getResult(0);
-        builder.create<scf::YieldOp>(loc, mappedElement);
+        b.create<scf::YieldOp>(mappedElement);
       },
       /*elseBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         // Return undefined value.
-        Value undef = builder.create<LLVM::UndefOp>(loc, elementType);
-        builder.create<scf::YieldOp>(loc, undef);
+        ImplicitLocOpBuilder b(loc, builder);
+        Value undef = b.create<LLVM::UndefOp>(elementType);
+        b.create<scf::YieldOp>(undef);
       });
   Value mappedElement = ifOp.getResult(0);
 
   // Update state.
   Value finalUpstreamState = nextCall.getResult(0);
   Value finalState =
-      createInsertValueOp(rewriter, loc, initialState, finalUpstreamState, {0});
+      createInsertValueOp(builder, loc, initialState, finalUpstreamState, {0});
 
   return {finalState, hasNext, mappedElement};
 }
@@ -751,20 +777,22 @@ static Value buildCloseBody(MapOp op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
-  auto closeCallOp = rewriter.create<func::CallOp>(
-      loc, closeFunc, upstreamStateType, initialUpstreamState);
+  auto closeCallOp = builder.create<func::CallOp>(closeFunc, upstreamStateType,
+                                                  initialUpstreamState);
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(rewriter, loc, initialState, updatedUpstreamState,
+  return createInsertValueOp(builder, loc, initialState, updatedUpstreamState,
                              {0})
       .getResult();
 }
@@ -780,9 +808,10 @@ static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
                                 RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType) {
   Location loc = op.getLoc();
-  Value undefState = rewriter.create<UndefOp>(loc, stateType);
+  ImplicitLocOpBuilder builder(loc, rewriter);
+  Value undefState = builder.create<UndefOp>(stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
+  return createInsertValueOp(builder, loc, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -801,20 +830,22 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
-  auto openCallOp = rewriter.create<func::CallOp>(
-      loc, openFunc, upstreamStateType, initialUpstreamState);
+  auto openCallOp = builder.create<func::CallOp>(openFunc, upstreamStateType,
+                                                 initialUpstreamState);
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(rewriter, loc, initialState,
+  Value updatedState = createInsertValueOp(builder, loc, initialState,
                                            updatedUpstreamState, {0});
 
   return updatedState;
@@ -860,25 +891,28 @@ static llvm::SmallVector<Value, 4>
 buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Get first result from upstream.
-  Type i1 = rewriter.getI1Type();
+  Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {upstreamStateType, i1, elementType};
   SymbolRefAttr nextFunc = upstreamInfos[0].nextFunc;
-  auto firstNextCall = rewriter.create<func::CallOp>(
-      loc, nextFunc, nextResultTypes, initialUpstreamState);
+  auto firstNextCall = builder.create<func::CallOp>(nextFunc, nextResultTypes,
+                                                    initialUpstreamState);
 
   // Check for empty upstream.
   Value firstHasNext = firstNextCall->getResult(1);
-  auto ifOp = rewriter.create<scf::IfOp>(
+  auto ifOp = builder.create<scf::IfOp>(
       loc, nextResultTypes, firstHasNext,
       /*ifBuilder=*/
       [&](OpBuilder &builder, Location loc) {
+        ImplicitLocOpBuilder b(loc, builder);
+
         // Create while loop.
         Value firstCallUpstreamState = firstNextCall->getResult(0);
         Value firstCallElement = firstNextCall->getResult(2);
@@ -890,47 +924,49 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
             elementType        // Element from last next call.
         };
         scf::WhileOp whileOp = scf::createWhileOp(
-            builder, loc, whileResultTypes, whileInputs,
+            b, loc, whileResultTypes, whileInputs,
             /*beforeBuilder=*/
             [&](OpBuilder &builder, Location loc,
                 Block::BlockArgListType args) {
+              ImplicitLocOpBuilder b(loc, builder);
+
               Value upstreamState = args[0];
               Value accumulator = args[1];
-              auto nextCall = builder.create<func::CallOp>(
-                  loc, nextFunc, nextResultTypes, upstreamState);
+              auto nextCall = b.create<func::CallOp>(nextFunc, nextResultTypes,
+                                                     upstreamState);
 
               Value updatedUpstreamState = nextCall->getResult(0);
               Value hasNext = nextCall->getResult(1);
               Value maybeNextElement = nextCall->getResult(2);
-              builder.create<scf::ConditionOp>(loc, hasNext,
-                                               ValueRange{updatedUpstreamState,
-                                                          accumulator,
-                                                          maybeNextElement});
+              b.create<scf::ConditionOp>(
+                  hasNext, ValueRange{updatedUpstreamState, accumulator,
+                                      maybeNextElement});
             },
             /*afterBuilder=*/
             [&](OpBuilder &builder, Location loc,
                 Block::BlockArgListType args) {
+              ImplicitLocOpBuilder b(loc, builder);
+
               Value upstreamState = args[0];
               Value accumulator = args[1];
               Value nextElement = args[2];
 
               // Call reduce function.
-              auto reduceCall = builder.create<func::CallOp>(
-                  loc, elementType, op.reduceFuncRef(),
-                  ValueRange{accumulator, nextElement});
+              auto reduceCall =
+                  b.create<func::CallOp>(elementType, op.reduceFuncRef(),
+                                         ValueRange{accumulator, nextElement});
               Value newAccumulator = reduceCall->getResult(0);
 
-              builder.create<scf::YieldOp>(
-                  loc, ValueRange{upstreamState, newAccumulator});
+              b.create<scf::YieldOp>(ValueRange{upstreamState, newAccumulator});
             });
 
         // The "then" branch of ifOp returns the result of whileOp.
         Value constTrue =
-            builder.create<arith::ConstantIntOp>(loc, /*value=*/1, /*width=*/1);
+            b.create<arith::ConstantIntOp>(/*value=*/1, /*width=*/1);
         Value updatedUpstreamState = whileOp->getResult(0);
         Value accumulator = whileOp->getResult(1);
-        builder.create<scf::YieldOp>(
-            loc, ValueRange{updatedUpstreamState, constTrue, accumulator});
+        b.create<scf::YieldOp>(
+            ValueRange{updatedUpstreamState, constTrue, accumulator});
       },
       /*elseBuilder=*/
       [&](OpBuilder &builder, Location loc) {
@@ -944,7 +980,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   // Update state.
   Value finalUpstreamState = ifOp->getResult(0);
   Value finalState =
-      createInsertValueOp(rewriter, loc, initialState, finalUpstreamState, {0});
+      createInsertValueOp(builder, loc, initialState, finalUpstreamState, {0});
   Value hasNext = ifOp->getResult(1);
   Value nextElement = ifOp->getResult(2);
 
@@ -963,20 +999,22 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
                             Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
+
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
-  auto closeCallOp = rewriter.create<func::CallOp>(
-      loc, closeFunc, upstreamStateType, initialUpstreamState);
+  auto closeCallOp = builder.create<func::CallOp>(closeFunc, upstreamStateType,
+                                                  initialUpstreamState);
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(rewriter, loc, initialState, updatedUpstreamState,
+  return createInsertValueOp(builder, loc, initialState, updatedUpstreamState,
                              {0})
       .getResult();
 }
@@ -993,9 +1031,10 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
                                 RewriterBase &rewriter,
                                 LLVM::LLVMStructType stateType) {
   Location loc = op.getLoc();
-  Value undefState = rewriter.create<UndefOp>(loc, stateType);
+  ImplicitLocOpBuilder builder(loc, rewriter);
+  Value undefState = builder.create<UndefOp>(loc, stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(rewriter, loc, undefState, upstreamState, {0});
+  return createInsertValueOp(builder, loc, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -1016,24 +1055,28 @@ buildOpenNextCloseInParentModule(Operation *originalOp, RewriterBase &rewriter,
                                  SymbolRefAttr funcNameAttr,
                                  OpenNextCloseBodyBuilder bodyBuilder) {
   Location loc = originalOp->getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   StringRef funcName = funcNameAttr.getLeafReference();
   ModuleOp module = originalOp->getParentOfType<ModuleOp>();
   assert(module);
-  MLIRContext *context = rewriter.getContext();
+  MLIRContext *context = builder.getContext();
 
   // Create function op.
-  OpBuilder::InsertionGuard guard(rewriter);
-  rewriter.setInsertionPointToStart(module.getBody());
+  OpBuilder::InsertionGuard guard(builder);
+  builder.setInsertionPointToStart(module.getBody());
 
   auto visibility = StringAttr::get(context, "private");
   auto funcType = FunctionType::get(context, inputType, returnTypes);
-  FuncOp funcOp = rewriter.create<FuncOp>(loc, funcName, funcType, visibility);
+  FuncOp funcOp = builder.create<FuncOp>(funcName, funcType, visibility);
   funcOp.setPrivate();
 
   // Create initial block.
   Block *block =
-      rewriter.createBlock(&funcOp.getBody(), funcOp.begin(), inputType, loc);
+      builder.createBlock(&funcOp.getBody(), funcOp.begin(), inputType, loc);
+  // XXX(ingomueller): Change to use builder in the whole function once the
+  //                   signature of OpenNextCloseBodyBuilder has changed.
+  OpBuilder::InsertionGuard guardXxxRemoveMe(rewriter);
   rewriter.setInsertionPointToStart(block);
 
   // Build body.
@@ -1251,6 +1294,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 static Value convert(SinkOp op, ValueRange operands, RewriterBase &rewriter,
                      const IteratorAnalysis &iteratorAnalysis) {
   Location loc = op->getLoc();
+  ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Look up IteratorInfo about root iterator.
   assert(operands.size() == 1);
@@ -1265,7 +1309,7 @@ static Value convert(SinkOp op, ValueRange operands, RewriterBase &rewriter,
   // Open root iterator. ------------------------------------------------------
   Value initialState = operands[0];
   auto openCallOp =
-      rewriter.create<func::CallOp>(loc, openFunc, stateType, initialState);
+      builder.create<func::CallOp>(openFunc, stateType, initialState);
   Value openedUpstreamState = openCallOp->getResult(0);
 
   // Consume root iterator in while loop --------------------------------------
@@ -1273,41 +1317,45 @@ static Value convert(SinkOp op, ValueRange operands, RewriterBase &rewriter,
   auto streamType = op->getOperand(0).getType().dyn_cast<StreamType>();
   assert(streamType);
   Type elementType = streamType.getElementType();
-  Type i1 = rewriter.getI1Type();
+  Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
   SmallVector<Type> whileResultTypes = {stateType, elementType};
   SmallVector<Location> whileResultLocs = {loc, loc};
 
   scf::WhileOp whileOp = scf::createWhileOp(
-      rewriter, loc, whileResultTypes, openedUpstreamState,
+      builder, loc, whileResultTypes, openedUpstreamState,
       /*beforeBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        ImplicitLocOpBuilder b(loc, builder);
+
         Value currentState = args[0];
-        func::CallOp nextCallOp = builder.create<func::CallOp>(
-            loc, nextFunc, nextResultTypes, currentState);
+        func::CallOp nextCallOp =
+            b.create<func::CallOp>(nextFunc, nextResultTypes, currentState);
 
         Value updatedState = nextCallOp->getResult(0);
         Value hasNext = nextCallOp->getResult(1);
         Value nextElement = nextCallOp->getResult(2);
-        builder.create<scf::ConditionOp>(loc, hasNext,
-                                         ValueRange{updatedState, nextElement});
+        b.create<scf::ConditionOp>(hasNext,
+                                   ValueRange{updatedState, nextElement});
       },
       /*afterBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+        ImplicitLocOpBuilder b(loc, builder);
+
         Value currentState = args[0];
         Value nextElement = args[1];
 
         // Print next element.
-        builder.create<PrintOp>(loc, nextElement);
+        b.create<PrintOp>(nextElement);
 
         // Forward iterator state to "before" region.
-        builder.create<scf::YieldOp>(loc, currentState);
+        b.create<scf::YieldOp>(currentState);
       });
 
   Value consumedState = whileOp.getResult(0);
 
   // Close root iterator. -----------------------------------------------------
-  rewriter.create<func::CallOp>(loc, closeFunc, stateType, consumedState);
+  builder.create<func::CallOp>(closeFunc, stateType, consumedState);
 
   return Value();
 }
