@@ -47,12 +47,12 @@ class RelAlgRewriter(RewritePattern):
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
-  def find_type_in_parent_operator(self, name: str,
-                                   op: Operation) -> Optional[RelSSA.DataType]:
+  def find_type_in_parent_operator_inputs(
+      self, name: str, op: Operation) -> Optional[RelSSA.DataType]:
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
-    case the lookup failed or reaching an operator with an input bag, that the
-    type can be looked up in.
+    case the lookup failed or reaching an operator with one or multiple input
+    bags, that the type can be looked up in.
     """
     parent_op = op.parent_op()
     while (parent_op and not isinstance(parent_op, ModuleOp)):
@@ -89,7 +89,7 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
-    res_type = self.find_type_in_parent_operator(op.col_name.data, op)
+    res_type = self.find_type_in_parent_operator_inputs(op.col_name.data, op)
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
     rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
