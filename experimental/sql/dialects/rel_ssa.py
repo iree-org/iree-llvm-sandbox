@@ -498,7 +498,7 @@ class Select(Operator):
 class InnerJoin(Operator):
   """
   Joins table `left` with table `right` under condition `predicates`. An empty
-  region for `predicates` means that this operation is just a cartesian product.
+  region for `predicates` means that this operation is just a Cartesian product.
 
   Example:
 
@@ -520,13 +520,15 @@ class InnerJoin(Operator):
   @staticmethod
   @builder
   def get(left: Operation, right: Operation, predicates: Region) -> 'InnerJoin':
+    lhs_names = [e.elt_name.data for e in left.result.typ.schema.data]
+    rhs_names = [e.elt_name.data for e in right.result.typ.schema.data]
+    assert not any(i in lhs_names for i in rhs_names)
     return InnerJoin.create(
         regions=[predicates],
         operands=[left.result, right.result],
         result_types=[
             Bag.get(
-                [e.elt_name.data for e in left.result.typ.schema.data] +
-                [e.elt_name.data for e in right.result.typ.schema.data],
+                lhs_names + rhs_names,
                 [e.elt_type for e in left.result.typ.schema.data] +
                 [e.elt_type for e in right.result.typ.schema.data],
             )

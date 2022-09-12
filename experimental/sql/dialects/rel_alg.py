@@ -300,7 +300,7 @@ class Select(Operator):
 class InnerJoin(Operator):
   """
   Joins table `left` with table `right` under condition `predicates`. An empty
-  region for `predicates` means that this operation is just a cartesian product.
+  region for `predicates` means that this operation is just a Cartesian product.
 
   Example:
 

@@ -73,6 +73,11 @@ class ColumnRewriter(RelSSARewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelSSA.Column, rewriter: PatternRewriter):
     # NOTE: This relies on the fact that all input columns have different names.
+    assert not any([
+        i in [s.elt_name.data
+              for s in op.parent.args[0].typ.schema.data]
+        for i in [s.elt_name.data for s in op.parent.args[1].typ.schema.data]
+    ])
     tuple_arg = None
     for arg in op.parent.args:
       if op.col_name.data in [s.elt_name.data for s in arg.typ.schema.data]:
