@@ -10,6 +10,7 @@
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/IR/ImplicitLocOpBuilder.h"
 
 using namespace mlir;
 
@@ -41,6 +42,17 @@ scf::WhileOp mlir::scf::createWhileOp(
   return op;
 }
 
+scf::WhileOp mlir::scf::createWhileOp(
+    ImplicitLocOpBuilder &builder, TypeRange resultTypes, ValueRange operands,
+    function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
+        beforeBuilder,
+    function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
+        afterBuilder,
+    ArrayRef<NamedAttribute> attributes) {
+  return createWhileOp(builder, builder.getLoc(), resultTypes, operands,
+                       beforeBuilder, afterBuilder, attributes);
+}
+
 LLVM::InsertValueOp
 mlir::LLVM::createInsertValueOp(OpBuilder &builder, Location loc,
                                 Value container, Value value,
@@ -53,6 +65,13 @@ mlir::LLVM::createInsertValueOp(OpBuilder &builder, Location loc,
                                              indicesAttr);
 }
 
+LLVM::InsertValueOp
+mlir::LLVM::createInsertValueOp(ImplicitLocOpBuilder &builder, Value container,
+                                Value value, ArrayRef<int64_t> position) {
+  return createInsertValueOp(builder, builder.getLoc(), container, value,
+                             position);
+}
+
 LLVM::ExtractValueOp
 mlir::LLVM::createExtractValueOp(OpBuilder &builder, Location loc, Type res,
                                  Value container, ArrayRef<int64_t> position) {
@@ -61,4 +80,11 @@ mlir::LLVM::createExtractValueOp(OpBuilder &builder, Location loc, Type res,
 
   // Extract from struct.
   return builder.create<LLVM::ExtractValueOp>(loc, res, container, indicesAttr);
+}
+
+LLVM::ExtractValueOp
+mlir::LLVM::createExtractValueOp(ImplicitLocOpBuilder &builder, Type res,
+                                 Value container, ArrayRef<int64_t> position) {
+  return createExtractValueOp(builder, builder.getLoc(), res, container,
+                              position);
 }

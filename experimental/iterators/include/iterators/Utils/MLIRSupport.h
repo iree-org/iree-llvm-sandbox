@@ -15,6 +15,7 @@
 namespace mlir {
 class NamedAttribute;
 class OpBuilder;
+class ImplicitLocOpBuilder;
 } // namespace mlir
 
 namespace mlir {
@@ -24,6 +25,14 @@ class WhileOp;
 WhileOp createWhileOp(
     OpBuilder &builder, Location loc, TypeRange resultTypes,
     ValueRange operands,
+    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
+        beforeBuilder,
+    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
+        afterBuilder,
+    llvm::ArrayRef<NamedAttribute> attributes = {});
+
+WhileOp createWhileOp(
+    ImplicitLocOpBuilder &builder, TypeRange resultTypes, ValueRange operands,
     llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
         beforeBuilder,
     llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
@@ -40,7 +49,15 @@ InsertValueOp createInsertValueOp(OpBuilder &builder, Location loc,
                                   Value container, Value value,
                                   ArrayRef<int64_t> position);
 
+InsertValueOp createInsertValueOp(ImplicitLocOpBuilder &builder,
+                                  Value container, Value value,
+                                  ArrayRef<int64_t> position);
+
 ExtractValueOp createExtractValueOp(OpBuilder &builder, Location loc, Type res,
+                                    Value container,
+                                    ArrayRef<int64_t> position);
+
+ExtractValueOp createExtractValueOp(ImplicitLocOpBuilder &builder, Type res,
                                     Value container,
                                     ArrayRef<int64_t> position);
 

@@ -271,7 +271,7 @@ static Value buildOpenBody(ConstantStreamOp op, RewriterBase &rewriter,
   Attribute zeroAttr = builder.getI32IntegerAttr(0);
   Value zeroValue = builder.create<LLVM::ConstantOp>(i32, zeroAttr);
   Value updatedState =
-      createInsertValueOp(builder, loc, initialState, zeroValue, {0});
+      createInsertValueOp(builder, initialState, zeroValue, {0});
 
   return updatedState;
 }
@@ -319,11 +319,11 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &rewriter,
       auto value = builder.create<LLVM::ConstantOp>(fieldAttr.value().getType(),
                                                     fieldAttr.value());
       structValue =
-          createInsertValueOp(builder, loc, structValue, value,
+          createInsertValueOp(builder, structValue, value,
                               {static_cast<int64_t>(fieldAttr.index())});
     }
     initValue =
-        createInsertValueOp(builder, loc, initValue, structValue,
+        createInsertValueOp(builder, initValue, structValue,
                             {static_cast<int64_t>(elementAttr.index())});
   }
 
@@ -379,8 +379,7 @@ buildNextBody(ConstantStreamOp op, RewriterBase &rewriter, Value initialState,
   Type i32 = builder.getI32Type();
 
   // Extract current index.
-  Value currentIndex =
-      createExtractValueOp(builder, loc, i32, initialState, {0});
+  Value currentIndex = createExtractValueOp(builder, i32, initialState, {0});
 
   // Test if we have reached the end of the range.
   int64_t numElements = op.value().size();
@@ -400,7 +399,7 @@ buildNextBody(ConstantStreamOp op, RewriterBase &rewriter, Value initialState,
         ArithBuilder ab(b, b.getLoc());
         Value updatedCurrentIndex = ab.add(currentIndex, one);
         Value updatedState =
-            createInsertValueOp(b, loc, initialState, updatedCurrentIndex, {0});
+            createInsertValueOp(b, initialState, updatedCurrentIndex, {0});
 
         // Load element from global data at current index.
         GlobalOp globalArray = buildGlobalData(op, b, elementType);
@@ -471,7 +470,7 @@ static Value buildOpenBody(FilterOp op, RewriterBase &rewriter,
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -480,8 +479,8 @@ static Value buildOpenBody(FilterOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(builder, loc, initialState,
-                                           updatedUpstreamState, {0});
+  Value updatedState =
+      createInsertValueOp(builder, initialState, updatedUpstreamState, {0});
 
   return updatedState;
 }
@@ -527,13 +526,13 @@ buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
   Value initialUpstreamState =
-      createExtractValueOp(rewriter, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Main while loop.
   Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {upstreamStateType, i1, elementType};
   scf::WhileOp whileOp = scf::createWhileOp(
-      builder, loc, nextResultTypes, initialUpstreamState,
+      builder, nextResultTypes, initialUpstreamState,
       /*beforeBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
         ImplicitLocOpBuilder b(loc, builder);
@@ -586,7 +585,7 @@ buildNextBody(FilterOp op, RewriterBase &rewriter, Value initialState,
   // Update state.
   Value finalUpstreamState = whileOp->getResult(0);
   Value finalState =
-      createInsertValueOp(builder, loc, initialState, finalUpstreamState, {0});
+      createInsertValueOp(builder, initialState, finalUpstreamState, {0});
   Value hasNext = whileOp->getResult(1);
   Value nextElement = whileOp->getResult(2);
 
@@ -611,7 +610,7 @@ static Value buildCloseBody(FilterOp op, RewriterBase &rewriter,
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -620,8 +619,7 @@ static Value buildCloseBody(FilterOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(builder, loc, initialState, updatedUpstreamState,
-                             {0})
+  return createInsertValueOp(builder, initialState, updatedUpstreamState, {0})
       .getResult();
 }
 
@@ -640,7 +638,7 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
   ImplicitLocOpBuilder builder(loc, rewriter);
   Value undefState = builder.create<UndefOp>(stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(builder, loc, undefState, upstreamState, {0});
+  return createInsertValueOp(builder, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -664,7 +662,7 @@ static Value buildOpenBody(MapOp op, RewriterBase &rewriter, Value initialState,
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -673,8 +671,8 @@ static Value buildOpenBody(MapOp op, RewriterBase &rewriter, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(builder, loc, initialState,
-                                           updatedUpstreamState, {0});
+  Value updatedState =
+      createInsertValueOp(builder, initialState, updatedUpstreamState, {0});
 
   return updatedState;
 }
@@ -720,7 +718,7 @@ buildNextBody(MapOp op, RewriterBase &rewriter, Value initialState,
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Extract input element type.
   StreamType inputStreamType = op.input().getType().dyn_cast<StreamType>();
@@ -760,7 +758,7 @@ buildNextBody(MapOp op, RewriterBase &rewriter, Value initialState,
   // Update state.
   Value finalUpstreamState = nextCall.getResult(0);
   Value finalState =
-      createInsertValueOp(builder, loc, initialState, finalUpstreamState, {0});
+      createInsertValueOp(builder, initialState, finalUpstreamState, {0});
 
   return {finalState, hasNext, mappedElement};
 }
@@ -783,7 +781,7 @@ static Value buildCloseBody(MapOp op, RewriterBase &rewriter,
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -792,8 +790,7 @@ static Value buildCloseBody(MapOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(builder, loc, initialState, updatedUpstreamState,
-                             {0})
+  return createInsertValueOp(builder, initialState, updatedUpstreamState, {0})
       .getResult();
 }
 
@@ -811,7 +808,7 @@ static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
   ImplicitLocOpBuilder builder(loc, rewriter);
   Value undefState = builder.create<UndefOp>(stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(builder, loc, undefState, upstreamState, {0});
+  return createInsertValueOp(builder, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -836,7 +833,7 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -845,8 +842,8 @@ static Value buildOpenBody(ReduceOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = createInsertValueOp(builder, loc, initialState,
-                                           updatedUpstreamState, {0});
+  Value updatedState =
+      createInsertValueOp(builder, initialState, updatedUpstreamState, {0});
 
   return updatedState;
 }
@@ -896,7 +893,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Get first result from upstream.
   Type i1 = builder.getI1Type();
@@ -924,7 +921,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
             elementType        // Element from last next call.
         };
         scf::WhileOp whileOp = scf::createWhileOp(
-            b, loc, whileResultTypes, whileInputs,
+            b, whileResultTypes, whileInputs,
             /*beforeBuilder=*/
             [&](OpBuilder &builder, Location loc,
                 Block::BlockArgListType args) {
@@ -980,7 +977,7 @@ buildNextBody(ReduceOp op, RewriterBase &rewriter, Value initialState,
   // Update state.
   Value finalUpstreamState = ifOp->getResult(0);
   Value finalState =
-      createInsertValueOp(builder, loc, initialState, finalUpstreamState, {0});
+      createInsertValueOp(builder, initialState, finalUpstreamState, {0});
   Value hasNext = ifOp->getResult(1);
   Value nextElement = ifOp->getResult(2);
 
@@ -1005,7 +1002,7 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 
   // Extract upstream state.
   Value initialUpstreamState =
-      createExtractValueOp(builder, loc, upstreamStateType, initialState, {0});
+      createExtractValueOp(builder, upstreamStateType, initialState, {0});
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -1014,8 +1011,7 @@ static Value buildCloseBody(ReduceOp op, RewriterBase &rewriter,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(builder, loc, initialState, updatedUpstreamState,
-                             {0})
+  return createInsertValueOp(builder, initialState, updatedUpstreamState, {0})
       .getResult();
 }
 
@@ -1034,7 +1030,7 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
   ImplicitLocOpBuilder builder(loc, rewriter);
   Value undefState = builder.create<UndefOp>(loc, stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(builder, loc, undefState, upstreamState, {0});
+  return createInsertValueOp(builder, undefState, upstreamState, {0});
 }
 
 //===----------------------------------------------------------------------===//
@@ -1323,7 +1319,7 @@ static Value convert(SinkOp op, ValueRange operands, RewriterBase &rewriter,
   SmallVector<Location> whileResultLocs = {loc, loc};
 
   scf::WhileOp whileOp = scf::createWhileOp(
-      builder, loc, whileResultTypes, openedUpstreamState,
+      builder, whileResultTypes, openedUpstreamState,
       /*beforeBuilder=*/
       [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
         ImplicitLocOpBuilder b(loc, builder);
