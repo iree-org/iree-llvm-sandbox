@@ -30,6 +30,7 @@ def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
   let summary = "Stream of elements of the given type";
   let parameters = (ins "Type":$elementType);
   let assemblyFormat = "`<` qualified($elementType) `>`";
+  // TODO: fillme
 }
 
 /// List of LLVM-compatible numeric types.
