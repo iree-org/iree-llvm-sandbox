@@ -162,20 +162,10 @@ class ProjectRewriter(RelSSARewriter):
 class InnerJoinRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelSSA.InnerJoin, rewriter: PatternRewriter):
-    predicates = Region.from_block_list([
-        Block.from_arg_types([
-            self.create_tuple_of_bag(op.left.typ),
-            self.create_tuple_of_bag(op.right.typ)
-        ])
-    ])
-    # The following loop moves the operations of (the old) op.predicates to the
-    # predicates region of the new operation.
-    for o in op.predicates.blocks[0].ops:
-      op.predicates.blocks[0].detach_op(o)
-      predicates.blocks[0].add_op(o)
+  def match_and_rewrite(self, op: RelSSA.CartesianProduct,
+                        rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelImpl.NestedLoopJoin.get(op.left.op, op.right.op, predicates))
+        RelImpl.NestedLoopCartesianProduct.get(op.left.op, op.right.op))
 
 
 @dataclass

@@ -276,34 +276,29 @@ class Aggregation(Operation):
 
 
 @irdl_op_definition
-class InnerJoin(Operation):
+class CartesianProduct(Operation):
   """
-  Models an ibis inner join of table `left` with table `right` and the condition
-  `predicates`. An empty region for `predicates` means that this operation is
-  just a Cartesian product.
+  Models an ibis Cartesian product of tables `left` and `right`.
 
   Example:
 
   '''
-  ibis.inner_join() {
+  ibis.cartesion_product() {
     ibis.unbound_table() ...
   } {
     ibis.unbound_table() ...
-  } {
-    ibis.equals() ...
   }
   '''
   """
-  name = "ibis.inner_join"
+  name = "ibis.cartesian_product"
 
   left = SingleBlockRegionDef()
   right = SingleBlockRegionDef()
-  predicates = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(left: Region, right: Region, predicates: Region) -> 'InnerJoin':
-    return InnerJoin.create(regions=[left, right, predicates])
+  def get(left: Region, right: Region) -> 'CartesianProduct':
+    return CartesianProduct.create(regions=[left, right])
 
 
 @irdl_op_definition
@@ -551,7 +546,7 @@ class Ibis:
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
-    self.ctx.register_op(InnerJoin)
+    self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Equals)
     self.ctx.register_op(GreaterEqual)

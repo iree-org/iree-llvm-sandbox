@@ -145,16 +145,15 @@ class BinOpRewriter(RelAlgRewriter):
 class InnerJoinRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: RelAlg.InnerJoin, rewriter: PatternRewriter):
+  def match_and_rewrite(self, op: RelAlg.CartesianProduct,
+                        rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.left.blocks[0])
     left = rewriter.added_operations_before[-1]
     rewriter.inline_block_before_matched_op(op.right.blocks[0])
     right = rewriter.added_operations_before[-1]
 
     rewriter.insert_op_before_matched_op(
-        RelSSA.InnerJoin.get(
-            left, right,
-            rewriter.move_region_contents_to_new_regions(op.predicates)))
+        RelSSA.CartesianProduct.get(left, right))
     rewriter.erase_matched_op()
 
 

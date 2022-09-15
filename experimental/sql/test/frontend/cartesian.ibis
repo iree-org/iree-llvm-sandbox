@@ -1,0 +1,18 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+t = ibis.table([("a", "int64"), ("b", "int64")], 't')
+u = ibis.table([("c", "int64"), ("d", "int64")], 'u')
+t.join(u)
+
+#      CHECK:    ibis.cartesian_product() {
+# CHECK-NEXT:      ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:        ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:        ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:      }
+# CHECK-NEXT:    } {
+# CHECK-NEXT:      ibis.unbound_table() ["table_name" = "u"] {
+# CHECK-NEXT:        ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:        ibis.schema_element() ["elt_name" = "d", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:      }
+# CHECK-NEXT:    }
+# CHECK-NEXT:  }

@@ -154,12 +154,12 @@ class SelectionRewriter(IbisRewriter):
 class InnerJoinRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: ibis.InnerJoin, rewriter: PatternRewriter):
+  def match_and_rewrite(self, op: ibis.CartesianProduct,
+                        rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelAlg.InnerJoin.get(
+        RelAlg.CartesianProduct.get(
             rewriter.move_region_contents_to_new_regions(op.left),
-            rewriter.move_region_contents_to_new_regions(op.right),
-            rewriter.move_region_contents_to_new_regions(op.predicates)))
+            rewriter.move_region_contents_to_new_regions(op.right)))
 
 
 @dataclass

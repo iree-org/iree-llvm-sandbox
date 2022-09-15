@@ -495,36 +495,30 @@ class Select(Operator):
 
 
 @irdl_op_definition
-class InnerJoin(Operator):
+class CartesianProduct(Operator):
   """
-  Joins table `left` with table `right` under condition `predicates`. An empty
-  region for `predicates` means that this operation is just a Cartesian product.
+  Computes the Cartesian product of operands `left` and `right`.
 
   Example:
 
   '''
-  %2 : !rel_ssa.bag<...> = rel_ssa.inner_join(%0 : !rel_ssa.bag<...>, %1 : !rel_ssa.bag<...>) {
-    ...
-    rel_ssa.yield_value(%3 : !rel_ssa.bool)
-  }
+  %2 : !rel_ssa.bag<...> = rel_ssa.cartesian_product(%0 : !rel_ssa.bag<...>, %1 : !rel_ssa.bag<...>)
   '''
   """
-  name = "rel_ssa.inner_join"
+  name = "rel_ssa.cartesian_product"
 
   left = OperandDef(Bag)
   right = OperandDef(Bag)
-  predicates = SingleBlockRegionDef()
 
   result = ResultDef(Bag)
 
   @staticmethod
   @builder
-  def get(left: Operation, right: Operation, predicates: Region) -> 'InnerJoin':
+  def get(left: Operation, right: Operation) -> 'CartesianProduct':
     lhs_names = [e.elt_name.data for e in left.result.typ.schema.data]
     rhs_names = [e.elt_name.data for e in right.result.typ.schema.data]
     assert not any(i in lhs_names for i in rhs_names)
-    return InnerJoin.create(
-        regions=[predicates],
+    return CartesianProduct.create(
         operands=[left.result, right.result],
         result_types=[
             Bag.get(
@@ -604,7 +598,7 @@ class RelSSA:
     self.ctx.register_op(Table)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(Project)
-    self.ctx.register_op(InnerJoin)
+    self.ctx.register_op(CartesianProduct)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)

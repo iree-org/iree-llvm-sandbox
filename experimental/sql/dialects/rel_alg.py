@@ -297,33 +297,29 @@ class Select(Operator):
 
 
 @irdl_op_definition
-class InnerJoin(Operator):
+class CartesianProduct(Operator):
   """
-  Joins table `left` with table `right` under condition `predicates`. An empty
-  region for `predicates` means that this operation is just a Cartesian product.
+  Computes the Cartesian product of tables `left` and `right`.
 
   Example:
 
   '''
-  rel_alg.inner_join() {
+  rel_alg.cartesian_product() {
     rel_alg.table() ...
   } {
     rel_alg.table() ...
-  } {
-    rel_alg.compare() ...
   }
   '''
   """
-  name = "rel_alg.inner_join"
+  name = "rel_alg.cartesian_product"
 
   left = SingleBlockRegionDef()
   right = SingleBlockRegionDef()
-  predicates = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(left: Region, right: Region, predicates: Region) -> 'InnerJoin':
-    return InnerJoin.create(regions=[left, right, predicates])
+  def get(left: Region, right: Region) -> 'CartesianProduct':
+    return CartesianProduct.create(regions=[left, right])
 
 
 @irdl_op_definition
@@ -423,7 +419,7 @@ class RelationalAlg:
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
-    self.ctx.register_op(InnerJoin)
+    self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
