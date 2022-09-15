@@ -151,7 +151,7 @@ class SelectionRewriter(IbisRewriter):
 
 
 @dataclass
-class InnerJoinRewriter(IbisRewriter):
+class CartesianProductRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.CartesianProduct,
@@ -198,7 +198,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       UnboundTableRewriter(),
       SchemaElementRewriter(),
       SelectionRewriter(),
-      InnerJoinRewriter(),
+      CartesianProductRewriter(),
       EqualsRewriter(),
       GreaterEqualRewriter(),
       LessEqualRewriter(),

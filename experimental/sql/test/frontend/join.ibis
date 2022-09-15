@@ -1,0 +1,35 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+t = ibis.table([("a", "int64"), ("b", "int64")], 't')
+u = ibis.table([("c", "int64"), ("d", "int64")], 'u')
+t.join(u, t.a == u.c)
+
+#      CHECK: ibis.selection() ["names" = []] {
+# CHECK-NEXT:     ibis.cartesian_product() {
+# CHECK-NEXT:       ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:       }
+# CHECK-NEXT:     } {
+# CHECK-NEXT:       ibis.unbound_table() ["table_name" = "u"] {
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "d", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:   } {
+# CHECK-NEXT:     ibis.equals() {
+# CHECK-NEXT:       ibis.table_column() ["col_name" = "a"] {
+# CHECK-NEXT:         ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         }
+# CHECK-NEXT:       }
+# CHECK-NEXT:     } {
+# CHECK-NEXT:       ibis.table_column() ["col_name" = "c"] {
+# CHECK-NEXT:         ibis.unbound_table() ["table_name" = "u"] {
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "d", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         }
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:   } {}

@@ -278,12 +278,13 @@ class Aggregation(Operation):
 @irdl_op_definition
 class CartesianProduct(Operation):
   """
-  Models an ibis Cartesian product of tables `left` and `right`.
+  Models an ibis Cartesian product of tables `left` and `right`, i.e. the
+  combination of all elements for `left` and `right`.
 
   Example:
 
   '''
-  ibis.cartesion_product() {
+  ibis.cartesian_product() {
     ibis.unbound_table() ...
   } {
     ibis.unbound_table() ...

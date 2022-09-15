@@ -142,7 +142,7 @@ class BinOpRewriter(RelAlgRewriter):
 
 
 @dataclass
-class InnerJoinRewriter(RelAlgRewriter):
+class CartesianProductRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.CartesianProduct,
@@ -277,7 +277,7 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
       SelectRewriter(),
       AggregateRewriter(),
       ProjectRewriter(),
-      InnerJoinRewriter()
+      CartesianProductRewriter()
   ]),
                                          walk_regions_first=True,
                                          apply_recursively=True,

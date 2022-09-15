@@ -159,13 +159,13 @@ class ProjectRewriter(RelSSARewriter):
 
 
 @dataclass
-class InnerJoinRewriter(RelSSARewriter):
+class CartesianProductRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelSSA.CartesianProduct,
                         rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelImpl.NestedLoopCartesianProduct.get(op.left.op, op.right.op))
+        RelImpl.CartesianProduct.get(op.left.op, op.right.op))
 
 
 @dataclass
@@ -223,7 +223,7 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       YieldValueRewriter(),
       ProjectRewriter(),
       AndRewriter(),
-      InnerJoinRewriter(),
+      CartesianProductRewriter(),
       BinOpRewriter()
   ]),
                                 walk_regions_first=False,

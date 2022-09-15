@@ -483,17 +483,17 @@ class Select(Operator):
 
 
 @irdl_op_definition
-class NestedLoopCartesianProduct(Operator):
+class CartesianProduct(Operator):
   """
-  Computes a nested loop cartesian Product of `left` with `right`.
+  Computes the Cartesian product of `left` with `right`.
 
   Example:
 
   '''
-  %2 : !rel_impl.bag<...> = rel_impl.nested_loop_cartesian(%0 : !rel_impl.bag<...>, %1 : !rel_impl.bag<...>)
+  %2 : !rel_impl.bag<...> = rel_impl.cartesian_product(%0 : !rel_impl.bag<...>, %1 : !rel_impl.bag<...>)
   '''
   """
-  name = "rel_impl.nested_loop_cartesian"
+  name = "rel_impl.cartesian_product"
 
   left = OperandDef(Bag)
   right = OperandDef(Bag)
@@ -502,11 +502,11 @@ class NestedLoopCartesianProduct(Operator):
 
   @staticmethod
   @builder
-  def get(left: Operation, right: Operation) -> 'NestedLoopCartesianProduct':
+  def get(left: Operation, right: Operation) -> 'CartesianProduct':
     lhs_names = [e.elt_name.data for e in left.result.typ.schema.data]
     rhs_names = [e.elt_name.data for e in right.result.typ.schema.data]
     assert not any(i in lhs_names for i in rhs_names)
-    return NestedLoopCartesianProduct.create(
+    return CartesianProduct.create(
         operands=[left.result, right.result],
         result_types=[
             Bag.get([e.elt_type for e in left.result.typ.schema.data] +
@@ -622,7 +622,7 @@ class RelImpl:
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
-    self.ctx.register_op(NestedLoopCartesianProduct)
+    self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(FullTableScanOp)
     self.ctx.register_op(Literal)

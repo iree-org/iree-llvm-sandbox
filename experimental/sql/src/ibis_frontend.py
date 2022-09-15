@@ -105,10 +105,14 @@ def visit(  #type: ignore
 
 @dispatch(ibis.expr.operations.relations.InnerJoin)
 def visit(op: ibis.expr.operations.relations.InnerJoin) -> Operation:
+  cart_prod = id.CartesianProduct.get(
+      Region.from_operation_list([visit(op.left)]),
+      Region.from_operation_list([visit(op.right)]))
   if op.predicates:
-    raise Exception(f"theta joins can not yet be lowered")
-  return id.CartesianProduct.get(Region.from_operation_list([visit(op.left)]),
-                                 Region.from_operation_list([visit(op.right)]))
+    return id.Selection.get(Region.from_operation_list([cart_prod]),
+                            visit_ibis_expr_list(op.predicates),
+                            Region.from_operation_list([]), [])
+  return cart_prod
 
 
 @dispatch(ibis.expr.operations.relations.Selection)
