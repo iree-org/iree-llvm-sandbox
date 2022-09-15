@@ -495,6 +495,41 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class CartesianProduct(Operator):
+  """
+  Computes the Cartesian product of operands `left` and `right`.
+
+  Example:
+
+  '''
+  %2 : !rel_ssa.bag<...> = rel_ssa.cartesian_product(%0 : !rel_ssa.bag<...>, %1 : !rel_ssa.bag<...>)
+  '''
+  """
+  name = "rel_ssa.cartesian_product"
+
+  left = OperandDef(Bag)
+  right = OperandDef(Bag)
+
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(left: Operation, right: Operation) -> 'CartesianProduct':
+    lhs_names = [e.elt_name.data for e in left.result.typ.schema.data]
+    rhs_names = [e.elt_name.data for e in right.result.typ.schema.data]
+    assert not any(i in lhs_names for i in rhs_names)
+    return CartesianProduct.create(
+        operands=[left.result, right.result],
+        result_types=[
+            Bag.get(
+                lhs_names + rhs_names,
+                [e.elt_type for e in left.result.typ.schema.data] +
+                [e.elt_type for e in right.result.typ.schema.data],
+            )
+        ])
+
+
+@irdl_op_definition
 class Aggregate(Operator):
   """
   Applies the ith function of `functions` to the ith column name of `col_names`
@@ -563,6 +598,7 @@ class RelSSA:
     self.ctx.register_op(Table)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(Project)
+    self.ctx.register_op(CartesianProduct)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)

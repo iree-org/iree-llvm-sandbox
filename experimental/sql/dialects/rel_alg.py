@@ -297,6 +297,32 @@ class Select(Operator):
 
 
 @irdl_op_definition
+class CartesianProduct(Operator):
+  """
+  Computes the Cartesian product of tables `left` and `right`.
+
+  Example:
+
+  '''
+  rel_alg.cartesian_product() {
+    rel_alg.table() ...
+  } {
+    rel_alg.table() ...
+  }
+  '''
+  """
+  name = "rel_alg.cartesian_product"
+
+  left = SingleBlockRegionDef()
+  right = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(left: Region, right: Region) -> 'CartesianProduct':
+    return CartesianProduct.create(regions=[left, right])
+
+
+@irdl_op_definition
 class Project(Operator):
   """
   Projects the input table s.t. the output has as the ith column a column with
@@ -393,6 +419,7 @@ class RelationalAlg:
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
+    self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)

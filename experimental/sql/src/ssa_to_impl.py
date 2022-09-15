@@ -72,10 +72,20 @@ class ColumnRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelSSA.Column, rewriter: PatternRewriter):
-    # TODO: In this current version, there is only one block_arg, so it is clear
-    # what to access here. What if this is not the case?
+    # NOTE: This relies on the fact that all input columns have different names.
+    assert len(op.parent.args) == 1 or not any([
+        i in [s.elt_name.data
+              for s in op.parent.args[0].typ.schema.data]
+        for i in [s.elt_name.data for s in op.parent.args[1].typ.schema.data]
+    ])
+    tuple_arg = None
+    for arg in op.parent.args:
+      if op.col_name.data in [s.elt_name.data for s in arg.typ.schema.data]:
+        tuple_arg = arg
+        break
+    assert tuple_arg
     rewriter.replace_matched_op([
-        RelImpl.IndexByName.get(op.col_name.data, op.parent.args[0],
+        RelImpl.IndexByName.get(op.col_name.data, tuple_arg,
                                 self.convert_datatype(op.result.typ))
     ])
 
@@ -149,6 +159,16 @@ class ProjectRewriter(RelSSARewriter):
 
 
 @dataclass
+class CartesianProductRewriter(RelSSARewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.CartesianProduct,
+                        rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelImpl.CartesianProduct.get(op.left.op, op.right.op))
+
+
+@dataclass
 class SelectRewriter(RelSSARewriter):
 
   @op_type_rewrite_pattern
@@ -203,6 +223,7 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       YieldValueRewriter(),
       ProjectRewriter(),
       AndRewriter(),
+      CartesianProductRewriter(),
       BinOpRewriter()
   ]),
                                 walk_regions_first=False,

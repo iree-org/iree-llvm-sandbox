@@ -47,19 +47,20 @@ class RelAlgRewriter(RewritePattern):
     raise Exception(
         f"datatype conversion not yet implemented for {type(type_)}")
 
-  def find_type_in_parent_operator(self, name: str,
-                                   op: Operation) -> Optional[RelSSA.DataType]:
+  def find_type_in_parent_operator_inputs(
+      self, name: str, op: Operation) -> Optional[RelSSA.DataType]:
     """
     Crawls through all parent_ops until reaching either a ModuleOp, in which
-    case the lookup failed or reaching an operator with an input bag, that the
-    type can be looked up in.
+    case the lookup failed or reaching an operator with one or multiple input
+    bags, that the type can be looked up in.
     """
     parent_op = op.parent_op()
     while (parent_op and not isinstance(parent_op, ModuleOp)):
       if isinstance(parent_op, RelSSA.Operator):
-        type_ = parent_op.operands[0].typ.lookup_type_in_schema(name)
-        if type_:
-          return type_
+        for o in parent_op.operands:
+          type_ = o.typ.lookup_type_in_schema(name)
+          if type_:
+            return type_
         raise Exception(f"element not found in parent schema: {name}")
       parent_op = parent_op.parent_op()
     raise Exception(f"element not found in parent schema: {name}")
@@ -88,7 +89,7 @@ class ColumnRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Column, rewriter: PatternRewriter):
-    res_type = self.find_type_in_parent_operator(op.col_name.data, op)
+    res_type = self.find_type_in_parent_operator_inputs(op.col_name.data, op)
     new_op = RelSSA.Column.get(op.col_name.data, res_type)
     rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
@@ -138,6 +139,22 @@ class BinOpRewriter(RelAlgRewriter):
 #===------------------------------------------------------------------------===#
 # Operators
 #===------------------------------------------------------------------------===#
+
+
+@dataclass
+class CartesianProductRewriter(RelAlgRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.CartesianProduct,
+                        rewriter: PatternRewriter):
+    rewriter.inline_block_before_matched_op(op.left.blocks[0])
+    left = rewriter.added_operations_before[-1]
+    rewriter.inline_block_before_matched_op(op.right.blocks[0])
+    right = rewriter.added_operations_before[-1]
+
+    rewriter.insert_op_before_matched_op(
+        RelSSA.CartesianProduct.get(left, right))
+    rewriter.erase_matched_op()
 
 
 @dataclass
@@ -259,7 +276,8 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
       TableRewriter(),
       SelectRewriter(),
       AggregateRewriter(),
-      ProjectRewriter()
+      ProjectRewriter(),
+      CartesianProductRewriter()
   ]),
                                          walk_regions_first=True,
                                          apply_recursively=True,

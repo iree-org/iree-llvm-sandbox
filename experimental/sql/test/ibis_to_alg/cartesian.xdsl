@@ -1,0 +1,28 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+ ibis.cartesian_product() {
+  ibis.unbound_table() ["table_name" = "t"] {
+    ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.int64>]
+    ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+  }
+} {
+  ibis.unbound_table() ["table_name" = "u"] {
+    ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+    ibis.schema_element() ["elt_name" = "d", "elt_type" = !ibis.nullable<!ibis.int64>]
+  }
+}
+
+}
+
+//      CHECK:  rel_alg.cartesian_product() {
+// CHECK-NEXT:    rel_alg.table() ["table_name" = "t"] {
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:    }
+// CHECK-NEXT:  } {
+// CHECK-NEXT:    rel_alg.table() ["table_name" = "u"] {
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "d", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:    }
+// CHECK-NEXT:  }

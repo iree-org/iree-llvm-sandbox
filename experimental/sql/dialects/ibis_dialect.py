@@ -276,6 +276,33 @@ class Aggregation(Operation):
 
 
 @irdl_op_definition
+class CartesianProduct(Operation):
+  """
+  Models an ibis Cartesian product of tables `left` and `right`, i.e. the
+  combination of all elements for `left` and `right`.
+
+  Example:
+
+  '''
+  ibis.cartesian_product() {
+    ibis.unbound_table() ...
+  } {
+    ibis.unbound_table() ...
+  }
+  '''
+  """
+  name = "ibis.cartesian_product"
+
+  left = SingleBlockRegionDef()
+  right = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(left: Region, right: Region) -> 'CartesianProduct':
+    return CartesianProduct.create(regions=[left, right])
+
+
+@irdl_op_definition
 class Sum(Operation):
   """
   Sums up all the elements of the column given in arg based on the encompassing
@@ -520,6 +547,7 @@ class Ibis:
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
+    self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Equals)
     self.ctx.register_op(GreaterEqual)

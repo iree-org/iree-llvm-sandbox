@@ -151,6 +151,18 @@ class SelectionRewriter(IbisRewriter):
 
 
 @dataclass
+class CartesianProductRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.CartesianProduct,
+                        rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.CartesianProduct.get(
+            rewriter.move_region_contents_to_new_regions(op.left),
+            rewriter.move_region_contents_to_new_regions(op.right)))
+
+
+@dataclass
 class AggregationRewriter(IbisRewriter):
 
   def get_col_name_and_function(self, metric_op: Operation) -> Tuple[str, str]:
@@ -186,6 +198,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       UnboundTableRewriter(),
       SchemaElementRewriter(),
       SelectionRewriter(),
+      CartesianProductRewriter(),
       EqualsRewriter(),
       GreaterEqualRewriter(),
       LessEqualRewriter(),
