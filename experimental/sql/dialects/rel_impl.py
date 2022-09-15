@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Union, List, Optional
 from xdsl.ir import Block, Region, Operation, SSAValue, ParametrizedAttribute, Data, MLContext, Attribute
 from xdsl.dialects.builtin import StringAttr, ArrayAttr, ArrayOfConstraint, IntegerAttr
-from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder
+from xdsl.irdl import AttributeDef, OperandDef, ResultDef, RegionDef, SingleBlockRegionDef, irdl_attr_definition, irdl_op_definition, ParameterDef, AnyAttr, VarOperandDef, builder, OptAttributeDef
 
 # This file contains the relational implementation dialect, a dialect that
 # expresses relational queries using low-level concepts like tuples as block
@@ -432,22 +432,34 @@ class Operator(Operation):
 @irdl_op_definition
 class FullTableScanOp(Operator):
   """
-  Performs a full table scan of the table `table_name` and produces a bag with the given schema.
+  Performs a full table scan of the table `table_name` and produces a bag with
+  the given schema. If the optional attribute cols is set, only the given
+  columns are loaded. Otherwise, all columns are loaded.
 
   Example:
 
   '''
-  %0 : rel_impl.bag<[!rel_impl.int32]> = rel_impl.full_table_scan() ["table_name" = "t"]
+  %0 : rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int32>, !rel_impl.schema_element<"b", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "t"]
+  %0 : rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "t", cols = ["a"]]
   '''
   """
   name = "rel_impl.full_table_scan"
 
   table_name = AttributeDef(StringAttr)
+  cols = OptAttributeDef(ArrayAttr)
   result = ResultDef(Bag)
 
   @staticmethod
   @builder
-  def get(name: str, result_type: Bag) -> 'FullTableScanOp':
+  def get(name: str,
+          result_type: Bag,
+          cols: None | List[str] = None) -> 'FullTableScanOp':
+    if cols:
+      return FullTableScanOp.create(attributes={
+          "table_name": StringAttr.from_str(name),
+          "cols": ArrayAttr.from_list([StringAttr.from_str(s) for s in cols])
+      },
+                                    result_types=[result_type])
     return FullTableScanOp.create(
         attributes={"table_name": StringAttr.from_str(name)},
         result_types=[result_type])

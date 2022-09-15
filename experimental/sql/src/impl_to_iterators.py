@@ -248,13 +248,27 @@ class BinOpRewriter(RelImplRewriter):
 @dataclass
 class FullTableScanRewriter(RelImplRewriter):
 
+  # This table_mapping is assumed to be populated already. In this version, this
+  # is done through the use of get_batch_and_name_list. The batch types are then
+  # used to build BlockArguments and this dictionary is populated by mapping
+  # strings to the BlockArguments built from the corresponding types. Notice
+  # that we assume that the name of partial loads are in the form
+  # "table_name","col1","col2"....
+  #
+  # In cases where only parts of a table is needed, the ColumnarBatch is assumed
+  # to only have those columns (in the proper order).
   table_mapping: dict[str, it.ColumnarBatch]
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelImpl.FullTableScanOp,
                         rewriter: PatternRewriter):
+    if op.cols:
+      table_name = op.table_name.data + "," + ",".join(
+          [s.data for s in op.cols.data])
+    else:
+      table_name = op.table_name.data
     rewriter.replace_matched_op(
-        it.ScanColumnarBatch.get(self.table_mapping[op.table_name.data],
+        it.ScanColumnarBatch.get(self.table_mapping[table_name],
                                  convert_bag(op.result.typ)))
 
 
@@ -322,7 +336,10 @@ def get_batch_and_name_list(
     op: FuncOp) -> Tuple[list[str], list[it.ColumnarBatch]]:
   """
   Scans over all the operations of a top-level function op and returns a list of
-  the table_names and a list of the batches these tables correspond to.
+  the table_names and a list of the batch types these table loads correspond to.
+  In the case of a table without a `cols` attribute, all the types in the table
+  are part of the ColumnarBatch, whereas a table with `cols` only has the types
+  of columns to be loaded.
   """
   batches = []
   names = []
@@ -337,7 +354,11 @@ def get_batch_and_name_list(
               ])
           ]))
       batches.append(curr_batch)
-      names.append(o.table_name.data)
+      if o.cols:
+        names.append(o.table_name.data + "," +
+                     ",".join([s.data for s in o.cols.data]))
+      else:
+        names.append(o.table_name.data)
 
   return batches, names
 
@@ -357,9 +378,11 @@ def impl_to_iterators(ctx: MLContext, query: ModuleOp):
                          Region.from_block_list([body_block]))
   f.attributes['llvm.emit_c_interface'] = UnitAttr([])
   query.body.add_block(Block.from_ops([f]))
+
   # Populating a mapping from table names to BlockArguments
   for n, b in zip(names, f.body.blocks[0].args):
     table_mapping[n] = b
+
   # Adding the sink
   query.body.blocks[0].ops[0].body.blocks[0].add_op(
       it.SinkOp.get(query.body.blocks[0].ops[0].body.blocks[0].ops[-1]))

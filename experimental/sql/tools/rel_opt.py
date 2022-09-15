@@ -19,6 +19,7 @@ from src.alg_to_ssa import alg_to_ssa
 from src.ssa_to_impl import ssa_to_impl
 from src.impl_to_iterators import impl_to_iterators
 from src.projection_pushdown import projection_pushdown
+from src.fuse_proj_into_scan import fuse_proj_into_scan
 from dialects.ibis_dialect import Ibis
 from dialects.rel_alg import RelationalAlg
 from dialects.rel_ssa import RelSSA
@@ -34,6 +35,7 @@ class RelOptMain(xDSLOptMain):
     self.available_passes['ssa-to-impl'] = ssa_to_impl
     self.available_passes['impl-to-iterators'] = impl_to_iterators
     self.available_passes['projection-pushdown'] = projection_pushdown
+    self.available_passes['fuse-proj-into-scan'] = fuse_proj_into_scan
 
   def register_all_frontends(self):
     super().register_all_frontends()
