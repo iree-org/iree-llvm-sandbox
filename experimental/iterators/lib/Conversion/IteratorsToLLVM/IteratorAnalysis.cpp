@@ -9,6 +9,7 @@
 
 using namespace mlir;
 using namespace mlir::iterators;
+using namespace LLVM;
 
 using SymbolTriple = std::tuple<SymbolRefAttr, SymbolRefAttr, SymbolRefAttr>;
 
@@ -51,9 +52,9 @@ public:
   /// Computes the state type of the given op whose upstream iterator ops have
   /// the state types given in upstreamStateTypes.
   template <typename OpType>
-  LLVM::LLVMStructType
+  LLVMStructType
   operator()(OpType op,
-             llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) const;
+             llvm::SmallVector<LLVMStructType> upstreamStateTypes) const;
 
 private:
   TypeConverter typeConverter;
@@ -62,52 +63,49 @@ private:
 /// The state of ConstantStreamOp consists of a single number that corresponds
 /// to the index of the next struct returned by the iterator.
 template <>
-LLVM::LLVMStructType StateTypeComputer::operator()(
+LLVMStructType StateTypeComputer::operator()(
     ConstantStreamOp op,
-    llvm::SmallVector<LLVM::LLVMStructType> /*upstreamStateTypes*/) const {
+    llvm::SmallVector<LLVMStructType> /*upstreamStateTypes*/) const {
   MLIRContext *context = op->getContext();
   Type i32 = IntegerType::get(context, /*width=*/32);
-  return LLVM::LLVMStructType::getNewIdentified(
+  return LLVMStructType::getNewIdentified(
       context, "iterators.constant_stream_state", {i32});
 }
 
 /// The state of FilterOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
-LLVM::LLVMStructType StateTypeComputer::operator()(
-    FilterOp op,
-    llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) const {
-  return LLVM::LLVMStructType::getNewIdentified(
+LLVMStructType StateTypeComputer::operator()(
+    FilterOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) const {
+  return LLVMStructType::getNewIdentified(
       op->getContext(), "iterators.filter_state", {upstreamStateTypes[0]});
 }
 
 /// The state of MapOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
-LLVM::LLVMStructType StateTypeComputer::operator()(
-    MapOp op,
-    llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) const {
-  return LLVM::LLVMStructType::getNewIdentified(
+LLVMStructType StateTypeComputer::operator()(
+    MapOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) const {
+  return LLVMStructType::getNewIdentified(
       op->getContext(), "iterators.map_state", {upstreamStateTypes[0]});
 }
 
 /// The state of ReduceOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
-LLVM::LLVMStructType StateTypeComputer::operator()(
-    ReduceOp op,
-    llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes) const {
+LLVMStructType StateTypeComputer::operator()(
+    ReduceOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) const {
   assert(upstreamStateTypes.size() == 1);
-  return LLVM::LLVMStructType::getNewIdentified(
+  return LLVMStructType::getNewIdentified(
       op->getContext(), "iterators.reduce_state", {upstreamStateTypes[0]});
 }
 
-/// Build IteratorInfo, assigning new unique names as needed.
-/// Takes the `LLVM::LLVMStructType` as a parameter, to ensure proper build
-/// order (all uses are visited before any def).
+/// Build IteratorInfo, assigning new unique names as needed. Takes the
+/// `LLVMStructType` as a parameter, to ensure proper build order (all uses are
+/// visited before any def).
 mlir::iterators::IteratorInfo::IteratorInfo(IteratorOpInterface op,
                                             NameAssigner &nameAssigner,
-                                            LLVM::LLVMStructType t) {
+                                            LLVMStructType t) {
   std::tie(openFunc, nextFunc, closeFunc) =
       assignFunctionNames(op, nameAssigner);
   stateType = t;
@@ -150,17 +148,16 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             ReduceOp
             // clang-format on
             >([&](auto op) {
-          llvm::SmallVector<LLVM::LLVMStructType> upstreamStateTypes;
+          llvm::SmallVector<LLVMStructType> upstreamStateTypes;
           llvm::transform(op->getOperands(),
                           std::back_inserter(upstreamStateTypes),
                           [&](auto operand) {
                             Operation *def = operand.getDefiningOp();
                             if (!def || !llvm::isa<IteratorOpInterface>(def))
-                              return LLVM::LLVMStructType();
+                              return LLVMStructType();
                             return getExpectedIteratorInfo(def).stateType;
                           });
-          LLVM::LLVMStructType stateType =
-              stateTypeComputer(op, upstreamStateTypes);
+          LLVMStructType stateType = stateTypeComputer(op, upstreamStateTypes);
           setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));
         })
         .Default([&](auto op) { assert(false && "Unexpected op"); });
