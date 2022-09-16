@@ -53,8 +53,7 @@ public:
   /// the state types given in upstreamStateTypes.
   template <typename OpType>
   LLVMStructType
-  operator()(OpType op,
-             llvm::SmallVector<LLVMStructType> upstreamStateTypes) const;
+  operator()(OpType op, llvm::SmallVector<LLVMStructType> upstreamStateTypes);
 
 private:
   TypeConverter typeConverter;
@@ -65,7 +64,7 @@ private:
 template <>
 LLVMStructType StateTypeComputer::operator()(
     ConstantStreamOp op,
-    llvm::SmallVector<LLVMStructType> /*upstreamStateTypes*/) const {
+    llvm::SmallVector<LLVMStructType> /*upstreamStateTypes*/) {
   MLIRContext *context = op->getContext();
   Type i32 = IntegerType::get(context, /*width=*/32);
   return LLVMStructType::getNewIdentified(
@@ -76,7 +75,7 @@ LLVMStructType StateTypeComputer::operator()(
 /// i.e., the state of the iterator that produces its input stream.
 template <>
 LLVMStructType StateTypeComputer::operator()(
-    FilterOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) const {
+    FilterOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) {
   return LLVMStructType::getNewIdentified(
       op->getContext(), "iterators.filter_state", {upstreamStateTypes[0]});
 }
@@ -85,7 +84,7 @@ LLVMStructType StateTypeComputer::operator()(
 /// i.e., the state of the iterator that produces its input stream.
 template <>
 LLVMStructType StateTypeComputer::operator()(
-    MapOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) const {
+    MapOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) {
   return LLVMStructType::getNewIdentified(
       op->getContext(), "iterators.map_state", {upstreamStateTypes[0]});
 }
@@ -94,7 +93,7 @@ LLVMStructType StateTypeComputer::operator()(
 /// i.e., the state of the iterator that produces its input stream.
 template <>
 LLVMStructType StateTypeComputer::operator()(
-    ReduceOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) const {
+    ReduceOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) {
   assert(upstreamStateTypes.size() == 1);
   return LLVMStructType::getNewIdentified(
       op->getContext(), "iterators.reduce_state", {upstreamStateTypes[0]});
