@@ -15,6 +15,7 @@
 namespace mlir {
 class ModuleOp;
 class Operation;
+class TypeConverter;
 
 namespace iterators {
 
@@ -55,7 +56,7 @@ class IteratorAnalysis {
   using OperationMap = llvm::DenseMap<Operation *, IteratorInfo>;
 
 public:
-  explicit IteratorAnalysis(Operation *rootOp);
+  explicit IteratorAnalysis(Operation *rootOp, TypeConverter &typeConverter);
 
   /// Returns the operation this analysis was constructed from.
   Operation *getRootOperation() const { return rootOp; }

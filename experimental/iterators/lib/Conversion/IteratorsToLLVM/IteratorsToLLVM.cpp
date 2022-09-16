@@ -1402,7 +1402,7 @@ static Value convertIteratorOp(Operation *op, ValueRange operands,
 ///    (which it has walked before) to the conversion logic.
 static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
   IRRewriter rewriter(module.getContext());
-  IteratorAnalysis analysis(module);
+  IteratorAnalysis analysis(module, typeConverter);
   BlockAndValueMapping mapping;
 
   // Collect all iterator ops in a worklist. Within each block, the iterator
