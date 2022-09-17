@@ -18,7 +18,7 @@
 #include <tuple>
 #include <vector>
 
-namespace mlir::iterators::operators {
+namespace database_iterators::operators {
 
 /// Co-iterates over a set of vectors representing the columns of a table.
 ///
@@ -80,6 +80,6 @@ auto makeColumnScanOperator(std::vector<InputTypes>... inputs) {
   return ColumnScanOperator<InputTypes...>(inputs...);
 }
 
-} // namespace mlir::iterators::operators
+} // namespace database_iterators::operators
 
 #endif // ITERATORS_OPERATORS_COLUMNSCANOPERATOR_H

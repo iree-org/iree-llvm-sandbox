@@ -17,7 +17,7 @@
 #include <optional>
 #include <tuple>
 
-namespace mlir::iterators::operators {
+namespace database_iterators::operators {
 
 /// Maps (or "transforms") all input tuples to a new one using a map function.
 ///
@@ -70,6 +70,6 @@ auto makeMapOperator(UpstreamType *const upstream,
                                                     std::move(mapFunction));
 }
 
-} // namespace mlir::iterators::operators
+} // namespace database_iterators::operators
 
 #endif // ITERATORS_OPERATORS_MAPOPERATOR_H

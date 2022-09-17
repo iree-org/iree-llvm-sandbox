@@ -11,9 +11,9 @@
 #include <sstream>
 #include <tuple>
 
-#include "iterators/Utils/Tuple.h"
+#include "database-iterators/Utils/Tuple.h"
 
-using namespace mlir::iterators::utils;
+using namespace database_iterators::utils;
 
 TEST(ExtractHeadTest, Head0) {
   std::tuple<int16_t, int32_t> tuple = {1, 2};

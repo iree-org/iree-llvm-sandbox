@@ -12,11 +12,11 @@
 #include <tuple>
 #include <vector>
 
-#include "iterators/Operators/ColumnScanOperator.h"
-#include "iterators/Operators/ReduceByKeyOperator.h"
+#include "database-iterators/Operators/ColumnScanOperator.h"
+#include "database-iterators/Operators/ReduceByKeyOperator.h"
 
-using namespace mlir::iterators::operators;
-using namespace mlir::iterators::utils;
+using namespace database_iterators::operators;
+using namespace database_iterators::utils;
 
 TEST(ReduceByKeyTest, SingleColumnKey) {
   std::vector<int32_t> keys = {1, 2, 1, 2};

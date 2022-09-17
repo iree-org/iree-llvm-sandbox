@@ -44,8 +44,8 @@ children (and potentially other things) using templates. `computeNext` returns
 an `std::optional`, where an empty optional indicates that the end of the
 stream has been reached, i.e., no further tuples can be returned.
 
-Each operator has a `Make*Operator` factory function that derives the template
-parameters for the to-be-instatiated class such that assembling query plans is
+Each operator has a `make*Operator` factory function that derives the template
+parameters for the to-be-instantiated class such that assembling query plans is
 concise:
 
 ```cpp

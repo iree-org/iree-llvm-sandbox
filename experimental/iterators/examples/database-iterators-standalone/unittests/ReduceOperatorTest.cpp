@@ -11,10 +11,10 @@
 #include <tuple>
 #include <vector>
 
-#include "iterators/Operators/ColumnScanOperator.h"
-#include "iterators/Operators/ReduceOperator.h"
+#include "database-iterators/Operators/ColumnScanOperator.h"
+#include "database-iterators/Operators/ReduceOperator.h"
 
-using namespace mlir::iterators::operators;
+using namespace database_iterators::operators;
 
 TEST(ReduceTest, SingleColumnSum) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};

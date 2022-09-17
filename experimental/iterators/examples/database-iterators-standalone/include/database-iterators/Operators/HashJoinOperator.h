@@ -18,9 +18,9 @@
 #include <tuple>
 #include <unordered_map>
 
-#include "iterators/Utils/Tuple.h"
+#include "database-iterators/Utils/Tuple.h"
 
-namespace mlir::iterators::operators {
+namespace database_iterators::operators {
 
 /// Returns tuples from its two upstream operators that have matching keys.
 ///
@@ -145,6 +145,6 @@ auto makeHashJoinOperator(BuildUpstreamType *const buildUpstream,
                           kNumKeyAttributes>(buildUpstream, probeUpstream);
 }
 
-} // namespace mlir::iterators::operators
+} // namespace database_iterators::operators
 
 #endif // ITERATORS_OPERATORS_HASHJOINOPERATOR_H

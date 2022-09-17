@@ -17,7 +17,7 @@
 #include <optional>
 #include <tuple>
 
-namespace mlir::iterators::operators {
+namespace database_iterators::operators {
 
 /// Reduces (or "folds") all input tuples into one given a reduce function.
 ///
@@ -80,6 +80,6 @@ auto makeReduceOperator(UpstreamType *const upstream,
       upstream, std::move(reduceFunction));
 }
 
-} // namespace mlir::iterators::operators
+} // namespace database_iterators::operators
 
 #endif // ITERATORS_OPERATORS_REDUCEOPERATOR_H

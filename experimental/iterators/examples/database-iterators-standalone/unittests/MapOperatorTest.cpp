@@ -11,10 +11,10 @@
 #include <tuple>
 #include <vector>
 
-#include "iterators/Operators/ColumnScanOperator.h"
-#include "iterators/Operators/MapOperator.h"
+#include "database-iterators/Operators/ColumnScanOperator.h"
+#include "database-iterators/Operators/MapOperator.h"
 
-using namespace mlir::iterators::operators;
+using namespace database_iterators::operators;
 
 TEST(MapTest, SingleColumnMap) {
   std::vector<int32_t> numbers = {1, 2};

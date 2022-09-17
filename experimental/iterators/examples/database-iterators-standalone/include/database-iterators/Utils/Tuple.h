@@ -12,7 +12,7 @@
 #include <iostream>
 #include <tuple>
 
-namespace mlir::iterators::utils {
+namespace database_iterators::utils {
 
 namespace impl {
 template <typename TupleType, std::size_t... kIndices>
@@ -107,6 +107,6 @@ void printTuple(const std::tuple<Types...> &tuple) {
   printTuple(std::cout, tuple);
 }
 
-} // namespace mlir::iterators::utils
+} // namespace database_iterators::utils
 
 #endif // ITERATORS_UTILS_TUPLE_H
