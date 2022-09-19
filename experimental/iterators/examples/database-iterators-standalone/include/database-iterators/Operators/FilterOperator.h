@@ -17,7 +17,7 @@
 #include <optional>
 #include <tuple>
 
-namespace mlir::iterators::operators {
+namespace database_iterators::operators {
 
 /// Produces all tuples from upstream that pass the given filter.
 ///
@@ -70,6 +70,6 @@ auto makeFilterOperator(UpstreamType *const upstream,
       upstream, std::move(filterFunction));
 }
 
-} // namespace mlir::iterators::operators
+} // namespace database_iterators::operators
 
 #endif // ITERATORS_OPERATORS_FILTEROPERATOR_H

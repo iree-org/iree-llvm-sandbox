@@ -19,9 +19,9 @@
 #include <tuple>
 #include <unordered_map>
 
-#include "iterators/Utils/Tuple.h"
+#include "database-iterators/Utils/Tuple.h"
 
-namespace mlir::iterators::operators {
+namespace database_iterators::operators {
 
 /// Groups the input tuples by key and reduces the tuples within each group.
 ///
@@ -131,6 +131,6 @@ auto makeReduceByKeyOperator(UpstreamType *const upstream,
                                                 std::move(reduceFunction));
 }
 
-} // namespace mlir::iterators::operators
+} // namespace database_iterators::operators
 
 #endif // ITERATORS_OPERATORS_REDUCEBYKEYOPERATOR_H

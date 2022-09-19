@@ -8,16 +8,14 @@ import subprocess
 import lit.formats
 
 # name: The name of this test suite.
-config.name = 'Iterators Unit'
+config.name = 'DatabaseIterators Unit'
 
 # suffixes: A list of file extensions to treat as test files.
 config.suffixes = []
 
 # test_source_root: The root path where tests are located.
 # test_exec_root: The root path where tests should be run.
-build_dir = os.environ["IREE_LLVM_SANDBOX_BUILD_DIR"]
-config.test_exec_root = os.path.join(
-    build_dir, 'tools/sandbox/experimental/iterators/unittests')
+config.test_exec_root = '@CMAKE_CURRENT_BINARY_DIR@'
 config.test_source_root = config.test_exec_root
 
 # Pass through LLVM_SYMBOLIZER_PATH from environment

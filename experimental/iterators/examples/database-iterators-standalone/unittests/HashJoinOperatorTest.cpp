@@ -11,10 +11,10 @@
 #include <algorithm>
 #include <vector>
 
-#include "iterators/Operators/ColumnScanOperator.h"
-#include "iterators/Operators/HashJoinOperator.h"
+#include "database-iterators/Operators/ColumnScanOperator.h"
+#include "database-iterators/Operators/HashJoinOperator.h"
 
-using namespace mlir::iterators::operators;
+using namespace database_iterators::operators;
 
 TEST(HashJoinTest, SingleColumnKey) {
   std::vector<int32_t> leftKeys = {1, 2, 1, 2, 5};

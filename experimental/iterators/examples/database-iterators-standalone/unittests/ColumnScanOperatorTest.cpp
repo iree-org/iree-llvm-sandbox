@@ -11,9 +11,9 @@
 #include <tuple>
 #include <vector>
 
-#include "iterators/Operators/ColumnScanOperator.h"
+#include "database-iterators/Operators/ColumnScanOperator.h"
 
-using namespace mlir::iterators::operators;
+using namespace database_iterators::operators;
 
 TEST(ColumnScanTest, SingleColumn) {
   std::vector<int32_t> numbers = {1, 2, 3, 4};

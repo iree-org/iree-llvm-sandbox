@@ -32,7 +32,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = MLIR
+PROJECT_NAME           = Database Iterators
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -992,7 +992,7 @@ COLS_IN_ALPHA_INDEX    = 4
 # while generating the index headers.
 # This tag requires that the tag ALPHABETICAL_INDEX is set to YES.
 
-IGNORE_PREFIX          = llvm:: mlir::
+IGNORE_PREFIX          = database_iterators::
 
 #---------------------------------------------------------------------------
 # Configuration options related to the HTML output
