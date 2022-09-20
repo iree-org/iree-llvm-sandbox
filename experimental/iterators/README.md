@@ -132,7 +132,7 @@ objects. Since the state in each `iterator` object and the number of values
 passed between them is constant, the above example essentially works on
 arbitrarily large files.
 
-#### Distinction to Related Concepts
+#### Distinction to Related Concepts in Python
 
 A few related but distinct concepts deserve a short discussion:
 
@@ -153,7 +153,7 @@ A few related but distinct concepts deserve a short discussion:
   that implements the `iterator` interface. Similarly, a
   [`generator expression`](https://docs.python.org/3/glossary.html#term-generator-expression)
   (such as `i*i for i in range(10)`) is a language construct that, like
-  `generator function`s returns an object of the built-in type `generator`.
+  `generator function`s, returns an object of the built-in type `generator`.
 
 ### Iterators in Database Systems
 
@@ -168,7 +168,7 @@ consumes the streams from its zero or more "upstream" iterators to do so --
 without knowing anything about its upstream and downstream iterators. This helps
 isolating the control flow of each iterator, which may be complex, as well as
 its state. Like in Python, the iterator interface also allows for interleaved
-execution of many different computations steps py passing data *and* control:
+execution of many different computation steps py passing data *and* control:
 when one iterator asks its upstream iterator for the next element, it passes
 control to that iterator, which returns the control together with the next
 element. By limiting the number of in-flight elements to essentially one, this
@@ -176,22 +176,23 @@ minimizes the overall state and thus data movement.
 
 Iterators in database systems are often implemented with some variant of the
 so-called "Volcano" iterator model (named after the system that first proposed
-this model). Conceptually, the model is the same as those of Python's iterators;
-however, the communication protocol between iterators is slightly different.
-Concretely, it defines that each iterator class should have the functions
-`open`, `next`, and `close` (and is therefor sometimes called "open/next/close"
-iterface). Computations are expressed as a tree of such iterators. The
-computation is initialized by calling `open` on the root iterator, which
-typically calls `open` on its child iterators, such that the whole tree is
-initialized recursively. The computation is then driven by calling `next`
-repeatedly on the root, each call producing one element of the result until all
-of them have been produced. Each call to `next` on the root typically triggers
-a cascade of `next` calls in the tree (but how many calls are required in each
-of the iterators depends on those iterators, their current state, and the input
-they are consuming). After a call to `next` has signaled the end of the result
-stream, or when the system or user wants to abort the computation, the `close`
-function of the root iterator is called, which recursively calls `close` on its
-children, all of which clean up any state they may have.
+this model, se [Graefe'90](https://dl.acm.org/doi/abs/10.1145/93605.98720)).
+Conceptually, the model is the same as those of Python's iterators; however, the
+communication protocol between iterators is slightly different. Concretely, it
+defines that each iterator class should have the functions `open`, `next`, and
+`close` (and is therefor sometimes called "open/next/close" iterface).
+Computations are expressed as a tree of such iterators. The computation is
+initialized by calling `open` on the root iterator, which typically calls `open`
+on its child iterators, such that the whole tree is initialized recursively. The
+computation is then driven by calling `next` repeatedly on the root, each call
+producing one element of the result until all of them have been produced. Each
+call to `next` on the root typically triggers a cascade of `next` calls in the
+tree (but how many calls are required in each of the iterators depends on those
+iterators, their current state, and the input they are consuming). After a call
+to `next` has signaled the end of the result stream, or when the system or user
+wants to abort the computation, the `close` function of the root iterator is
+called, which recursively calls `close` on its children, all of which clean up
+any state they may have.
 
 The [`examples/database-iterators-standalone`](examples/database-iterators-standalone)
 folder contains a standalone project that implements the open/next/close
