@@ -24,6 +24,8 @@ targeting. The subsequent explains Python iterators in order to establish
 fundamental concepts and terminology in a context that is familiar to many
 readers.
 
+#### Motivation
+
 Python's iterators allow to work with sequences of values without materializing
 these sequences. This allows to (1) save memory for storing the entire sequence,
 which may allow to do computations that would otherwise exceed the main memory,
@@ -51,6 +53,8 @@ argument (and the increment given as the second) -- but
 [`islice`](https://docs.python.org/3/library/itertools.html#itertools.islice)
 only consumes the first 3 values of it (as instructed to by its second
 argument).
+
+#### Definition of `iterator`
 
 Formally, an [iterator](https://docs.python.org/3/glossary.html#term-iterator)
 in Python is simply an object with a `__next__()` function, which, when called
@@ -96,6 +100,8 @@ print(iterator.__next__()) # Outputs: 3
 print(iterator.__next__()) # Raises: StopIteration
 ```
 
+#### Composability
+
 One property that makes iterators in Python so powerful is that they are
 composable. Many
 [built-in functions](https://docs.python.org/3/library/functions.html) (such as
@@ -125,6 +131,29 @@ turn, causes a cascade of calls to `__next__()` of the nested `iterator`
 objects. Since the state in each `iterator` object and the number of values
 passed between them is constant, the above example essentially works on
 arbitrarily large files.
+
+#### Distinction to Related Concepts
+
+A few related but distinct concepts deserve a short discussion:
+
+* `iterable`: As mentioned before, `iterable`s in Python are things than can be
+  iterated over (such as containers like `list`s, `tuple`s, etc) while
+  `iterator`s are objects that help with that iteration. `iterable`s provide
+  `iterator`s via their `__iter__()` function. The `for` loop uses that function
+  to get an `iterator`, and uses that in turn to iterate. Confusion may arise
+  because `iterator`s *are* also `iterable` (in order to make `iterator`s usable
+  in `for` loops).
+* `generator`: This term is actually ambiguous; it may refer to
+  [`generator function`](https://docs.python.org/3/glossary.html#term-generator)
+  (which seems to be the more common usage of simply `generator`) or
+  [`generator iterator`](https://docs.python.org/3/glossary.html#term-generator-iterator).
+  In short, the former is a function that returns the latter.
+  In more detail, an `iterator function` is a function with a `yield` statement,
+  which, therefor, returns an object of the builtin type `generator` -- a class
+  that implements the `iterator` interface. Similarly, a
+  [`generator expression`](https://docs.python.org/3/glossary.html#term-generator-expression)
+  (such as `i*i for i in range(10)`) is a language construct that, like
+  `generator function`s returns an object of the built-in type `generator`.
 
 ### Iterators in Database Systems
 
