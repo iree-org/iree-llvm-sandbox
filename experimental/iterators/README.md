@@ -218,3 +218,49 @@ degree, the [C++ template project](examples/database-iterators-standalone)
 mentioned above achieves this by relying on the C++ compiler to inline templated
 function calls; another widespread technique is to produce LLVM IR one way or
 the other.
+
+### The Relational Data Model
+
+We briefly review the data model of (relational) database systems. To a large
+degree, iterators seem orthogonal to the elements they iterate over but whether
+or not and how we should achieve this orthogonality may require some discussion,
+so reviewing the data model here may be useful.
+
+Relational database systems manage *relations*. A relation is a bag (i.e.,
+multiset) of *tuples* (or *records*). (Textbooks often define relations as
+*sets* but practical systems use on bag-based relational algebra, or even
+sequence-based or mixed algebras in order to support order-sensitive operations
+such as window functions.) A record is collection of named and typed
+*attributes* (or *fields* or, depending on the context, *columns*). Attributes
+may be *nullable* (read: optional), i.e., they may contain a value of a
+particular type or the special value *null* indicating the absence of a value.
+In the plain relational model, attributes are atomic values (numbers, strings,
+etc); in nested relational algebra, an attribute may be of a relation type or a
+tuple type.
+
+The closest equivalent to a relation in Python is arguably a
+[`List[TupleType]`](https://docs.python.org/3/library/typing.html#typing.List),
+where `TupleType` is some type based on
+[`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple),
+e.g., `NamedTuple('Employee', [('name', Optional[str]), ('id', int)])`. One
+inaccuracy in this analogy its the fact (bag-based) relations do not specify an
+order of their tuples while `List` does. Another inaccuracy is the fact that
+`NamedTuple` specifies a name for the tuple type whereas this isn't (always) the
+case in the relational model. Also, `NamedTuple` allows ordered access to the
+fields whereas the field order does not play any role in the relational model
+(though it does play a role in SQL, most notably for `UNION` and similar).
+
+Another way to look at relations is to think of them as *tables*: each tuple
+represents one row of the table and the corresponding attribute values of
+different rows represent a column. The values in each column have the same type.
+Again, this analogy is inaccurate in that it implies an order of the rows and
+columns.
+
+Relations, thus, have a certain similarity to matrices: they are also
+two-dimensional and can be thought of in terms of rows and columns. However,
+(1) only columns have values of the same type, whereas the values of one row
+generally don't, (2) at least on the highest-level of abstraction (and modulo
+the sequence-based relational model), neither the order of the rows nor that of
+the columns matter, (3) the elements of relations may be strings or similar
+variable-length data types, and (4) nested relational algebra also allows for
+structured element types (which may have variable length).
