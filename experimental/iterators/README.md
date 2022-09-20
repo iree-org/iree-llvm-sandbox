@@ -176,23 +176,23 @@ minimizes the overall state and thus data movement.
 
 Iterators in database systems are often implemented with some variant of the
 so-called "Volcano" iterator model (named after the system that first proposed
-this model, se [Graefe'90](https://dl.acm.org/doi/abs/10.1145/93605.98720)).
-Conceptually, the model is the same as those of Python's iterators; however, the
-communication protocol between iterators is slightly different. Concretely, it
-defines that each iterator class should have the functions `open`, `next`, and
-`close` (and is therefor sometimes called "open/next/close" iterface).
-Computations are expressed as a tree of such iterators. The computation is
-initialized by calling `open` on the root iterator, which typically calls `open`
-on its child iterators, such that the whole tree is initialized recursively. The
-computation is then driven by calling `next` repeatedly on the root, each call
-producing one element of the result until all of them have been produced. Each
-call to `next` on the root typically triggers a cascade of `next` calls in the
-tree (but how many calls are required in each of the iterators depends on those
-iterators, their current state, and the input they are consuming). After a call
-to `next` has signaled the end of the result stream, or when the system or user
-wants to abort the computation, the `close` function of the root iterator is
-called, which recursively calls `close` on its children, all of which clean up
-any state they may have.
+this model, se [Graefe'90](https://doi.org/10.1145/93605.98720)). Conceptually,
+the model is the same as those of Python's iterators; however, the communication
+protocol between iterators is slightly different. Concretely, it defines that
+each iterator class should have the functions `open`, `next`, and `close` (and
+is therefor sometimes called "open/next/close" iterface). Computations are
+expressed as a tree of such iterators. The computation is initialized by calling
+`open` on the root iterator, which typically calls `open` on its child
+iterators, such that the whole tree is initialized recursively. The computation
+is then driven by calling `next` repeatedly on the root, each call producing one
+element of the result until all of them have been produced. Each call to `next`
+on the root typically triggers a cascade of `next` calls in the tree (but how
+many calls are required in each of the iterators depends on those iterators,
+their current state, and the input they are consuming). After a call to `next`
+has signaled the end of the result stream, or when the system or user wants to
+abort the computation, the `close` function of the root iterator is called,
+which recursively calls `close` on its children, all of which clean up any state
+they may have.
 
 The [`examples/database-iterators-standalone`](examples/database-iterators-standalone)
 folder contains a standalone project that implements the open/next/close
