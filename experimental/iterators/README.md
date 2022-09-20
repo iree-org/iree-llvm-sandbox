@@ -1,7 +1,7 @@
 # Iterators dialect for MLIR
 
 This folder contains an MLIR dialect based on the concepts of database-style
-itertors, which allow to express computations on streams of data.
+iterators, which allow to express computations on streams of data.
 
 ## Motivation
 
@@ -28,7 +28,7 @@ Python's iterators allow to work with sequences of values without materializing
 these sequences. This allows to (1) save memory for storing the entire sequence,
 which may allow to do computations that would otherwise exceed the main memory,
 (2) avoid computing values in the sequence that are never used, (3) as a
-concequence, work with inifite sequences, and (4) improve cache efficiency
+consequence, work with infinite sequences, and (4) improve cache efficiency
 because the consumer of the values of a sequence is interleaved with the
 producer of that sequence.
 
