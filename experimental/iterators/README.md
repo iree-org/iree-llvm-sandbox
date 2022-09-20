@@ -197,3 +197,24 @@ they may have.
 The [`examples/database-iterators-standalone`](examples/database-iterators-standalone)
 folder contains a standalone project that implements the open/next/close
 interface using C++ templates for illustration purposes.
+
+Originally, the open/next/close interface was implemented with (virtual)
+function calls in order to achieve the desired composability but this has
+changed over time. In the times when almost all data managed by the database
+system was stored on disk, the overhead of virtual function calls in the inner
+loop was negligible. However, DRAM sizes have increased faster than typical
+dataset sizes, so most data today is processed from main memory, in which case
+virtual functions are not practical anymore. Several solutions have been
+proposed over time, two of which are related variants of the Volcano model: (1)
+Rather than passing one element at a time, it is possible to pass *batches* of
+them in each call to `next`, and then express the computations as virtual
+functions *on the whole batch*. This amortizes the virtual function calls with
+the batch size but keeps the benefits of being cache-efficient. See the seminal
+work on [MonetDB/X100](https://www.cidrdb.org/cidr2005/papers/P19.pdf) for
+details. (2) Alternatively, JIT compilation (of the entire computation or parts
+of it) has become widespread for eliminating the function call overhead,
+as popularized by [HyPer](https://doi.org/10.14778/2002938.2002940). To some
+degree, the [C++ template project](examples/database-iterators-standalone)
+mentioned above achieves this by relying on the C++ compiler to inline templated
+function calls; another widespread technique is to produce LLVM IR one way or
+the other.
