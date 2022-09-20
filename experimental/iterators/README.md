@@ -159,17 +159,19 @@ A few related but distinct concepts deserve a short discussion:
 
 Database systems (both relational and non-relational) typically express their
 computations as transformations of streams of data in order to reduce data
-movement between slow and fast memory (e.g., between DRAM and CPU cache).
-Transformations are typically made composable through an "iterator" interface:
-Each iterator produces a stream of data that can be consumed "downstream" one
-element at a time, and, in turn, consumes the streams from its zero or more
-"upstream" iterators to do so -- without knowing anything about its upstream and
-downstream iterators. Each iterator may have complex control flow logic, often
-depending on the data that it consumes, and can manage its own state. The
-iterator interface, thus, passes data *and* control: when one iterator asks its
-upstream iterator for the next element, it passes control to that iterator,
-which returns the control together with the next element. By limiting the number
-of in-flight elements to essentially one, this minimizes the overall state and
-thus data movement.
+movement between slow and fast memory (e.g., between DRAM and CPU cache). They
+typically do so with "iterators" that are quite similar to those in Python, and
+pretty much for the same reason. First, having all transformations implement
+some iterator interface makes them composable: Each iterator produces a stream
+of data that can be consumed "downstream" one element at a time, and, in turn,
+consumes the streams from its zero or more "upstream" iterators to do so --
+without knowing anything about its upstream and downstream iterators. This helps
+isolating the control flow of each iterator, which may be complex, as well as
+its state. Like in Python, the iterator interface also allows for interleaved
+execution of many different computations steps py passing data *and* control:
+when one iterator asks its upstream iterator for the next element, it passes
+control to that iterator, which returns the control together with the next
+element. By limiting the number of in-flight elements to essentially one, this
+minimizes the overall state and thus data movement.
 
 TODO(ingomueller): explain Volcano iterator interface
