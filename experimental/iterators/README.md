@@ -273,3 +273,55 @@ the sequence-based relational model), neither the order of the rows nor that of
 the columns matter, (3) the elements of relations may be strings or similar
 variable-length data types, and (4) nested relational algebra also allows for
 structured element types (which may have variable length).
+
+## Basic Concepts
+
+This section defines the central concepts of this dialect and relates them to
+those introduced in the [Background](#background) section.
+
+* **Stream**: A collection of elements of a particular type that (1) is ordered
+  and (2) can only be iterated over in that order one element at the time.
+
+  Stream is the main data type that iterators consume and produce.
+
+  Ideally, there should be no restriction on the type of the elements and it
+  seems like it is possible to achieve that ideal (since Python achieves it).
+
+  We currently assume that streams are finite but most concepts will probably
+  remain unchanged if that restriction were lifted (see Python supporting
+  infinite iterators).
+
+* **Iterator Op**: An operation producing a stream and consuming zero or more
+  other streams (plus zero or more non-stream operands) identified by a name.
+
+  An iterator op only specifies *that* streams are handled in a particular way
+  but *how* that is happening is only specified in its documentation, not in the
+  form of code.
+
+  The equivalent to iterator ops in Python are functions returning iterators
+  (like `map` and similar built-in functions as well as those from `itertools`),
+  which are really "iterator factories" -- not iterators. We choose, say, `map`
+  by name, which produces an iterator that behaves according to the
+  documentation of `map`. We do *not* write down ourselves the imperative or
+  comprehension-based logic of the iterator, *nor* do we see or need to
+  understand the `iterator` interface.
+
+  Iterator ops can be lowered to an implementation based on the Volcano iterator
+  model but other lowerings are conceivable. (For example,
+  [this project](https://github.com/Dinistro/circt-stream) lowers ops that are
+  approximately equivalent to iterator ops to FPGAs.) Lowering materializes the
+  semantics specified by the name of the iterator op in a lower-level form;
+  similarly, the call to `map` materializes its semantics as an `iterator`
+  object that behaves according its specification.
+
+* **Iterator Body**: The function bodies of the functions `open`, `next`, and
+  `close`.
+
+  This is the equivalent of Python's `iterator`s, though with a different
+  protocol. It contains the implementation of the logic of the iterator exposed
+  through the open/next/close iterator interface.
+
+  At this level, the identity of the originating iterator op does not matter
+  anymore and is lost. Iterator bodies may, in fact, not correspond to any
+  particular iterator op, for example, after one iterator body has been inlined
+  into another one.
