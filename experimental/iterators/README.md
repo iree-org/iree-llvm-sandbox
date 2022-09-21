@@ -244,8 +244,8 @@ The closest equivalent to a relation in Python is arguably a
 where `TupleType` is some type based on
 [`NamedTuple`](https://docs.python.org/3/library/typing.html#typing.NamedTuple),
 e.g., `NamedTuple('Employee', [('name', Optional[str]), ('id', int)])`. One
-inaccuracy in this analogy its the fact (bag-based) relations do not specify an
-order of their tuples while `List` does. Another inaccuracy is the fact that
+inaccuracy in this analogy is the fact that (bag-based) relations do not specify
+an order of their tuples while `List` does. Another inaccuracy is the fact that
 `NamedTuple` specifies a name for the tuple type whereas this isn't (always) the
 case in the relational model. Also, `NamedTuple` allows ordered access to the
 fields whereas the field order does not play any role in the relational model
