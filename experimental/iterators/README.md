@@ -100,6 +100,11 @@ print(iterator.__next__()) # Outputs: 3
 print(iterator.__next__()) # Raises: StopIteration
 ```
 
+Note that there is only one iteration per `iterator`: if the `iterator` object
+is passed around and `__next__()` is called on that object in different places,
+each of them advances *the same iteration*. Doing so is, thus, most often a bad
+idea; it is rather useful to limit each `iterator` to one consumer.
+
 #### Composability
 
 One property that makes iterators in Python so powerful is that they are
@@ -182,18 +187,21 @@ the model is the same as those of Python's iterators; however, the communication
 protocol between iterators is slightly different. Concretely, it defines that
 each iterator class should have the functions `open`, `next`, and `close` (and
 is therefore sometimes called "open/next/close" interface). Computations are
-expressed as a tree of such iterators. The computation is initialized by calling
-`open` on the root iterator, which typically calls `open` on its child
-iterators, such that the whole tree is initialized recursively. The computation
-is then driven by calling `next` repeatedly on the root, each call producing one
-element of the result until all of them have been produced. Each call to `next`
-on the root typically triggers a cascade of `next` calls in the tree (but how
-many calls are required in each of the iterators depends on those iterators,
-their current state, and the input they are consuming). After a call to `next`
-has signaled the end of the result stream, or when the system or user wants to
-abort the computation, the `close` function of the root iterator is called,
-which recursively calls `close` on its children, all of which clean up any state
-they may have.
+expressed as a tree of such iterators. (The reason why it has to be a tree is
+that, like in Python, open/next/close iterators only provide one iteration, i.e.,
+they can only be consumed in one place. In a tree, this place is their parent
+iterator.) The computation is initialized by calling `open` on the root
+iterator, which typically calls `open` on its child iterators, such that the
+whole tree is initialized recursively. The computation is then driven by
+calling `next` repeatedly on the root, each call producing one element of the
+result until all of them have been produced. Each call to `next` on the root
+typically triggers a cascade of `next` calls in the tree (but how many calls
+are required in each of the iterators depends on those iterators, their current
+state, and the input they are consuming). After a call to `next` has signaled
+the end of the result stream, or when the system or user wants to abort the
+computation, the `close` function of the root iterator is called, which
+recursively calls `close` on its children, all of which clean up any state they
+may have.
 
 The [`examples/database-iterators-standalone`](examples/database-iterators-standalone)
 folder contains a standalone project that implements the open/next/close
