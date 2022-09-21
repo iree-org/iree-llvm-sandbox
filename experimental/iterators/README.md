@@ -124,13 +124,13 @@ max(
 
 Each of the functions `max`, `filter`, `map`, and `open` either accepts or
 produces an `iterator` object (or both). The result of the three inner-most
-function is an `iterator` object that has two more `iterator` objects
-recursively nested insise of them. That object is given to `max`, which drives
-the computation by calling `__next__()` repeatably on that object, which, in
-turn, causes a cascade of calls to `__next__()` of the nested `iterator`
-objects. Since the state in each `iterator` object and the number of values
-passed between them is constant, the above example essentially works on
-arbitrarily large files.
+functions is an `iterator` object that has two more `iterator` objects
+recursively nested inside of it. That object is given to `max`, which drives the
+computation by calling `__next__()` repeatably on that object, which, in turn,
+causes a cascade of calls to `__next__()` of the nested `iterator` objects.
+Since the state in each `iterator` object and the number of values passed
+between them is constant, the above example essentially works on arbitrarily
+large files.
 
 #### Distinction to Related Concepts in Python
 
@@ -149,11 +149,12 @@ A few related but distinct concepts deserve a short discussion:
   [`generator iterator`](https://docs.python.org/3/glossary.html#term-generator-iterator).
   In short, the former is a function that returns the latter.
   In more detail, an `iterator function` is a function with a `yield` statement,
-  which, therefor, returns an object of the builtin type `generator` -- a class
+  which, therefor, returns an object of the built-in type `generator` -- a class
   that implements the `iterator` interface. Similarly, a
   [`generator expression`](https://docs.python.org/3/glossary.html#term-generator-expression)
   (such as `i*i for i in range(10)`) is a language construct that, like
-  `generator function`s, returns an object of the built-in type `generator`.
+  `generator function`s, returns an object of the built-in type `generator`
+  (which is an iterator).
 
 ### Iterators in Database Systems
 
@@ -161,7 +162,7 @@ Database systems (both relational and non-relational) typically express their
 computations as transformations of streams of data in order to reduce data
 movement between slow and fast memory (e.g., between DRAM and CPU cache). They
 typically do so with "iterators" that are quite similar to those in Python, and
-pretty much for the same reason. First, having all transformations implement
+pretty much for the same reasons. First, having all transformations implement
 some iterator interface makes them composable: Each iterator produces a stream
 of data that can be consumed "downstream" one element at a time, and, in turn,
 consumes the streams from its zero or more "upstream" iterators to do so --
@@ -176,11 +177,11 @@ minimizes the overall state and thus data movement.
 
 Iterators in database systems are often implemented with some variant of the
 so-called "Volcano" iterator model (named after the system that first proposed
-this model, se [Graefe'90](https://doi.org/10.1145/93605.98720)). Conceptually,
+this model, see [Graefe'90](https://doi.org/10.1145/93605.98720)). Conceptually,
 the model is the same as those of Python's iterators; however, the communication
 protocol between iterators is slightly different. Concretely, it defines that
 each iterator class should have the functions `open`, `next`, and `close` (and
-is therefor sometimes called "open/next/close" iterface). Computations are
+is therefor sometimes called "open/next/close" interface). Computations are
 expressed as a tree of such iterators. The computation is initialized by calling
 `open` on the root iterator, which typically calls `open` on its child
 iterators, such that the whole tree is initialized recursively. The computation
@@ -221,14 +222,14 @@ the other.
 
 ### The Relational Data Model
 
-We briefly review the data model of (relational) database systems. To a large
+We briefly review the data model of relational database systems. To a large
 degree, iterators seem orthogonal to the elements they iterate over but whether
 or not and how we should achieve this orthogonality may require some discussion,
 so reviewing the data model here may be useful.
 
 Relational database systems manage *relations*. A relation is a bag (i.e.,
 multiset) of *tuples* (or *records*). (Textbooks often define relations as
-*sets* but practical systems use on bag-based relational algebra, or even
+*sets* but practical systems use bag-based relational algebra, or even
 sequence-based or mixed algebras in order to support order-sensitive operations
 such as window functions.) A record is collection of named and typed
 *attributes* (or *fields* or, depending on the context, *columns*). Attributes
