@@ -23,14 +23,18 @@ class Iterators_Type<string name, string typeMnemonic, list<Trait> traits = []>
 }
 
 //===----------------------------------------------------------------------===//
-// Streams (i.e., the data types passed between iterators)
+// Element types (for the element of streams).
+//
+// TODO(ingomueller): Decide on the definite place for these types.
+//     The type of the elements of a stream are, in principle, orthogonal to
+//     streams and iterators (see also the
+//     [README](/experimental/iterators/README.md#basic-concepts)), so one
+//     might argue that these definitions do not belong here. However, some
+//     iterator ops have constraints on what element types they support (mainly
+//     due to the restricted lowerings that exist for now). While these live in
+//     this dialect, it is probably most convenient to leave the types here as
+//     well.
 //===----------------------------------------------------------------------===//
-
-def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
-  let summary = "Stream of elements of the given type";
-  let parameters = (ins "Type":$elementType);
-  let assemblyFormat = "`<` qualified($elementType) `>`";
-}
 
 /// List of LLVM-compatible numeric types.
 def Iterators_NumericTypes {
@@ -72,41 +76,6 @@ def Iterators_LLVMStructOfSingleI32
                             .getBody().size() == 1}]>]>,
          "LLVM struct with single I32 field">;
 
-/// An Iterators stream of elements of the given type.
-class Iterators_StreamOf<Type elementType>
-  : Type<And<[Iterators_Stream.predicate,
-              SubstLeaves<"$_self",
-                          "$_self.dyn_cast<StreamType>().getElementType()",
-                          elementType.predicate>]>,
-         "stream with elements of type " # elementType.summary>;
-
-/// An Iterators stream of LLVM structs consisting of a single I32.
-def Iterators_StreamOfLLVMStructOfSingleI32
-  : Iterators_StreamOf<Iterators_LLVMStructOfSingleI32>;
-
-/// An Iterators stream of LLVM structs consisting of numerics.
-def Iterators_StreamOfLLVMStructOfNumerics
-  : Iterators_StreamOf<Iterators_LLVMStructOfNumerics>;
-
-/// Predicate to verify that a named argument or result's stream type matches a
-/// given type.
-class Iterators_IsStreamOfPred<string name, Type type>
-  : SubstLeaves<"$_self", "$" # name # ".getType()",
-                Iterators_StreamOf<type>.predicate>;
-class Iterators_IsStreamOf<string name, Type type>
-  : PredOpTrait<"'" # name # "' has element type " # type.summary,
-                Iterators_IsStreamOfPred<name, type>>;
-
-/// Predicate to verify that a named argument or result's stream type is an
-/// LLVM struct consisting of a single I32.
-class Iterators_IsStreamOfLLVMStructOfSingleI32Pred<string name>
-  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfSingleI32>;
-
-/// Predicate to verify that a named argument or result's stream type is an
-/// LLVM struct consisting of numerics.
-class Iterators_IsStreamOfLLVMStructOfNumericsPred<string name>
-  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfNumerics>;
-
 /// ArrayAttr where the attribute elements are again ArrayAttrs.
 def Iterators_ArrayArrayAttr
   : TypedArrayAttrBase<Builtin_ArrayAttr, "array attribute of array attributes"> {
@@ -147,5 +116,50 @@ def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
                         Iterators_NumericArrayAttr.predicate>]>,
           "and where the inner arrays consist of numeric values">
       ]>;
+
+//===----------------------------------------------------------------------===//
+// Streams (i.e., the data types passed between iterators)
+//===----------------------------------------------------------------------===//
+
+def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
+  let summary = "Stream of elements of the given type";
+  let parameters = (ins "Type":$elementType);
+  let assemblyFormat = "`<` qualified($elementType) `>`";
+}
+
+/// An Iterators stream of elements of the given type.
+class Iterators_StreamOf<Type elementType>
+  : Type<And<[Iterators_Stream.predicate,
+              SubstLeaves<"$_self",
+                          "$_self.dyn_cast<StreamType>().getElementType()",
+                          elementType.predicate>]>,
+         "stream with elements of type " # elementType.summary>;
+
+/// An Iterators stream of LLVM structs consisting of a single I32.
+def Iterators_StreamOfLLVMStructOfSingleI32
+  : Iterators_StreamOf<Iterators_LLVMStructOfSingleI32>;
+
+/// An Iterators stream of LLVM structs consisting of numerics.
+def Iterators_StreamOfLLVMStructOfNumerics
+  : Iterators_StreamOf<Iterators_LLVMStructOfNumerics>;
+
+/// Predicate to verify that a named argument or result's stream type matches a
+/// given type.
+class Iterators_IsStreamOfPred<string name, Type type>
+  : SubstLeaves<"$_self", "$" # name # ".getType()",
+                Iterators_StreamOf<type>.predicate>;
+class Iterators_IsStreamOf<string name, Type type>
+  : PredOpTrait<"'" # name # "' has element type " # type.summary,
+                Iterators_IsStreamOfPred<name, type>>;
+
+/// Predicate to verify that a named argument or result's stream type is an
+/// LLVM struct consisting of a single I32.
+class Iterators_IsStreamOfLLVMStructOfSingleI32Pred<string name>
+  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfSingleI32>;
+
+/// Predicate to verify that a named argument or result's stream type is an
+/// LLVM struct consisting of numerics.
+class Iterators_IsStreamOfLLVMStructOfNumericsPred<string name>
+  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfNumerics>;
 
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
