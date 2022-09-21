@@ -69,13 +69,6 @@ class Iterators_LLVMStructOf<list<Type> allowedTypes>
 def Iterators_LLVMStructOfNumerics
   : Iterators_LLVMStructOf<Iterators_NumericTypes.types>;
 
-/// An LLVMStructType where the body consists of a single I32
-def Iterators_LLVMStructOfSingleI32
-  : Type<And<[Iterators_LLVMStructOf<[I32]>.predicate,
-              CPred<[{$_self.dyn_cast<::mlir::LLVM::LLVMStructType>()
-                            .getBody().size() == 1}]>]>,
-         "LLVM struct with single I32 field">;
-
 /// ArrayAttr where the attribute elements are again ArrayAttrs.
 def Iterators_ArrayArrayAttr
   : TypedArrayAttrBase<Builtin_ArrayAttr, "array attribute of array attributes"> {
@@ -135,10 +128,6 @@ class Iterators_StreamOf<Type elementType>
                           elementType.predicate>]>,
          "stream with elements of type " # elementType.summary>;
 
-/// An Iterators stream of LLVM structs consisting of a single I32.
-def Iterators_StreamOfLLVMStructOfSingleI32
-  : Iterators_StreamOf<Iterators_LLVMStructOfSingleI32>;
-
 /// An Iterators stream of LLVM structs consisting of numerics.
 def Iterators_StreamOfLLVMStructOfNumerics
   : Iterators_StreamOf<Iterators_LLVMStructOfNumerics>;
@@ -151,11 +140,6 @@ class Iterators_IsStreamOfPred<string name, Type type>
 class Iterators_IsStreamOf<string name, Type type>
   : PredOpTrait<"'" # name # "' has element type " # type.summary,
                 Iterators_IsStreamOfPred<name, type>>;
-
-/// Predicate to verify that a named argument or result's stream type is an
-/// LLVM struct consisting of a single I32.
-class Iterators_IsStreamOfLLVMStructOfSingleI32Pred<string name>
-  : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfSingleI32>;
 
 /// Predicate to verify that a named argument or result's stream type is an
 /// LLVM struct consisting of numerics.
