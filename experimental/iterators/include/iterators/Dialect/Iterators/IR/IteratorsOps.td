@@ -144,10 +144,10 @@ def Iterators_FilterOp : Iterators_Op<"filter",
     ```
   }];
   let arguments = (ins
-      Iterators_StreamOfLLVMStructOfNumerics:$input,
+      Iterators_Stream:$input,
       Iterators_PredicateFunctionSymbol:$predicateRef
     );
-  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let results = (outs Iterators_Stream:$result);
   let extraClassDeclaration = [{
     func::FuncOp getPredicate() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
