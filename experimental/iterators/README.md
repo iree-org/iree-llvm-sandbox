@@ -148,9 +148,9 @@ A few related but distinct concepts deserve a short discussion:
   (which seems to be the more common usage of simply `generator`) or
   [`generator iterator`](https://docs.python.org/3/glossary.html#term-generator-iterator).
   In short, the former is a function that returns the latter.
-  In more detail, an `iterator function` is a function with a `yield` statement,
-  which, therefor, returns an object of the built-in type `generator` -- a class
-  that implements the `iterator` interface. Similarly, a
+  In more detail, a `generator function` is a function with a `yield` statement,
+  which, therefore, returns an object of the built-in type `generator` -- a
+  class that implements the `iterator` interface. Similarly, a
   [`generator expression`](https://docs.python.org/3/glossary.html#term-generator-expression)
   (such as `i*i for i in range(10)`) is a language construct that, like
   `generator function`s, returns an object of the built-in type `generator`
@@ -169,7 +169,7 @@ consumes the streams from its zero or more "upstream" iterators to do so --
 without knowing anything about its upstream and downstream iterators. This helps
 isolating the control flow of each iterator, which may be complex, as well as
 its state. Like in Python, the iterator interface also allows for interleaved
-execution of many different computation steps py passing data *and* control:
+execution of many different computation steps by passing data *and* control:
 when one iterator asks its upstream iterator for the next element, it passes
 control to that iterator, which returns the control together with the next
 element. By limiting the number of in-flight elements to essentially one, this
@@ -181,7 +181,7 @@ this model, see [Graefe'90](https://doi.org/10.1145/93605.98720)). Conceptually,
 the model is the same as those of Python's iterators; however, the communication
 protocol between iterators is slightly different. Concretely, it defines that
 each iterator class should have the functions `open`, `next`, and `close` (and
-is therefor sometimes called "open/next/close" interface). Computations are
+is therefore sometimes called "open/next/close" interface). Computations are
 expressed as a tree of such iterators. The computation is initialized by calling
 `open` on the root iterator, which typically calls `open` on its child
 iterators, such that the whole tree is initialized recursively. The computation
@@ -231,7 +231,7 @@ Relational database systems manage *relations*. A relation is a bag (i.e.,
 multiset) of *tuples* (or *records*). (Textbooks often define relations as
 *sets* but practical systems use bag-based relational algebra, or even
 sequence-based or mixed algebras in order to support order-sensitive operations
-such as window functions.) A record is collection of named and typed
+such as window functions.) A record is a collection of named and typed
 *attributes* (or *fields* or, depending on the context, *columns*). Attributes
 may be *nullable* (read: optional), i.e., they may contain a value of a
 particular type or the special value *null* indicating the absence of a value.
