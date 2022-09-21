@@ -111,13 +111,21 @@ def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
       ]>;
 
 //===----------------------------------------------------------------------===//
-// Streams (i.e., the data types passed between iterators)
+// Streams (i.e., the data types passed between iterators).
 //===----------------------------------------------------------------------===//
 
 def Iterators_Stream : Iterators_Type<"Stream", "stream"> {
   let summary = "Stream of elements of the given type";
   let parameters = (ins "Type":$elementType);
   let assemblyFormat = "`<` qualified($elementType) `>`";
+  let description = [{
+    A collection of elements of a particular type that (1) is ordered and (2)
+    can only be iterated over in that order one element at the time.
+
+    Stream is the main data type that iterator ops consume and produce.
+
+    See also the [README](/experimental/iterators/README.md#basic-concepts).
+  }];
 }
 
 /// An Iterators stream of elements of the given type.
