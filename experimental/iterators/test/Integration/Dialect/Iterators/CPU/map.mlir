@@ -14,7 +14,7 @@ func.func private @double_struct(%struct : !i32_struct) -> !i32_struct {
   return %result : !i32_struct
 }
 
-func.func @query1() {
+func.func @map_double_struct() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -39,7 +39,7 @@ func.func private @add_field(%input : !i32_struct) -> !i32f32_struct {
   return %result : !i32f32_struct
 }
 
-func.func @query2() {
+func.func @map_add_field() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -52,8 +52,35 @@ func.func @query2() {
   return
 }
 
+func.func private @unpack_i32(%input : !i32_struct) -> i32 {
+  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  return %i : i32
+}
+
+func.func private @pack_i32(%input : i32) -> !i32_struct {
+  %undef = llvm.mlir.undef : !i32_struct
+  %result =  llvm.insertvalue %input, %undef[0 : index] : !i32_struct
+  return %result : !i32_struct
+}
+
+func.func @map_unpack_pack() {
+  %input = "iterators.constantstream"()
+      { value = [[0 : i32], [1 : i32], [2 : i32]] }
+      : () -> (!iterators.stream<!i32_struct>)
+  %unpacked = "iterators.map"(%input) {mapFuncRef = @unpack_i32}
+    : (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
+  %repacked = "iterators.map"(%unpacked) {mapFuncRef = @pack_i32}
+    : (!iterators.stream<i32>) -> (!iterators.stream<!i32_struct>)
+  "iterators.sink"(%repacked) : (!iterators.stream<!i32_struct>) -> ()
+  // CHECK:      (0)
+  // CHECK-NEXT: (1)
+  // CHECK-NEXT: (2)
+  return
+}
+
 func.func @main() {
-  call @query1() : () -> ()
-  call @query2() : () -> ()
+  call @map_double_struct() : () -> ()
+  call @map_add_field() : () -> ()
+  call @map_unpack_pack() : () -> ()
   return
 }

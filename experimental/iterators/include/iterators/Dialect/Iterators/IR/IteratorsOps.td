@@ -195,10 +195,10 @@ def Iterators_MapOp : Iterators_Op<"map",
     ```
   }];
   let arguments = (ins
-      Iterators_StreamOfLLVMStructOfNumerics:$input,
+      Iterators_Stream:$input,
       Iterators_MapFunctionSymbol:$mapFuncRef
     );
-  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let results = (outs Iterators_Stream:$result);
   let extraClassDeclaration = [{
     func::FuncOp getMapFunc() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
