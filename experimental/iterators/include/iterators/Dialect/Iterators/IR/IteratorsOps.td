@@ -253,10 +253,10 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
     ```
   }];
   let arguments = (ins
-      Iterators_StreamOfLLVMStructOfNumerics:$input,
+      Iterators_Stream:$input,
       Iterators_ReduceFunctionSymbol:$reduceFuncRef
     );
-  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let results = (outs Iterators_Stream:$result);
   let extraClassDeclaration = [{
     func::FuncOp getReduceFunc() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
