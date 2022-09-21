@@ -282,7 +282,7 @@ those introduced in the [Background](#background) section.
 * **Stream**: A collection of elements of a particular type that (1) is ordered
   and (2) can only be iterated over in that order one element at the time.
 
-  Stream is the main data type that iterators consume and produce.
+  Stream is the main data type that iterator ops consume and produce.
 
   Ideally, there should be no restriction on the type of the elements and it
   seems like it is possible to achieve that ideal (since Python achieves it).
