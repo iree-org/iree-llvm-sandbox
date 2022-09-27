@@ -15,14 +15,45 @@ func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_st
   return %result : !i32_struct
 }
 
-func.func @query1() {
+func.func @reduce_sum_struct() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
-  %reduce = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
+  %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
     : (!iterators.stream<!i32_struct>) -> (!iterators.stream<!i32_struct>)
-  "iterators.sink"(%reduce) : (!iterators.stream<!i32_struct>) -> ()
+  "iterators.sink"(%reduced) : (!iterators.stream<!i32_struct>) -> ()
   // CHECK:      (6)
+  return
+}
+
+func.func private @sum_i32(%lhs : i32, %rhs : i32) -> i32 {
+  %result = arith.addi %lhs, %rhs : i32
+  return %result : i32
+}
+
+func.func private @unpack_i32(%input : !i32_struct) -> i32 {
+  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  return %i : i32
+}
+
+func.func private @pack_i32(%input : i32) -> !i32_struct {
+  %undef = llvm.mlir.undef : !i32_struct
+  %result =  llvm.insertvalue %input, %undef[0 : index] : !i32_struct
+  return %result : !i32_struct
+}
+
+func.func @reduce_sum_i32() {
+  %input = "iterators.constantstream"()
+      { value = [[0 : i32], [10 : i32], [20 : i32], [30 : i32]] }
+      : () -> (!iterators.stream<!i32_struct>)
+  %unpacked = "iterators.map"(%input) {mapFuncRef = @unpack_i32}
+    : (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
+  %reduced = "iterators.reduce"(%unpacked) {reduceFuncRef = @sum_i32}
+    : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+  %repacked = "iterators.map"(%reduced) {mapFuncRef = @pack_i32}
+    : (!iterators.stream<i32>) -> (!iterators.stream<!i32_struct>)
+  "iterators.sink"(%repacked) : (!iterators.stream<!i32_struct>) -> ()
+  // CHECK:      (60)
   return
 }
 
@@ -42,7 +73,7 @@ func.func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32
   return %result : !i32f32_struct
 }
 
-func.func @query2() {
+func.func @reduce_arg_max() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32,  0.   : f32],
                  [1 : i32, 13.37 : f32],  // <-- max value
@@ -56,7 +87,8 @@ func.func @query2() {
 }
 
 func.func @main() {
-  call @query1() : () -> ()
-  call @query2() : () -> ()
+  call @reduce_sum_struct() : () -> ()
+  call @reduce_sum_i32() : () -> ()
+  call @reduce_arg_max() : () -> ()
   return
 }
