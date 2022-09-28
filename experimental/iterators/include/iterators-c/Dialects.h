@@ -35,6 +35,25 @@ MlirType mlirIteratorsStreamTypeGet(MlirContext context, MlirType elementType);
 
 MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Tabular, tabular);
 
+/// Checks whether the given type is a tabular view type.
+MLIR_CAPI_EXPORTED bool mlirTypeIsATabularView(MlirType type);
+
+/// Creates a tabular view type that consists of the given list of column types.
+/// The type is owned by the context.
+MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGet(MlirContext ctx,
+                                                   intptr_t numColumns,
+                                                   MlirType const *columnTypes);
+
+/// Returns the number of column types contained in a tabular view.
+MLIR_CAPI_EXPORTED intptr_t mlirTabularViewTypeGetNumColumnTypes(MlirType type);
+
+/// Returns the pos-th column type in the tabular view type.
+MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGetColumnType(MlirType type,
+                                                             intptr_t pos);
+
+/// Returns tuple type that represents one row of the given tabular view.
+MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGetRowType(MlirType type);
+
 #ifdef __cplusplus
 }
 #endif

@@ -28,7 +28,7 @@ def Tabular_Dialect : Dialect {
     to a stream of data. The lowering of the two dialects is currently somewhat
     intervowen but they should ideally be independent of each other.
   }];
-  let useDefaultTypePrinterParser = 0;
+  let useDefaultTypePrinterParser = 1;
 }
 
 #endif // TABULAR_DIALECT_TABULAR_IR_TABULARDIALECT
