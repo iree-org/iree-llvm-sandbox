@@ -53,4 +53,30 @@ PYBIND11_MODULE(_iteratorsDialects, mainModule) {
           },
           py::arg("cls"), py::arg("element_type"),
           py::arg("context") = py::none());
+
+  //===--------------------------------------------------------------------===//
+  // Tabular dialect.
+  //===--------------------------------------------------------------------===//
+  auto tabularModule = mainModule.def_submodule("tabular");
+
+  //
+  // Dialect
+  //
+
+  tabularModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__tabular__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //
+  // Types
+  //
+
+  // ...
 }

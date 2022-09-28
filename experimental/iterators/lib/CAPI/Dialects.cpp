@@ -9,6 +9,7 @@
 #include "iterators-c/Dialects.h"
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir-c/IR.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
@@ -30,3 +31,9 @@ bool mlirTypeIsAIteratorsStreamType(MlirType type) {
 MlirType mlirIteratorsStreamTypeGet(MlirContext context, MlirType elementType) {
   return wrap(StreamType::get(unwrap(context), unwrap(elementType)));
 }
+
+//===----------------------------------------------------------------------===//
+// Tabular dialect and types
+//===----------------------------------------------------------------------===//
+
+MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Tabular, tabular, TabularDialect)
