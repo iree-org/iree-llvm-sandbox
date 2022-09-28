@@ -4,5 +4,6 @@ add_mlir_public_c_api_library(IteratorsCAPI
   LINK_LIBS PUBLIC
     MLIRIterators
     MLIRIteratorsToLLVM
+    MLIRTabular
     MLIRPass
 )

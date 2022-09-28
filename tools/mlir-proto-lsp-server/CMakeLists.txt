@@ -13,6 +13,7 @@ endif()
 
 if(SANDBOX_ENABLE_ITERATORS)
   list(APPEND dialect_libs MLIRIterators)
+  list(APPEND dialect_libs MLIRTabular)
   list(APPEND conversion_libs MLIRIteratorsToLLVM)
 endif()
 
