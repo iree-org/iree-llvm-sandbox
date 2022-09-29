@@ -112,6 +112,21 @@ class Nullable(DataType):
   type: ParameterDef[DataType]
 
 
+@irdl_attr_definition
+class Order(ParametrizedAttribute):
+  """
+  Models the order of a sort key.
+
+  Example:
+
+  !rel_alg.order<"a", "asc">
+  """
+  name = "rel_alg.order"
+
+  col: ParameterDef[StringAttr]
+  order: ParameterDef[StringAttr]
+
+
 class Expression(Operation):
   ...
 
@@ -222,6 +237,64 @@ class Compare(Expression):
 
 class Operator(Operation):
   ...
+
+
+@irdl_op_definition
+class GroupBy(Operator):
+  """
+  Groups the given input by the columns in `by`.
+
+  Example:
+  '''
+  rel_alg.group_by() ["by" = ["a", "b"]] {
+    rel_alg.table() ...
+  }
+  '''
+  """
+  name = "rel_alg.group_by"
+
+  input = SingleBlockRegionDef()
+  by = AttributeDef(ArrayAttr)
+
+  @builder
+  @staticmethod
+  def get(input: Region, by: list[str]) -> 'GroupBy':
+    return GroupBy.build(
+        regions=[input],
+        attributes={
+            "by": ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
+        })
+
+
+@irdl_op_definition
+class OrderBy(Operator):
+  """
+  Orders the given input by the columns in `by`.
+
+  Example:
+  '''
+  rel_alg.order_by() ["by" = [!rel_alg.order<"a", "asc>, !rel_alg.order<"b", "desc">]] {
+    rel_alg.table() ...
+  }
+  '''
+  """
+  name = "rel_alg.order_by"
+
+  input = SingleBlockRegionDef()
+  by = AttributeDef(ArrayAttr)
+
+  @builder
+  @staticmethod
+  def get(input: Region, by: list[str], order: list[str]) -> 'GroupBy':
+    return GroupBy.build(
+        regions=[input],
+        attributes={
+            "by":
+                ArrayAttr.from_list([
+                    Order([StringAttr.from_str(s),
+                           StringAttr.from_str(o)]) for s, o in zip(by, order)
+                ])
+        })
 
 
 @irdl_op_definition

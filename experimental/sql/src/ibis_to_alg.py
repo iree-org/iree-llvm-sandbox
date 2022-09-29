@@ -142,12 +142,20 @@ class SelectionRewriter(IbisRewriter):
           RelAlg.Select.get(
               rewriter.move_region_contents_to_new_regions(op.table),
               rewriter.move_region_contents_to_new_regions(op.predicates)))
-    else:
+    elif len(op.projections.ops) > 0:
       rewriter.replace_matched_op(
           RelAlg.Project.get(
               rewriter.move_region_contents_to_new_regions(op.table),
               rewriter.move_region_contents_to_new_regions(op.projections),
               op.names))
+    else:
+      assert all(
+          [isinstance(o.expr.op, ibis.TableColumn) for o in op.sort_keys.ops])
+      rewriter.replace_matched_op(
+          RelAlg.OrderBy.get(
+              rewriter.move_region_contents_to_new_regions(op.table),
+              [o.expr.op.col_name.data for o in op.sort_keys.ops],
+              [o.order.data for o in op.sort_keys.ops]))
 
 
 @dataclass
@@ -160,6 +168,18 @@ class CartesianProductRewriter(IbisRewriter):
         RelAlg.CartesianProduct.get(
             rewriter.move_region_contents_to_new_regions(op.left),
             rewriter.move_region_contents_to_new_regions(op.right)))
+
+
+@dataclass
+class GroupedTableRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.GroupedTable, rewriter: PatternRewriter):
+    assert all([isinstance(o, ibis.TableColumn) for o in op.by.ops])
+    rewriter.replace_matched_op(
+        RelAlg.GroupBy.get(
+            rewriter.move_region_contents_to_new_regions(op.table),
+            [o.col_name.data for o in op.by.ops]))
 
 
 @dataclass
@@ -203,6 +223,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       GreaterEqualRewriter(),
       LessEqualRewriter(),
       LessThanRewriter(),
+      GroupedTableRewriter(),
       TableColumnRewriter(),
       AggregationRewriter(),
       MultiplyRewriter(),

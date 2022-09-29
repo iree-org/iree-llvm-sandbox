@@ -1,0 +1,34 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+  ibis.grouped_table() {
+    ibis.unbound_table() ["table_name" = "t"] {
+      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+    }
+  } {
+    ibis.table_column() ["col_name" = "a"] {
+      ibis.unbound_table() ["table_name" = "t"] {
+        ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+        ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+        ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+      }
+    }
+    ibis.table_column() ["col_name" = "b"] {
+      ibis.unbound_table() ["table_name" = "t"] {
+        ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+        ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+        ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+      }
+    }
+  }
+}
+
+//      CHECK:  rel_alg.group_by() ["by" = ["a", "b"]] {
+// CHECK-NEXT:    rel_alg.table() ["table_name" = "t"] {
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.nullable<!rel_alg.string>]
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:      rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:    }
+// CHECK-NEXT:  }
