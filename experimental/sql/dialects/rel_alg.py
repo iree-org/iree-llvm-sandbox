@@ -119,7 +119,9 @@ class Order(ParametrizedAttribute):
 
   Example:
 
+  '''
   !rel_alg.order<"a", "asc">
+  '''
   """
   name = "rel_alg.order"
 
