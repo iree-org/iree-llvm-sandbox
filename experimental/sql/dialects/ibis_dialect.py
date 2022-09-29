@@ -251,7 +251,7 @@ class Selection(Operation):
   table = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
   projections = SingleBlockRegionDef()
-  sort_key = SingleBlockRegionDef()
+  sort_keys = SingleBlockRegionDef()
   names = AttributeDef(ArrayOfConstraint(StringAttr))
 
   @staticmethod
