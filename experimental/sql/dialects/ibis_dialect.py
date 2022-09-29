@@ -181,6 +181,19 @@ class Multiply(Operation):
 
 
 @irdl_op_definition
+class GroupedTable(Operation):
+  name = "ibis.grouped_table"
+
+  table = SingleBlockRegionDef()
+  by = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(table: Region, by: Region) -> 'GroupedTable':
+    return GroupedTable.create(regions=[table, by])
+
+
+@irdl_op_definition
 class SortKey(Operation):
   name = "ibis.sort_key"
 
@@ -564,6 +577,7 @@ class Ibis:
     self.ctx.register_attr(Nullable)
 
     self.ctx.register_op(UnboundTable)
+    self.ctx.register_op(GroupedTable)
     self.ctx.register_op(SortKey)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)

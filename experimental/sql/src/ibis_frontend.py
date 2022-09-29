@@ -136,6 +136,15 @@ def visit(op: ibis.expr.operations.sortkeys.SortKey) -> Operation:
                         op.ascending)
 
 
+import ibis.expr.types.groupby
+
+
+@dispatch(ibis.expr.types.groupby.GroupedTable)
+def visit(op: ibis.expr.types.groupby.GroupedTable) -> Operation:
+  return id.GroupedTable.get(Region.from_operation_list([visit(op.table)]),
+                             visit_ibis_expr_list(op.by))
+
+
 @dispatch(ibis.expr.operations.relations.Aggregation)
 def visit(  #type: ignore
     op: ibis.expr.operations.relations.Aggregation) -> Operation:
