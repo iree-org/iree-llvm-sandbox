@@ -24,7 +24,7 @@ module() {
         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
       }
     }
-  }
+  } {}
 }
 
 //      CHECK:  rel_alg.project() ["names" = ["a", "b"]] {

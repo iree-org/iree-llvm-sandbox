@@ -111,6 +111,7 @@ def visit(op: ibis.expr.operations.relations.InnerJoin) -> Operation:
   if op.predicates:
     return id.Selection.get(Region.from_operation_list([cart_prod]),
                             visit_ibis_expr_list(op.predicates),
+                            Region.from_operation_list([]),
                             Region.from_operation_list([]), [])
   return cart_prod
 
@@ -125,7 +126,14 @@ def visit(  #type: ignore
   table = Region.from_operation_list([visit(op.table)])
   predicates = visit_ibis_expr_list(op.predicates)
   projections = visit_ibis_expr_list(op.selections)
-  return id.Selection.get(table, predicates, projections, names)
+  sort_keys = visit_ibis_expr_list(op.sort_keys)
+  return id.Selection.get(table, predicates, projections, sort_keys, names)
+
+
+@dispatch(ibis.expr.operations.sortkeys.SortKey)
+def visit(op: ibis.expr.operations.sortkeys.SortKey) -> Operation:
+  return id.SortKey.get(Region.from_operation_list([visit(op.expr)]),
+                        op.ascending)
 
 
 @dispatch(ibis.expr.operations.relations.Aggregation)

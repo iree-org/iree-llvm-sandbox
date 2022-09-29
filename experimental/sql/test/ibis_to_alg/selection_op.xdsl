@@ -19,9 +19,7 @@ module() {
       // predicate literal
       ibis.literal() ["val" = 5, "type" = !ibis.int32]
     }
-  } {
-
-  }
+  } {} {}
 }
 
 //      CHECK: rel_alg.select() {

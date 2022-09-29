@@ -181,6 +181,24 @@ class Multiply(Operation):
 
 
 @irdl_op_definition
+class SortKey(Operation):
+  name = "ibis.sort_key"
+
+  expr = SingleBlockRegionDef()
+  order = AttributeDef(AnyAttr())
+
+  @staticmethod
+  @builder
+  def get(expr: Region, asc: bool) -> 'SortKey':
+    return SortKey.create(regions=[expr],
+                          attributes={
+                              "order":
+                                  StringAttr.from_str("asc")
+                                  if asc else StringAttr.from_str("desc")
+                          })
+
+
+@irdl_op_definition
 class Selection(Operation):
   """
   Models an SQL `Select` statement and related concepts. If there are predicates
@@ -220,13 +238,14 @@ class Selection(Operation):
   table = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
   projections = SingleBlockRegionDef()
+  sort_key = SingleBlockRegionDef()
   names = AttributeDef(ArrayOfConstraint(StringAttr))
 
   @staticmethod
   @builder
   def get(table: Region, predicates: Region, projections: Region,
-          names: list[str]) -> 'Selection':
-    return Selection.create(regions=[table, predicates, projections],
+          sort_keys: Region, names: list[str]) -> 'Selection':
+    return Selection.create(regions=[table, predicates, projections, sort_keys],
                             attributes={
                                 "names":
                                     ArrayAttr.from_list(
@@ -545,6 +564,7 @@ class Ibis:
     self.ctx.register_attr(Nullable)
 
     self.ctx.register_op(UnboundTable)
+    self.ctx.register_op(SortKey)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
     self.ctx.register_op(CartesianProduct)

@@ -25,7 +25,7 @@ module() {
         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
       }
     }
-  }
+  } {}
 }
 
 //      CHECK: ibis.selection() ["names" = ["a", "b"]] {

@@ -25,7 +25,7 @@ ibis.selection() ["names" = ["bc"]] {
         }
       }
     }
-  }
+  } {}
 }
 
 //      CHECK:  rel_alg.project() ["names" = ["bc"]] {
