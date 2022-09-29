@@ -182,6 +182,20 @@ class Multiply(Operation):
 
 @irdl_op_definition
 class GroupedTable(Operation):
+  """
+  Models an ibis group by that is grouped by the columns in 'by'.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/groupby.py#L57
+
+  Example:
+  '''
+  ibis.grouped_table() {
+    ibis.unbound_table() ...
+  } {
+    ibis.table_column() ["col_name" = "a"] ...
+  }
+  '''
+  """
   name = "ibis.grouped_table"
 
   table = SingleBlockRegionDef()
@@ -195,6 +209,20 @@ class GroupedTable(Operation):
 
 @irdl_op_definition
 class SortKey(Operation):
+  """
+  Models a sort key in ibis. The main information in this node is the order
+  ("asc" for ascending and "desc" for desceding).
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/sortkeys.py#L60
+
+  Example:
+
+  '''
+  ibis.sort_key() ["order" = "asc"] {
+    ibis.table_column() ["col_name" = "a"] ...
+  }
+  '''
+  """
   name = "ibis.sort_key"
 
   expr = SingleBlockRegionDef()
