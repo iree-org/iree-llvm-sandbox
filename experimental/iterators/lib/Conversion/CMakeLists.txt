@@ -1,1 +1,2 @@
 add_subdirectory(IteratorsToLLVM)
+add_subdirectory(TabularToLLVM)

@@ -6,3 +6,4 @@
 
 from ._tabular_ops_gen import *
 from .._mlir_libs._iteratorsDialects.tabular import *
+from .._mlir_libs import _mlirIteratorsPasses as _cextIteratorsPasses
