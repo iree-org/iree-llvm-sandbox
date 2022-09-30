@@ -11,6 +11,7 @@
 #include "../PassDetail.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Utils/MLIRSupport.h"
+#include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -68,8 +69,67 @@ private:
   LLVMTypeConverter llvmTypeConverter;
 };
 
+/// Lowers view_as_tabular to LLVM IR that extracts the bare pointers and the
+/// number of elements from the given memrefs.
+///
+/// Possible result:
+///
+/// %1 = builtin.unrealized_conversion_cast %0 :
+///        memref<3xi32> to !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///                                       array<1 x i64>, array<1 x i64>)>
+/// %2 = llvm.mlir.undef : !llvm.struct<(i64, ptr<i32>)>
+/// %3 = llvm.extractvalue %1[1] :
+///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///                      array<1 x i64>, array<1 x i64>)>
+/// %4 = llvm.extractvalue %1[3, 0] :
+///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///                      array<1 x i64>, array<1 x i64>)>
+/// %5 = llvm.insertvalue %3, %2[1 : index] : !llvm.struct<(i64, ptr<i32>)>
+/// %6 = llvm.insertvalue %4, %5[0 : index] : !llvm.struct<(i64, ptr<i32>)>
+struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
+  ViewAsTabularOpLowering(TypeConverter &typeConverter, MLIRContext *context,
+                          PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(ViewAsTabularOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // Create empty struct for view.
+    Type viewStructType = typeConverter->convertType(op.view().getType());
+    Value viewStruct = rewriter.create<UndefOp>(loc, viewStructType);
+
+    // Extract column pointers and number of elements.
+    Value numElements;
+    for (const auto &indexedOperand : llvm::enumerate(adaptor.getOperands())) {
+      // Extract pointer and number of elements from memref descriptor.
+      MemRefDescriptor descriptor(indexedOperand.value());
+      Value ptr = descriptor.alignedPtr(rewriter, loc);
+      if (indexedOperand.index() == 0) {
+        numElements = descriptor.size(rewriter, loc, 0);
+      }
+
+      // Insert pointer into view struct.
+      auto idx = static_cast<int64_t>(indexedOperand.index()) + 1;
+      viewStruct = createInsertValueOp(rewriter, loc, viewStruct, ptr, {idx});
+    }
+
+    // Insert number of elements.
+    viewStruct =
+        createInsertValueOp(rewriter, loc, viewStruct, numElements, {0});
+
+    // Replace original op.
+    rewriter.replaceOp(op, {viewStruct});
+
+    return success();
+  }
+};
+
 void mlir::iterators::populateTabularToLLVMConversionPatterns(
-    RewritePatternSet &patterns, TypeConverter &typeConverter) {}
+    RewritePatternSet &patterns, TypeConverter &typeConverter) {
+  patterns.add<ViewAsTabularOpLowering>(typeConverter, patterns.getContext());
+}
 
 void ConvertTabularToLLVMPass::runOnOperation() {
   auto module = getOperation();
