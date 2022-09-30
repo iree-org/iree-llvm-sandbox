@@ -103,6 +103,9 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
     // Extract column pointers and number of elements.
     Value numElements;
     for (const auto &indexedOperand : llvm::enumerate(adaptor.getOperands())) {
+      assert(isStaticShapeAndContiguousRowMajor(
+          op->getOperandTypes()[indexedOperand.index()].cast<MemRefType>()));
+
       // Extract pointer and number of elements from memref descriptor.
       MemRefDescriptor descriptor(indexedOperand.value());
       Value ptr = descriptor.alignedPtr(rewriter, loc);
