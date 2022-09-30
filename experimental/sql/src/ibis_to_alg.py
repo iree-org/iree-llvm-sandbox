@@ -171,18 +171,6 @@ class CartesianProductRewriter(IbisRewriter):
 
 
 @dataclass
-class GroupedTableRewriter(IbisRewriter):
-
-  @op_type_rewrite_pattern
-  def match_and_rewrite(self, op: ibis.GroupedTable, rewriter: PatternRewriter):
-    assert all([isinstance(o, ibis.TableColumn) for o in op.by.ops])
-    rewriter.replace_matched_op(
-        RelAlg.GroupBy.get(
-            rewriter.move_region_contents_to_new_regions(op.table),
-            [o.col_name.data for o in op.by.ops]))
-
-
-@dataclass
 class AggregationRewriter(IbisRewriter):
 
   def get_col_name_and_function(self, metric_op: Operation) -> Tuple[str, str]:
@@ -196,10 +184,14 @@ class AggregationRewriter(IbisRewriter):
     functions, col_names = map(
         list, zip(*[self.get_col_name_and_function(o) for o in op.metrics.ops]))
 
+    assert all([isinstance(o, ibis.TableColumn) for o in op.by.ops])
+
+    by = [o.col_name.data for o in op.by.ops]
+
     rewriter.replace_matched_op(
         RelAlg.Aggregate.get(
             rewriter.move_region_contents_to_new_regions(op.table), col_names,
-            functions, [r.data for r in op.names.data]))
+            functions, [r.data for r in op.names.data], by))
 
 
 @dataclass
@@ -223,7 +215,6 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       GreaterEqualRewriter(),
       LessEqualRewriter(),
       LessThanRewriter(),
-      GroupedTableRewriter(),
       TableColumnRewriter(),
       AggregationRewriter(),
       MultiplyRewriter(),

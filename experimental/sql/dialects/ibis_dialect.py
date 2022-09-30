@@ -181,33 +181,6 @@ class Multiply(Operation):
 
 
 @irdl_op_definition
-class GroupedTable(Operation):
-  """
-  Models an ibis group by that is grouped by the columns in 'by'.
-
-  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/groupby.py#L57
-
-  Example:
-  '''
-  ibis.grouped_table() {
-    ibis.unbound_table() ...
-  } {
-    ibis.table_column() ["col_name" = "a"] ...
-  }
-  '''
-  """
-  name = "ibis.grouped_table"
-
-  table = SingleBlockRegionDef()
-  by = SingleBlockRegionDef()
-
-  @staticmethod
-  @builder
-  def get(table: Region, by: Region) -> 'GroupedTable':
-    return GroupedTable.create(regions=[table, by])
-
-
-@irdl_op_definition
 class SortKey(Operation):
   """
   Models a sort key in ibis. The main information in this node is the order
@@ -318,17 +291,18 @@ class Aggregation(Operation):
   table = SingleBlockRegionDef()
   metrics = SingleBlockRegionDef()
   names = AttributeDef(ArrayOfConstraint(StringAttr))
+  by = SingleBlockRegionDef()
   # TODO: figure out what the rest of these two and model them
-  # by = SingleBlockRegionDef()
   # having = SingleBlockRegionDef()
   # predicates = SingleBlockRegionDef()
   # sort_keys = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(table: Region, metrics: Region, names: list[str]) -> 'Aggregation':
+  def get(table: Region, metrics: Region, by: Region,
+          names: list[str]) -> 'Aggregation':
     return Aggregation.create(
-        regions=[table, metrics],
+        regions=[table, metrics, by],
         attributes={
             "names":
                 ArrayAttr.from_list([StringAttr.from_str(n) for n in names])
@@ -605,7 +579,6 @@ class Ibis:
     self.ctx.register_attr(Nullable)
 
     self.ctx.register_op(UnboundTable)
-    self.ctx.register_op(GroupedTable)
     self.ctx.register_op(SortKey)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
