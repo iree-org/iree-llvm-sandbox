@@ -1,7 +1,12 @@
 # RUN: %PYTHON %s | FileCheck %s
 
+import ctypes
 import os
 
+import pandas as pd
+import numpy as np
+
+from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
 from mlir_iterators.dialects import iterators as it
 from mlir_iterators.dialects import tabular as tab
 from mlir_iterators.passmanager import PassManager
@@ -71,8 +76,8 @@ def testConvertIteratorsToLlvm():
 
 
 @run
-# CHECK-LABEL: TEST: testEndToEnd
-def testEndToEnd():
+# CHECK-LABEL: TEST: testEndToEndStandalone
+def testEndToEndStandalone():
   mod = Module.parse('''
       !element_type = !llvm.struct<(i32)>
       func.func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
@@ -98,3 +103,33 @@ def testEndToEnd():
   engine = ExecutionEngine(mod)
   # CHECK: (6)
   engine.invoke('main')
+
+
+@run
+# CHECK-LABEL: TEST: testEndToEndWithInput
+def testEndToEndWithInput():
+  mod = Module.parse('''
+      !struct_type = !llvm.struct<(i32,i64)>
+      func.func @main(%input: !tabular.tabular_view<i32,i64>)
+          attributes { llvm.emit_c_interface } {
+        %stream = "iterators.tabular_view_to_stream"(%input)
+          : (!tabular.tabular_view<i32,i64>)
+            -> !iterators.stream<!struct_type>
+        "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
+        return
+      }
+      ''')
+  pm = PassManager.parse(
+      'convert-iterators-to-llvm,convert-memref-to-llvm,convert-func-to-llvm,'
+      'reconcile-unrealized-casts,convert-scf-to-cf,convert-cf-to-llvm')
+  pm.run(mod)
+
+  data = np.array([(0, 3), (1, 4), (2, 5)], dtype=[('a', 'i4'), ('b', 'i8')])
+  df = pd.DataFrame.from_records(data)
+  arg = ctypes.pointer(to_tabular_view_descriptor(df))
+
+  # CHECK:      (0, 3)
+  # CHECK-NEXT: (1, 4)
+  # CHECK-NEXT: (2, 5)
+  engine = ExecutionEngine(mod)
+  engine.invoke('main', arg)
