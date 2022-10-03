@@ -6,4 +6,4 @@ module() {
 }
 
 //      CHECK:  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
-// CHECK-NEXT:  %1 : !rel_impl.bag<[!rel_impl.schema_element<"idsum", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
+// CHECK-NEXT:  %1 : !rel_impl.bag<[!rel_impl.schema_element<"idsum", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"], "by" = []]

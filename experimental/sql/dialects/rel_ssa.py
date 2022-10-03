@@ -431,9 +431,7 @@ class OrderBy(Operator):
 
   Example:
   '''
-  rel_ssa.order_by() ["by" = [!rel_ssa.order<"a", "asc>, !rel_ssa.order<"b", "desc">]] {
-    rel_ssa.table() ...
-  }
+  %{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>]> = rel_ssa.order_by(%{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>]>) ["by" = [!rel_ssa.order<"a", "desc">]]
   '''
   """
   name = "rel_ssa.order_by"
@@ -648,6 +646,7 @@ class RelSSA:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
+    self.ctx.register_attr(Order)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)

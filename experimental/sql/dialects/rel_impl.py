@@ -123,6 +123,23 @@ class Nullable(DataType):
 
 
 @irdl_attr_definition
+class Order(ParametrizedAttribute):
+  """
+  Models the order of a sort key.
+
+  Example:
+
+  '''
+  !rel_impl.order<"a", "asc">
+  '''
+  """
+  name = "rel_impl.order"
+
+  col: ParameterDef[StringAttr]
+  order: ParameterDef[StringAttr]
+
+
+@irdl_attr_definition
 class Boolean(ParametrizedAttribute):
   """
   Models a type that can either be true or false to, e.g., show whether a tuple
@@ -567,16 +584,49 @@ class Project(Operator):
 
 
 @irdl_op_definition
+class MergeSort(Operator):
+  """
+  Uses merge sort to sort the given input by the columns in `by`.
+
+  Example:
+  '''
+  %{{.*}} : !rel_impl.bag<...> = rel_impl.merge_sort(%{{.*}} : !rel_impl.bag<...>) ["by" = [!rel_impl.order<"a", "desc">]]
+  '''
+  """
+  name = "rel_impl.merge_sort"
+
+  input = OperandDef(Bag)
+  by = AttributeDef(ArrayAttr)
+
+  result = ResultDef(Bag)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, by: list[str], order: list[str]) -> 'MergeSort':
+    return MergeSort.build(
+        operands=[input],
+        attributes={
+            "by":
+                ArrayAttr.from_list([
+                    Order([StringAttr.from_str(s),
+                           StringAttr.from_str(o)]) for s, o in zip(by, order)
+                ])
+        },
+        result_types=[input.result.typ])
+
+
+@irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith function of `functions` to the ith column name of `col_names`
-  of `input`.
+  Groups the table `input` by the columns in `by` by aggregating the ith element
+  of `col_names` by the ith element of `functions`. If `by` is empty, this
+  corresponds to the ungrouped aggregation.
 
 
   Example:
 
   '''
-  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]]
+  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a"]]
   '''
   """
   name = "rel_impl.aggregate"
@@ -584,6 +634,7 @@ class Aggregate(Operator):
   input = OperandDef(Bag)
   col_names = AttributeDef(ArrayOfConstraint(StringAttr))
   functions = AttributeDef(ArrayOfConstraint(StringAttr))
+  by = AttributeDef(ArrayOfConstraint(StringAttr))
   result = ResultDef(Bag)
 
   def verify_(self) -> None:
@@ -598,7 +649,7 @@ class Aggregate(Operator):
   @builder
   @staticmethod
   def get(input: Operation, col_names: List[str], functions: List[str],
-          res_names: List[str]) -> 'Aggregate':
+          res_names: List[str], by: List[str]) -> 'Aggregate':
     return Aggregate.create(
         operands=[input.result],
         attributes={
@@ -606,7 +657,10 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(c) for c in col_names]
                                    ),
             "functions":
-                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions]
+                                   ),
+            "by":
+                ArrayAttr.from_list([StringAttr.from_str(o) for o in by])
         },
         result_types=[
             Bag.get(
@@ -631,8 +685,10 @@ class RelImpl:
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
     self.ctx.register_attr(Tuple)
+    self.ctx.register_attr(Order)
 
     self.ctx.register_op(Select)
+    self.ctx.register_op(MergeSort)
     self.ctx.register_op(Project)
     self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Aggregate)

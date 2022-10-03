@@ -1,0 +1,9 @@
+// RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
+
+module() {
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]> = rel_ssa.table() ["table_name" = "t"]
+  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"c_sum", !rel_ssa.int64>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]>) ["col_names" = ["c"], "functions" = ["sum"], "by" = ["a", "b"]]
+}
+
+//      CHECK:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.string>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "t"]
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"c_sum", !rel_impl.int64>]> = rel_impl.aggregate(%{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.string>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]>) ["col_names" = ["c"], "functions" = ["sum"], "by" = ["a", "b"]]
