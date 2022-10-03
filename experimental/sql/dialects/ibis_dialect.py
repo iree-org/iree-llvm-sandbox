@@ -275,7 +275,9 @@ class Aggregation(Operation):
   columns to group by. If `by` is empty, this corresponds to a ungrouped
   aggregation. If there is a `TableColumn` as hte top-level operation of
   `metrics`, we use an implicit `ANY` aggregation, so the result will just
-  correspond to any value of that column.
+  correspond to any value of that column. If `metrics` is empty, this
+  corresponds to choosing all columns. The ones not grouped by are aggregate
+  through `ANY`.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L589
 
