@@ -17,7 +17,7 @@ ibis.aggregation() ["names" = ["b"]] {
         }
       }
     }
-  }
+  } {}
 }
 
 //      CHECK: ibis.aggregation() ["names" = ["b"]] {
@@ -36,4 +36,4 @@ ibis.aggregation() ["names" = ["b"]] {
 // CHECK-NEXT:         }
 // CHECK-NEXT:       }
 // CHECK-NEXT:     }
-// CHECK-NEXT:   }
+// CHECK-NEXT:   } {}

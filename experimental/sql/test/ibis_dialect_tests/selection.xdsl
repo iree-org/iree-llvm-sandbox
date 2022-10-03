@@ -24,7 +24,7 @@ module() {
       // predicate literal
       ibis.literal() ["val" = "AS", "type" = !ibis.nullable<!ibis.string>]
     }
-  } {}
+  } {} {}
 }
 
 //      CHECK: ibis.selection() ["names" = []] {

@@ -15,7 +15,7 @@ module() {
      } {
        ibis.literal() ["val" = 5, "type" = !ibis.int64]
      }
-   } {}
+   } {} {}
  }
 
 //      CHECK:         rel_alg.compare() ["comparator" = "<="] {

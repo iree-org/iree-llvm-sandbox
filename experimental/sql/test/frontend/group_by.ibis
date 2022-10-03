@@ -1,0 +1,37 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table = ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't')
+table.group_by([table.a, table.b]).aggregate(table.c.sum().name('c_sum'))
+
+#      CHECK: ibis.aggregation() ["names" = ["c_sum"]] {
+# CHECK-NEXT:     ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:       ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+# CHECK-NEXT:       ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:       ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:     }
+# CHECK-NEXT:   } {
+# CHECK-NEXT:     ibis.sum() {
+# CHECK-NEXT:       ibis.table_column() ["col_name" = "c"] {
+# CHECK-NEXT:         ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:           ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         }
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:   } {
+# CHECK-NEXT:     ibis.table_column() ["col_name" = "a"] {
+# CHECK-NEXT:       ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:     ibis.table_column() ["col_name" = "b"] {
+# CHECK-NEXT:       ibis.unbound_table() ["table_name" = "t"] {
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:         ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+# CHECK-NEXT:       }
+# CHECK-NEXT:     }
+# CHECK-NEXT:   }

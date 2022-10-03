@@ -1,14 +1,14 @@
 // RUN: rel_opt.py %s | filecheck %s
 
 module() {
-    rel_alg.aggregate() ["col_names" = ["b"], "functions" = ["sum"], "res_names" = ["b"]] {
+    rel_alg.aggregate() ["col_names" = ["b"], "functions" = ["sum"], "res_names" = ["b"], "by" = []] {
         rel_alg.table() ["table_name" = "t"] {
             rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
         }
     }
 }
 
-//      CHECK: rel_alg.aggregate() ["col_names" = ["b"], "functions" = ["sum"], "res_names" = ["b"]] {
+//      CHECK: rel_alg.aggregate() ["col_names" = ["b"], "functions" = ["sum"], "res_names" = ["b"], "by" = []] {
 // CHECK-NEXT:         rel_alg.table() ["table_name" = "t"] {
 // CHECK-NEXT:             rel_alg.schema_element() ["elt_name" = "id", "elt_type" = !rel_alg.int32]
 // CHECK-NEXT:         }

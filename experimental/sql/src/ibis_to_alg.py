@@ -142,12 +142,20 @@ class SelectionRewriter(IbisRewriter):
           RelAlg.Select.get(
               rewriter.move_region_contents_to_new_regions(op.table),
               rewriter.move_region_contents_to_new_regions(op.predicates)))
-    else:
+    elif len(op.projections.ops) > 0:
       rewriter.replace_matched_op(
           RelAlg.Project.get(
               rewriter.move_region_contents_to_new_regions(op.table),
               rewriter.move_region_contents_to_new_regions(op.projections),
               op.names))
+    else:
+      assert all(
+          [isinstance(o.expr.op, ibis.TableColumn) for o in op.sort_keys.ops])
+      rewriter.replace_matched_op(
+          RelAlg.OrderBy.get(
+              rewriter.move_region_contents_to_new_regions(op.table),
+              [o.expr.op.col_name.data for o in op.sort_keys.ops],
+              [o.order.data for o in op.sort_keys.ops]))
 
 
 @dataclass
@@ -176,10 +184,14 @@ class AggregationRewriter(IbisRewriter):
     functions, col_names = map(
         list, zip(*[self.get_col_name_and_function(o) for o in op.metrics.ops]))
 
+    assert all([isinstance(o, ibis.TableColumn) for o in op.by.ops])
+
+    by = [o.col_name.data for o in op.by.ops]
+
     rewriter.replace_matched_op(
         RelAlg.Aggregate.get(
             rewriter.move_region_contents_to_new_regions(op.table), col_names,
-            functions, [r.data for r in op.names.data]))
+            functions, [r.data for r in op.names.data], by))
 
 
 @dataclass

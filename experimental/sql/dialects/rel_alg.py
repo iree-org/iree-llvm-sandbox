@@ -112,6 +112,23 @@ class Nullable(DataType):
   type: ParameterDef[DataType]
 
 
+@irdl_attr_definition
+class Order(ParametrizedAttribute):
+  """
+  Models the order of a sort key.
+
+  Example:
+
+  '''
+  !rel_alg.order<"a", "asc">
+  '''
+  """
+  name = "rel_alg.order"
+
+  col: ParameterDef[StringAttr]
+  order: ParameterDef[StringAttr]
+
+
 class Expression(Operation):
   ...
 
@@ -225,16 +242,75 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class GroupBy(Operator):
+  """
+  Groups the given input by the columns in `by`.
+
+  Example:
+  '''
+  rel_alg.group_by() ["by" = ["a", "b"]] {
+    rel_alg.table() ...
+  }
+  '''
+  """
+  name = "rel_alg.group_by"
+
+  input = SingleBlockRegionDef()
+  by = AttributeDef(ArrayAttr)
+
+  @builder
+  @staticmethod
+  def get(input: Region, by: list[str]) -> 'GroupBy':
+    return GroupBy.build(
+        regions=[input],
+        attributes={
+            "by": ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
+        })
+
+
+@irdl_op_definition
+class OrderBy(Operator):
+  """
+  Orders the given input by the columns in `by`.
+
+  Example:
+  '''
+  rel_alg.order_by() ["by" = [!rel_alg.order<"a", "asc>, !rel_alg.order<"b", "desc">]] {
+    rel_alg.table() ...
+  }
+  '''
+  """
+  name = "rel_alg.order_by"
+
+  input = SingleBlockRegionDef()
+  by = AttributeDef(ArrayAttr)
+
+  @builder
+  @staticmethod
+  def get(input: Region, by: list[str], order: list[str]) -> 'GroupBy':
+    return GroupBy.build(
+        regions=[input],
+        attributes={
+            "by":
+                ArrayAttr.from_list([
+                    Order([StringAttr.from_str(s),
+                           StringAttr.from_str(o)]) for s, o in zip(by, order)
+                ])
+        })
+
+
+@irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith element of `functions` to the ith element of `col_names` of
-  the table `input`.
+  Groups the table `input` by the columns in `by` by aggregating the ith element
+  of `col_names` by the ith element of `functions`. If `by` is empty, this
+  corresponds to the ungrouped aggregation.
 
   Example:
 
   '''
-  rel_alg.aggregate() ["col_names = ["b"], "functions" = ["sum"]] {
-    rel_alg.pandas_table() ...
+  rel_alg.aggregate() ["col_names = ["b", "d"], "functions" = ["sum", "any"], "res_names" = ["a", "b"], "by" = ["c"]] {
+    rel_alg.table() ...
   }
   '''
   """
@@ -244,8 +320,7 @@ class Aggregate(Operator):
   col_names = AttributeDef(ArrayOfConstraint(StringAttr))
   functions = AttributeDef(ArrayOfConstraint(StringAttr))
   res_names = AttributeDef(ArrayOfConstraint(StringAttr))
-
-  # TODO: add support for grouping...
+  by = AttributeDef(ArrayOfConstraint(StringAttr))
 
   def verify_(self) -> None:
     for f in self.functions.data:
@@ -255,7 +330,7 @@ class Aggregate(Operator):
   @staticmethod
   @builder
   def get(input: Region, col_names: List[str], functions: List[str],
-          res_names: List[str]) -> 'Aggregate':
+          res_names: List[str], by: List[str]) -> 'Aggregate':
     return Aggregate.create(
         regions=[input],
         attributes={
@@ -266,7 +341,10 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(f) for f in functions]
                                    ),
             "res_names":
-                ArrayAttr.from_list([StringAttr.from_str(n) for n in res_names])
+                ArrayAttr.from_list([StringAttr.from_str(n) for n in res_names]
+                                   ),
+            "by":
+                ArrayAttr.from_list([StringAttr.from_str(c) for c in by])
         })
 
 

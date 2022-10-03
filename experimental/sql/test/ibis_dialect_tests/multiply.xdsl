@@ -25,9 +25,8 @@ module() {
           }
         }
       }
-    }
+    } {}
   }
-}
 
 //      CHECK: ibis.selection() ["names" = ["d"]] {
 // CHECK-NEXT:     ibis.unbound_table() ["table_name" = "t"] {

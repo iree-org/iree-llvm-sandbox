@@ -181,6 +181,38 @@ class Multiply(Operation):
 
 
 @irdl_op_definition
+class SortKey(Operation):
+  """
+  Models a sort key in ibis. The main information in this node is the order
+  ("asc" for ascending and "desc" for desceding).
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/sortkeys.py#L60
+
+  Example:
+
+  '''
+  ibis.sort_key() ["order" = "asc"] {
+    ibis.table_column() ["col_name" = "a"] ...
+  }
+  '''
+  """
+  name = "ibis.sort_key"
+
+  expr = SingleBlockRegionDef()
+  order = AttributeDef(AnyAttr())
+
+  @staticmethod
+  @builder
+  def get(expr: Region, asc: bool) -> 'SortKey':
+    return SortKey.create(regions=[expr],
+                          attributes={
+                              "order":
+                                  StringAttr.from_str("asc")
+                                  if asc else StringAttr.from_str("desc")
+                          })
+
+
+@irdl_op_definition
 class Selection(Operation):
   """
   Models an SQL `Select` statement and related concepts. If there are predicates
@@ -220,13 +252,14 @@ class Selection(Operation):
   table = SingleBlockRegionDef()
   predicates = SingleBlockRegionDef()
   projections = SingleBlockRegionDef()
+  sort_keys = SingleBlockRegionDef()
   names = AttributeDef(ArrayOfConstraint(StringAttr))
 
   @staticmethod
   @builder
   def get(table: Region, predicates: Region, projections: Region,
-          names: list[str]) -> 'Selection':
-    return Selection.create(regions=[table, predicates, projections],
+          sort_keys: Region, names: list[str]) -> 'Selection':
+    return Selection.create(regions=[table, predicates, projections, sort_keys],
                             attributes={
                                 "names":
                                     ArrayAttr.from_list(
@@ -237,38 +270,50 @@ class Selection(Operation):
 @irdl_op_definition
 class Aggregation(Operation):
   """
-  Models an ibis aggregation query where `metrics` defines the aggregation function.
+  Models an ibis aggregation over `table` where `metrics` defines the
+  aggregation function, `names` defines the result schema, and `by` defines the
+  columns to group by. If `by` is empty, this corresponds to a ungrouped
+  aggregation. If there is a `TableColumn` as hte top-level operation of
+  `metrics`, we use an implicit `ANY` aggregation, so the result will just
+  correspond to any value of that column. If `metrics` is empty, this
+  corresponds to choosing all columns. The ones not grouped by are aggregate
+  through `ANY`.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L589
 
   Example:
 
   '''
-  ibis.aggregation() {
-    ibis.pandas_table() ...
+  ibis.aggregation() ["names" = ["a", "b"]] {
+    ibis.unbound_table() ...
   } {
     ibis.sum() {
       ...
     }
+  } {
+    ibis.table_column() ...
   }
   '''
+
+  TODO: add support for grouping without aggregation
   """
   name = "ibis.aggregation"
 
   table = SingleBlockRegionDef()
   metrics = SingleBlockRegionDef()
   names = AttributeDef(ArrayOfConstraint(StringAttr))
+  by = SingleBlockRegionDef()
   # TODO: figure out what the rest of these two and model them
-  # by = SingleBlockRegionDef()
   # having = SingleBlockRegionDef()
   # predicates = SingleBlockRegionDef()
   # sort_keys = SingleBlockRegionDef()
 
   @staticmethod
   @builder
-  def get(table: Region, metrics: Region, names: list[str]) -> 'Aggregation':
+  def get(table: Region, metrics: Region, by: Region,
+          names: list[str]) -> 'Aggregation':
     return Aggregation.create(
-        regions=[table, metrics],
+        regions=[table, metrics, by],
         attributes={
             "names":
                 ArrayAttr.from_list([StringAttr.from_str(n) for n in names])
@@ -545,6 +590,7 @@ class Ibis:
     self.ctx.register_attr(Nullable)
 
     self.ctx.register_op(UnboundTable)
+    self.ctx.register_op(SortKey)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
     self.ctx.register_op(CartesianProduct)
