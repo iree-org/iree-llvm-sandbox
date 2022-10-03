@@ -465,6 +465,7 @@ class RelationalAlg:
     self.ctx.register_attr(Decimal)
     self.ctx.register_attr(Int64)
     self.ctx.register_attr(Nullable)
+    self.ctx.register_attr(Order)
 
     self.ctx.register_op(Table)
     self.ctx.register_op(SchemaElement)

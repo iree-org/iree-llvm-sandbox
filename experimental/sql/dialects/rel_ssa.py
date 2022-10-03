@@ -121,6 +121,23 @@ class Nullable(DataType):
 
 
 @irdl_attr_definition
+class Order(ParametrizedAttribute):
+  """
+  Models the order of a sort key.
+
+  Example:
+
+  '''
+  !rel_ssa.order<"a", "asc">
+  '''
+  """
+  name = "rel_ssa.order"
+
+  col: ParameterDef[StringAttr]
+  order: ParameterDef[StringAttr]
+
+
+@irdl_attr_definition
 class Boolean(ParametrizedAttribute):
   """
   Models a type that can either be true or false to, e.g., show whether a tuple
@@ -408,6 +425,40 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class OrderBy(Operator):
+  """
+  Orders the given input by the columns in `by`.
+
+  Example:
+  '''
+  rel_ssa.order_by() ["by" = [!rel_ssa.order<"a", "asc>, !rel_ssa.order<"b", "desc">]] {
+    rel_ssa.table() ...
+  }
+  '''
+  """
+  name = "rel_ssa.order_by"
+
+  input = OperandDef(Bag)
+  by = AttributeDef(ArrayAttr)
+
+  result = ResultDef(Bag)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, by: list[str], order: list[str]) -> 'OrderBy':
+    return OrderBy.build(
+        operands=[input],
+        attributes={
+            "by":
+                ArrayAttr.from_list([
+                    Order([StringAttr.from_str(s),
+                           StringAttr.from_str(o)]) for s, o in zip(by, order)
+                ])
+        },
+        result_types=[input.result.typ])
+
+
+@irdl_op_definition
 class Table(Operator):
   """
   Defines a table with name `table_name`.
@@ -603,6 +654,7 @@ class RelSSA:
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(Project)
     self.ctx.register_op(CartesianProduct)
+    self.ctx.register_op(OrderBy)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
