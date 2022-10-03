@@ -589,7 +589,8 @@ class Aggregate(Operator):
   Example:
 
   '''
-  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a", "b"]] '''
+  %0 : !rel_ssa.bag<...> = rel_ssa.aggregate(%0 : !rel_ssa.bag<...>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a", "b"]]
+  '''
   """
   name = "rel_ssa.aggregate"
 

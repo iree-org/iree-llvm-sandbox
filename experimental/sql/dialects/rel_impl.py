@@ -626,7 +626,7 @@ class Aggregate(Operator):
   Example:
 
   '''
-  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a"]]
+  %0 : !rel_impl.bag<...> = rel_impl.aggregate(%0 : !rel_impl.bag<...>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a"]]
   '''
   """
   name = "rel_impl.aggregate"
