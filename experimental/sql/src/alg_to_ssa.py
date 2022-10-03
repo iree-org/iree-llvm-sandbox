@@ -256,7 +256,8 @@ class AggregateRewriter(RelAlgRewriter):
         RelSSA.Aggregate.get(rewriter.added_operations_before[-1],
                              [c.data for c in op.col_names.data],
                              [f.data for f in op.functions.data],
-                             [r.data for r in op.res_names.data])
+                             [r.data for r in op.res_names.data],
+                             [b.data for b in op.by.data])
     ])
     rewriter.erase_matched_op()
 

@@ -18,4 +18,4 @@ module() {
 // CHECK-NEXT:    %2 : !rel_ssa.int32 = rel_ssa.column() ["col_name" = "id"]
 // CHECK-NEXT:    rel_ssa.yield_tuple(%2 : !rel_ssa.int32)
 // CHECK-NEXT:  }
-// CHECK-NEXT:  %3 : !rel_ssa.bag<[!rel_ssa.schema_element<"idsum", !rel_ssa.int32>]> = rel_ssa.aggregate(%1 : !rel_ssa.bag<[!rel_ssa.schema_element<"im", !rel_ssa.int32>]>) ["col_names" = ["im"], "functions" = ["sum"]]
+// CHECK-NEXT:  %3 : !rel_ssa.bag<[!rel_ssa.schema_element<"idsum", !rel_ssa.int32>]> = rel_ssa.aggregate(%1 : !rel_ssa.bag<[!rel_ssa.schema_element<"im", !rel_ssa.int32>]>) ["col_names" = ["im"], "functions" = ["sum"], "by" = []]

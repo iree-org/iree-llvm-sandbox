@@ -532,21 +532,22 @@ class CartesianProduct(Operator):
 @irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith function of `functions` to the ith column name of `col_names`
-  of `input`. The ith resulting column has the same name as the ith input column
-  to the uniqueness of names.
+  Groups the table `input` by the columns in `by` by aggregating the ith element
+  of `col_names` by the ith element of `functions`. If `by` is empty, this
+  corresponds to the ungrouped aggregation.
 
 
   Example:
 
   '''
-  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]] '''
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a", "b"]] '''
   """
   name = "rel_ssa.aggregate"
 
   input = OperandDef(Bag)
   col_names = AttributeDef(ArrayOfConstraint(StringAttr))
   functions = AttributeDef(ArrayOfConstraint(StringAttr))
+  by = AttributeDef(ArrayOfConstraint(StringAttr))
   result = ResultDef(Bag)
 
   def verify_(self) -> None:
@@ -561,7 +562,7 @@ class Aggregate(Operator):
   @builder
   @staticmethod
   def get(input: Operation, col_names: List[str], functions: List[str],
-          res_names: List[str]) -> 'Aggregate':
+          res_names: List[str], by: List[str]) -> 'Aggregate':
     return Aggregate.create(
         operands=[input.result],
         attributes={
@@ -569,7 +570,10 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(c) for c in col_names]
                                    ),
             "functions":
-                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions]
+                                   ),
+            "by":
+                ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
         },
         result_types=[
             Bag.get(
