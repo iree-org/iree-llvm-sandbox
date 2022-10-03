@@ -292,6 +292,8 @@ class Aggregation(Operation):
     ibis.table_column() ...
   }
   '''
+
+  TODO: add support for grouping without aggregation
   """
   name = "ibis.aggregation"
 
