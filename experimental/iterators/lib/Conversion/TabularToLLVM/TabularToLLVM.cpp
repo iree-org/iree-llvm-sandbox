@@ -165,7 +165,7 @@ void ConvertTabularToLLVMPass::runOnOperation() {
   typeConverter.addSourceMaterialization(addUnrealizedCast);
   typeConverter.addTargetMaterialization(addUnrealizedCast);
 
-  if (failed(applyFullConversion(module, target, std::move(patterns))))
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
 }
 
