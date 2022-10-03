@@ -270,19 +270,26 @@ class Selection(Operation):
 @irdl_op_definition
 class Aggregation(Operation):
   """
-  Models an ibis aggregation query where `metrics` defines the aggregation function.
+  Models an ibis aggregation over `table` where `metrics` defines the
+  aggregation function, `names` defines the result schema, and `by` defines the
+  columns to group by. If `by` is empty, this corresponds to a ungrouped
+  aggregation. If there is a `TableColumn` as hte top-level operation of
+  `metrics`, we use an implicit `ANY` aggregation, so the result will just
+  correspond to any value of that column.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L589
 
   Example:
 
   '''
-  ibis.aggregation() {
-    ibis.pandas_table() ...
+  ibis.aggregation() ["names" = ["a", "b"]] {
+    ibis.unbound_table() ...
   } {
     ibis.sum() {
       ...
     }
+  } {
+    ibis.table_column() ...
   }
   '''
   """

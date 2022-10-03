@@ -302,14 +302,15 @@ class OrderBy(Operator):
 @irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith element of `functions` to the ith element of `col_names` of
-  the table `input`.
+  Groups the table `input` by the columns in `by` by aggregating the ith element
+  of `col_names` by the ith element of `functions`. If `by` is empty, this
+  corresponds to the ungrouped aggregation.
 
   Example:
 
   '''
-  rel_alg.aggregate() ["col_names = ["b"], "functions" = ["sum"]] {
-    rel_alg.pandas_table() ...
+  rel_alg.aggregate() ["col_names = ["b", "d"], "functions" = ["sum", "any"], "res_names" = ["a", "b"], "by" = ["c"]] {
+    rel_alg.table() ...
   }
   '''
   """
@@ -320,8 +321,6 @@ class Aggregate(Operator):
   functions = AttributeDef(ArrayOfConstraint(StringAttr))
   res_names = AttributeDef(ArrayOfConstraint(StringAttr))
   by = AttributeDef(ArrayOfConstraint(StringAttr))
-
-  # TODO: add support for grouping...
 
   def verify_(self) -> None:
     for f in self.functions.data:
