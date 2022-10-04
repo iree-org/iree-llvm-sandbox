@@ -102,6 +102,22 @@ class Int64(DataType):
 
 
 @irdl_attr_definition
+class Float64(DataType):
+  """
+  Models the ibis float64 type.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/datatypes.py#L334
+
+  Example:
+
+  ```
+  !ibis.float64
+  ```
+  """
+  name = "ibis.float64"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models the ibis string type. The Parameter `nullable` defines whether the
@@ -142,6 +158,102 @@ class TableColumn(Operation):
   def get(table: Region, col_name: str) -> 'TableColumn':
     return TableColumn.create(
         attributes={"col_name": StringAttr.from_str(col_name)}, regions=[table])
+
+
+@irdl_op_definition
+class Subtract(Operation):
+  """
+  Models a subtraction of the columns `lhs` and `rhs` with result type `output_type`.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/numeric.py#L39
+
+  Example:
+  ```
+  ibis.subtraction() ["output_type" = !ibis.int64] {
+    // lhs
+    ibis.table_column() ...
+  } {
+    // rhs
+    ibis.table_column() ...
+  }
+  ```
+
+  """
+  name = "ibis.subtract"
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+  output_type = AttributeDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Region, rhs: Region, output_type: DataType) -> 'Subtract':
+    return Subtract.create(regions=[lhs, rhs],
+                           attributes={"output_type": output_type})
+
+
+@irdl_op_definition
+class Add(Operation):
+  """
+  Models an addition of the columns `lhs` and `rhs` with result type `output_type`.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/numeric.py#L20
+
+  Example:
+  ```
+  ibis.add() ["output_type" = !ibis.int64] {
+    // lhs
+    ibis.table_column() ...
+  } {
+    // rhs
+    ibis.table_column() ...
+  }
+  ```
+
+  """
+  name = "ibis.add"
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+  output_type = AttributeDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Region, rhs: Region, output_type: DataType) -> 'Add':
+    return Add.create(regions=[lhs, rhs],
+                      attributes={"output_type": output_type})
+
+
+@irdl_op_definition
+class Divide(Operation):
+  """
+  Models a division of the columns `lhs` and `rhs` with result type `output_type`.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/numeric.py#L44
+
+  Example:
+  ```
+  ibis.divide() ["output_type" = !ibis.int64] {
+    // lhs
+    ibis.table_column() ...
+  } {
+    // rhs
+    ibis.table_column() ...
+  }
+  ```
+
+  """
+  name = "ibis.divide"
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+  output_type = AttributeDef(DataType)
+
+  @staticmethod
+  @builder
+  def get(lhs: Region, rhs: Region, output_type: DataType) -> 'Divide':
+    return Divide.create(regions=[lhs, rhs],
+                         attributes={"output_type": output_type})
 
 
 @irdl_op_definition
@@ -589,6 +701,9 @@ class Ibis:
     self.ctx.register_attr(Timestamp)
     self.ctx.register_attr(Nullable)
 
+    self.ctx.register_op(Subtract)
+    self.ctx.register_op(Add)
+    self.ctx.register_op(Divide)
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SortKey)
     self.ctx.register_op(SchemaElement)
