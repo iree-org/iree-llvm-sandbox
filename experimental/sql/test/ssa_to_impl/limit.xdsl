@@ -1,0 +1,8 @@
+// RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
+
+module() {
+  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.nullable<!rel_ssa.string>>, !rel_ssa.schema_element<"b", !rel_ssa.nullable<!rel_ssa.int64>>, !rel_ssa.schema_element<"c", !rel_ssa.nullable<!rel_ssa.int64>>]> = rel_ssa.table() ["table_name" = "t"]
+  %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.nullable<!rel_ssa.string>>, !rel_ssa.schema_element<"b", !rel_ssa.nullable<!rel_ssa.int64>>, !rel_ssa.schema_element<"c", !rel_ssa.nullable<!rel_ssa.int64>>]> = rel_ssa.limit(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.nullable<!rel_ssa.string>>, !rel_ssa.schema_element<"b", !rel_ssa.nullable<!rel_ssa.int64>>, !rel_ssa.schema_element<"c", !rel_ssa.nullable<!rel_ssa.int64>>]>) ["n" = 10 : !i64]
+}
+
+// CHECK: rel_impl.limit({{.*}} ["n" = 10 : !i64]

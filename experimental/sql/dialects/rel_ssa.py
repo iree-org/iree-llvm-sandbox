@@ -427,19 +427,17 @@ class Operator(Operation):
 @irdl_op_definition
 class Limit(Operator):
   """
-  Limits the number of tuples in `table` to `n` .
+  Limits the number of tuples in `input` to `n` .
 
   Example:
 
   ```
-  relssa.limit() ["n" = 10 : !i64] {
-    ...
-  }
+  %0 : ... = rel_ssa.limit(...) ["n" = 10 : !i64]
   ```
   """
   name = "rel_ssa.limit"
 
-  table = OperandDef(Bag)
+  input = OperandDef(Bag)
   n = AttributeDef(IntegerAttr)
 
   result = ResultDef(Bag)
