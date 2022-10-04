@@ -697,6 +697,7 @@ class Ibis:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Int32)
     self.ctx.register_attr(Int64)
+    self.ctx.register_attr(Float64)
     self.ctx.register_attr(Decimal)
     self.ctx.register_attr(Timestamp)
     self.ctx.register_attr(Nullable)
