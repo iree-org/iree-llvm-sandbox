@@ -22,7 +22,7 @@ def get_ibis_query(
   q = q.join(region, n1.n_regionkey == region.r_regionkey)
   q = q.join(n2, supplier.s_nationkey == n2.n_nationkey)
 
-  q = q[orders.o_orderdate.year().cast("string").name("o_year"),
+  q = q[orders.o_orderdate.name("o_year"),  #.year().cast("string").name("o_year"),
         (lineitem.l_extendedprice * (1 - lineitem.l_discount)).name("volume"),
         n2.n_name.name("nation"), region.r_name, orders.o_orderdate,
         part.p_type,]

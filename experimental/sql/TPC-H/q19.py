@@ -29,4 +29,4 @@ def get_ibis_query(
 
   q = q.filter([q1 | q2 | q3])
   q = q.aggregate(revenue=(q.l_extendedprice * (1 - q.l_discount)).sum())
-  return
+  return q

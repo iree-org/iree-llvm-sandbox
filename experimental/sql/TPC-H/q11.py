@@ -21,4 +21,4 @@ def get_ibis_query(NATION="GERMANY", FRACTION=0.0001):
   q = gq.aggregate(value=(q.ps_supplycost * q.ps_availqty).sum())
   q = q.filter([q.value > innerq.total * FRACTION])
   q = q.sort_by(ibis.desc(q.value))
-  return
+  return q

@@ -11,4 +11,4 @@ def get_ibis_query(DATE="1995-09-01"):
   promo_revenue = q.p_type.like("PROMO%").ifelse(revenue, 0)
 
   q = q.aggregate(promo_revenue=100 * promo_revenue.sum() / revenue.sum())
-  return
+  return q

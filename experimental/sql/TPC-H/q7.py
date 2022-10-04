@@ -16,7 +16,7 @@ def get_ibis_query(NATION1="FRANCE", NATION2="GERMANY", DATE="1995-01-01"):
   q = q[n1.n_name.name("supp_nation"),
         n2.n_name.name("cust_nation"), lineitem.l_shipdate,
         lineitem.l_extendedprice, lineitem.l_discount,
-        lineitem.l_shipdate.year().cast("string").name("l_year"),
+        lineitem.l_shipdate.name("l_year"),  #.year().cast("string").name("l_year"),
         (lineitem.l_extendedprice * (1 - lineitem.l_discount)).name("volume"),]
 
   q = q.filter([

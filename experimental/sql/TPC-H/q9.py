@@ -17,7 +17,7 @@ def get_ibis_query(COLOR="green"):
 
   q = q[(q.l_extendedprice * (1 - q.l_discount) -
          q.ps_supplycost * q.l_quantity).name("amount"),
-        q.o_orderdate.year().cast("string").name("o_year"),
+        q.o_orderdate.name("o_year"),  #.year().cast("string").name("o_year"),
         q.n_name.name("nation"), q.p_name,]
 
   q = q.filter([q.p_name.like("%" + COLOR + "%")])

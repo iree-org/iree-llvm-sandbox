@@ -16,4 +16,4 @@ def get_ibis_query(WORD1="special", WORD2="requests"):
   q = gq.aggregate(custdist=innerq.count())
 
   q = q.sort_by([ibis.desc(q.custdist), ibis.desc(q.c_count)])
-  return
+  return q

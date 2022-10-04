@@ -35,11 +35,11 @@ from xdsl.printer import Printer
 def compile(query):
   ctx = MLContext()
   mod = ibis_to_xdsl(ctx, query)
-  ibis_to_alg(ctx, mod)
-  projection_pushdown(ctx, mod)
-  alg_to_ssa(ctx, mod)
-  ssa_to_impl(ctx, mod)
-  fuse_proj_into_scan(ctx, mod)
+  #ibis_to_alg(ctx, mod)
+  #projection_pushdown(ctx, mod)
+  #alg_to_ssa(ctx, mod)
+  #ssa_to_impl(ctx, mod)
+  #fuse_proj_into_scan(ctx, mod)
 
   return mod
 
@@ -73,9 +73,32 @@ def get_tpc_queries():
 
 def run():
   for i, q in enumerate(get_tpc_queries()):
-    print(i)
+    print(i + 1)
     compile(q)
 
 
+def parse_data(f: str):
+  with open(f, "r") as f:
+    hardness = []
+    curr_hardness = []
+    for line in f:
+      l = line[0]
+      if l.isnumeric():
+        hardness.append(curr_hardness)
+        curr_hardness = []
+      else:
+        curr_hardness.append(l)
+    hardness.append(curr_hardness)
+    return hardness[1:]
+
+
+def evaluate():
+  input = parse_data('./experimental/sql/TPC-H/hardness.csv')
+  for i, l in enumerate(input):
+    print(
+        f"{i+1}: {'s' if 's' in l else ''} {'m' if 'm' in l else ''} {'h' if 'h' in l else ''}"
+    )
+
+
 if __name__ == "__main__":
-  run()
+  evaluate()

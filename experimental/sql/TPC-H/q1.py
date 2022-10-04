@@ -13,12 +13,16 @@ def get_ibis_query(DELTA=90, DATE="1998-12-01"):
   q = t.filter(t.l_shipdate <= interval)
   discount_price = t.l_extendedprice * (1 - t.l_discount)
   charge = discount_price * (1 + t.l_tax)
-  q = q.group_by(["l_returnflag", "l_linestatus"])
+  proj = q.projection(
+      q.columns +
+      [discount_price.name('discount_price'),
+       charge.name('charge')])
+  q = proj.group_by(["l_returnflag", "l_linestatus"])
   q = q.aggregate(
       sum_qty=t.l_quantity.sum(),
       sum_base_price=t.l_extendedprice.sum(),
-      sum_disc_price=discount_price.sum(),
-      sum_charge=charge.sum(),
+      sum_disc_price=proj.discount_price.sum(),
+      sum_charge=proj.charge.sum(),
       avg_qty=t.l_quantity.mean(),
       avg_price=t.l_extendedprice.mean(),
       avg_disc=t.l_discount.mean(),
