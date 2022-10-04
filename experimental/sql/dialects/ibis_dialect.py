@@ -550,6 +550,36 @@ class GreaterEqual(Operation):
 
 
 @irdl_op_definition
+class GreaterThan(Operation):
+  """
+  Checks whether each entry of `left` is greater than `right`.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/logical.py#L94
+
+  Example:
+
+  ```
+  ibis.greaterThan() {
+    // left
+    ibis.table_column() ...
+  } {
+    // right
+    ibis.literal() ...
+  }
+  ```
+  """
+  name = "ibis.greaterThan"
+
+  left = SingleBlockRegionDef()
+  right = SingleBlockRegionDef()
+
+  @builder
+  @staticmethod
+  def get(left: Region, right: Region) -> 'GreaterThan':
+    return GreaterThan.create(regions=[left, right])
+
+
+@irdl_op_definition
 class LessThan(Operation):
   """
   Checks whether each entry of `left` is less than `right`.
@@ -713,6 +743,7 @@ class Ibis:
     self.ctx.register_op(Multiply)
     self.ctx.register_op(Equals)
     self.ctx.register_op(GreaterEqual)
+    self.ctx.register_op(GreaterThan)
     self.ctx.register_op(LessEqual)
     self.ctx.register_op(LessThan)
     self.ctx.register_op(TableColumn)
