@@ -233,5 +233,40 @@ def visit(  #type: ignore
   return id.Sum.get(arg)
 
 
+@dispatch(ibis.expr.operations.reductions.Mean)
+def visit(  #type: ignore
+    op: ibis.expr.operations.reductions.Mean) -> Operation:
+  arg = Region.from_operation_list([visit(op.arg)])
+  return id.Mean.get(arg)
+
+
+@dispatch(ibis.expr.operations.reductions.Max)
+def visit(  #type: ignore
+    op: ibis.expr.operations.reductions.Max) -> Operation:
+  arg = Region.from_operation_list([visit(op.arg)])
+  return id.Max.get(arg)
+
+
+@dispatch(ibis.expr.operations.reductions.Min)
+def visit(  #type: ignore
+    op: ibis.expr.operations.reductions.Min) -> Operation:
+  arg = Region.from_operation_list([visit(op.arg)])
+  return id.Min.get(arg)
+
+
+@dispatch(ibis.expr.operations.reductions.Count)
+def visit(  #type: ignore
+    op: ibis.expr.operations.reductions.Count) -> Operation:
+  arg = Region.from_operation_list([visit(op.arg)])
+  return id.Count.get(arg)
+
+
+@dispatch(ibis.expr.operations.reductions.CountDistinct)
+def visit(  #type: ignore
+    op: ibis.expr.operations.reductions.CountDistinct) -> Operation:
+  arg = Region.from_operation_list([visit(op.arg)])
+  return id.CountDistinct.get(arg)
+
+
 def ibis_to_xdsl(ctx: MLContext, query: ibis.expr.types.Expr) -> ModuleOp:
   return ModuleOp.build(regions=[Region.from_operation_list([visit(query)])])
