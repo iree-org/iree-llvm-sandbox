@@ -115,11 +115,6 @@ class CompareRewriter(RelAlgRewriter):
 @dataclass
 class BinOpRewriter(RelAlgRewriter):
 
-  def convert_bin_op_to_str(self, op: RelAlg.BinOp) -> str:
-    if isinstance(op, RelAlg.Multiply):
-      return "*"
-    raise Exception(f"bin op conversion not yet implemented for {type(op)}")
-
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.BinOp, rewriter: PatternRewriter):
     # Remove the yield and inline the rest of the block.
@@ -132,7 +127,7 @@ class BinOpRewriter(RelAlgRewriter):
     right = rewriter.added_operations_before[-1]
 
     # TODO: Make Decimals change their prec and scale on certain operations.
-    new_op = RelSSA.BinOp.get(left, right, self.convert_bin_op_to_str(op))
+    new_op = RelSSA.BinOp.get(left, right, op.operator.data)
     rewriter.replace_matched_op([new_op, RelSSA.YieldTuple.get([new_op])])
 
 

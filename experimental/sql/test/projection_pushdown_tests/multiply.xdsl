@@ -16,7 +16,7 @@ module() {
         }
     }
   } {
-    rel_alg.multiply() {
+    rel_alg.bin_op() ["operator" = "*"] {
       rel_alg.column() ["col_name" = "b"]
     } {
       rel_alg.column() ["col_name" = "c"]
@@ -44,7 +44,7 @@ module() {
 // CHECK-NEXT:      }
 // CHECK-NEXT:    }
 // CHECK-NEXT:  } {
-// CHECK-NEXT:    rel_alg.multiply() {
+// CHECK-NEXT:    rel_alg.bin_op() ["operator" = "*"] {
 // CHECK-NEXT:      rel_alg.column() ["col_name" = "b"]
 // CHECK-NEXT:    } {
 // CHECK-NEXT:      rel_alg.column() ["col_name" = "c"]
