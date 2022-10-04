@@ -198,6 +198,19 @@ class AggregationRewriter(IbisRewriter):
   def get_col_name_and_function(self, metric_op: Operation) -> Tuple[str, str]:
     if isinstance(metric_op, ibis.Sum):
       return "sum", metric_op.arg.op.attributes["col_name"].data
+    if isinstance(metric_op, ibis.Min):
+      return "min", metric_op.arg.op.attributes["col_name"].data
+    if isinstance(metric_op, ibis.Max):
+      return "max", metric_op.arg.op.attributes["col_name"].data
+    if isinstance(metric_op, ibis.Mean):
+      return "avg", metric_op.arg.op.attributes["col_name"].data
+    if isinstance(metric_op, ibis.CountDistinct):
+      return "count_distinct", metric_op.arg.op.attributes["col_name"].data
+    if isinstance(metric_op, ibis.Count):
+      if isinstance(metric_op.arg.op, ibis.TableColumn):
+        return "count", metric_op.arg.op.attributes["col_name"].data
+      if isinstance(metric_op.arg.op, ibis.UnboundTable):
+        return "count", ""
     raise Exception(
         f"aggregation function not yet implemented {type(metric_op)}")
 

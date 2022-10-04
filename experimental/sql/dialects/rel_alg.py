@@ -319,7 +319,7 @@ class Aggregate(Operator):
 
   def verify_(self) -> None:
     for f in self.functions.data:
-      if not f.data in ["sum"]:
+      if not f.data in ["sum", "min", "max", "avg", "count", "count_distinct"]:
         raise Exception(f"function {f.data} is not a supported function")
 
   @staticmethod

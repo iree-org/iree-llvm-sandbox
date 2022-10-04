@@ -632,7 +632,7 @@ class Aggregate(Operator):
           f"Number of functions and column names should match: {len(self.functions.data)} vs {len(self.col_names.data)}"
       )
     for f in self.functions.data:
-      if not f.data in ["sum"]:
+      if not f.data in ["sum", "min", "max", "avg", "count", "count_distinct"]:
         raise Exception(f"function {f.data} is not a supported function")
 
   @builder

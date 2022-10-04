@@ -909,4 +909,5 @@ class Ibis:
     self.ctx.register_op(Min)
     self.ctx.register_op(Max)
     self.ctx.register_op(Count)
+    self.ctx.register_op(CountDistinct)
     self.ctx.register_op(Aggregation)
