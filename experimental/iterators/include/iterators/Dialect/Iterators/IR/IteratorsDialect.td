@@ -15,8 +15,6 @@ include "mlir/IR/OpBase.td"
 // Dialect definition
 //===----------------------------------------------------------------------===//
 
-// TODO(ingomueller): It seems like "generator" is a more common term for what
-//                    we call "iterators". Should we rename the dialect?
 def Iterators_Dialect : Dialect {
   let name = "iterators";
   let cppNamespace = "::mlir::iterators";

@@ -51,7 +51,11 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
     of the stream was reached.
   }];
   let constructor = "mlir::createConvertIteratorsToLLVMPass()";
-  let dependentDialects = ["func::FuncDialect", "LLVM::LLVMDialect"];
+  let dependentDialects = [
+    "func::FuncDialect",
+    "LLVM::LLVMDialect",
+    "scf::SCFDialect"
+  ];
 }
 
 #endif // ITERATORS_CONVERSION_PASSES
