@@ -101,6 +101,17 @@ class GreaterEqualRewriter(IbisRewriter):
 
 
 @dataclass
+class GreaterThanRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.GreaterThan, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.Compare.get(
+            ">", rewriter.move_region_contents_to_new_regions(op.left),
+            rewriter.move_region_contents_to_new_regions(op.right)))
+
+
+@dataclass
 class LessThanRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
@@ -246,6 +257,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       CartesianProductRewriter(),
       EqualsRewriter(),
       GreaterEqualRewriter(),
+      GreaterThanRewriter(),
       LessEqualRewriter(),
       LessThanRewriter(),
       TableColumnRewriter(),
