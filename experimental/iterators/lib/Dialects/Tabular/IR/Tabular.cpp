@@ -52,29 +52,22 @@ LogicalResult CreateTabularViewOp::verify() {
   TypeRange columnTypes = viewType.getColumnTypes();
 
   // Verify matching column/element types.
-  if (!llvm::all_of_zip(memrefs().getTypes(), columnTypes,
-                        [](Type t1, Type t2) {
-                          return t1.cast<MemRefType>().getElementType() == t2;
-                        })) {
-
-    std::string viewColumnTypes;
-    {
-      llvm::raw_string_ostream stream(viewColumnTypes);
-      llvm::interleaveComma(columnTypes, stream,
-                            [&](Type type) { type.print(stream); });
-    }
-    std::string memrefColumnTypes;
-    {
-      llvm::raw_string_ostream stream(memrefColumnTypes);
-      llvm::interleaveComma(memrefs().getTypes(), stream, [&](Type type) {
-        type.cast<MemRefType>().getElementType().print(stream);
-      });
-    }
+  if (columnTypes.size() != memrefs().size()) {
     return emitOpError()
-           << "type mismatch: should return a tabular view with the column "
-           << "types of the elements of the input memrefs (namely: "
-           << "tabular_view<" << memrefColumnTypes << ">) "
-           << "but returns a tabular_view<" << viewColumnTypes << ">.";
+           << "type mismatch: should return a tabular view with the same "
+           << "number of columns as the number of input memrefs (expected: "
+           << memrefs().size() << ", found: " << columnTypes.size() << ").";
+  }
+  for (size_t i = 0; i < columnTypes.size(); i++) {
+    Type memrefElementType =
+        memrefs().getTypes()[i].cast<MemRefType>().getElementType();
+    if (memrefElementType != columnTypes[i]) {
+      return emitOpError()
+             << "type mismatch: returned tabular view has column type "
+             << columnTypes[i] << " at index " << i << " but should have type "
+             << memrefElementType << ", the element type of the memref at the "
+             << "same index.";
+    }
   }
 
   // Verify memrefs have rank 1 and contiguous memory layout.
