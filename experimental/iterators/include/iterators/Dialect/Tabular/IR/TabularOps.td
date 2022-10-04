@@ -17,6 +17,21 @@ class Tabular_Op<string mnemonic, list<Trait> traits = []> :
   Op<Tabular_Dialect, mnemonic, traits> {
 }
 
+/// MemRefType that has static shape and contiguous row-major layout.
+def IsStaticShapeAndContiguousRowMajorMemRefTypePred
+    : And<[IsMemRefTypePred,
+            CPred<"::mlir::isStaticShapeAndContiguousRowMajor("
+                  "    $_self.cast<::mlir::MemRefType>())">]>;
+
+/// Any MemRefType of the given allowed element types and given ranks with
+/// static shape and contiguous row-major layout.
+class StaticShapeAndContiguousRowMajorMemRefRankOf<list<Type> allowedTypes,
+                                                   list<int> ranks>
+    : Type<And<[MemRefRankOf<allowedTypes, ranks>.predicate,
+                IsStaticShapeAndContiguousRowMajorMemRefTypePred]>,
+          MemRefRankOf<allowedTypes, ranks>.summary #
+          " with static shape and continguous row-major layout">;
+
 def Tabular_CreateTabularViewOp
     : Tabular_Op<"create_tabular_view"> {
   let summary = "Creates a `tabular_view` from the given memrefs";
@@ -38,7 +53,9 @@ def Tabular_CreateTabularViewOp
           -> !tabular.tabular_view<i32,i64>
     ```
   }];
-  let arguments = (ins Variadic<AnyMemRef>:$memrefs);
+  let arguments = (ins
+    Variadic<StaticShapeAndContiguousRowMajorMemRefRankOf<[AnyType], [1]>>:$memrefs
+  );
   let results = (outs Tabular_TabularView:$view);
   let hasVerifier = true;
   let assemblyFormat = [{

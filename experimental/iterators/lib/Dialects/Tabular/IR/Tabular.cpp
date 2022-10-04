@@ -70,40 +70,20 @@ LogicalResult CreateTabularViewOp::verify() {
     }
   }
 
-  // Verify memrefs have rank 1 and contiguous memory layout.
-  {
-    for (const auto &indexedMemref : llvm::enumerate(memrefs().getTypes())) {
-      // Must have static rank = 1.
-      auto memrefType = indexedMemref.value().cast<MemRefType>();
-      if (memrefType.getRank() != 1)
-        return emitOpError()
-               << "unsupported type: input memref #" << indexedMemref.index()
-               << " has rank != 1, which is not supported.";
-
-      // Only support contiguous memory layout.
-      if (!isStaticShapeAndContiguousRowMajor(memrefType))
-        return emitOpError()
-               << "unsupported type: input memref #" << indexedMemref.index()
-               << " does not have a static shape and a contiguous memory "
-                  "layout, both of which are required.";
+  // Verify all memrefs are of equal static length.
+  if (!llvm::is_splat(llvm::map_range(memrefs().getTypes(), [](Type t) {
+        return t.cast<MemRefType>().getDimSize(0);
+      }))) {
+    std::string lengths;
+    {
+      llvm::raw_string_ostream stream(lengths);
+      llvm::interleaveComma(memrefs().getTypes(), stream, [&](Type type) {
+        stream << type.cast<MemRefType>().getDimSize(0);
+      });
     }
-
-    // Verify all memrefs are of equal static length.
-    if (!llvm::is_splat(llvm::map_range(memrefs().getTypes(), [](Type t) {
-          return t.cast<MemRefType>().getDimSize(0);
-        }))) {
-      std::string lengths;
-      {
-        llvm::raw_string_ostream stream(lengths);
-        llvm::interleaveComma(memrefs().getTypes(), stream, [&](Type type) {
-          stream << type.cast<MemRefType>().getDimSize(0);
-        });
-      }
-      return emitOpError()
-             << "type mismatch: input memrefs cannot have different static "
-                "shapes (sizes found for dimension 0: "
-             << lengths << ").";
-    }
+    return emitOpError()
+           << "type mismatch: input memrefs cannot have different static "
+           << "shapes (sizes found for dimension 0: " << lengths << ").";
   }
 
   return success();
