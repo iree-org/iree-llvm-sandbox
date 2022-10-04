@@ -271,6 +271,18 @@ class AggregateRewriter(RelAlgRewriter):
     rewriter.erase_matched_op()
 
 
+@dataclass
+class LimitRewriter(RelAlgRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.Limit, rewriter: PatternRewriter):
+    rewriter.inline_block_before_matched_op(op.table.blocks[0])
+    rewriter.insert_op_before_matched_op([
+        RelSSA.Limit.get(rewriter.added_operations_before[-1], op.n.value.data)
+    ])
+    rewriter.erase_matched_op()
+
+
 #===------------------------------------------------------------------------===#
 # Conversion setup
 #===------------------------------------------------------------------------===#
@@ -287,6 +299,7 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
       AggregateRewriter(),
       ProjectRewriter(),
       OrderByRewriter(),
+      LimitRewriter(),
       CartesianProductRewriter()
   ]),
                                          walk_regions_first=True,

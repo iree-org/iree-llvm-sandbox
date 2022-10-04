@@ -490,6 +490,7 @@ class RelationalAlg:
     self.ctx.register_attr(Order)
 
     self.ctx.register_op(Table)
+    self.ctx.register_op(Limit)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
