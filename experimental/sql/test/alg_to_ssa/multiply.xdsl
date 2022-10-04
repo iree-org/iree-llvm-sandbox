@@ -8,7 +8,7 @@ module() {
       rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.int64]
     }
   } {
-    rel_alg.multiply() {
+    rel_alg.bin_op() ["operator" = "*"] {
       rel_alg.column() ["col_name" = "b"]
     } {
       rel_alg.column() ["col_name" = "c"]

@@ -200,9 +200,42 @@ class MultiplyRewriter(IbisRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: ibis.Multiply, rewriter: PatternRewriter):
     rewriter.replace_matched_op(
-        RelAlg.Multiply.get(
-            rewriter.move_region_contents_to_new_regions(op.lhs),
-            rewriter.move_region_contents_to_new_regions(op.rhs)))
+        RelAlg.BinOp.get(rewriter.move_region_contents_to_new_regions(op.lhs),
+                         rewriter.move_region_contents_to_new_regions(op.rhs),
+                         "*"))
+
+
+@dataclass
+class DivideRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Divide, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.BinOp.get(rewriter.move_region_contents_to_new_regions(op.lhs),
+                         rewriter.move_region_contents_to_new_regions(op.rhs),
+                         "/"))
+
+
+@dataclass
+class SubtractRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Subtract, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.BinOp.get(rewriter.move_region_contents_to_new_regions(op.lhs),
+                         rewriter.move_region_contents_to_new_regions(op.rhs),
+                         "-"))
+
+
+@dataclass
+class AddRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Add, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.BinOp.get(rewriter.move_region_contents_to_new_regions(op.lhs),
+                         rewriter.move_region_contents_to_new_regions(op.rhs),
+                         "+"))
 
 
 def ibis_to_alg(ctx: MLContext, query: ModuleOp):
@@ -218,6 +251,9 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       TableColumnRewriter(),
       AggregationRewriter(),
       MultiplyRewriter(),
+      SubtractRewriter(),
+      DivideRewriter(),
+      AddRewriter(),
       LiteralRewriter()
   ]),
                                 walk_regions_first=False,

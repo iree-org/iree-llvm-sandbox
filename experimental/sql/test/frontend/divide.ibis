@@ -1,0 +1,7 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table = ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't')
+table[(table['b'] / table['c']).name('d')]
+
+
+# CHECK:     ibis.divide() ["output_type" = !ibis.nullable<!ibis.float64>] {

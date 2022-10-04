@@ -133,36 +133,33 @@ class Expression(Operation):
   ...
 
 
+@irdl_op_definition
 class BinOp(Expression):
   """
-  Binary operation on two values.
-  """
-
-  lhs = SingleBlockRegionDef()
-  rhs = SingleBlockRegionDef()
-
-
-@irdl_op_definition
-class Multiply(BinOp):
-  """
-  Multiplies two values.
+  Computes the binary operation `operator` of `lhs` and `rhs`.
 
   Example:
 
   '''
-  rel_alg.multiply() {
+  rel_alg.bin_op() ["operator" = "*"] {
     rel_alg.column() ...
   } {
     rel_alg.column() ...
   }
   '''
   """
-  name = "rel_alg.multiply"
+
+  name = "rel_alg.bin_op"
+
+  lhs = SingleBlockRegionDef()
+  rhs = SingleBlockRegionDef()
+  operator = AttributeDef(StringAttr)
 
   @builder
   @staticmethod
-  def get(lhs: Region, rhs: Region) -> 'Multiply':
-    return Multiply.create(regions=[lhs, rhs])
+  def get(lhs: Region, rhs: Region, operator: str) -> 'BinOp':
+    return BinOp.create(regions=[lhs, rhs],
+                        attributes={"operator": StringAttr.from_str(operator)})
 
 
 @irdl_op_definition
@@ -472,7 +469,7 @@ class RelationalAlg:
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
     self.ctx.register_op(CartesianProduct)
-    self.ctx.register_op(Multiply)
+    self.ctx.register_op(BinOp)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)

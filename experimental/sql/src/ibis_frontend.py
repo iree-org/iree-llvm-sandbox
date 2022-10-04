@@ -31,6 +31,8 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
     ret_type = id.Int32()
   elif isinstance(type_, ibis.expr.datatypes.Int64):
     ret_type = id.Int64()
+  elif isinstance(type_, ibis.expr.datatypes.Float64):
+    ret_type = id.Float64()
   elif isinstance(type_, ibis.expr.datatypes.Timestamp):
     ret_type = id.Timestamp()
   elif isinstance(type_, ibis.expr.datatypes.Decimal):
@@ -82,6 +84,27 @@ def visit(  # type: ignore
   return id.Multiply.get(Region.from_operation_list([visit(op.left)]),
                          Region.from_operation_list([visit(op.right)]),
                          convert_datatype(op.output_dtype()))
+
+
+@dispatch(ibis.expr.operations.numeric.Subtract)
+def visit(op: ibis.expr.operations.numeric.Subtract):
+  return id.Subtract.get(Region.from_operation_list([visit(op.left)]),
+                         Region.from_operation_list([visit(op.right)]),
+                         convert_datatype(op.output_dtype()))
+
+
+@dispatch(ibis.expr.operations.numeric.Add)
+def visit(op: ibis.expr.operations.numeric.Add):
+  return id.Add.get(Region.from_operation_list([visit(op.left)]),
+                    Region.from_operation_list([visit(op.right)]),
+                    convert_datatype(op.output_dtype()))
+
+
+@dispatch(ibis.expr.operations.numeric.Divide)
+def visit(op: ibis.expr.operations.numeric.Divide):
+  return id.Divide.get(Region.from_operation_list([visit(op.left)]),
+                       Region.from_operation_list([visit(op.right)]),
+                       convert_datatype(op.output_dtype()))
 
 
 @dispatch(ibis.expr.operations.core.Alias)
