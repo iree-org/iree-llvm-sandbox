@@ -9,3 +9,5 @@ module() {
     }
   }
 }
+
+// CHECK: rel_alg.limit() ["n" = 10 : !i64]

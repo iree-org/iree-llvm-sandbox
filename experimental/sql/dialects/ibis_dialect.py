@@ -764,6 +764,7 @@ class Ibis:
     self.ctx.register_op(Divide)
     self.ctx.register_op(UnboundTable)
     self.ctx.register_op(SortKey)
+    self.ctx.register_op(Limit)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Selection)
     self.ctx.register_op(CartesianProduct)
