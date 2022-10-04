@@ -1,0 +1,32 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+ibis.selection() ["names" = ["bc"]] {
+    ibis.unbound_table() ["table_name" = "t"] {
+      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string]
+      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
+      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+    }
+  } {} {
+    ibis.add() ["output_type" = !ibis.int64] {
+      ibis.table_column() ["col_name" = "b"] {
+        ibis.unbound_table() ["table_name" = "t"] {
+          ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string]
+          ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
+          ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+        }
+      }
+    }  {
+      ibis.table_column() ["col_name" = "c"] {
+        ibis.unbound_table() ["table_name" = "t"] {
+          ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.string]
+          ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.int64]
+          ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.int64]
+        }
+      }
+    }
+  } {}
+}
+
+
+// CHECK:   rel_alg.bin_op() ["operator" = "+"] {
