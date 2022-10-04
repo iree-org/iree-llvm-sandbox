@@ -38,11 +38,11 @@ def Tabular_TabularView : Tabular_Type<"TabularView", "tabular_view"> {
     column types is currently not supported.
 
     The view does not prescribe the physical data layout of the data. One
-    strawman format for LLVM-compatible column types would be
-    `llvm.ptr<llvm.struct<(T1, ..., Tn)>>`, i.e., a single buffer where each row
-    is represented as a struct; another one would be
-    `llvm.struct<(llvm.ptr<T1>, ..., llvm.ptr<Tn>)>`, i.e., one buffer for each
-    column.
+    strawman format for LLVM-compatible column types would be an "array of
+    structs" (or `llvm.ptr<llvm.struct<(T1, ..., Tn)>>`), i.e., a single buffer
+    where each row is represented as a struct; another one would be a "struct of
+    arrays" (or `llvm.struct<(llvm.ptr<T1>, ..., llvm.ptr<Tn>)>`), i.e., one
+    buffer for each column.
   }];
   let parameters = (ins ArrayRefParameter<"Type", "list of types">:$ColumnTypes);
   let assemblyFormat = "`<` $ColumnTypes `>`";
