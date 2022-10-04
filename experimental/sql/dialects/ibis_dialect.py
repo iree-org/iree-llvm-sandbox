@@ -668,6 +668,33 @@ class UnboundTable(Operation):
 
 
 @irdl_op_definition
+class Limit(Operation):
+  """
+  Limits the number of tuples in `table` to `n` .
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/relations.py#L337
+
+  Example:
+
+  ```
+  ibis.limit() ["n" = 10 : !i64] {
+    ...
+  }
+  ```
+  """
+  name = "ibis.limit"
+
+  table = SingleBlockRegionDef()
+  n = AttributeDef(IntegerAttr)
+
+  @staticmethod
+  @builder
+  def get(table: Region, n: int) -> 'Limit':
+    return Limit.create(regions=[table],
+                        attributes={"n": IntegerAttr.from_int_and_width(n, 64)})
+
+
+@irdl_op_definition
 class SchemaElement(Operation):
   """
   Defines a schema element with name `elt_name` and type `elt_type`.

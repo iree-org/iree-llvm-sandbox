@@ -139,6 +139,11 @@ def visit(op: ibis.expr.operations.relations.InnerJoin) -> Operation:
   return cart_prod
 
 
+@dispatch(ibis.expr.operations.relations.Limit)
+def visit(op: ibis.expr.operations.relations.Limit) -> Operation:
+  return id.Limit.get(Region.from_operation_list([visit(op.table)]), op.n)
+
+
 @dispatch(ibis.expr.operations.relations.Selection)
 def visit(  #type: ignore
     op: ibis.expr.operations.relations.Selection) -> Operation:
