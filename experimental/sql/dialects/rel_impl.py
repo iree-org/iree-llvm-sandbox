@@ -664,9 +664,9 @@ class Aggregate(Operator):
         },
         result_types=[
             Bag.get([
-                Int64()
-                if n == "" else input.result.typ.lookup_type_in_schema(n)
-                for n in col_names
+                Int64() if f in ["count", "count_distinct"] else
+                input.result.typ.lookup_type_in_schema(n)
+                for n, f in zip(col_names, functions)
             ], res_names)
         ])
 
