@@ -242,33 +242,6 @@ class Operator(Operation):
 
 
 @irdl_op_definition
-class GroupBy(Operator):
-  """
-  Groups the given input by the columns in `by`.
-
-  Example:
-  '''
-  rel_alg.group_by() ["by" = ["a", "b"]] {
-    rel_alg.table() ...
-  }
-  '''
-  """
-  name = "rel_alg.group_by"
-
-  input = SingleBlockRegionDef()
-  by = AttributeDef(ArrayAttr)
-
-  @builder
-  @staticmethod
-  def get(input: Region, by: list[str]) -> 'GroupBy':
-    return GroupBy.build(
-        regions=[input],
-        attributes={
-            "by": ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
-        })
-
-
-@irdl_op_definition
 class OrderBy(Operator):
   """
   Orders the given input by the columns in `by`.
@@ -287,8 +260,8 @@ class OrderBy(Operator):
 
   @builder
   @staticmethod
-  def get(input: Region, by: list[str], order: list[str]) -> 'GroupBy':
-    return GroupBy.build(
+  def get(input: Region, by: list[str], order: list[str]) -> 'OrderBy':
+    return OrderBy.build(
         regions=[input],
         attributes={
             "by":
@@ -492,6 +465,7 @@ class RelationalAlg:
     self.ctx.register_attr(Decimal)
     self.ctx.register_attr(Int64)
     self.ctx.register_attr(Nullable)
+    self.ctx.register_attr(Order)
 
     self.ctx.register_op(Table)
     self.ctx.register_op(SchemaElement)
@@ -503,3 +477,4 @@ class RelationalAlg:
     self.ctx.register_op(Column)
     self.ctx.register_op(Compare)
     self.ctx.register_op(Aggregate)
+    self.ctx.register_op(OrderBy)

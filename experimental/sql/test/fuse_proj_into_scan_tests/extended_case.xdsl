@@ -27,7 +27,7 @@ module() {
     %19 : !rel_impl.int64 = rel_impl.bin_op(%17 : !rel_impl.int64, %18 : !rel_impl.int64) ["operator" = "*"]
     rel_impl.yield_tuple(%19 : !rel_impl.int64)
   }
-  %20 : !rel_impl.bag<[!rel_impl.schema_element<"revenue", !rel_impl.int64>]> = rel_impl.aggregate(%15 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]>) ["col_names" = ["im"], "functions" = ["sum"]]
+  %20 : !rel_impl.bag<[!rel_impl.schema_element<"revenue", !rel_impl.int64>]> = rel_impl.aggregate(%15 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]>) ["col_names" = ["im"], "functions" = ["sum"], "by" = []]
 }
 
 //      CHECK:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>, !rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "lineitem", "cols" = ["a", "b", "c"]]
@@ -49,4 +49,4 @@ module() {
 // CHECK-NEXT:    %{{.*}} : !rel_impl.int64 = rel_impl.bin_op(%{{.*}} : !rel_impl.int64, %{{.*}} : !rel_impl.int64) ["operator" = "*"]
 // CHECK-NEXT:    rel_impl.yield_tuple(%{{.*}} : !rel_impl.int64)
 // CHECK-NEXT:  }
-// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"revenue", !rel_impl.int64>]> = rel_impl.aggregate(%10 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]>) ["col_names" = ["im"], "functions" = ["sum"]]
+// CHECK-NEXT:  %{{.*}} : !rel_impl.bag<[!rel_impl.schema_element<"revenue", !rel_impl.int64>]> = rel_impl.aggregate(%10 : !rel_impl.bag<[!rel_impl.schema_element<"im", !rel_impl.int64>]>) ["col_names" = ["im"], "functions" = ["sum"], "by" = []]

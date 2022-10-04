@@ -158,6 +158,20 @@ class CartesianProductRewriter(RelAlgRewriter):
 
 
 @dataclass
+class OrderByRewriter(RelAlgRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.OrderBy, rewriter: PatternRewriter):
+    rewriter.inline_block_before_matched_op(op.input.blocks[0])
+    input = rewriter.added_operations_before[-1]
+
+    rewriter.insert_op_before_matched_op(
+        RelSSA.OrderBy.get(input, [o.col.data for o in op.by.data],
+                           [o.order.data for o in op.by.data]))
+    rewriter.erase_matched_op()
+
+
+@dataclass
 class ProjectRewriter(RelAlgRewriter):
 
   # TODO: This could be implemented in a more natural way using Analysis Passes in MLIR.
@@ -256,7 +270,8 @@ class AggregateRewriter(RelAlgRewriter):
         RelSSA.Aggregate.get(rewriter.added_operations_before[-1],
                              [c.data for c in op.col_names.data],
                              [f.data for f in op.functions.data],
-                             [r.data for r in op.res_names.data])
+                             [r.data for r in op.res_names.data],
+                             [b.data for b in op.by.data])
     ])
     rewriter.erase_matched_op()
 
@@ -276,6 +291,7 @@ def alg_to_ssa(ctx: MLContext, query: ModuleOp):
       SelectRewriter(),
       AggregateRewriter(),
       ProjectRewriter(),
+      OrderByRewriter(),
       CartesianProductRewriter()
   ]),
                                          walk_regions_first=True,

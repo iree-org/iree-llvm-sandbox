@@ -1,0 +1,14 @@
+// RUN: rel_opt.py -p alg-to-ssa %s | filecheck %s
+
+module() {
+  rel_alg.order_by() ["by" = [!rel_alg.order<"a", "asc">, !rel_alg.order<"b", "asc">]] {
+    rel_alg.table() ["table_name" = "t"] {
+      rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.string]
+      rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.int64]
+      rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.int64]
+    }
+  }
+}
+
+//      CHECK: %{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]> = rel_ssa.table() ["table_name" = "t"]
+// CHECK-NEXT: %{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]> = rel_ssa.order_by(%{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>, !rel_ssa.schema_element<"b", !rel_ssa.int64>, !rel_ssa.schema_element<"c", !rel_ssa.int64>]>) ["by" = [!rel_ssa.order<"a", "asc">, !rel_ssa.order<"b", "asc">]]

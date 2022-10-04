@@ -121,6 +121,23 @@ class Nullable(DataType):
 
 
 @irdl_attr_definition
+class Order(ParametrizedAttribute):
+  """
+  Models the order of a sort key.
+
+  Example:
+
+  '''
+  !rel_ssa.order<"a", "asc">
+  '''
+  """
+  name = "rel_ssa.order"
+
+  col: ParameterDef[StringAttr]
+  order: ParameterDef[StringAttr]
+
+
+@irdl_attr_definition
 class Boolean(ParametrizedAttribute):
   """
   Models a type that can either be true or false to, e.g., show whether a tuple
@@ -408,6 +425,38 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class OrderBy(Operator):
+  """
+  Orders the given input by the columns in `by`.
+
+  Example:
+  '''
+  %{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>]> = rel_ssa.order_by(%{{.*}} : !rel_ssa.bag<[!rel_ssa.schema_element<"a", !rel_ssa.string>]>) ["by" = [!rel_ssa.order<"a", "desc">]]
+  '''
+  """
+  name = "rel_ssa.order_by"
+
+  input = OperandDef(Bag)
+  by = AttributeDef(ArrayAttr)
+
+  result = ResultDef(Bag)
+
+  @builder
+  @staticmethod
+  def get(input: Operation, by: list[str], order: list[str]) -> 'OrderBy':
+    return OrderBy.build(
+        operands=[input],
+        attributes={
+            "by":
+                ArrayAttr.from_list([
+                    Order([StringAttr.from_str(s),
+                           StringAttr.from_str(o)]) for s, o in zip(by, order)
+                ])
+        },
+        result_types=[input.result.typ])
+
+
+@irdl_op_definition
 class Table(Operator):
   """
   Defines a table with name `table_name`.
@@ -532,21 +581,23 @@ class CartesianProduct(Operator):
 @irdl_op_definition
 class Aggregate(Operator):
   """
-  Applies the ith function of `functions` to the ith column name of `col_names`
-  of `input`. The ith resulting column has the same name as the ith input column
-  to the uniqueness of names.
+  Groups the table `input` by the columns in `by` by aggregating the ith element
+  of `col_names` by the ith element of `functions`. If `by` is empty, this
+  corresponds to the ungrouped aggregation.
 
 
   Example:
 
   '''
-  %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = ["id"], "functions" = ["sum"]] '''
+  %0 : !rel_ssa.bag<...> = rel_ssa.aggregate(%0 : !rel_ssa.bag<...>) ["col_names" = ["id"], "functions" = ["sum"], "by" = ["a", "b"]]
+  '''
   """
   name = "rel_ssa.aggregate"
 
   input = OperandDef(Bag)
   col_names = AttributeDef(ArrayOfConstraint(StringAttr))
   functions = AttributeDef(ArrayOfConstraint(StringAttr))
+  by = AttributeDef(ArrayOfConstraint(StringAttr))
   result = ResultDef(Bag)
 
   def verify_(self) -> None:
@@ -561,7 +612,7 @@ class Aggregate(Operator):
   @builder
   @staticmethod
   def get(input: Operation, col_names: List[str], functions: List[str],
-          res_names: List[str]) -> 'Aggregate':
+          res_names: List[str], by: List[str]) -> 'Aggregate':
     return Aggregate.create(
         operands=[input.result],
         attributes={
@@ -569,7 +620,10 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(c) for c in col_names]
                                    ),
             "functions":
-                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions])
+                ArrayAttr.from_list([StringAttr.from_str(f) for f in functions]
+                                   ),
+            "by":
+                ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
         },
         result_types=[
             Bag.get(
@@ -593,12 +647,14 @@ class RelSSA:
     self.ctx.register_attr(String)
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
+    self.ctx.register_attr(Order)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)
     self.ctx.register_op(Aggregate)
     self.ctx.register_op(Project)
     self.ctx.register_op(CartesianProduct)
+    self.ctx.register_op(OrderBy)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)
