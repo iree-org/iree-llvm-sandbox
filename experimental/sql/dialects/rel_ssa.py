@@ -652,9 +652,11 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
         },
         result_types=[
-            Bag.get(
-                res_names,
-                [input.result.typ.lookup_type_in_schema(n) for n in col_names])
+            Bag.get(res_names, [
+                Int64()
+                if n == "" else input.result.typ.lookup_type_in_schema(n)
+                for n in col_names
+            ])
         ])
 
 
