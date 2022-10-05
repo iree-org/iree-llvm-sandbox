@@ -154,4 +154,32 @@ class Iterators_IsStreamOf<string name, Type type>
 class Iterators_IsStreamOfLLVMStructOfNumericsPred<string name>
   : Iterators_IsStreamOf<name, Iterators_StreamOfLLVMStructOfNumerics>;
 
+//===----------------------------------------------------------------------===//
+// Types related to Iterator bodies.
+//===----------------------------------------------------------------------===//
+
+def Iterators_State : Iterators_Type<"State", "state"> {
+  let summary = "State of an iterator used by its body";
+  let parameters =  (ins ArrayRefParameter<"Type", "list of types">:$fieldTypes);
+  let assemblyFormat = "`<` qualified($fieldTypes) `>`";
+  let description = [{
+    An iterator state is a collection of values identified by ordinal numbers,
+    i.e., an (unnamed but typed) tuple. The values are referred to as "fields";
+    their types are referred to as "field types". An iterator state is used by
+    iterator bodies, i.e., by the open, next, and close functions that implement
+    the logic that iterator ops get lowered to, and holds the state that is
+    required during the iteration (which gets passed around different calls to
+    open, next, and close).
+
+    This is similar to (anonymous) `llvm.struct` but allows for storing values
+    of arbitrary types.
+
+    Example:
+
+    ```
+    %undef_state = iterators.undefstate : !iterators.state<i32, tensor<?xi32>>
+    ```
+  }];
+}
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES

@@ -303,4 +303,90 @@ def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
   let arguments = (ins Iterators_StreamOfLLVMStructOfNumerics:$input);
 }
 
+//===----------------------------------------------------------------------===//
+// Ops related to Iterator bodies.
+//===----------------------------------------------------------------------===//
+
+def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate", [NoSideEffect]> {
+  let summary = "Create an undefined iterator state";
+  let results = (outs Iterators_State:$result);
+  let assemblyFormat = "attr-dict `:` type($result)";
+  let description = [{
+    Creates an iterator state of the given type with undefined field values.
+    All fields have to be set individually with `insertvalue` before the whole
+    state is fully defined.
+
+    This is similar to `llvm.undef` for `llvm.struct`.
+
+    Example:
+
+    ```
+    %undef_state = iterators.undefstate : !iterators.state<i32, tensor<?xi32>>
+    ```
+  }];
+}
+
+def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
+    NoSideEffect,
+    PredOpTrait<"index must exist in state",
+      CPred<"static_cast<uint64_t>($index.cast<IntegerAttr>().getInt())"
+            "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
+    AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
+              "    [$index.cast<IntegerAttr>().getInt()]",
+              "$result.getType()"],
+             "the return type must match the field type at the given index">
+    ]> {
+  let summary = "Extract the field value of the state";
+  let arguments = (ins Iterators_State:$state, IndexAttr:$index);
+  let results = (outs AnyType:$result);
+  let assemblyFormat = [{
+    $state `[` $index `]` attr-dict `:` type($state) `->` type($result)
+  }];
+  let description = [{
+    Extracts the value of the given iterator state at the given index.
+
+    This is similar to `llvm.extractvalue` for `llvm.struct`.
+
+    Example:
+
+    ```
+    %state = ...
+    %value = iterators.extractvalue %state[0] : !iterators.state<i32, tensor<?xi32>> -> i32
+    ```
+  }];
+}
+
+def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
+    NoSideEffect,
+    PredOpTrait<
+      "index must exist in state",
+      CPred<"static_cast<uint64_t>($index.cast<IntegerAttr>().getInt())"
+            "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
+    AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
+              "    [$index.cast<IntegerAttr>().getInt()]",
+              "$value.getType()"],
+             "the value type must match the field type at the given index">,
+    AllTypesMatch<["state", "result"]>
+    ]> {
+  let summary = "Insert a field value into the state";
+  let arguments = (ins Iterators_State:$state, IndexAttr:$index, AnyType:$value);
+  let results = (outs Iterators_State:$result);
+  let assemblyFormat = [{
+    $state `[` $index `]` `(` $value `:` type($value) `)` attr-dict `:` type($result)
+  }];
+  let description = [{
+    Inserts the given value into the given iterator state at the given index.
+
+    This is similar to `llvm.insertvalue` for `llvm.struct`.
+
+    Example:
+
+    ```
+    %state = ...
+    %value = ...
+    %updated_state = iterators.insertvalue %state[0] (%value : i32) : !iterators.state<i32, tensor<?xi32>>
+    ```
+  }];
+}
+
 #endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
