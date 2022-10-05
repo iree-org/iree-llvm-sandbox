@@ -29,6 +29,8 @@ class IbisRewriter(RewritePattern):
       return RelAlg.Int32()
     if isinstance(type_, ibis.Int64):
       return RelAlg.Int64()
+    if isinstance(type_, ibis.Float64):
+      return RelAlg.Float64()
     if isinstance(type_, ibis.Timestamp):
       return RelAlg.Timestamp()
     if isinstance(type_, ibis.Decimal):
@@ -209,7 +211,7 @@ class AggregationRewriter(IbisRewriter):
     if isinstance(metric_op, ibis.Count):
       if isinstance(metric_op.arg.op, ibis.TableColumn):
         return "count", metric_op.arg.op.attributes["col_name"].data
-      if isinstance(metric_op.arg.op, ibis.UnboundTable):
+      else:
         return "count", ""
     raise Exception(
         f"aggregation function not yet implemented {type(metric_op)}")

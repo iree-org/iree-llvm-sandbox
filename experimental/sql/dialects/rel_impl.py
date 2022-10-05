@@ -57,6 +57,20 @@ class Int64(DataType):
 
 
 @irdl_attr_definition
+class Float64(DataType):
+  """
+  Models a float64 type in a relational implementation query.
+
+  Example:
+
+  ```
+  !rel_impl.float64
+  ```
+  """
+  name = "rel_impl.float64"
+
+
+@irdl_attr_definition
 class Decimal(DataType):
   """
   Models a decimal type in a relational implementation query with precision `prec` and scale `scale`.
@@ -714,6 +728,7 @@ class RelImpl:
     self.ctx.register_attr(SchemaElement)
     self.ctx.register_attr(Tuple)
     self.ctx.register_attr(Order)
+    self.ctx.register_attr(Float64)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Limit)

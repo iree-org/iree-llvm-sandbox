@@ -49,6 +49,9 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
 def convert_literal(literal) -> Attribute:
   if isinstance(literal, str):
     return StringAttr.from_str(literal)
+  if isinstance(literal, float):
+    # TODO: This is a workaround until xdsl versions are released properly.
+    return IntegerAttr.from_int_and_width(int(literal), 64)
   if isinstance(literal, int):
     # np.int64 are parsed as int by ibis
     return IntegerAttr.from_int_and_width(literal, 64)

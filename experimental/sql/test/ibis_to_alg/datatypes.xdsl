@@ -7,6 +7,7 @@ module() {
         ibis.schema_element() ["elt_name" = "time", "elt_type" = !ibis.timestamp]
         ibis.schema_element() ["elt_name" = "name", "elt_type" = !ibis.string]
         ibis.schema_element() ["elt_name" = "second_name", "elt_type" = !ibis.nullable<!ibis.string>]
+        ibis.schema_element() ["elt_name" = "fraction", "elt_type" = !ibis.float64]
     }
 }
 
@@ -16,4 +17,5 @@ module() {
 // CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "time", "elt_type" = !rel_alg.timestamp]
 // CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "name", "elt_type" = !rel_alg.string]
 // CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "second_name", "elt_type" = !rel_alg.nullable<!rel_alg.string>]
+// CHECK-NEXT:    rel_alg.schema_element() ["elt_name" = "fraction", "elt_type" = !rel_alg.float64]
 // CHECK-Next: }
