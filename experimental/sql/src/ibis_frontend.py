@@ -197,6 +197,12 @@ def visit(  #type: ignore
   return create_logical_op(op, id.GreaterEqual)
 
 
+@dispatch(ibis.expr.operations.logical.Greater)
+def visit(  #type: ignore
+    op: ibis.expr.operations.logical.Greater) -> Operation:
+  return create_logical_op(op, id.GreaterThan)
+
+
 @dispatch(ibis.expr.operations.logical.LessEqual)
 def visit(  #type: ignore
     op: ibis.expr.operations.logical.LessEqual) -> Operation:

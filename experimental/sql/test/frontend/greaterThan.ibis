@@ -1,0 +1,6 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table = ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't')
+table.filter(table['b'] > np.int64(0))
+
+#      CHECK:    ibis.greaterThan() {
