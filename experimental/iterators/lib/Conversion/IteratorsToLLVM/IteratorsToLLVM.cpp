@@ -1490,8 +1490,13 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
 
 void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
-  patterns.add<ConstantTupleLowering, PrintTupleOpLowering, PrintOpLowering>(
-      typeConverter, patterns.getContext());
+  patterns.add<
+      // clang-format off
+      ConstantTupleLowering,
+      PrintTupleOpLowering,
+      PrintOpLowering
+      // clang-format on
+      >(typeConverter, patterns.getContext());
 }
 
 void ConvertIteratorsToLLVMPass::runOnOperation() {
@@ -1510,10 +1515,11 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
 
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);
 
-  // Add patterns that converts function signature and calls.
+  // Add patterns that convert function signature and calls.
   populateFunctionOpInterfaceTypeConversionPattern<FuncOp>(patterns,
                                                            typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
+  populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
   // Force application of that pattern if signature is not legal yet.
   target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
