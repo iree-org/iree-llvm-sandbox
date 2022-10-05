@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 from dataclasses import dataclass
-from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr
+from xdsl.dialects.builtin import ArrayAttr, StringAttr, ModuleOp, IntegerAttr, FloatAttr, Float64Type
 from xdsl.ir import Operation, MLContext, Region, Block, Attribute
 from typing import List, Type, Optional
 from multipledispatch import dispatch
@@ -49,6 +49,8 @@ def convert_datatype(type_: ibis.expr.datatypes) -> id.DataType:
 def convert_literal(literal) -> Attribute:
   if isinstance(literal, str):
     return StringAttr.from_str(literal)
+  if isinstance(literal, float):
+    return FloatAttr.from_value(literal, Float64Type())
   if isinstance(literal, int):
     # np.int64 are parsed as int by ibis
     return IntegerAttr.from_int_and_width(literal, 64)
