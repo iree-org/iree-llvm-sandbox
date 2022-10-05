@@ -216,6 +216,14 @@ class AggregateRewriter(RelSSARewriter):
             [o.data for o in op.by.data]))
 
 
+@dataclass
+class LimitRewriter(RelSSARewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelSSA.Limit, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(RelImpl.Limit.get(op.input.op, op.n.value.data))
+
+
 #===------------------------------------------------------------------------===#
 # Conversion setup
 #===------------------------------------------------------------------------===#
@@ -236,6 +244,7 @@ def ssa_to_impl(ctx: MLContext, query: ModuleOp):
       AndRewriter(),
       CartesianProductRewriter(),
       OrderByRewriter(),
+      LimitRewriter(),
       BinOpRewriter()
   ]),
                                 walk_regions_first=False,

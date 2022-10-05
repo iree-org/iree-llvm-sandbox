@@ -669,6 +669,32 @@ class Aggregate(Operator):
         ])
 
 
+@irdl_op_definition
+class Limit(Operator):
+  """
+  Limits the number of tuples in `input` to `n` .
+
+  Example:
+
+  ```
+  %0 : ... = rel_impl.limit(...) ["n" = 10 : !i64]
+  ```
+  """
+  name = "rel_impl.limit"
+
+  input = OperandDef(Bag)
+  n = AttributeDef(IntegerAttr)
+
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(table: Operation, n: int) -> 'Limit':
+    return Limit.create(operands=[table.result],
+                        attributes={"n": IntegerAttr.from_int_and_width(n, 64)},
+                        result_types=[table.result.typ])
+
+
 @dataclass
 class RelImpl:
   ctx: MLContext
@@ -688,6 +714,7 @@ class RelImpl:
     self.ctx.register_attr(Order)
 
     self.ctx.register_op(Select)
+    self.ctx.register_op(Limit)
     self.ctx.register_op(MergeSort)
     self.ctx.register_op(Project)
     self.ctx.register_op(CartesianProduct)

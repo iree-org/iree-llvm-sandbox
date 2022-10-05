@@ -79,6 +79,17 @@ class LiteralRewriter(IbisRewriter):
 
 
 @dataclass
+class LimitRewriter(IbisRewriter):
+  # This is a simple 1-1 rewrite.
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Limit, rewriter: PatternRewriter):
+    rewriter.replace_matched_op(
+        RelAlg.Limit.get(rewriter.move_region_contents_to_new_regions(op.table),
+                         op.n.value.data))
+
+
+@dataclass
 class EqualsRewriter(IbisRewriter):
 
   @op_type_rewrite_pattern
@@ -266,6 +277,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       SubtractRewriter(),
       DivideRewriter(),
       AddRewriter(),
+      LimitRewriter(),
       LiteralRewriter()
   ]),
                                 walk_regions_first=False,

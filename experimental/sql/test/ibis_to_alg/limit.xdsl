@@ -1,0 +1,13 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+  ibis.limit() ["n" = 10 : !i64] {
+    ibis.unbound_table() ["table_name" = "t"] {
+      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+    }
+  }
+}
+
+// CHECK: rel_alg.limit() ["n" = 10 : !i64]

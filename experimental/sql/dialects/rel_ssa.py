@@ -425,6 +425,32 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class Limit(Operator):
+  """
+  Limits the number of tuples in `input` to `n` .
+
+  Example:
+
+  ```
+  %0 : ... = rel_ssa.limit(...) ["n" = 10 : !i64]
+  ```
+  """
+  name = "rel_ssa.limit"
+
+  input = OperandDef(Bag)
+  n = AttributeDef(IntegerAttr)
+
+  result = ResultDef(Bag)
+
+  @staticmethod
+  @builder
+  def get(table: Operation, n: int) -> 'Limit':
+    return Limit.create(operands=[table.result],
+                        attributes={"n": IntegerAttr.from_int_and_width(n, 64)},
+                        result_types=[table.result.typ])
+
+
+@irdl_op_definition
 class OrderBy(Operator):
   """
   Orders the given input by the columns in `by`.
@@ -655,6 +681,7 @@ class RelSSA:
     self.ctx.register_op(Project)
     self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(OrderBy)
+    self.ctx.register_op(Limit)
 
     self.ctx.register_op(Literal)
     self.ctx.register_op(Compare)

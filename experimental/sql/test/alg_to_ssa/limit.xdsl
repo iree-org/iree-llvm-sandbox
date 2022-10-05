@@ -1,0 +1,13 @@
+// RUN: rel_opt.py -p alg-to-ssa %s | filecheck %s
+
+module() {
+  rel_alg.limit() ["n" = 10 : !i64] {
+    rel_alg.table() ["table_name" = "t"] {
+      rel_alg.schema_element() ["elt_name" = "a", "elt_type" = !rel_alg.nullable<!rel_alg.string>]
+      rel_alg.schema_element() ["elt_name" = "b", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+      rel_alg.schema_element() ["elt_name" = "c", "elt_type" = !rel_alg.nullable<!rel_alg.int64>]
+    }
+  }
+}
+
+// CHECK: rel_ssa.limit({{.*}} ["n" = 10 : !i64]

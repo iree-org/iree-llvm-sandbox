@@ -239,6 +239,31 @@ class Operator(Operation):
 
 
 @irdl_op_definition
+class Limit(Operator):
+  """
+  Limits the number of tuples in `table` to `n` .
+
+  Example:
+
+  ```
+  rel_alg.limit() ["n" = 10 : !i64] {
+    ...
+  }
+  ```
+  """
+  name = "rel_alg.limit"
+
+  table = SingleBlockRegionDef()
+  n = AttributeDef(IntegerAttr)
+
+  @staticmethod
+  @builder
+  def get(table: Region, n: int) -> 'Limit':
+    return Limit.create(regions=[table],
+                        attributes={"n": IntegerAttr.from_int_and_width(n, 64)})
+
+
+@irdl_op_definition
 class OrderBy(Operator):
   """
   Orders the given input by the columns in `by`.
@@ -465,6 +490,7 @@ class RelationalAlg:
     self.ctx.register_attr(Order)
 
     self.ctx.register_op(Table)
+    self.ctx.register_op(Limit)
     self.ctx.register_op(SchemaElement)
     self.ctx.register_op(Select)
     self.ctx.register_op(Project)
