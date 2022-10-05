@@ -55,6 +55,20 @@ class Int64(DataType):
 
 
 @irdl_attr_definition
+class Float64(DataType):
+  """
+  Models a float64 type in a relational SSA query.
+
+  Example:
+
+  ```
+  !rel_ssa.float64
+  ```
+  """
+  name = "rel_ssa.float64"
+
+
+@irdl_attr_definition
 class Decimal(DataType):
   """
   Models a decimal type in a relational SSA query with precision `prec` and scale `scale`.
@@ -676,6 +690,7 @@ class RelSSA:
     self.ctx.register_attr(Boolean)
     self.ctx.register_attr(SchemaElement)
     self.ctx.register_attr(Order)
+    self.ctx.register_attr(Float64)
 
     self.ctx.register_op(Select)
     self.ctx.register_op(Table)
