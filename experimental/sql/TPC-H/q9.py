@@ -15,7 +15,7 @@ def get_ibis_query(COLOR="green"):
   q = q.join(orders, orders.o_orderkey == lineitem.l_orderkey)
   q = q.join(nation, supplier.s_nationkey == nation.n_nationkey)
 
-  q = q[(q.l_extendedprice * (1 - q.l_discount) -
+  q = q[(q.l_extendedprice * (ibis.literal(1, "int64") - q.l_discount) -
          q.ps_supplycost * q.l_quantity).name("amount"),
         q.o_orderdate.name("o_year"),  #.year().cast("string").name("o_year"),
         q.n_name.name("nation"), q.p_name,]

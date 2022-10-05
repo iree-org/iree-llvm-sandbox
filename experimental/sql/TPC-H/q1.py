@@ -11,8 +11,8 @@ def get_ibis_query(DELTA=90, DATE="1998-12-01"):
 
   interval = add_date(DATE, dd=-1 * DELTA)
   q = t.filter(t.l_shipdate <= interval)
-  discount_price = t.l_extendedprice * (1 - t.l_discount)
-  charge = discount_price * (1 + t.l_tax)
+  discount_price = t.l_extendedprice * (ibis.literal(1, "int64") - t.l_discount)
+  charge = discount_price * (ibis.literal(1, "int64") + t.l_tax)
   proj = q.projection(
       q.columns +
       [discount_price.name('discount_price'),

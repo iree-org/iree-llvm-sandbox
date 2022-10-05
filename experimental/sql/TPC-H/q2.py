@@ -22,7 +22,7 @@ def get_ibis_query(REGION="EUROPE", SIZE=25, TYPE="BRASS"):
                     (expr.p_partkey == subexpr.ps_partkey)]
 
   filters = [
-      expr.p_size == SIZE,
+      expr.p_size == ibis.literal(SIZE, "int64"),
       expr.p_type.like("%" + TYPE),
       expr.r_name == REGION,
       expr.ps_supplycost == subexpr.ps_supplycost.min(),

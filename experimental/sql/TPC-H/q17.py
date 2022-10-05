@@ -11,5 +11,6 @@ def get_ibis_query(BRAND="Brand#23", CONTAINER="MED BOX"):
       q.p_container == CONTAINER,
       q.l_quantity < (0.2 * innerq.l_quantity.mean()),
   ])
-  q = q.aggregate(avg_yearly=q.l_extendedprice.sum() / 7.0)
-  return q
+  q = q.aggregate(avg_yearly=q.l_extendedprice.sum())
+  proj = q.projection((q.avg_yearly / 7.0).name('avg_yearly'))
+  return proj

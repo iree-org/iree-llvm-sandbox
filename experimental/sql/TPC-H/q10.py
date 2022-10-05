@@ -11,11 +11,15 @@ def get_ibis_query(DATE="1993-10-01"):
   q = q.join(nation, customer.c_nationkey == nation.n_nationkey)
 
   q = q.filter([
-      (q.o_orderdate >= DATE) & (q.o_orderdate < add_date(DATE, dm=3)),
+      q.o_orderdate >= DATE,
+      q.o_orderdate < add_date(DATE, dm=3),
       q.l_returnflag == "R",
   ])
 
-  gq = q.group_by([
+  proj = q.projection(
+      q.columns + [(q.l_extendedprice *
+                    (ibis.literal(1, "int64") - q.l_discount)).name('revenue')])
+  q = proj.group_by([
       q.c_custkey,
       q.c_name,
       q.c_acctbal,
@@ -23,8 +27,7 @@ def get_ibis_query(DATE="1993-10-01"):
       q.n_name,
       q.c_address,
       q.c_comment,
-  ])
-  q = gq.aggregate(revenue=(q.l_extendedprice * (1 - q.l_discount)).sum())
+  ]).aggregate(revenue=proj.revenue.sum())
 
   q = q.sort_by(ibis.desc(q.revenue))
   return q.limit(20)

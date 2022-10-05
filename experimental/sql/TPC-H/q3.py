@@ -8,8 +8,11 @@ def get_ibis_query(MKTSEGMENT="BUILDING", DATE="1995-03-15"):
   q = q.join(lineitem, lineitem.l_orderkey == orders.o_orderkey)
   q = q.filter(
       [q.c_mktsegment == MKTSEGMENT, q.o_orderdate < DATE, q.l_shipdate > DATE])
-  qg = q.group_by([q.l_orderkey, q.o_orderdate, q.o_shippriority])
-  q = qg.aggregate(revenue=(q.l_extendedprice * (1 - q.l_discount)).sum())
+  proj = q.projection(
+      q.columns + [(q.l_extendedprice *
+                    (ibis.literal(1, "int64") - q.l_discount)).name("revenue")])
+  q = proj.group_by([proj.l_orderkey, proj.o_orderdate, proj.o_shippriority
+                    ]).aggregate(proj.revenue.sum().name('revenue'))
   q = q.sort_by([ibis.desc(q.revenue), q.o_orderdate])
   q = q.limit(10)
 
