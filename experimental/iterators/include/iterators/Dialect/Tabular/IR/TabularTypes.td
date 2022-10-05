@@ -44,8 +44,8 @@ def Tabular_TabularView : Tabular_Type<"TabularView", "tabular_view"> {
     arrays" (or `llvm.struct<(llvm.ptr<T1>, ..., llvm.ptr<Tn>)>`), i.e., one
     buffer for each column.
   }];
-  let parameters = (ins ArrayRefParameter<"Type", "list of types">:$ColumnTypes);
-  let assemblyFormat = "`<` $ColumnTypes `>`";
+  let parameters = (ins ArrayRefParameter<"Type", "list of types">:$columnTypes);
+  let assemblyFormat = "`<` $columnTypes `>`";
   let extraClassDeclaration = [{
     /// Return the number of column types.
     size_t getNumColumnTypes() const {
