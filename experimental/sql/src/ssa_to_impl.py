@@ -28,6 +28,8 @@ class RelSSARewriter(RewritePattern):
       return RelImpl.Int32()
     if isinstance(type_, RelSSA.Int64):
       return RelImpl.Int64()
+    if isinstance(type_, RelSSA.Float64):
+      return RelImpl.Float64()
     if isinstance(type_, RelSSA.Decimal):
       return RelImpl.Decimal([
           IntegerAttr.from_int_and_width(type_.prec.value.data,

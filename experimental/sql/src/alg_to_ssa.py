@@ -33,6 +33,8 @@ class RelAlgRewriter(RewritePattern):
       return RelSSA.Int32()
     if isinstance(type_, RelAlg.Int64):
       return RelSSA.Int64()
+    if isinstance(type_, RelAlg.Float64):
+      return RelSSA.Float64()
     if isinstance(type_, RelAlg.Decimal):
       return RelSSA.Decimal([
           IntegerAttr.from_int_and_width(type_.prec.value.data,

@@ -1,7 +1,8 @@
 # RUN: rel_opt.py -f ibis %s | filecheck %s
 
 ibis.table([("ORDERKEY", "int64"), ("EXTENDEDPRICE", "decimal(4, 2)"),
-                ("RETURNFLAG", "string"), ("SHIPDATE", "timestamp")],
+                ("RETURNFLAG", "string"), ("SHIPDATE", "timestamp"),
+                ("FRACTION", "float64")],
                 'lineitem')
 
 #      CHECK:  ibis.unbound_table() ["table_name" = "lineitem"] {
@@ -9,4 +10,5 @@ ibis.table([("ORDERKEY", "int64"), ("EXTENDEDPRICE", "decimal(4, 2)"),
 # CHECK-NEXT:    ibis.schema_element() ["elt_name" = "EXTENDEDPRICE", "elt_type" = !ibis.nullable<!ibis.decimal<4 : !i32, 2 : !i32>>]
 # CHECK-NEXT:    ibis.schema_element() ["elt_name" = "RETURNFLAG", "elt_type" = !ibis.nullable<!ibis.string>]
 # CHECK-NEXT:    ibis.schema_element() ["elt_name" = "SHIPDATE", "elt_type" = !ibis.nullable<!ibis.timestamp>]
+# CHECK-NEXT:    ibis.schema_element() ["elt_name" = "FRACTION", "elt_type" = !ibis.nullable<!ibis.float64>]
 # CHECK-NEXT:  }

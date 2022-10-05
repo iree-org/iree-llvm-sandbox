@@ -30,7 +30,7 @@ class IbisRewriter(RewritePattern):
     if isinstance(type_, ibis.Int64):
       return RelAlg.Int64()
     if isinstance(type_, ibis.Float64):
-      return RelAlg.Int64()
+      return RelAlg.Float64()
     if isinstance(type_, ibis.Timestamp):
       return RelAlg.Timestamp()
     if isinstance(type_, ibis.Decimal):

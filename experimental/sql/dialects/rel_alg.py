@@ -83,6 +83,20 @@ class Int64(DataType):
 
 
 @irdl_attr_definition
+class Float64(DataType):
+  """
+  Models a float64 type in a relational query.
+
+  Example:
+
+  ```
+  !rel_alg.float64
+  ```
+  """
+  name = "rel_alg.float64"
+
+
+@irdl_attr_definition
 class String(DataType):
   """
   Models a string type in a relational query, that can be either nullable or
@@ -488,6 +502,7 @@ class RelationalAlg:
     self.ctx.register_attr(Int64)
     self.ctx.register_attr(Nullable)
     self.ctx.register_attr(Order)
+    self.ctx.register_attr(Float64)
 
     self.ctx.register_op(Table)
     self.ctx.register_op(Limit)
