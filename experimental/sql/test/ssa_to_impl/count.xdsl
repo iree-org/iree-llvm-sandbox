@@ -1,0 +1,9 @@
+// RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
+
+module() {
+    %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "some_name"]
+    %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"c", !rel_ssa.int64>]> = rel_ssa.aggregate(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) ["col_names" = [""], "functions" = ["count"], "by" = []]
+}
+
+//      CHECK:  %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
+// CHECK-NEXT:  %1 : !rel_impl.bag<[!rel_impl.schema_element<"c", !rel_impl.int64>]> = rel_impl.aggregate(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) ["col_names" = [""], "functions" = ["count"], "by" = []]

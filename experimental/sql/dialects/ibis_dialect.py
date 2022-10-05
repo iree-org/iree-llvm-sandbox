@@ -490,6 +490,134 @@ class Sum(Operation):
 
 
 @irdl_op_definition
+class Min(Operation):
+  """
+  Takes the minimum of all the elements of the column given in arg based on the encompassing
+  aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L204
+
+  Example:
+
+  '''
+  ibis.min() {
+    ibis.table_column() ...
+  }
+  '''
+  """
+  name = "ibis.min"
+
+  arg = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region) -> 'Min':
+    return Min.create(regions=[arg])
+
+
+@irdl_op_definition
+class Max(Operation):
+  """
+  Takes the maximum of all the elements of the column given in arg based on the encompassing
+  aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L197
+
+  Example:
+
+  '''
+  ibis.max() {
+    ibis.table_column() ...
+  }
+  '''
+  """
+  name = "ibis.max"
+
+  arg = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region) -> 'Max':
+    return Max.create(regions=[arg])
+
+
+@irdl_op_definition
+class Mean(Operation):
+  """
+  Takes the mean of all the elements of the column given in arg based on the encompassing
+  aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L108
+
+  Example:
+
+  '''
+  ibis.mean() {
+    ibis.table_column() ...
+  }
+  '''
+  """
+  name = "ibis.mean"
+
+  arg = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region) -> 'Mean':
+    return Mean.create(regions=[arg])
+
+
+@irdl_op_definition
+class Count(Operation):
+  """
+  Counts the elements in arg based on the encompassing aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L18
+
+  Example:
+
+  '''
+  ibis.count() {
+    ibis.unbound_table() ...
+  }
+  '''
+  """
+  name = "ibis.count"
+
+  arg = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region) -> 'Count':
+    return Count.create(regions=[arg])
+
+
+@irdl_op_definition
+class CountDistinct(Operation):
+  """
+  Counts the distinct elements of the column in arg based on the encompassing aggregation operator.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L265
+
+  Example:
+
+  '''
+  ibis.count_distinct() {
+    ibis.table_column() ...
+  }
+  '''
+  """
+  name = "ibis.count_distinct"
+
+  arg = SingleBlockRegionDef()
+
+  @staticmethod
+  @builder
+  def get(arg: Region) -> 'CountDistinct':
+    return CountDistinct.create(regions=[arg])
+
+
+@irdl_op_definition
 class Equals(Operation):
   """
   Checks whether each entry of `left` is equal to `right`.
@@ -777,4 +905,9 @@ class Ibis:
     self.ctx.register_op(TableColumn)
     self.ctx.register_op(Literal)
     self.ctx.register_op(Sum)
+    self.ctx.register_op(Mean)
+    self.ctx.register_op(Min)
+    self.ctx.register_op(Max)
+    self.ctx.register_op(Count)
+    self.ctx.register_op(CountDistinct)
     self.ctx.register_op(Aggregation)

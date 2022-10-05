@@ -632,7 +632,7 @@ class Aggregate(Operator):
           f"Number of functions and column names should match: {len(self.functions.data)} vs {len(self.col_names.data)}"
       )
     for f in self.functions.data:
-      if not f.data in ["sum"]:
+      if not f.data in ["sum", "min", "max", "avg", "count", "count_distinct"]:
         raise Exception(f"function {f.data} is not a supported function")
 
   @builder
@@ -652,9 +652,11 @@ class Aggregate(Operator):
                 ArrayAttr.from_list([StringAttr.from_str(s) for s in by])
         },
         result_types=[
-            Bag.get(
-                res_names,
-                [input.result.typ.lookup_type_in_schema(n) for n in col_names])
+            Bag.get(res_names, [
+                Int64() if f in ["count", "count_distinct"] else
+                input.result.typ.lookup_type_in_schema(n)
+                for n, f in zip(col_names, functions)
+            ])
         ])
 
 

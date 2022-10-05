@@ -1,0 +1,8 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table = ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't')
+table.aggregate(table.count().name('b'))
+
+
+#      CHECK:     ibis.count() {
+# CHECK-NEXT:       ibis.unbound_table() ["table_name" = "t"] {
