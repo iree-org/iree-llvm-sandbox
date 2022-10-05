@@ -1,6 +1,6 @@
 // RUN: rel_opt.py -p ssa-to-impl %s | filecheck %s
 
-module() {
+builtin.module() {
     %0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.table() ["table_name" = "some_name"]
     %1 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]> = rel_ssa.select(%0 : !rel_ssa.bag<[!rel_ssa.schema_element<"id", !rel_ssa.int32>]>) {
         %2 : !rel_ssa.int32 = rel_ssa.literal() ["value" = 5 : !i32]

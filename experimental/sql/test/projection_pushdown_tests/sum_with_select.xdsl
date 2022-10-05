@@ -1,6 +1,6 @@
 // RUN: rel_opt.py -p projection-pushdown %s | filecheck %s
 
-module() {
+builtin.module() {
   rel_alg.aggregate() ["col_names" = ["id"], "functions" = ["sum"], "res_names" = ["b"], "by" = []] {
     rel_alg.select() {
       rel_alg.table() ["table_name" = "lineitem"] {

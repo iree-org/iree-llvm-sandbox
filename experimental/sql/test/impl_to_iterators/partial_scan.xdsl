@@ -1,12 +1,12 @@
 // RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
 
-module() {
+builtin.module() {
   %0 : !rel_impl.bag<[!rel_impl.schema_element<"a", !rel_impl.int64>, !rel_impl.schema_element<"b", !rel_impl.int64>]> = rel_impl.full_table_scan() ["table_name" = "t", "cols" = ["a", "b"]]
 }
 
 //      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[!iterators.columnar_batch<!tuple<[!i64, !i64]>>], []>, "sym_visibility" = "private", "llvm.emit_c_interface"] {
 // CHECK-NEXT:   ^0(%0 : !iterators.columnar_batch<!tuple<[!i64, !i64]>>):
-// CHECK-NEXT:     %1 : !iterators.stream<!llvm.struct<"", [!i64, !i64]>> = iterators.scan_columnar_batch(%0 : !iterators.columnar_batch<!tuple<[!i64, !i64]>>)
-// CHECK-NEXT:     iterators.sink(%1 : !iterators.stream<!llvm.struct<"", [!i64, !i64]>>)
+// CHECK-NEXT:     %1 : !iterators.stream<!llvm.struct<(!i64, !i64)>> = iterators.scan_columnar_batch(%0 : !iterators.columnar_batch<!tuple<[!i64, !i64]>>)
+// CHECK-NEXT:     iterators.sink(%1 : !iterators.stream<!llvm.struct<(!i64, !i64)>>)
 // CHECK-NEXT:     func.return()
 // CHECK-NEXT:   }

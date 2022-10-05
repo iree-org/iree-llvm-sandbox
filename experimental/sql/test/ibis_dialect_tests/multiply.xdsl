@@ -1,6 +1,6 @@
 // RUN: rel_opt.py %s | filecheck %s
 
-module() {
+builtin.module() {
   ibis.selection() ["names" = ["d"]] {
       ibis.unbound_table() ["table_name" = "t"] {
         ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]

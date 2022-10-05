@@ -1,6 +1,6 @@
 // RUN: rel_opt.py %s | filecheck %s
 
-module() {
+builtin.module() {
     %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>, !rel_impl.schema_element<"price", !rel_impl.decimal<4 : !i32, 2 : !i32>>, !rel_impl.schema_element<"time", !rel_impl.timestamp>, !rel_impl.schema_element<"name", !rel_impl.string>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
 }
 

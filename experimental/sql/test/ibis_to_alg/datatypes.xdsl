@@ -1,6 +1,6 @@
 // RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
 
-module() {
+builtin.module() {
     ibis.unbound_table() ["table_name" = "some_name"] {
         ibis.schema_element() ["elt_name" = "id", "elt_type" = !ibis.int32]
         ibis.schema_element() ["elt_name" = "price", "elt_type" = !ibis.decimal<4 : !i32, 2 : !i32>]
