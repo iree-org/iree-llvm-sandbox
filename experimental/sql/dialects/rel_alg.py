@@ -255,7 +255,7 @@ class Operator(Operation):
 @irdl_op_definition
 class Limit(Operator):
   """
-  Limits the number of tuples in `table` to `n` .
+  Limits the number of tuples in `input` to `n` .
 
   Example:
 
@@ -267,7 +267,7 @@ class Limit(Operator):
   """
   name = "rel_alg.limit"
 
-  table = SingleBlockRegionDef()
+  input = SingleBlockRegionDef()
   n = AttributeDef(IntegerAttr)
 
   @staticmethod

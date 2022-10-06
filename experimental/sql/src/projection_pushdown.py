@@ -52,7 +52,15 @@ class ProjectionOptimizer(RewritePattern):
       return self.flatten(
           [self.find_cols_in_expr(o) for o in op.projections.ops])
     if isinstance(op, RelAlg.Aggregate):
-      return [s.data for s in op.col_names.data]
+      return [s.data for s in op.col_names.data if s.data != ""
+             ] + [s.data for s in op.by.data]
+    if isinstance(op, RelAlg.OrderBy):
+      return [s.col.data for s in op.by.data] + self.find_cols_upstream(
+          op.parent_op())
+    if isinstance(op, RelAlg.Limit):
+      return self.find_cols_upstream(op.parent_op())
+    if isinstance(op, RelAlg.CartesianProduct):
+      return self.find_cols_upstream(op.parent_op())
 
   def find_schema(self, op: RelAlg.Operator) -> list[str]:
     """
@@ -66,6 +74,45 @@ class ProjectionOptimizer(RewritePattern):
       return [s.data for s in op.names.data]
     if isinstance(op, RelAlg.Aggregate):
       return [s.data for s in op.col_names.data]
+    if isinstance(op, RelAlg.CartesianProduct):
+      return self.find_schema(op.left.op) + self.find_schema(op.right.op)
+    if isinstance(op, RelAlg.OrderBy):
+      return self.find_schema(op.input.op)
+    if isinstance(op, RelAlg.Limit):
+      return self.find_schema(op.input.op)
+
+
+@dataclass
+class ProjectionSimplifier(ProjectionOptimizer):
+
+  # This rewriter simpifies projections such that they only project columns that
+  # are actually needed upstream. This does not dot apply if there are any
+  # renames.
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
+    cols = list(dict.fromkeys(self.find_cols_upstream(op.parent_op())))
+    if None in cols or len(op.names.data) == len(cols):
+      return
+
+    input_schema = self.find_schema(op)
+    output_schema = self.flatten(
+        [self.find_cols_in_expr(o) for o in op.projections.ops])
+
+    # If there are any differences in the schemas this is a rename, in which
+    # case we do not apply this rewriter.
+    if input_schema != output_schema or [s.data for s in op.names.data
+                                        ] != output_schema:
+      return
+
+    for o in op.projections.ops:
+      if isinstance(o, RelAlg.Column) and not o.col_name.data in cols:
+        rewriter.erase_op(o)
+    new_proj = RelAlg.Project.get(
+        Region.from_operation_list([op.input.op.clone()]),
+        rewriter.move_region_contents_to_new_regions(op.projections),
+        ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
+    rewriter.replace_matched_op(new_proj)
 
 
 @dataclass
@@ -84,12 +131,26 @@ class ProjectionInference(ProjectionOptimizer):
     if None in cols:
       return
 
-    new_proj = RelAlg.Project.get(
-        Region.from_operation_list([op.input.op.clone()]),
-        Region.from_operation_list([RelAlg.Column.get(s) for s in cols]),
-        ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
-
-    rewriter.replace_op(op.input.op, new_proj)
+    if isinstance(op, RelAlg.CartesianProduct):
+      left_cols = [c for c in cols if c in self.find_schema(op.left.op)]
+      left_proj = RelAlg.Project.get(
+          Region.from_operation_list([op.left.op.clone()]),
+          Region.from_operation_list([RelAlg.Column.get(s) for s in left_cols]),
+          ArrayAttr.from_list([StringAttr.from_str(s) for s in left_cols]))
+      rewriter.replace_op(op.left.op, left_proj)
+      right_cols = [c for c in cols if c in self.find_schema(op.right.op)]
+      right_proj = RelAlg.Project.get(
+          Region.from_operation_list([op.right.op.clone()]),
+          Region.from_operation_list([RelAlg.Column.get(s) for s in right_cols
+                                     ]),
+          ArrayAttr.from_list([StringAttr.from_str(s) for s in right_cols]))
+      rewriter.replace_op(op.right.op, right_proj)
+    else:
+      new_proj = RelAlg.Project.get(
+          Region.from_operation_list([op.input.op.clone()]),
+          Region.from_operation_list([RelAlg.Column.get(s) for s in cols]),
+          ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
+      rewriter.replace_op(op.input.op, new_proj)
 
 
 @dataclass
@@ -118,7 +179,8 @@ class ProjectionFuser(ProjectionOptimizer):
     child_dict = dict(zip(child_res, op.input.op.projections.ops))
     new_projections = rewriter.move_region_contents_to_new_regions(
         op.projections)
-    self.replace_expr(new_projections.op, child_dict, rewriter)
+    for o in new_projections.ops:
+      self.replace_expr(o, child_dict, rewriter)
     rewriter.replace_matched_op(
         RelAlg.Project.get(
             rewriter.move_region_contents_to_new_regions(op.input.op.input),
@@ -148,6 +210,13 @@ class IdentityProjectionRemover(ProjectionOptimizer):
 
 
 def projection_pushdown(ctx: MLContext, query: ModuleOp):
+  simplify_projections_walker = PatternRewriteWalker(
+      GreedyRewritePatternApplier([ProjectionSimplifier()]),
+      walk_regions_first=False,
+      apply_recursively=False,
+      walk_reverse=False)
+  simplify_projections_walker.rewrite_module(query)
+
   infer_projections_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [ProjectionInference()]),
                                                   walk_regions_first=False,
