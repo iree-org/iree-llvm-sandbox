@@ -634,7 +634,8 @@ class Aggregate(Operator):
   """
   Groups the table `input` by the columns in `by` by aggregating the ith element
   of `col_names` by the ith element of `functions`. If `by` is empty, this
-  corresponds to the ungrouped aggregation.
+  corresponds to the ungrouped aggregation. In the case of a `count(*)`, the
+  respective element in `col_names` is `""` instead of a column name.
 
 
   Example:

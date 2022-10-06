@@ -463,7 +463,7 @@ class CartesianProduct(Operation):
 class Sum(Operation):
   """
   Sums up all the elements of the column given in arg based on the encompassing
-  aggregation operator.
+  aggregation operator. The operation in `arg` has to be a TableColumn.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L95
 
@@ -492,8 +492,9 @@ class Sum(Operation):
 @irdl_op_definition
 class Min(Operation):
   """
-  Takes the minimum of all the elements of the column given in arg based on the encompassing
-  aggregation operator.
+  Takes the minimum of all the elements of the column given in `arg` based on
+  the encompassing aggregation operator. The operation in `arg` has to be a
+  TableColumn.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L204
 
@@ -518,8 +519,9 @@ class Min(Operation):
 @irdl_op_definition
 class Max(Operation):
   """
-  Takes the maximum of all the elements of the column given in arg based on the encompassing
-  aggregation operator.
+  Takes the maximum of all the elements of the column given in arg based on the
+  encompassing aggregation operator. The operation in `arg` has to be a
+  TableColumn.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L197
 
@@ -544,8 +546,9 @@ class Max(Operation):
 @irdl_op_definition
 class Mean(Operation):
   """
-  Takes the mean of all the elements of the column given in arg based on the encompassing
-  aggregation operator.
+  Takes the mean of all the elements of the column given in arg based on the
+  encompassing aggregation operator. The operation in `arg` has to be a
+  TableColumn.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L108
 
@@ -570,7 +573,9 @@ class Mean(Operation):
 @irdl_op_definition
 class Count(Operation):
   """
-  Counts the elements in arg based on the encompassing aggregation operator.
+  Counts the elements in arg based on the encompassing aggregation operator. The
+  operation in `arg` has to be either a TableColumn for the count of non null
+  values in that column or a Table in the case of count(*).
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L18
 
@@ -595,7 +600,8 @@ class Count(Operation):
 @irdl_op_definition
 class CountDistinct(Operation):
   """
-  Counts the distinct elements of the column in arg based on the encompassing aggregation operator.
+  Counts the distinct elements of the column in arg based on the encompassing
+  aggregation operator. The operation in `arg` has to be a TableColumn.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/reductions.py#L265
 
