@@ -86,7 +86,8 @@ class ProjectionOptimizer(RewritePattern):
 class ProjectionSimplifier(ProjectionOptimizer):
 
   # This rewriter simpifies projections such that they only project columns that
-  # are acutlaly needed upstream.
+  # are actually needed upstream. This does not dot apply if there are any
+  # renames.
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
@@ -98,6 +99,8 @@ class ProjectionSimplifier(ProjectionOptimizer):
     output_schema = self.flatten(
         [self.find_cols_in_expr(o) for o in op.projections.ops])
 
+    # If there are any differences in the schemas this is a rename, in which
+    # case we do not apply this rewriter.
     if input_schema != output_schema or [s.data for s in op.names.data
                                         ] != output_schema:
       return
@@ -128,13 +131,7 @@ class ProjectionInference(ProjectionOptimizer):
     if None in cols:
       return
 
-    if not isinstance(op, RelAlg.CartesianProduct):
-      new_proj = RelAlg.Project.get(
-          Region.from_operation_list([op.input.op.clone()]),
-          Region.from_operation_list([RelAlg.Column.get(s) for s in cols]),
-          ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
-      rewriter.replace_op(op.input.op, new_proj)
-    else:
+    if isinstance(op, RelAlg.CartesianProduct):
       left_cols = [c for c in cols if c in self.find_schema(op.left.op)]
       left_proj = RelAlg.Project.get(
           Region.from_operation_list([op.left.op.clone()]),
@@ -148,6 +145,12 @@ class ProjectionInference(ProjectionOptimizer):
                                      ]),
           ArrayAttr.from_list([StringAttr.from_str(s) for s in right_cols]))
       rewriter.replace_op(op.right.op, right_proj)
+    else:
+      new_proj = RelAlg.Project.get(
+          Region.from_operation_list([op.input.op.clone()]),
+          Region.from_operation_list([RelAlg.Column.get(s) for s in cols]),
+          ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
+      rewriter.replace_op(op.input.op, new_proj)
 
 
 @dataclass
