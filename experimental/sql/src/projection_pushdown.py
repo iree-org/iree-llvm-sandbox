@@ -85,10 +85,21 @@ class ProjectionOptimizer(RewritePattern):
 @dataclass
 class ProjectionSimplifier(ProjectionOptimizer):
 
+  # This rewriter simpifies projections such that they only project columns that
+  # are acutlaly needed upstream.
+
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
     cols = list(dict.fromkeys(self.find_cols_upstream(op.parent_op())))
     if None in cols or len(op.names.data) == len(cols):
+      return
+
+    input_schema = self.find_schema(op)
+    output_schema = self.flatten(
+        [self.find_cols_in_expr(o) for o in op.projections.ops])
+
+    if input_schema != output_schema or [s.data for s in op.names.data
+                                        ] != output_schema:
       return
 
     for o in op.projections.ops:
