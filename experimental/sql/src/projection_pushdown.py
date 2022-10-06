@@ -213,6 +213,7 @@ def projection_pushdown(ctx: MLContext, query: ModuleOp):
       apply_recursively=False,
       walk_reverse=False)
   simplify_projections_walker.rewrite_module(query)
+
   infer_projections_walker = PatternRewriteWalker(GreedyRewritePatternApplier(
       [ProjectionInference()]),
                                                   walk_regions_first=False,
