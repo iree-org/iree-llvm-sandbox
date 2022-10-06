@@ -186,7 +186,7 @@ class ProjectRewriter(RelAlgRewriter):
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Project, rewriter: PatternRewriter):
     rewriter.inline_block_before_matched_op(op.input)
-    input_bag = rewriter.added_operations_before[0].result.typ
+    input_bag = rewriter.added_operations_before[-1].result.typ
     rewriter.insert_op_before_matched_op(
         RelSSA.Project.get(
             rewriter.added_operations_before[-1],
