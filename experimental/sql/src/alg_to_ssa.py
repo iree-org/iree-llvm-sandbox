@@ -278,7 +278,7 @@ class LimitRewriter(RelAlgRewriter):
 
   @op_type_rewrite_pattern
   def match_and_rewrite(self, op: RelAlg.Limit, rewriter: PatternRewriter):
-    rewriter.inline_block_before_matched_op(op.table.blocks[0])
+    rewriter.inline_block_before_matched_op(op.input.blocks[0])
     rewriter.insert_op_before_matched_op([
         RelSSA.Limit.get(rewriter.added_operations_before[-1], op.n.value.data)
     ])
