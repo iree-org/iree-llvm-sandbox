@@ -2,14 +2,12 @@
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Utils/NameAssigner.h"
-#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 using namespace mlir::iterators;
-using namespace LLVM;
 
 using SymbolTriple = std::tuple<SymbolRefAttr, SymbolRefAttr, SymbolRefAttr>;
 
@@ -52,8 +50,8 @@ public:
   /// Computes the state type of the given op whose upstream iterator ops have
   /// the state types given in upstreamStateTypes.
   template <typename OpType>
-  LLVMStructType
-  operator()(OpType op, llvm::SmallVector<LLVMStructType> upstreamStateTypes);
+  StateType operator()(OpType op,
+                       llvm::SmallVector<StateType> upstreamStateTypes);
 
 private:
   TypeConverter typeConverter;
@@ -62,41 +60,41 @@ private:
 /// The state of ConstantStreamOp consists of a single number that corresponds
 /// to the index of the next struct returned by the iterator.
 template <>
-LLVMStructType StateTypeComputer::operator()(
-    ConstantStreamOp op,
-    llvm::SmallVector<LLVMStructType> /*upstreamStateTypes*/) {
+StateType StateTypeComputer::operator()(
+    ConstantStreamOp op, llvm::SmallVector<StateType> /*upstreamStateTypes*/) {
   MLIRContext *context = op->getContext();
   Type i32 = IntegerType::get(context, /*width=*/32);
-  return LLVMStructType::getNewIdentified(
-      context, "iterators.constant_stream_state", {i32});
+  return StateType::get(context, {i32});
 }
 
 /// The state of FilterOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
-LLVMStructType StateTypeComputer::operator()(
-    FilterOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) {
-  return LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.filter_state", {upstreamStateTypes[0]});
+StateType
+StateTypeComputer::operator()(FilterOp op,
+                              llvm::SmallVector<StateType> upstreamStateTypes) {
+  MLIRContext *context = op->getContext();
+  return StateType::get(context, {upstreamStateTypes[0]});
 }
 
 /// The state of MapOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
-LLVMStructType StateTypeComputer::operator()(
-    MapOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) {
-  return LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.map_state", {upstreamStateTypes[0]});
+StateType
+StateTypeComputer::operator()(MapOp op,
+                              llvm::SmallVector<StateType> upstreamStateTypes) {
+  MLIRContext *context = op->getContext();
+  return StateType::get(context, {upstreamStateTypes[0]});
 }
 
 /// The state of ReduceOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
-LLVMStructType StateTypeComputer::operator()(
-    ReduceOp op, llvm::SmallVector<LLVMStructType> upstreamStateTypes) {
-  assert(upstreamStateTypes.size() == 1);
-  return LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.reduce_state", {upstreamStateTypes[0]});
+StateType
+StateTypeComputer::operator()(ReduceOp op,
+                              llvm::SmallVector<StateType> upstreamStateTypes) {
+  MLIRContext *context = op->getContext();
+  return StateType::get(context, {upstreamStateTypes[0]});
 }
 
 /// The state of TabularViewToStreamOp consists of a single number that
@@ -106,23 +104,21 @@ LLVMStructType StateTypeComputer::operator()(
 /// template <typename TabularViewType>
 /// struct { int64_t currentIndex; TabularViewType view; }
 template <>
-LLVMStructType StateTypeComputer::operator()(
+StateType StateTypeComputer::operator()(
     TabularViewToStreamOp op,
-    llvm::SmallVector<LLVM::LLVMStructType> /*upstreamStateTypes*/) {
+    llvm::SmallVector<StateType> /*upstreamStateTypes*/) {
   MLIRContext *context = op->getContext();
-  Type i64 = IntegerType::get(context, /*width=*/64);
+  Type indexType = IntegerType::get(context, /*width=*/64);
   Type viewType = typeConverter.convertType(op.input().getType());
-  return LLVM::LLVMStructType::getNewIdentified(
-      op->getContext(), "iterators.tabular_view_to_stream_state",
-      {i64, viewType});
+  return StateType::get(context, {indexType, viewType});
 }
 
 /// Build IteratorInfo, assigning new unique names as needed. Takes the
-/// `LLVMStructType` as a parameter, to ensure proper build order (all uses are
+/// `StateType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
 mlir::iterators::IteratorInfo::IteratorInfo(IteratorOpInterface op,
                                             NameAssigner &nameAssigner,
-                                            LLVMStructType t) {
+                                            StateType t) {
   std::tie(openFunc, nextFunc, closeFunc) =
       assignFunctionNames(op, nameAssigner);
   stateType = t;
@@ -166,16 +162,16 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             TabularViewToStreamOp
             // clang-format on
             >([&](auto op) {
-          llvm::SmallVector<LLVMStructType> upstreamStateTypes;
+          llvm::SmallVector<StateType> upstreamStateTypes;
           llvm::transform(op->getOperands(),
                           std::back_inserter(upstreamStateTypes),
                           [&](auto operand) {
                             Operation *def = operand.getDefiningOp();
                             if (!def || !llvm::isa<IteratorOpInterface>(def))
-                              return LLVMStructType();
+                              return StateType();
                             return getExpectedIteratorInfo(def).stateType;
                           });
-          LLVMStructType stateType = stateTypeComputer(op, upstreamStateTypes);
+          StateType stateType = stateTypeComputer(op, upstreamStateTypes);
           setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));
         })
         .Default([&](auto op) { assert(false && "Unexpected op"); });

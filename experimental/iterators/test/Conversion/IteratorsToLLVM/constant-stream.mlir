@@ -3,8 +3,8 @@
 
 !element_type = !llvm.struct<(i32)>
 
-// CHECK-LABEL: func private @iterators.constantstream.close.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>) -> !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>
-// CHECK-NEXT:    return %[[arg0:.*]] : !llvm.struct<"[[inputStateType:iterators\.constant_stream_state.*]]", (i32)>
+// CHECK-LABEL: func private @iterators.constantstream.close.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> !iterators.state<i32>
+// CHECK-NEXT:    return %[[arg0:.*]] : !iterators.state<i32>
 // CHECK-NEXT:  }
 
 // CHECK-LABEL:  llvm.mlir.global internal constant @iterators.constant_stream_data{{.*}}() : !llvm.array<4 x struct<(i32)>> {
@@ -28,30 +28,30 @@
 // CHECK-NEXT:     llvm.return %[[V16]] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:   }
 
-// CHECK-LABEL: func private @iterators.constantstream.next.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>) -> (!llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>, i1, !llvm.struct<(i32)>)
-// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<"[[inputStateType:iterators\.constant_stream_state.*]]", (i32)>
+// CHECK-LABEL: func private @iterators.constantstream.next.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <i32> -> i32
 // CHECK-NEXT:    %[[V1:.*]] = arith.constant 4 : i32
 // CHECK-NEXT:    %[[V2:.*]] = arith.cmpi slt, %[[V0]], %[[V1]] : i32
-// CHECK-NEXT:    %[[V3:.*]]:2 = scf.if %[[V2]] -> (!llvm.struct<"[[inputStateType]]", (i32)>, !llvm.struct<(i32)>) {
+// CHECK-NEXT:    %[[V3:.*]]:2 = scf.if %[[V2]] -> (!iterators.state<i32>, !llvm.struct<(i32)>) {
 // CHECK-NEXT:      %[[V4:.*]] = arith.constant 1 : i32
 // CHECK-NEXT:      %[[V5:.*]] = arith.addi %[[V0]], %[[V4]] : i32
-// CHECK-NEXT:      %[[V6:.*]] = llvm.insertvalue %[[V5]], %[[arg0]][0 : index] : !llvm.struct<"[[inputStateType]]", (i32)>
+// CHECK-NEXT:      %[[V6:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V5]] : i32) : <i32>
 // CHECK-NEXT:      %[[V7:.*]] = llvm.mlir.addressof @iterators.constant_stream_data{{.*}} : !llvm.ptr<array<4 x struct<(i32)>>>
 // CHECK-NEXT:      %[[V8:.*]] = arith.constant 0 : i32
 // CHECK-NEXT:      %[[V9:.*]] = llvm.getelementptr %[[V7]][%[[V8]], %[[V0]]] : (!llvm.ptr<array<4 x struct<(i32)>>>, i32, i32) -> !llvm.ptr<struct<(i32)>>
 // CHECK-NEXT:      %[[Va:.*]] = llvm.load %[[V9]] : !llvm.ptr<struct<(i32)>>
-// CHECK-NEXT:      scf.yield %[[V6]], %[[Va]] : !llvm.struct<"[[inputStateType]]", (i32)>, !llvm.struct<(i32)>
+// CHECK-NEXT:      scf.yield %[[V6]], %[[Va]] : !iterators.state<i32>, !llvm.struct<(i32)>
 // CHECK-NEXT:    } else {
 // CHECK-NEXT:      %[[Vb:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
-// CHECK-NEXT:      scf.yield %[[arg0]], %[[Vb]] : !llvm.struct<"[[inputStateType]]", (i32)>, !llvm.struct<(i32)>
+// CHECK-NEXT:      scf.yield %[[arg0]], %[[Vb]] : !iterators.state<i32>, !llvm.struct<(i32)>
 // CHECK-NEXT:    }
-// CHECK-NEXT:    return %[[V3]]#0, %[[V2]], %[[V3]]#1 : !llvm.struct<"[[inputStateType]]", (i32)>, i1, !llvm.struct<(i32)>
+// CHECK-NEXT:    return %[[V3]]#0, %[[V2]], %[[V3]]#1 : !iterators.state<i32>, i1, !llvm.struct<(i32)>
 // CHECK-NEXT:  }
 
-// CHECK-LABEL: func private @iterators.constantstream.open.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>) -> !llvm.struct<"iterators.constant_stream_state{{.*}}", (i32)>
+// CHECK-LABEL: func private @iterators.constantstream.open.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> !iterators.state<i32>
 // CHECK-NEXT:    %[[V0:.*]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-NEXT:    %[[V1:.*]] = llvm.insertvalue %[[V0]], %[[arg0:.*]][0 : index] : !llvm.struct<"[[inputStateType:iterators\.constant_stream_state.*]]", (i32)>
-// CHECK-NEXT:    return %[[V1]] : !llvm.struct<"[[inputStateType]]", (i32)>
+// CHECK-NEXT:    %[[V1:.*]] = iterators.insertvalue %[[arg0:.*]][0] (%[[V0]] : i32) : <i32>
+// CHECK-NEXT:    return %[[V1]] : !iterators.state<i32>
 // CHECK-NEXT:  }
 
 func.func @main() {
@@ -59,7 +59,7 @@ func.func @main() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!element_type>)
-  // CHECK-NEXT:   %[[V0:.*]] = llvm.mlir.undef : !llvm.struct<"[[inputStateType:iterators\.constant_stream_state.*]]", (i32)>
+  // CHECK-NEXT:   %[[V0:.*]] = iterators.undefstate : <i32>
   return
   // CHECK-NEXT:   return
 }

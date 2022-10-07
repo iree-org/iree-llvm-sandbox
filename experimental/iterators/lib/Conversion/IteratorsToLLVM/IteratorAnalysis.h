@@ -9,8 +9,8 @@
 #ifndef EXPERIMENTAL_ITERATORS_LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
 #define EXPERIMENTAL_ITERATORS_LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
 
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Utils/NameAssigner.h"
-#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 namespace mlir {
 class ModuleOp;
@@ -23,10 +23,9 @@ class IteratorOpInterface;
 
 /// Information about each iterator op constructed by IteratorAnalysis.
 struct IteratorInfo {
-  /// Takes the `LLVM::LLVMStructType` as a parameter, to ensure proper build
-  /// order (all uses are visited before any def).
-  IteratorInfo(IteratorOpInterface op, NameAssigner &nameAssigner,
-               LLVM::LLVMStructType t);
+  /// Takes the `StateType` as a parameter, to ensure proper build order (all
+  /// uses are visited before any def).
+  IteratorInfo(IteratorOpInterface op, NameAssigner &nameAssigner, StateType t);
 
   // Rule of five: default constructors/assignment operators
   IteratorInfo() = default;
@@ -42,7 +41,7 @@ struct IteratorInfo {
   SymbolRefAttr closeFunc;
 
   /// State of the iterator including the state of its potential upstreams.
-  LLVM::LLVMStructType stateType;
+  StateType stateType;
 };
 
 /// Constructs information about the state type and the Open/Next/Close

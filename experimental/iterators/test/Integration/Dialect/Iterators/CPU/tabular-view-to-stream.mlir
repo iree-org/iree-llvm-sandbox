@@ -1,5 +1,7 @@
 // RUN: mlir-proto-opt %s \
-// RUN:   -convert-tabular-to-llvm -convert-iterators-to-llvm \
+// RUN:   -convert-tabular-to-llvm \
+// RUN:   -convert-iterators-to-llvm \
+// RUN:   -convert-states-to-llvm \
 // RUN:   -arith-bufferize -cse -convert-memref-to-llvm -reconcile-unrealized-casts \
 // RUN:   -convert-func-to-llvm \
 // RUN:   -convert-scf-to-cf -convert-cf-to-llvm \

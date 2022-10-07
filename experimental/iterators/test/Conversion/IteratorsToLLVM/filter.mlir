@@ -3,15 +3,15 @@
 
 !element_type = !llvm.struct<(i32)>
 
-// CHECK-LABEL: func.func private @iterators.filter.close.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.filter_state{{.*}}", ({{.*}})>) -> !llvm.struct<"iterators.filter_state{{.*}}", ({{.*}})> {
-// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<"[[filterStateName:iterators\.filter_state.*]]", ([[nestedUpstreamStateType:.*]])>
+// CHECK-LABEL: func.func private @iterators.filter.close.{{[0-9]+}}(%{{.*}}: !iterators.state<!iterators.state<i32>>) -> !iterators.state<!iterators.state<i32>> {
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <!iterators.state<i32>> -> !iterators.state<i32>
 // CHECK-NEXT:    %[[V1:.*]] = call @iterators.{{[a-zA-Z]+}}.close.{{[0-9]+}}(%[[V0]]) : ([[upstreamStateType:.*]]) -> [[upstreamStateType]]
-// CHECK-NEXT:    %[[V2:.*]] = llvm.insertvalue %[[V1]], %[[arg0]][0 : index] : !llvm.struct<"[[filterStateName]]", ([[nestedUpstreamStateType]])>
-// CHECK-NEXT:    return %[[V2]] : !llvm.struct<"[[filterStateName]]", ([[nestedUpstreamStateType]])>
+// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V1]] : !iterators.state<i32>) : <!iterators.state<i32>>
+// CHECK-NEXT:    return %[[V2]] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:  }
 
-// CHECK-LABEL: func.func private @iterators.filter.next.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.filter_state{{.*}}", ({{.*}})>) -> (!llvm.struct<"iterators.filter_state{{.*}}", ({{.*}})>, i1, !llvm.struct<(i32)>)
-// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<"[[filterStateName:iterators\.filter_state.*]]", ([[nestedUpstreamStateType:.*]])>
+// CHECK-LABEL: func.func private @iterators.filter.next.{{[0-9]+}}(%{{.*}}: !iterators.state<!iterators.state<i32>>) -> (!iterators.state<!iterators.state<i32>>, i1, !llvm.struct<(i32)>)
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <!iterators.state<i32>> -> !iterators.state<i32>
 // CHECK-NEXT:    %[[V1:.*]]:3 = scf.while (%[[arg1:.*]] = %[[V0]]) : ([[upstreamStateType:.*]]) -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>) {
 // CHECK-NEXT:      %[[V3:.*]]:3 = func.call @iterators.{{[a-zA-Z]+}}.next.0(%[[arg1]]) : ([[upstreamStateType]]) -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>)
 // CHECK-NEXT:      %[[V4:.*]] = scf.if %[[V3]]#1 -> (i1) {
@@ -28,15 +28,15 @@
 // CHECK-NEXT:    ^bb0(%[[arg2:.*]]: [[upstreamStateType]], %arg2: i1, %arg3: !llvm.struct<(i32)>):
 // CHECK-NEXT:      scf.yield %[[arg2]] : [[upstreamStateType]]
 // CHECK-NEXT:    }
-// CHECK-NEXT:    %[[V2:.*]] = llvm.insertvalue %[[V1]]#0, %arg0[0 : index] : !llvm.struct<"iterators.filter_state", (struct<"iterators.constant_stream_state", (i32)>)>
-// CHECK-NEXT:    return %[[V2]], %[[V1]]#1, %[[V1]]#2 : !llvm.struct<"iterators.filter_state", (struct<"iterators.constant_stream_state", (i32)>)>, i1, !llvm.struct<(i32)>
+// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V1]]#0 : !iterators.state<i32>) : <!iterators.state<i32>>
+// CHECK-NEXT:    return %[[V2]], %[[V1]]#1, %[[V1]]#2 : !iterators.state<!iterators.state<i32>>, i1, !llvm.struct<(i32)>
 // CHECK-NEXT:  }
 
-// CHECK-LABEL: func.func private @iterators.filter.open.{{[0-9]+}}(%{{.*}}: !llvm.struct<"iterators.filter_state{{.*}}", ({{.*}})>) -> !llvm.struct<"iterators.filter_state{{.*}}", ({{.*}})>
-// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<"[[filterStateName:iterators\.filter_state.*]]", ([[nestedUpstreamStateType:.*]])>
+// CHECK-LABEL: func.func private @iterators.filter.open.{{[0-9]+}}(%{{.*}}: !iterators.state<!iterators.state<i32>>) -> !iterators.state<!iterators.state<i32>>
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <!iterators.state<i32>> -> !iterators.state<i32>
 // CHECK-NEXT:    %[[V1:.*]] = call @iterators.{{[a-zA-Z]+}}.open.{{[0-9]+}}(%[[V0]]) : ([[upstreamStateType:.*]]) -> [[upstreamStateType]]
-// CHECK-NEXT:    %[[V2:.*]] = llvm.insertvalue %[[V1]], %[[arg0]][0 : index] : !llvm.struct<"[[filterStateName]]", ([[nestedUpstreamStateType]])>
-// CHECK-NEXT:    return %[[V2]] : !llvm.struct<"[[filterStateName]]", ([[nestedUpstreamStateType]])>
+// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V1]] : !iterators.state<i32>) : <!iterators.state<i32>>
+// CHECK-NEXT:    return %[[V2]] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:  }
 
 func.func private @is_positive_struct(%struct : !element_type) -> i1 {
@@ -57,8 +57,8 @@ func.func @main() {
   %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
   %filter = "iterators.filter"(%input) {predicateRef = @is_positive_struct}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
-  // CHECK:        %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<"[[filterStateName:iterators\.filter_state.*]]", ([[nestedUpstreamStateType:.*]])>
-  // CHECK-NEXT:   %[[V2:.*]] = llvm.insertvalue %[[V0:.*]], %[[V1]][0 : index] : !llvm.struct<"[[filterStateName]]", ([[nestedUpstreamStateType]])>
+  // CHECK:        %[[V1:.*]] = iterators.undefstate : <!iterators.state<i32>>
+  // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V1]][0] (%[[V0:.*]] : !iterators.state<i32>) : <!iterators.state<i32>>
   return
   // CHECK-NEXT:   return
 }
