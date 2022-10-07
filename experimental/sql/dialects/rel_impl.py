@@ -585,7 +585,7 @@ class Project(Operator):
   def get(input: Operation, res_names: List[str], res_types: List[DataType],
           projection: Region) -> 'Project':
     return Project.create(operands=[input.result],
-                          result_types=[Bag.get(res_names, res_types)],
+                          result_types=[Bag.get(res_types, res_names)],
                           regions=[projection])
 
   @staticmethod
