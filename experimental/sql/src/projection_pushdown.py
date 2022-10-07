@@ -95,22 +95,13 @@ class ProjectionSimplifier(ProjectionOptimizer):
     if None in cols or len(op.names.data) == len(cols):
       return
 
-    input_schema = self.find_schema(op)
-    output_schema = self.flatten(
-        [self.find_cols_in_expr(o) for o in op.projections.ops])
+    res_names = [s.data for s in op.names.data]
 
-    # If there are any differences in the schemas this is a rename, in which
-    # case we do not apply this rewriter.
-    if input_schema != output_schema or [s.data for s in op.names.data
-                                        ] != output_schema:
-      return
+    child_dict = dict(zip(res_names, op.projections.ops))
 
-    for o in op.projections.ops:
-      if isinstance(o, RelAlg.Column) and not o.col_name.data in cols:
-        rewriter.erase_op(o)
     new_proj = RelAlg.Project.get(
         Region.from_operation_list([op.input.op.clone()]),
-        rewriter.move_region_contents_to_new_regions(op.projections),
+        Region.from_operation_list(map(lambda x: child_dict[x].clone(), cols)),
         ArrayAttr.from_list([StringAttr.from_str(s) for s in cols]))
     rewriter.replace_matched_op(new_proj)
 
