@@ -858,7 +858,7 @@ class SchemaElement(Operation):
 @irdl_op_definition
 class Between(Operation):
   """
-  Returns wheter `arg` is in between `lower_bound` and `upper_bound`.
+  Returns whether `arg` is in between `lower_bound` and `upper_bound`. These bounds are inclusive.
 
   https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/logical.py#L114
 
