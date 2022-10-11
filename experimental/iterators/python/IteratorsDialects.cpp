@@ -78,5 +78,23 @@ PYBIND11_MODULE(_iteratorsDialects, mainModule) {
   // Types
   //
 
-  // ...
+  mlir_type_subclass(tabularModule, "TabularViewType", mlirTypeIsATabularView)
+      .def_classmethod(
+          "get",
+          [](const py::object &cls, const py::list &columnTypeList,
+             MlirContext context) {
+            intptr_t num = py::len(columnTypeList);
+            // Mapping py::list to SmallVector.
+            llvm::SmallVector<MlirType, 4> columnTypes;
+            for (auto columnType : columnTypeList) {
+              columnTypes.push_back(columnType.cast<MlirType>());
+            }
+            return cls(
+                mlirTabularViewTypeGet(context, num, columnTypes.data()));
+          },
+          py::arg("cls"), py::arg("column_types"),
+          py::arg("context") = py::none())
+      .def("get_column_type", mlirTabularViewTypeGetColumnType, py::arg("pos"))
+      .def("get_num_column_types", mlirTabularViewTypeGetNumColumnTypes)
+      .def("get_row_type", mlirTabularViewTypeGetRowType);
 }
