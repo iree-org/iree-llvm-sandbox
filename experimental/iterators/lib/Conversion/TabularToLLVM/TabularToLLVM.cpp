@@ -11,6 +11,7 @@
 #include "../PassDetail.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Utils/MLIRSupport.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -36,11 +37,35 @@ struct ConvertTabularToLLVMPass
 /// Maps types from the Tabular dialect to corresponding types in LLVM.
 class TabularTypeConverter : public TypeConverter {
 public:
-  TabularTypeConverter() {
+  TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
+      : llvmTypeConverter(llvmTypeConverter) {
     addConversion([](Type type) { return type; });
+    addConversion(convertTabularViewType);
+
+    // Convert MemRefType using LLVMTypeConverter.
+    addConversion([&](Type type) -> llvm::Optional<Type> {
+      if (type.isa<MemRefType>())
+        return llvmTypeConverter.convertType(type);
+      return llvm::None;
+    });
   }
 
 private:
+  /// Maps a TabularViewType to an LLVMStruct of pointers, i.e., to a "struct of
+  /// arrays".
+  static Optional<Type> convertTabularViewType(Type type) {
+    if (auto viewType = type.dyn_cast<TabularViewType>()) {
+      Type dynamicSize = IntegerType::get(type.getContext(), /*width=*/64);
+      SmallVector<Type> fieldTypes{dynamicSize};
+      fieldTypes.reserve(viewType.getNumColumnTypes() + 1);
+      llvm::transform(viewType.getColumnTypes(), std::back_inserter(fieldTypes),
+                      [](Type t) { return LLVMPointerType::get(t); });
+      return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
+    }
+    return llvm::None;
+  }
+
+  LLVMTypeConverter llvmTypeConverter;
 };
 
 void mlir::iterators::populateTabularToLLVMConversionPatterns(
@@ -48,7 +73,8 @@ void mlir::iterators::populateTabularToLLVMConversionPatterns(
 
 void ConvertTabularToLLVMPass::runOnOperation() {
   auto module = getOperation();
-  TabularTypeConverter typeConverter;
+  LLVMTypeConverter llvmTypeConverter(&getContext());
+  TabularTypeConverter typeConverter(llvmTypeConverter);
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());

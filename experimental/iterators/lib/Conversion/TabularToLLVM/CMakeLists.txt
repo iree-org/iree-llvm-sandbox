@@ -8,6 +8,7 @@ add_mlir_conversion_library(MLIRTabularToLLVM
   IteratorsUtils
   MLIRFuncDialect
   MLIRFuncTransforms
+  MLIRLLVMCommonConversion
   MLIRLLVMDialect
   MLIRPass
   MLIRTabular
