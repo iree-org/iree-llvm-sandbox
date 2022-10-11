@@ -72,7 +72,11 @@ def visit_schema(schema: ibis.expr.schema.Schema) -> Region:
 def visit_ibis_expr_list(l: List[ibis.expr.types.Expr]) -> Region:
   ops = []
   for op in l:
-    ops.append(visit(op))
+    if isinstance(op.op(), ibis.expr.operations.logical.And):
+      ops.append(visit(op.op().left))
+      ops.append(visit(op.op().right))
+    else:
+      ops.append(visit(op))
   return Region.from_operation_list(ops)
 
 

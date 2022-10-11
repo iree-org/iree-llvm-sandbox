@@ -1,0 +1,11 @@
+# RUN: rel_opt.py -f ibis %s | filecheck %s
+
+table = ibis.table([("a", "string"), ("b", "int64"), ("c", "int64")], 't')
+table.filter([(table['a'] == 'AS') & (table.b == ibis.literal(5, "int64"))])
+
+# CHECK: ibis.equals()
+# CHECK: ibis.table_column() ["col_name" = "a"]
+# CHECK: ibis.literal() ["val" = "AS", "type" = !ibis.nullable<!ibis.string>]
+# CHECK: ibis.equals()
+# CHECK: ibis.table_column() ["col_name" = "b"]
+# CHECK: ibis.literal() ["val" = 5 : !i64, "type" = !ibis.nullable<!ibis.int64>]
