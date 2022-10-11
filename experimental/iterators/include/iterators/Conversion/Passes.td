@@ -58,4 +58,19 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// TabularToLLVM
+//===----------------------------------------------------------------------===//
+
+def ConvertTabularToLLVM : Pass<"convert-tabular-to-llvm", "ModuleOp"> {
+  let summary = "Convert the tabular dialect to the LLVM dialect";
+  let description = [{
+    Convert the data types and ops from the tabular dialect to the LLVM dialect.
+    The data types are typically variations of LLVM's structs and pointers; the
+    ops, thus, translate to the LLVM ops handling structs and pointers.
+  }];
+  let constructor = "mlir::createConvertTabularToLLVMPass()";
+  let dependentDialects = ["LLVM::LLVMDialect"];
+}
+
 #endif // ITERATORS_CONVERSION_PASSES

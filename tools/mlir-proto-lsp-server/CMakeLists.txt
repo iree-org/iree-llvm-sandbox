@@ -13,7 +13,9 @@ endif()
 
 if(SANDBOX_ENABLE_ITERATORS)
   list(APPEND dialect_libs MLIRIterators)
+  list(APPEND dialect_libs MLIRTabular)
   list(APPEND conversion_libs MLIRIteratorsToLLVM)
+  list(APPEND conversion_libs MLIRTabularToLLVM)
 endif()
 
 target_link_libraries(mlir-proto-lsp-server

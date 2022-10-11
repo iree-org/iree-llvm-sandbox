@@ -3,6 +3,7 @@
 import os
 
 from mlir_iterators.dialects import iterators as it
+from mlir_iterators.dialects import tabular as tab
 from mlir_iterators.passmanager import PassManager
 from mlir_iterators.execution_engine import ExecutionEngine
 from mlir_iterators.ir import Context, Module, IntegerType
@@ -13,6 +14,7 @@ def run(f):
   print("\nTEST:", f.__name__)
   with Context():
     it.register_dialect()
+    tab.register_dialect()
     f()
   return f
 

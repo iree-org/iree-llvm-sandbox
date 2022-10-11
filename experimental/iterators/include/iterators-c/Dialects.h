@@ -29,6 +29,12 @@ bool mlirTypeIsAIteratorsStreamType(MlirType type);
 MLIR_CAPI_EXPORTED
 MlirType mlirIteratorsStreamTypeGet(MlirContext context, MlirType elementType);
 
+//===----------------------------------------------------------------------===//
+// Tabular dialect and types
+//===----------------------------------------------------------------------===//
+
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Tabular, tabular);
+
 #ifdef __cplusplus
 }
 #endif

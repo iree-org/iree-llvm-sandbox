@@ -8,14 +8,25 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=mlir_iterators.")
 # Sources
 # ###############################################################################
 declare_mlir_python_sources(IteratorsPythonSources)
+declare_mlir_python_sources(IteratorsPythonSources.Dialects
+  ADD_TO_PARENT IteratorsPythonSources)
 
 declare_mlir_dialect_python_bindings(
-  ADD_TO_PARENT IteratorsPythonSources
+  ADD_TO_PARENT IteratorsPythonSources.Dialects
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_iterators"
   TD_FILE dialects/IteratorsOps.td
   SOURCES
   dialects/iterators.py
   DIALECT_NAME iterators
+)
+
+declare_mlir_dialect_python_bindings(
+  ADD_TO_PARENT IteratorsPythonSources.Dialects
+  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_iterators"
+  TD_FILE dialects/TabularOps.td
+  SOURCES
+  dialects/tabular.py
+  DIALECT_NAME tabular
 )
 
 declare_mlir_python_extension(IteratorsPythonSources.DialectExtension
