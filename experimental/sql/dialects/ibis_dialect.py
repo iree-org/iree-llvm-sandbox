@@ -856,6 +856,36 @@ class SchemaElement(Operation):
 
 
 @irdl_op_definition
+class Between(Operation):
+  """
+  Returns whether `arg` is in between `lower_bound` and `upper_bound`. These bounds are inclusive.
+
+  https://github.com/ibis-project/ibis/blob/f3d267b96b9f14d3616c17b8f7bdeb8d0a6fc2cf/ibis/expr/operations/logical.py#L114
+
+  Example:
+  '''
+  ibis.between() {
+    ibis.table_colum()...
+  } {
+    ibis.literal() ...
+  } {
+    ibis.literal()
+  }
+  '''
+  """
+  name = "ibis.between"
+
+  arg = SingleBlockRegionDef()
+  lower_bound = SingleBlockRegionDef()
+  upper_bound = SingleBlockRegionDef()
+
+  @builder
+  @staticmethod
+  def get(arg: Region, lower_bound: Region, upper_bound: Region) -> 'Between':
+    return Between.create(regions=[arg, lower_bound, upper_bound])
+
+
+@irdl_op_definition
 class Literal(Operation):
   """
   Defines a literal with value `val` and type `type`.
@@ -903,6 +933,7 @@ class Ibis:
     self.ctx.register_op(Selection)
     self.ctx.register_op(CartesianProduct)
     self.ctx.register_op(Multiply)
+    self.ctx.register_op(Between)
     self.ctx.register_op(Equals)
     self.ctx.register_op(GreaterEqual)
     self.ctx.register_op(GreaterThan)

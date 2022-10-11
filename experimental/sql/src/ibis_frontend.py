@@ -161,6 +161,14 @@ def visit(  #type: ignore
   return id.Selection.get(table, predicates, projections, sort_keys, names)
 
 
+@dispatch(ibis.expr.operations.logical.Between)
+def visit(op):
+  arg = Region.from_operation_list([visit(op.arg)])
+  lower_bound = Region.from_operation_list([visit(op.lower_bound)])
+  upper_bound = Region.from_operation_list([visit(op.upper_bound)])
+  return id.Between.get(arg, lower_bound, upper_bound)
+
+
 @dispatch(ibis.expr.operations.sortkeys.SortKey)
 def visit(op: ibis.expr.operations.sortkeys.SortKey) -> Operation:
   return id.SortKey.get(Region.from_operation_list([visit(op.expr)]),
