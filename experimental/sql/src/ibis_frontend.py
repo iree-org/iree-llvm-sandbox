@@ -72,6 +72,10 @@ def visit_schema(schema: ibis.expr.schema.Schema) -> Region:
 def visit_ibis_expr_list(l: List[ibis.expr.types.Expr]) -> Region:
   ops = []
   for op in l:
+    # TODO: This is a hack that rewrites top-level Ands. To do this properly,
+    # and handle all adds, first model And in ibis, then either rewrite this to
+    # a version using an optimization on the ibis dialect or model And in
+    # rel_alg and lower to that.
     if isinstance(op.op(), ibis.expr.operations.logical.And):
       ops.append(visit(op.op().left))
       ops.append(visit(op.op().right))
