@@ -55,8 +55,8 @@ private:
   /// arrays".
   static Optional<Type> convertTabularViewType(Type type) {
     if (auto viewType = type.dyn_cast<TabularViewType>()) {
-      Type i64 = IntegerType::get(type.getContext(), /*width=*/64);
-      SmallVector<Type> fieldTypes{i64};
+      Type dynamicSize = IntegerType::get(type.getContext(), /*width=*/64);
+      SmallVector<Type> fieldTypes{dynamicSize};
       fieldTypes.reserve(viewType.getNumColumnTypes() + 1);
       llvm::transform(viewType.getColumnTypes(), std::back_inserter(fieldTypes),
                       [](Type t) { return LLVMPointerType::get(t); });
