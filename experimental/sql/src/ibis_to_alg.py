@@ -275,6 +275,21 @@ class AddRewriter(IbisRewriter):
                          "+"))
 
 
+@dataclass
+class BetweenRewriter(IbisRewriter):
+
+  @op_type_rewrite_pattern
+  def match_and_rewrite(self, op: ibis.Between, rewriter: PatternRewriter):
+    rewriter.insert_op_before_matched_op(
+        RelAlg.Compare.get(
+            "<=", rewriter.move_region_contents_to_new_regions(op.lower_bound),
+            Region.from_operation_list([o.clone() for o in op.arg.ops])))
+    rewriter.replace_matched_op(
+        RelAlg.Compare.get(
+            "<=", rewriter.move_region_contents_to_new_regions(op.arg),
+            rewriter.move_region_contents_to_new_regions(op.upper_bound)))
+
+
 def ibis_to_alg(ctx: MLContext, query: ModuleOp):
   walker = PatternRewriteWalker(GreedyRewritePatternApplier([
       UnboundTableRewriter(),
@@ -293,6 +308,7 @@ def ibis_to_alg(ctx: MLContext, query: ModuleOp):
       DivideRewriter(),
       AddRewriter(),
       LimitRewriter(),
+      BetweenRewriter(),
       LiteralRewriter()
   ]),
                                 walk_regions_first=False,

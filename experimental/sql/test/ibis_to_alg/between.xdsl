@@ -1,0 +1,38 @@
+// RUN: rel_opt.py -p ibis-to-alg %s | filecheck %s
+
+module() {
+ ibis.selection() ["names" = []] {
+    ibis.unbound_table() ["table_name" = "t"] {
+      ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+      ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+      ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+    }
+  } {
+    ibis.between() {
+      ibis.table_column() ["col_name" = "b"] {
+        ibis.unbound_table() ["table_name" = "t"] {
+          ibis.schema_element() ["elt_name" = "a", "elt_type" = !ibis.nullable<!ibis.string>]
+          ibis.schema_element() ["elt_name" = "b", "elt_type" = !ibis.nullable<!ibis.int64>]
+          ibis.schema_element() ["elt_name" = "c", "elt_type" = !ibis.nullable<!ibis.int64>]
+        }
+      }
+    } {
+      ibis.literal() ["val" = 5 : !i64, "type" = !ibis.nullable<!ibis.int64>]
+    } {
+      ibis.literal() ["val" = 7 : !i64, "type" = !ibis.nullable<!ibis.int64>]
+    }
+  } {} {}
+}
+
+
+//      CHECK:  rel_alg.compare() ["comparator" = "<="] {
+// CHECK-NEXT:      rel_alg.literal() ["val" = 5 : !i64, "type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:    } {
+// CHECK-NEXT:      rel_alg.column() ["col_name" = "b"]
+// CHECK-NEXT:    }
+// CHECK-NEXT:    rel_alg.compare() ["comparator" = "<="] {
+// CHECK-NEXT:      rel_alg.column() ["col_name" = "b"]
+// CHECK-NEXT:    } {
+// CHECK-NEXT:      rel_alg.literal() ["val" = 7 : !i64, "type" = !rel_alg.nullable<!rel_alg.int64>]
+// CHECK-NEXT:    }
+// CHECK-NEXT:  }
