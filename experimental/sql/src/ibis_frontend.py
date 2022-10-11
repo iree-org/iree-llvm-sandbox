@@ -163,9 +163,10 @@ def visit(  #type: ignore
 
 @dispatch(ibis.expr.operations.logical.Between)
 def visit(op):
-  left_reg = Region.from_operation_list([visit(op.lower_bound)])
-  right_reg = Region.from_operation_list([visit(op.upper_bound)])
-  return id.Equals.get(left_reg, right_reg)
+  arg = Region.from_operation_list([visit(op.arg)])
+  lower_bound = Region.from_operation_list([visit(op.lower_bound)])
+  upper_bound = Region.from_operation_list([visit(op.upper_bound)])
+  return id.Between.get(arg, lower_bound, upper_bound)
 
 
 @dispatch(ibis.expr.operations.sortkeys.SortKey)
