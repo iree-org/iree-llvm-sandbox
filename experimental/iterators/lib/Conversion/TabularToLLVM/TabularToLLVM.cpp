@@ -51,7 +51,8 @@ public:
   }
 
 private:
-  /// Maps a TabularViewType to an LLVMStruct of pointers.
+  /// Maps a TabularViewType to an LLVMStruct of pointers, i.e., to a "struct of
+  /// arrays".
   static Optional<Type> convertTabularViewType(Type type) {
     if (auto viewType = type.dyn_cast<TabularViewType>()) {
       Type i64 = IntegerType::get(type.getContext(), /*width=*/64);
