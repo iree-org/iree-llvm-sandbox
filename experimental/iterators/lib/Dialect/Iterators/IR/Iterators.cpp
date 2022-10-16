@@ -62,6 +62,44 @@ void IteratorsDialect::initialize() {
 // Iterators operations
 //===----------------------------------------------------------------------===//
 
+/// Implement SymbolUserOpInterface.
+LogicalResult
+AccumulateOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  MLIRContext *context = getContext();
+  Type inputElementType =
+      getInput().getType().dyn_cast<StreamType>().getElementType();
+  Type resultElementType =
+      getResult().getType().dyn_cast<StreamType>().getElementType();
+
+  // Verify accumulate function.
+  func::FuncOp accumulateFunc = getAccumulateFunc();
+  if (!accumulateFunc)
+    return emitOpError() << "uses the symbol '" << getAccumulateFuncRef()
+                         << "', which does not reference a valid function";
+
+  Type accumulateFuncType = FunctionType::get(
+      context, {resultElementType, inputElementType}, resultElementType);
+  if (accumulateFunc.getFunctionType() != accumulateFuncType) {
+    return emitOpError() << "uses the symbol '" << getAccumulateFuncRef()
+                         << "', which does not refer to a function of type "
+                         << accumulateFuncType;
+  }
+
+  return success();
+}
+
+static ParseResult parseAccumulateInitValType(AsmParser & /*parser*/,
+                                              Type &initValType,
+                                              Type resultType) {
+  auto resultStreamType = resultType.cast<StreamType>();
+  initValType = resultStreamType.getElementType();
+  return success();
+}
+
+static void printAccumulateInitValType(AsmPrinter & /*printer*/,
+                                       Operation * /*op*/, Type /*initValType*/,
+                                       Type /*resultType*/) {}
+
 static ParseResult parseInsertValueType(AsmParser & /*parser*/, Type &valueType,
                                         Type stateType, IntegerAttr indexAttr) {
   int64_t index = indexAttr.getValue().getSExtValue();
