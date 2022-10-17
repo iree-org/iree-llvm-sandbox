@@ -303,6 +303,52 @@ def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
   let arguments = (ins Iterators_StreamOfLLVMStructOfNumerics:$input);
 }
 
+def Iterators_StreamToValueOp : Iterators_Base_Op<"stream_to_value",
+    [TypesMatchWith<"element type of input stream must match result type",
+                    "input", "result",
+                    "$_self.cast<StreamType>().getElementType()">]> {
+  let summary = "Produce a value from the first element of the input stream";
+  let description = [{
+    Consumes the first element of the given input stream and returns it. The
+    remaining elements from the input stream are not consumed.
+
+    The purpose of this op is to pass from "stream land" to "value land," i.e.,
+    to enable non-iterator ops to consume the results of a tree of iterator ops.
+
+    Example:
+    ```mlir
+    %stream = ...
+    %value = iterators.stream_to_value %stream : <i32>
+    ```
+  }];
+  let arguments = (ins Iterators_Stream:$input);
+  let results = (outs AnyType:$result, I1:$hasResult);
+  let assemblyFormat = "$input attr-dict `:` type($input)";
+}
+
+def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
+    [TypesMatchWith<"element type of result stream must match input type",
+                    "result", "input",
+                    "$_self.cast<StreamType>().getElementType()">]> {
+  let summary = "Produce a stream with the given value as a single element";
+  let description = [{
+    Produces a stream consisting of a single element, namely the value given as
+    input.
+
+    The purpose of this op is to pass from "value land" to "stream land," i.e.,
+    to enable iterator ops to consume arbitrary values as a (singleton) stream.
+
+    Example:
+    ```mlir
+    %value = arith.constant 42 : i32
+    %stream = iterators.value_to_stream %value : <i32>
+    ```
+  }];
+  let arguments = (ins AnyType:$input);
+  let results = (outs Iterators_Stream:$result);
+  let assemblyFormat = "$input attr-dict `:` type($result)";
+}
+
 //===----------------------------------------------------------------------===//
 // Ops related to Iterator bodies.
 //===----------------------------------------------------------------------===//
