@@ -1469,6 +1469,8 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
                               .create<UnrealizedConversionCastOp>(
                                   loc, convertedType, operand)
                               .getResult(0);
+        } else {
+          mappedOperand = operand;
         }
       }
 
