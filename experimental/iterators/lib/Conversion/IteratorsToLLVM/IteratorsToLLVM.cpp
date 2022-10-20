@@ -1479,10 +1479,14 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
 
     // Convert this op.
     Value converted = convertIteratorOp(op, mappedOperands, rewriter, analysis);
-    if (converted)
-      mapping.map(op->getResult(0), converted);
-    else
-      assert(isa<SinkOp>(op) && "Only sink ops convert to a null Value");
+    TypeSwitch<Operation *>(op)
+        .Case<IteratorOpInterface>([&](auto op) {
+          assert(converted && "Expected iterator op to be converted.");
+          mapping.map(op->getResult(0), converted);
+        })
+        .Case<SinkOp>([&](auto op) {
+          assert(!converted && "Expected sink op to convert to a null Value");
+        });
   }
 
   // Delete the original, now-converted iterator ops.
