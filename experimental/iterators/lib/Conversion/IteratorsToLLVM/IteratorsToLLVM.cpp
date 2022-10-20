@@ -1547,6 +1547,61 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
   return {};
 }
 
+/// Converts the given StreamToValueOp to LLVM using the converted operands.
+/// This consists of opening the input iterator, consuming one element (which is
+/// the result of this op), and closing it again. Pseudo code:
+///
+/// upstream->Open()
+/// value = upstream->Next()
+/// upstream->Close()
+///
+/// Possible result:
+///
+/// %0 = ...
+/// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
+/// %2:3 = call @iterators.upstream.next.0(%1) :
+///            (!nested_state) -> (!nested_state, i1, !element_type)
+/// %3 = call @iterators.upstream.close.0(%2#0) :
+///          (!nested_state) -> !nested_state
+static SmallVector<Value> convert(StreamToValueOp op,
+                                  StreamToValueOpAdaptor adaptor,
+                                  ArrayRef<IteratorInfo> upstreamInfos,
+                                  OpBuilder &rewriter) {
+  Location loc = op->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+
+  // Look up IteratorInfo about the upstream iterator.
+  IteratorInfo upstreamInfo = upstreamInfos[0];
+
+  Type stateType = upstreamInfo.stateType;
+  SymbolRefAttr openFunc = upstreamInfo.openFunc;
+  SymbolRefAttr nextFunc = upstreamInfo.nextFunc;
+  SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
+
+  // Open upstream iterator. ---------------------------------------------------
+  Value initialState = adaptor.input();
+  auto openCallOp = b.create<func::CallOp>(openFunc, stateType, initialState);
+  Value openedUpstreamState = openCallOp->getResult(0);
+
+  // Consume one element from upstream iterator --------------------------------
+  // Input and return types.
+  auto elementType = op.input().getType().cast<StreamType>().getElementType();
+  Type i1 = b.getI1Type();
+  SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
+
+  func::CallOp nextCallOp =
+      b.create<func::CallOp>(nextFunc, nextResultTypes, openedUpstreamState);
+
+  Value consumedUpstreamState = nextCallOp->getResult(0);
+  Value hasValue = nextCallOp->getResult(1);
+  Value value = nextCallOp->getResult(2);
+
+  // Close upstream iterator. --------------------------------------------------
+  b.create<func::CallOp>(closeFunc, stateType, consumedUpstreamState);
+
+  return {value, hasValue};
+}
+
 /// Converts the given op to LLVM using the converted operands from the upstream
 /// iterator. This function is essentially a switch between conversion functions
 /// for sink and non-sink iterator ops.
@@ -1579,7 +1634,7 @@ convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
         return SmallVector<Value>{
             convert(op, operands, opInfo, upstreamInfos, builder)};
       })
-      .Case<SinkOp>([&](auto op) {
+      .Case<SinkOp, StreamToValueOp>([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;
         OpAdaptor adaptor(operands, op->getAttrDictionary());
         return convert(op, adaptor, upstreamInfos, builder);
@@ -1669,8 +1724,9 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
   // to the worklist *after* all of its upstream iterators.
   SmallVector<Operation *, 16> workList;
   module->walk<WalkOrder::PreOrder>([&](Operation *op) {
-    TypeSwitch<Operation *, void>(op).Case<IteratorOpInterface, SinkOp>(
-        [&](Operation *op) { workList.push_back(op); });
+    TypeSwitch<Operation *, void>(op)
+        .Case<IteratorOpInterface, SinkOp, StreamToValueOp>(
+            [&](Operation *op) { workList.push_back(op); });
   });
 
   // Convert iterator ops in worklist order.
@@ -1712,6 +1768,12 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
           assert(converted.size() == 1 &&
                  "Expected iterator op to be converted to one value.");
           mapping.map(op->getResult(0), converted[0]);
+        })
+        .Case<StreamToValueOp>([&](auto op) {
+          assert(converted.size() == 2 &&
+                 "Expected StreamToValueOp to be converted to two values.");
+          op->getResult(0).replaceAllUsesWith(converted[0]);
+          op->getResult(1).replaceAllUsesWith(converted[1]);
         })
         .Case<SinkOp>([&](auto op) {
           assert(converted.empty() &&
