@@ -1258,7 +1258,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
-static Value convert(SinkOp op, ValueRange operands,
+static Value convert(SinkOp op, SinkOpAdaptor adaptor,
                      ArrayRef<IteratorInfo> upstreamInfos,
                      OpBuilder &rewriter) {
   Location loc = op->getLoc();
@@ -1273,7 +1273,7 @@ static Value convert(SinkOp op, ValueRange operands,
   SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
 
   // Open input iterator. ------------------------------------------------------
-  Value initialState = operands[0];
+  Value initialState = adaptor.input();
   auto openCallOp =
       builder.create<func::CallOp>(openFunc, stateType, initialState);
   Value openedUpstreamState = openCallOp->getResult(0);
@@ -1355,7 +1355,9 @@ static Value convertIteratorOp(Operation *op, ValueRange operands,
         return convert(op, operands, opInfo, upstreamInfos, builder);
       })
       .Case<SinkOp>([&](auto op) {
-        return convert(op, operands, upstreamInfos, builder);
+        using OpAdaptor = typename decltype(op)::Adaptor;
+        OpAdaptor adaptor(operands, op->getAttrDictionary());
+        return convert(op, adaptor, upstreamInfos, builder);
       });
 }
 
