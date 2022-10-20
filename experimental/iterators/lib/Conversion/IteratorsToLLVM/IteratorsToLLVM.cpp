@@ -1219,26 +1219,8 @@ buildCloseFuncInParentModule(Operation *originalOp, OpBuilder &builder,
 /// state based on the initial states of the upstream iterators and (2) building
 /// the op-specific Open/Next/Close functions.
 static Value convert(IteratorOpInterface op, ValueRange operands,
-                     OpBuilder &builder,
-                     const IteratorAnalysis &iteratorAnalysis) {
-  // IteratorInfo for this op.
-  IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(op);
-
-  // Assemble IteratorInfo for all the upstream iterators (i.e. all the defs).
-  llvm::SmallVector<IteratorInfo, 8> upstreamInfos;
-  for (Value operand : op->getOperands()) {
-    IteratorInfo upstreamInfo;
-
-    // Get info about operand *iff* it is defined by an iterator op; otherwise,
-    // leave IteratorInfo empty.
-    if (operand.getDefiningOp())
-      if (auto definingOp =
-              dyn_cast<IteratorOpInterface>(operand.getDefiningOp()))
-        upstreamInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
-
-    upstreamInfos.push_back(upstreamInfo);
-  }
-
+                     IteratorInfo opInfo, ArrayRef<IteratorInfo> upstreamInfos,
+                     OpBuilder &builder) {
   // Build Open/Next/Close functions.
   buildOpenFuncInParentModule(op, builder, opInfo, upstreamInfos);
   buildNextFuncInParentModule(op, builder, opInfo, upstreamInfos);
@@ -1276,19 +1258,19 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
-static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
-                     const IteratorAnalysis &iteratorAnalysis) {
+static Value convert(SinkOp op, ValueRange operands,
+                     ArrayRef<IteratorInfo> upstreamInfos,
+                     OpBuilder &rewriter) {
   Location loc = op->getLoc();
   ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Look up IteratorInfo about input iterator.
-  Operation *definingOp = op.input().getDefiningOp();
-  IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+  IteratorInfo upstreamInfo = upstreamInfos[0];
 
-  Type stateType = opInfo.stateType;
-  SymbolRefAttr openFunc = opInfo.openFunc;
-  SymbolRefAttr nextFunc = opInfo.nextFunc;
-  SymbolRefAttr closeFunc = opInfo.closeFunc;
+  Type stateType = upstreamInfo.stateType;
+  SymbolRefAttr openFunc = upstreamInfo.openFunc;
+  SymbolRefAttr nextFunc = upstreamInfo.nextFunc;
+  SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
 
   // Open input iterator. ------------------------------------------------------
   Value initialState = operands[0];
@@ -1347,12 +1329,33 @@ static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
 static Value convertIteratorOp(Operation *op, ValueRange operands,
                                OpBuilder &builder,
                                const IteratorAnalysis &iteratorAnalysis) {
+  // Look up IteratorInfo for this op.
+  IteratorInfo opInfo;
+  if (isa<IteratorOpInterface>(op))
+    opInfo = iteratorAnalysis.getExpectedIteratorInfo(op);
+
+  // Look up IteratorInfo for all the upstream iterators (i.e., all the defs).
+  SmallVector<IteratorInfo> upstreamInfos;
+  for (Value operand : op->getOperands()) {
+    IteratorInfo upstreamInfo;
+
+    // Get info about operand *iff* it is defined by an iterator op;
+    // otherwise, leave IteratorInfo empty.
+    if (operand.getDefiningOp())
+      if (auto definingOp =
+              dyn_cast<IteratorOpInterface>(operand.getDefiningOp()))
+        upstreamInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+
+    upstreamInfos.push_back(upstreamInfo);
+  }
+
+  // Call op-specific conversion.
   return TypeSwitch<Operation *, Value>(op)
       .Case<IteratorOpInterface>([&](auto op) {
-        return convert(op, operands, builder, iteratorAnalysis);
+        return convert(op, operands, opInfo, upstreamInfos, builder);
       })
       .Case<SinkOp>([&](auto op) {
-        return convert(op, operands, builder, iteratorAnalysis);
+        return convert(op, operands, upstreamInfos, builder);
       });
 }
 
