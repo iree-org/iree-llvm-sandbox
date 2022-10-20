@@ -113,6 +113,19 @@ StateType StateTypeComputer::operator()(
   return StateType::get(context, {indexType, viewType});
 }
 
+/// The state of ValueToStreamOp consists a Boolean indicating whether it has
+/// already returned its value (which is initialized to false and set to true in
+/// the first call to next) and the value it converts to a stream.
+template <>
+StateType StateTypeComputer::operator()(
+    ValueToStreamOp op, llvm::SmallVector<StateType> /*upstreamStateTypes*/) {
+  MLIRContext *context = op->getContext();
+  Type hasReturned = IntegerType::get(context, /*width=*/1);
+  Type valueType =
+      op->getResult(0).getType().cast<StreamType>().getElementType();
+  return StateType::get(context, {hasReturned, valueType});
+}
+
 /// Build IteratorInfo, assigning new unique names as needed. Takes the
 /// `StateType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
@@ -159,7 +172,8 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             FilterOp,
             MapOp,
             ReduceOp,
-            TabularViewToStreamOp
+            TabularViewToStreamOp,
+            ValueToStreamOp
             // clang-format on
             >([&](auto op) {
           llvm::SmallVector<StateType> upstreamStateTypes;

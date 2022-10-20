@@ -1159,6 +1159,92 @@ static Value buildStateCreation(TabularViewToStreamOp op,
 }
 
 //===----------------------------------------------------------------------===//
+// ValueToStreamOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that sets `hasReturned` to false. Possible output:
+///
+/// %3 = iterators.insertvalue %false into %arg0[1] : !iterators.state<i1, i32>
+static Value buildOpenBody(ValueToStreamOp op, OpBuilder &builder,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> /*upstreamInfos*/) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Reset hasReturned to false.
+  Value constFalse = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/1);
+  Value updatedState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), constFalse);
+
+  return updatedState;
+}
+
+/// Builds IR that returns the value in the first call and end-of-stream
+/// otherwise. Pseudo-code:
+///
+/// if hasReturned: return {}
+/// return value
+///
+/// Possible output:
+///
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<i1, i32>
+/// %true = arith.constant true
+/// %1 = arith.xori %true, %0 : i1
+/// %2 = iterators.extractvalue %arg0[1] : !iterators.state<i1, i32>
+/// %3 = iterators.insertvalue %true into %arg0[0] : !iterators.state<i1, i32>
+static llvm::SmallVector<Value, 4>
+buildNextBody(ValueToStreamOp op, OpBuilder &builder, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type i1 = b.getI1Type();
+
+  // Check if the iterator has returned an element already (since it should
+  // return one only in the first call to next).
+  Value hasReturned =
+      b.create<iterators::ExtractValueOp>(i1, initialState, b.getIndexAttr(0));
+
+  // Compute hasNext: we have an element iff we have not returned before, i.e.,
+  // iff "not hasReturend". We simulate "not" with "xor true".
+  Value constTrue = b.create<arith::ConstantIntOp>(/*value=*/1, /*width=*/1);
+  Value hasNext = b.create<arith::XOrIOp>(constTrue, hasReturned);
+
+  // Extract value as next element.
+  Value nextElement = b.create<iterators::ExtractValueOp>(
+      elementType, initialState, b.getIndexAttr(1));
+
+  // Update state.
+  Value finalState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), constTrue);
+
+  return {finalState, hasNext, nextElement};
+}
+
+/// Forwards the initial state. The ValueToStreamOp doesn't do anything on
+/// Close.
+static Value buildCloseBody(ValueToStreamOp /*op*/, OpBuilder & /*builder*/,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> /*upstreamInfos*/) {
+  return initialState;
+}
+
+/// Builds IR that initializes the iterator state with value. Possible output:
+///
+/// %0 = ...
+/// %1 = iterators.undefstate : !iterators.state<i1, i32>
+/// %2 = iterators.insertvalue %0 into %1[1] : !iterators.state<i1, i32>
+static Value buildStateCreation(ValueToStreamOp op,
+                                ValueToStreamOp::Adaptor adaptor,
+                                OpBuilder &builder, StateType stateType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Value undefState = b.create<UndefStateOp>(loc, stateType);
+  Value value = adaptor.input();
+  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(1),
+                                            value);
+}
+
+//===----------------------------------------------------------------------===//
 // Helpers for creating Open/Next/Close functions and state creation.
 //===----------------------------------------------------------------------===//
 
@@ -1216,7 +1302,8 @@ static Value buildOpenBody(Operation *op, OpBuilder &builder,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildOpenBody(op, builder, initialState, upstreamInfos);
@@ -1234,7 +1321,8 @@ buildNextBody(Operation *op, OpBuilder &builder, Value initialState,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildNextBody(op, builder, initialState, upstreamInfos,
@@ -1253,7 +1341,8 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildCloseBody(op, builder, initialState, upstreamInfos);
@@ -1270,7 +1359,8 @@ static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;
