@@ -1281,8 +1281,7 @@ static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
   ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Look up IteratorInfo about root iterator.
-  assert(operands.size() == 1);
-  Operation *definingOp = op->getOperand(0).getDefiningOp();
+  Operation *definingOp = op.input().getDefiningOp();
   IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
 
   Type stateType = opInfo.stateType;
@@ -1298,13 +1297,10 @@ static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
 
   // Consume root iterator in while loop --------------------------------------
   // Input and return types.
-  auto streamType = op->getOperand(0).getType().dyn_cast<StreamType>();
-  assert(streamType);
-  Type elementType = streamType.getElementType();
+  Type elementType = op.input().getType().cast<StreamType>().getElementType();
   Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
   SmallVector<Type> whileResultTypes = {stateType, elementType};
-  SmallVector<Location> whileResultLocs = {loc, loc};
 
   scf::WhileOp whileOp = scf::createWhileOp(
       builder, whileResultTypes, openedUpstreamState,
