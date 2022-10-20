@@ -1249,38 +1249,39 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
   return buildStateCreation(op, builder, stateType, operands);
 }
 
-/// Converts the given sink to LLVM using the converted operands from the root
-/// iterator. The current sink consumes the root iterator and prints each
-/// element it produces. Pseudo code:
+/// Converts the given sink to LLVM using the converted input iterator. The
+/// current sink consumes the input iterator and prints each element it
+/// produces. Pseudo code:
 ///
-/// rootIterator->Open()
-/// while (nextTuple = rootIterator->Next())
+/// input->Open()
+/// while (nextTuple = input->Next())
 ///   print(nextTuple)
-/// rootIterator->Close()
+/// input->Close()
 ///
 /// Possible result:
 ///
-/// %2 = ... // initialize state of root iterator
+/// %2 = ... // initialize state of input iterator
 /// %3 = call @iterators.reduce.open.1(%2) :
-///          (!root_state_type) -> !root_state_type
+///          (!input_state_type) -> !input_state_type
 /// %4:3 = scf.while (%arg0 = %3) :
-///            (!root_state_type) -> (!root_state_type, i1, !element_type) {
+///            (!input_state_type) -> (!input_state_type, i1, !element_type) {
 ///   %6:3 = call @iterators.reduce.next.1(%arg0) :
-///              (!root_state_type) -> (!root_state_type, i1, !element_type)
-///   scf.condition(%6#1) %6#0, %6#1, %6#2 : !root_state_type, i1, !element_type
+///              (!input_state_type) -> (!input_state_type, i1, !element_type)
+///   scf.condition(%6#1) %6#0, %6#1, %6#2 :
+///       !input_state_type, i1, !element_type
 /// } do {
-/// ^bb0(%arg0: !root_state_type, %arg1: i1, %arg2: !element_type):
+/// ^bb0(%arg0: !input_state_type, %arg1: i1, %arg2: !element_type):
 ///   "iterators.print"(%arg1) : (!element_type) -> ()
-///   scf.yield %arg0 : !root_state_type
+///   scf.yield %arg0 : !input_state_type
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
-///          (!root_state_type) -> !root_state_type
+///          (!input_state_type) -> !input_state_type
 static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
                      const IteratorAnalysis &iteratorAnalysis) {
   Location loc = op->getLoc();
   ImplicitLocOpBuilder builder(loc, rewriter);
 
-  // Look up IteratorInfo about root iterator.
+  // Look up IteratorInfo about input iterator.
   Operation *definingOp = op.input().getDefiningOp();
   IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
 
@@ -1289,13 +1290,13 @@ static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
   SymbolRefAttr nextFunc = opInfo.nextFunc;
   SymbolRefAttr closeFunc = opInfo.closeFunc;
 
-  // Open root iterator. ------------------------------------------------------
+  // Open input iterator. ------------------------------------------------------
   Value initialState = operands[0];
   auto openCallOp =
       builder.create<func::CallOp>(openFunc, stateType, initialState);
   Value openedUpstreamState = openCallOp->getResult(0);
 
-  // Consume root iterator in while loop --------------------------------------
+  // Consume input iterator in while loop. -------------------------------------
   // Input and return types.
   Type elementType = op.input().getType().cast<StreamType>().getElementType();
   Type i1 = builder.getI1Type();
@@ -1334,7 +1335,7 @@ static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
 
   Value consumedState = whileOp.getResult(0);
 
-  // Close root iterator. -----------------------------------------------------
+  // Close input iterator. -----------------------------------------------------
   builder.create<func::CallOp>(closeFunc, stateType, consumedState);
 
   return Value();
