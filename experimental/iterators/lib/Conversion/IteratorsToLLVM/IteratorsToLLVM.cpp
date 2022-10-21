@@ -1258,9 +1258,9 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
-static Value convert(SinkOp op, SinkOpAdaptor adaptor,
-                     ArrayRef<IteratorInfo> upstreamInfos,
-                     OpBuilder &rewriter) {
+static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
+                                  ArrayRef<IteratorInfo> upstreamInfos,
+                                  OpBuilder &rewriter) {
   Location loc = op->getLoc();
   ImplicitLocOpBuilder builder(loc, rewriter);
 
@@ -1320,15 +1320,15 @@ static Value convert(SinkOp op, SinkOpAdaptor adaptor,
   // Close input iterator. -----------------------------------------------------
   builder.create<func::CallOp>(closeFunc, stateType, consumedState);
 
-  return Value();
+  return {};
 }
 
 /// Converts the given op to LLVM using the converted operands from the upstream
 /// iterator. This function is essentially a switch between conversion functions
 /// for sink and non-sink iterator ops.
-static Value convertIteratorOp(Operation *op, ValueRange operands,
-                               OpBuilder &builder,
-                               const IteratorAnalysis &iteratorAnalysis) {
+static SmallVector<Value>
+convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
+                  const IteratorAnalysis &iteratorAnalysis) {
   // Look up IteratorInfo for this op.
   IteratorInfo opInfo;
   if (isa<IteratorOpInterface>(op))
@@ -1350,9 +1350,10 @@ static Value convertIteratorOp(Operation *op, ValueRange operands,
   }
 
   // Call op-specific conversion.
-  return TypeSwitch<Operation *, Value>(op)
+  return TypeSwitch<Operation *, SmallVector<Value>>(op)
       .Case<IteratorOpInterface>([&](auto op) {
-        return convert(op, operands, opInfo, upstreamInfos, builder);
+        return SmallVector<Value>{
+            convert(op, operands, opInfo, upstreamInfos, builder)};
       })
       .Case<SinkOp>([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;
@@ -1478,14 +1479,17 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
     }
 
     // Convert this op.
-    Value converted = convertIteratorOp(op, mappedOperands, rewriter, analysis);
+    SmallVector<Value> converted =
+        convertIteratorOp(op, mappedOperands, rewriter, analysis);
     TypeSwitch<Operation *>(op)
         .Case<IteratorOpInterface>([&](auto op) {
-          assert(converted && "Expected iterator op to be converted.");
-          mapping.map(op->getResult(0), converted);
+          assert(converted.size() == 1 &&
+                 "Expected iterator op to be converted to one value.");
+          mapping.map(op->getResult(0), converted[0]);
         })
         .Case<SinkOp>([&](auto op) {
-          assert(!converted && "Expected sink op to convert to a null Value");
+          assert(converted.empty() &&
+                 "Expected sink op to be converted to no value.");
         });
   }
 
