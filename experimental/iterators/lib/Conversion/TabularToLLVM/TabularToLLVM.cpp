@@ -35,39 +35,30 @@ struct ConvertTabularToLLVMPass
 };
 } // namespace
 
-/// Maps types from the Tabular dialect to corresponding types in LLVM.
-class TabularTypeConverter : public TypeConverter {
-public:
-  TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
-      : llvmTypeConverter(llvmTypeConverter) {
-    addConversion([](Type type) { return type; });
-    addConversion(convertTabularViewType);
+TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
+    : llvmTypeConverter(llvmTypeConverter) {
+  addConversion([](Type type) { return type; });
+  addConversion(convertTabularViewType);
 
-    // Convert MemRefType using LLVMTypeConverter.
-    addConversion([&](Type type) -> llvm::Optional<Type> {
-      if (type.isa<MemRefType>())
-        return llvmTypeConverter.convertType(type);
-      return llvm::None;
-    });
-  }
-
-private:
-  /// Maps a TabularViewType to an LLVMStruct of pointers, i.e., to a "struct of
-  /// arrays".
-  static Optional<Type> convertTabularViewType(Type type) {
-    if (auto viewType = type.dyn_cast<TabularViewType>()) {
-      Type dynamicSize = IntegerType::get(type.getContext(), /*width=*/64);
-      SmallVector<Type> fieldTypes{dynamicSize};
-      fieldTypes.reserve(viewType.getNumColumnTypes() + 1);
-      llvm::transform(viewType.getColumnTypes(), std::back_inserter(fieldTypes),
-                      [](Type t) { return LLVMPointerType::get(t); });
-      return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
-    }
+  // Convert MemRefType using LLVMTypeConverter.
+  addConversion([&](Type type) -> llvm::Optional<Type> {
+    if (type.isa<MemRefType>())
+      return llvmTypeConverter.convertType(type);
     return llvm::None;
-  }
+  });
+}
 
-  LLVMTypeConverter llvmTypeConverter;
-};
+Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
+  if (auto viewType = type.dyn_cast<TabularViewType>()) {
+    Type dynamicSize = IntegerType::get(type.getContext(), /*width=*/64);
+    SmallVector<Type> fieldTypes{dynamicSize};
+    fieldTypes.reserve(viewType.getNumColumnTypes() + 1);
+    llvm::transform(viewType.getColumnTypes(), std::back_inserter(fieldTypes),
+                    [](Type t) { return LLVMPointerType::get(t); });
+    return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
+  }
+  return llvm::None;
+}
 
 /// Lowers view_as_tabular to LLVM IR that extracts the bare pointers and the
 /// number of elements from the given memrefs.
