@@ -108,6 +108,7 @@ def testEndToEndStandalone():
 @run
 # CHECK-LABEL: TEST: testEndToEndWithInput
 def testEndToEndWithInput():
+  # Set up module that reads data from the outside.
   mod = Module.parse('''
       !struct_type = !llvm.struct<(i32,i64)>
       func.func @main(%input: !tabular.tabular_view<i32,i64>)
@@ -123,8 +124,13 @@ def testEndToEndWithInput():
       'reconcile-unrealized-casts,convert-scf-to-cf,convert-cf-to-llvm')
   pm.run(mod)
 
-  data = np.array([(0, 3), (1, 4), (2, 5)], dtype=[('a', 'i4'), ('b', 'i8')])
-  df = pd.DataFrame.from_records(data)
+  # Set up test data. Note that pandas data frames are have are columnar, i.e.,
+  # consist of one memory allocation per column.
+  data = {'a': [0, 1, 2], 'b': [3, 4, 5]}
+  df = pd.DataFrame.from_dict(data, dtype=int).astype({
+      'a': np.int32,  # Corresponds to MLIR's i32.
+      'b': np.int64,  # Corresponds to MLIR's i64.
+  })
   arg = ctypes.pointer(to_tabular_view_descriptor(df))
 
   # CHECK:      (0, 3)
