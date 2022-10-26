@@ -1403,26 +1403,8 @@ buildCloseFuncInParentModule(Operation *originalOp, OpBuilder &builder,
 /// state based on the initial states of the upstream iterators and (2) building
 /// the op-specific Open/Next/Close functions.
 static Value convert(IteratorOpInterface op, ValueRange operands,
-                     OpBuilder &builder,
-                     const IteratorAnalysis &iteratorAnalysis) {
-  // IteratorInfo for this op.
-  IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(op);
-
-  // Assemble IteratorInfo for all the upstream iterators (i.e. all the defs).
-  llvm::SmallVector<IteratorInfo, 8> upstreamInfos;
-  for (Value operand : op->getOperands()) {
-    IteratorInfo upstreamInfo;
-
-    // Get info about operand *iff* it is defined by an iterator op; otherwise,
-    // leave IteratorInfo empty.
-    if (operand.getDefiningOp())
-      if (auto definingOp =
-              dyn_cast<IteratorOpInterface>(operand.getDefiningOp()))
-        upstreamInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
-
-    upstreamInfos.push_back(upstreamInfo);
-  }
-
+                     IteratorInfo opInfo, ArrayRef<IteratorInfo> upstreamInfos,
+                     OpBuilder &builder) {
   // Build Open/Next/Close functions.
   buildOpenFuncInParentModule(op, builder, opInfo, upstreamInfos);
   buildNextFuncInParentModule(op, builder, opInfo, upstreamInfos);
@@ -1460,22 +1442,22 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// }
 /// %5 = call @iterators.reduce.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
-static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
-                     const IteratorAnalysis &iteratorAnalysis) {
+static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
+                                  ArrayRef<IteratorInfo> upstreamInfos,
+                                  OpBuilder &rewriter) {
   Location loc = op->getLoc();
   ImplicitLocOpBuilder builder(loc, rewriter);
 
   // Look up IteratorInfo about input iterator.
-  Operation *definingOp = op.input().getDefiningOp();
-  IteratorInfo opInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+  IteratorInfo upstreamInfo = upstreamInfos[0];
 
-  Type stateType = opInfo.stateType;
-  SymbolRefAttr openFunc = opInfo.openFunc;
-  SymbolRefAttr nextFunc = opInfo.nextFunc;
-  SymbolRefAttr closeFunc = opInfo.closeFunc;
+  Type stateType = upstreamInfo.stateType;
+  SymbolRefAttr openFunc = upstreamInfo.openFunc;
+  SymbolRefAttr nextFunc = upstreamInfo.nextFunc;
+  SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
 
   // Open input iterator. ------------------------------------------------------
-  Value initialState = operands[0];
+  Value initialState = adaptor.input();
   auto openCallOp =
       builder.create<func::CallOp>(openFunc, stateType, initialState);
   Value openedUpstreamState = openCallOp->getResult(0);
@@ -1522,21 +1504,45 @@ static Value convert(SinkOp op, ValueRange operands, OpBuilder &rewriter,
   // Close input iterator. -----------------------------------------------------
   builder.create<func::CallOp>(closeFunc, stateType, consumedState);
 
-  return Value();
+  return {};
 }
 
 /// Converts the given op to LLVM using the converted operands from the upstream
 /// iterator. This function is essentially a switch between conversion functions
 /// for sink and non-sink iterator ops.
-static Value convertIteratorOp(Operation *op, ValueRange operands,
-                               OpBuilder &builder,
-                               const IteratorAnalysis &iteratorAnalysis) {
-  return TypeSwitch<Operation *, Value>(op)
+static SmallVector<Value>
+convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
+                  const IteratorAnalysis &iteratorAnalysis) {
+  // Look up IteratorInfo for this op.
+  IteratorInfo opInfo;
+  if (isa<IteratorOpInterface>(op))
+    opInfo = iteratorAnalysis.getExpectedIteratorInfo(op);
+
+  // Look up IteratorInfo for all the upstream iterators (i.e., all the defs).
+  SmallVector<IteratorInfo> upstreamInfos;
+  for (Value operand : op->getOperands()) {
+    IteratorInfo upstreamInfo;
+
+    // Get info about operand *iff* it is defined by an iterator op;
+    // otherwise, leave IteratorInfo empty.
+    if (operand.getDefiningOp())
+      if (auto definingOp =
+              dyn_cast<IteratorOpInterface>(operand.getDefiningOp()))
+        upstreamInfo = iteratorAnalysis.getExpectedIteratorInfo(definingOp);
+
+    upstreamInfos.push_back(upstreamInfo);
+  }
+
+  // Call op-specific conversion.
+  return TypeSwitch<Operation *, SmallVector<Value>>(op)
       .Case<IteratorOpInterface>([&](auto op) {
-        return convert(op, operands, builder, iteratorAnalysis);
+        return SmallVector<Value>{
+            convert(op, operands, opInfo, upstreamInfos, builder)};
       })
       .Case<SinkOp>([&](auto op) {
-        return convert(op, operands, builder, iteratorAnalysis);
+        using OpAdaptor = typename decltype(op)::Adaptor;
+        OpAdaptor adaptor(operands, op->getAttrDictionary());
+        return convert(op, adaptor, upstreamInfos, builder);
       });
 }
 
@@ -1657,11 +1663,18 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
     }
 
     // Convert this op.
-    Value converted = convertIteratorOp(op, mappedOperands, rewriter, analysis);
-    if (converted)
-      mapping.map(op->getResult(0), converted);
-    else
-      assert(isa<SinkOp>(op) && "Only sink ops convert to a null Value");
+    SmallVector<Value> converted =
+        convertIteratorOp(op, mappedOperands, rewriter, analysis);
+    TypeSwitch<Operation *>(op)
+        .Case<IteratorOpInterface>([&](auto op) {
+          assert(converted.size() == 1 &&
+                 "Expected iterator op to be converted to one value.");
+          mapping.map(op->getResult(0), converted[0]);
+        })
+        .Case<SinkOp>([&](auto op) {
+          assert(converted.empty() &&
+                 "Expected sink op to be converted to no value.");
+        });
   }
 
   // Delete the original, now-converted iterator ops.
