@@ -112,9 +112,8 @@ def testEndToEndWithInput():
       !struct_type = !llvm.struct<(i32,i64)>
       func.func @main(%input: !tabular.tabular_view<i32,i64>)
           attributes { llvm.emit_c_interface } {
-        %stream = "iterators.tabular_view_to_stream"(%input)
-          : (!tabular.tabular_view<i32,i64>)
-            -> !iterators.stream<!struct_type>
+        %stream = iterators.tabular_view_to_stream %input
+          to !iterators.stream<!struct_type>
         "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
         return
       }
