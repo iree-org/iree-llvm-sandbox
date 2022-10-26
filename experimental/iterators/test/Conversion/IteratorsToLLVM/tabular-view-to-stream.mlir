@@ -36,8 +36,8 @@
 
 func.func @main(%input : !tabular.tabular_view<i32>) {
   // CHECK-LABEL: func.func @main(%{{arg.*}}: !llvm.struct<(i64, ptr<i32>)>) {
-  %stream = "iterators.tabular_view_to_stream"(%input)
-    : (!tabular.tabular_view<i32>) -> !iterators.stream<!llvm.struct<(i32)>>
+  %stream = iterators.tabular_view_to_stream %input
+                to !iterators.stream<!llvm.struct<(i32)>>
   // CHECK-NEXT:    %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<"[[tabularViewToStreamStateName:iterators\.tabular_view_to_stream_state.*]]", (i64, struct<(i64, ptr<i32>)>)>
   // CHECK-NEXT:    %[[V2:.*]] = llvm.insertvalue %[[arg:.*]], %[[V1]][1 : index] : !llvm.struct<"[[tabularViewToStreamStateName]]", (i64, struct<(i64, ptr<i32>)>)>
   return

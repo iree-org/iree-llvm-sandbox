@@ -15,8 +15,8 @@ func.func @single_block() {
   %m2 = bufferization.to_memref %t2 : memref<3xi64>
   %view = "tabular.view_as_tabular"(%m1, %m2)
     : (memref<3xi32>, memref<3xi64>) -> !tabular.tabular_view<i32,i64>
-  %stream = "iterators.tabular_view_to_stream"(%view)
-    : (!tabular.tabular_view<i32,i64>) -> !iterators.stream<!struct_type>
+  %stream = iterators.tabular_view_to_stream %view
+    to !iterators.stream<!struct_type>
   "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
   // CHECK:      (0, 3)
   // CHECK-NEXT: (1, 4)
@@ -25,8 +25,8 @@ func.func @single_block() {
 }
 
 func.func @query(%view : !tabular.tabular_view<i32,i64>) {
-  %stream = "iterators.tabular_view_to_stream"(%view)
-    : (!tabular.tabular_view<i32,i64>) -> !iterators.stream<!struct_type>
+  %stream = iterators.tabular_view_to_stream %view
+    to !iterators.stream<!struct_type>
   "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
   return
 }

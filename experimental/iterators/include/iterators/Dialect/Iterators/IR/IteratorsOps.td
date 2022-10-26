@@ -267,11 +267,12 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
 }
 
 def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
-    [AllMatch<["$input.getType().cast<TabularViewType>().getColumnTypes()",
-               "$result.getType().cast<StreamType>().getElementType()"
-               "    .cast<LLVM::LLVMStructType>().getBody()"],
-              "the field types of the LLVM struct in the result stream must "
-              "match the column types of the tabular view given as input">]> {
+    [TypesMatchWith<"element type of input stream must match result type",
+                    "result", "input",
+                    "TabularViewType::get("
+                    "    $_self.getContext(),"
+                    "    $_self.cast<StreamType>().getElementType()"
+                    "          .cast<LLVM::LLVMStructType>().getBody())">]> {
   let summary = "Extracts the tuples from a tabular view as LLVM structs";
   let description = [{
     Produces a stream of LLVM structs from a given `tabular_view` (i.e., "scans"
@@ -280,13 +281,13 @@ def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
 
     Example:
     ```mlir
-    %stream = "iterators.tabular_view_to_stream"(%view)
-      : (!iterators.tabular_view<!t1, ..., !tn>)
-        -> !iterators.stream<!llvm.struct<(!t1, ..., !tn)>>
+    %stream = iterators.tabular_view_to_stream %view
+                  to !iterators.stream<!llvm.struct<(!t1, ..., !tn)>>
     ```
   }];
   let arguments = (ins Tabular_TabularView:$input);
   let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let assemblyFormat = "$input attr-dict `to` type($result)";
 }
 
 /// The sink op is a special op that only consumes a stream of values and
