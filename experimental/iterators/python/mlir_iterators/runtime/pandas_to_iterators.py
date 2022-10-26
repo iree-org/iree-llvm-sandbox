@@ -25,7 +25,8 @@ def to_tabular_view_descriptor(df: pd.DataFrame):
   '''
   Converts the given DataFrame to an instance of ctype.Structure equivalent to
   what an instance of a corresponding tabular.TabularViewType would get lowered
-  to by TabularToLLVM.
+  to by TabularToLLVM. This is zero-copy: the conversion constis of extracting
+  the pointers from the pandas data structure and wrapping those.
   '''
 
   dtypes = [np.ctypeslib.as_ctypes_type(t) for t in df.dtypes]
