@@ -273,11 +273,16 @@ def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
                     "    $_self.getContext(),"
                     "    $_self.cast<StreamType>().getElementType()"
                     "          .cast<LLVM::LLVMStructType>().getBody())">]> {
+  // TODO(ingomueller): Get rid of the LLVM dependency after designing a row
+  //                    type or similar.
   let summary = "Extracts the tuples from a tabular view as LLVM structs";
   let description = [{
     Produces a stream of LLVM structs from a given `tabular_view` (i.e., "scans"
     the given `tabular_view`). Each LLVM struct represents one row, and the op
     produces all rows in ascending order.
+
+    The current dependency on LLVM is not elegant and only a temporary solution
+    before we get a more high-level `row` type or similar.
 
     Example:
     ```mlir
