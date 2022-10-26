@@ -6,6 +6,7 @@ add_mlir_library(MLIRIterators
   MLIRInferTypeOpInterface
   MLIRIR
   MLIRLLVMDialect
+  MLIRTabular
 
   DEPENDS
   MLIRIteratorsInterfacesIncGen

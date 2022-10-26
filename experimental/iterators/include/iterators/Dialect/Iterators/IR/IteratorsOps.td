@@ -11,6 +11,7 @@
 
 include "iterators/Dialect/Iterators/IR/IteratorsDialect.td"
 include "iterators/Dialect/Iterators/IR/IteratorsTypes.td"
+include "iterators/Dialect/Tabular/IR/TabularTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpBase.td"
 
@@ -263,6 +264,35 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
           *this, reduceFuncRefAttr());
     }
   }];
+}
+
+def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
+    [TypesMatchWith<"element type of input stream must match result type",
+                    "result", "input",
+                    "TabularViewType::get("
+                    "    $_self.getContext(),"
+                    "    $_self.cast<StreamType>().getElementType()"
+                    "          .cast<LLVM::LLVMStructType>().getBody())">]> {
+  // TODO(ingomueller): Get rid of the LLVM dependency after designing a row
+  //                    type or similar.
+  let summary = "Extracts the tuples from a tabular view as LLVM structs";
+  let description = [{
+    Produces a stream of LLVM structs from a given `tabular_view` (i.e., "scans"
+    the given `tabular_view`). Each LLVM struct represents one row, and the op
+    produces all rows in ascending order.
+
+    The current dependency on LLVM is not elegant and only a temporary solution
+    before we get a more high-level `row` type or similar.
+
+    Example:
+    ```mlir
+    %stream = iterators.tabular_view_to_stream %view
+                  to !iterators.stream<!llvm.struct<(!t1, ..., !tn)>>
+    ```
+  }];
+  let arguments = (ins Tabular_TabularView:$input);
+  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let assemblyFormat = "$input attr-dict `to` type($result)";
 }
 
 /// The sink op is a special op that only consumes a stream of values and
