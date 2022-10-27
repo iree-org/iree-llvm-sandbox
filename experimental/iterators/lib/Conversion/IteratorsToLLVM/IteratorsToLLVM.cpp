@@ -145,7 +145,6 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
     Location loc = op->getLoc();
 
     // Convert tuple type.
-    assert(op->getNumResults() == 1);
     Type tupleType = op.tuple().getType();
     Type structType = typeConverter->convertType(tupleType);
 
@@ -154,7 +153,6 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
 
     // Insert values.
     ArrayAttr values = op.values();
-    assert(values);
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
       // Create constant value op.
       Attribute field = values[i];
@@ -196,8 +194,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     Location loc = op->getLoc();
     Type i32 = rewriter.getI32Type();
 
-    auto structType = adaptor.element().getType().dyn_cast<LLVMStructType>();
-    assert(structType && "Only struct types supported for now");
+    auto structType = adaptor.element().getType().cast<LLVMStructType>();
 
     // Assemble format string in the form `(%lli, %lg, ...)`.
     std::string format("(");
@@ -723,8 +720,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
       createExtractValueOp(b, upstreamStateType, initialState, {0});
 
   // Extract input element type.
-  StreamType inputStreamType = op.input().getType().dyn_cast<StreamType>();
-  assert(inputStreamType);
+  StreamType inputStreamType = op.input().getType().cast<StreamType>();
   Type inputElementType = inputStreamType.getElementType();
 
   // Call next.
@@ -1360,9 +1356,7 @@ buildNextFuncInParentModule(Operation *originalOp, OpBuilder &builder,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   // Compute element type.
   assert(originalOp->getNumResults() == 1);
-  StreamType streamType =
-      originalOp->getResult(0).getType().dyn_cast<StreamType>();
-  assert(streamType);
+  StreamType streamType = originalOp->getResult(0).getType().cast<StreamType>();
   Type elementType = streamType.getElementType();
 
   // Build function.
