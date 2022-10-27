@@ -280,6 +280,15 @@ static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
 
 /// Creates a constant global array with the constant stream data provided in
 /// the $value attribute of the given op.
+///
+/// Possible result:
+///
+/// llvm.mlir.global internal constant @iterators.constant_stream_data.0() :
+///     !llvm.array<4 x !element_type> {
+///   %0 = llvm.mlir.undef : !llvm.array<4 x !element_type>
+///   // ...
+///   llvm.return %n : !llvm.array<4 x !element_type>
+/// }
 static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
                                 Type elementType) {
   Location loc = op->getLoc();
@@ -340,12 +349,7 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 ///
 /// Possible result:
 ///
-/// llvm.mlir.global internal constant @iterators.constant_stream_data.0() :
-///     !llvm.array<4 x !element_type> {
-///   %0 = llvm.mlir.undef : !llvm.array<4 x !element_type>
-///   // ...
-///   llvm.return %n : !llvm.array<4 x !element_type>
-/// }
+/// llvm.mlir.global internal constant @iterators.constant_stream_data.0() : ...
 /// // ...
 /// %0 = llvm.extractvalue %arg0[0 : index] :
 ///          !llvm.struct<"iterators.constant_stream_state", (i32)>
