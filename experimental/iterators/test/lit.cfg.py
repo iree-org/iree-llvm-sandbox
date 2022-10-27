@@ -46,3 +46,8 @@ config.environment["PYTHONPATH"] = ":".join(sys.path)
 config.environment["PATH"] = ":".join(sys.path)
 config.environment["RUNTIMELIB"] = os.path.join(lib_dir, 'libruntime_utils.so')
 project_root = os.path.dirname(os.path.dirname(__file__))
+
+# Deactivate Python's output buffering. Otherwise, output on stdout from Python
+# gets delayed with respect to output from native libraries (such as the MLIR
+# Python bindings) such that order is not preserved and FileCheck checks fail.
+config.environment['PYTHONUNBUFFERED'] = '1'
