@@ -352,7 +352,8 @@ def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
 
     ```
     %state = ...
-    %value = iterators.extractvalue %state[0] : !iterators.state<i32, tensor<?xi32>> -> i32
+    %value = iterators.extractvalue %state[0] :
+                 !iterators.state<i32, tensor<?xi32>> -> i32
     ```
   }];
 }
@@ -386,7 +387,8 @@ def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
     ```
     %state = ...
     %value = ...
-    %updated_state = iterators.insertvalue %state[0] (%value : i32) : !iterators.state<i32, tensor<?xi32>>
+    %updated_state = iterators.insertvalue %state[0] (%value : i32) :
+                         !iterators.state<i32, tensor<?xi32>>
     ```
   }];
 }
