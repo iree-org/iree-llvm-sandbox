@@ -310,7 +310,7 @@ def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
 def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate", [NoSideEffect]> {
   let summary = "Create an undefined iterator state";
   let results = (outs Iterators_State:$result);
-  let assemblyFormat = "attr-dict `:` type($result)";
+  let assemblyFormat = "attr-dict `:` qualified(type($result))";
   let description = [{
     Creates an iterator state of the given type with undefined field values.
     All fields have to be set individually with `insertvalue` before the whole
@@ -340,7 +340,8 @@ def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
   let arguments = (ins Iterators_State:$state, IndexAttr:$index);
   let results = (outs AnyType:$result);
   let assemblyFormat = [{
-    $state `[` $index `]` attr-dict `:` type($state) `->` type($result)
+    $state `[` $index `]` attr-dict `:`
+      qualified(type($state)) `->` qualified(type($result))
   }];
   let description = [{
     Extracts the value of the given iterator state at the given index.
@@ -372,7 +373,8 @@ def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
   let arguments = (ins Iterators_State:$state, IndexAttr:$index, AnyType:$value);
   let results = (outs Iterators_State:$result);
   let assemblyFormat = [{
-    $state `[` $index `]` `(` $value `:` type($value) `)` attr-dict `:` type($result)
+    $state `[` $index `]` `(` $value `:` qualified(type($value)) `)`
+      attr-dict `:` qualified(type($result))
   }];
   let description = [{
     Inserts the given value into the given iterator state at the given index.
