@@ -258,7 +258,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
 /// Builds IR that resets the current index to 0. Possible result:
 ///
 /// %0 = llvm.mlir.constant(0 : i32) : i32
-/// %1 = iterators.insertvalue %arg0[0] (%0 : i32) : <i32>
+/// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
 static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
@@ -348,13 +348,13 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 ///
 /// llvm.mlir.global internal constant @iterators.constant_stream_data.0() : ...
 /// // ...
-/// %0 = iterators.extractvalue %arg0[0] : <i32> -> i32
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<i32>
 /// %c4_i32 = arith.constant 4 : i32
 /// %1 = arith.cmpi slt, %0, %c4_i32 : i32
 /// %2:2 = scf.if %1 -> (!iterators.state<i32>, !element_type) {
 ///   %c1_i32 = arith.constant 1 : i32
 ///   %3 = arith.addi %0, %c1_i32 : i32
-///   %4 = iterators.insertvalue %arg0[0] (%3 : i32) : <i32>
+///   %4 = iterators.insertvalue %3 into %arg0[0] : !iterators.state<i32>
 ///   %5 = llvm.mlir.addressof @iterators.constant_stream_data.0 :
 ///            !llvm.ptr<array<4 x !element_type>>
 ///   %c0_i32 = arith.constant 0 : i32
@@ -435,7 +435,7 @@ static Value buildCloseBody(ConstantStreamOp /*op*/, OpBuilder & /*builder*/,
 /// (uninitialized) current index. Possible result:
 ///
 /// %0 = llvm.mlir.constant(0 : i32) : i32
-/// %1 = iterators.insertvalue %arg0[0] (%0 : i32) : <i32>
+/// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
 static Value buildStateCreation(ConstantStreamOp op,
                                 ConstantStreamOp::Adaptor /*adaptor*/,
                                 OpBuilder &builder, StateType stateType) {
@@ -448,9 +448,10 @@ static Value buildStateCreation(ConstantStreamOp op,
 
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
-/// %2 = iterators.insertvalue %arg0[0] (%1 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -485,7 +486,7 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 ///
 /// Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1:3 = scf.while (%arg1 = %0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type) {
 ///   %3:3 = func.call @iterators.upstream.next.0(%arg1) :
@@ -504,7 +505,8 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 /// ^bb0(%arg1: !nested_state, %arg2: i1, %arg3: !element_type):
 ///   scf.yield %arg1 : !nested_state
 /// }
-/// %2 = iterators.insertvalue %arg0[0] (%1#0 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1#0 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static llvm::SmallVector<Value, 4>
 buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -582,9 +584,10 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1 = call @iterators.upstream.close.0(%0) : (!nested_state) -> !nested_state
-/// %2 = iterators.insertvalue %arg0[0] (%1 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -613,8 +616,8 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : <!nested_state>
-/// %2 = iterators.insertvalue %1[0] (%0 : !nested_state) : <!nested_state>
+/// %1 = iterators.undefstate : !iterators.state<!nested_state>
+/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
 static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
@@ -631,9 +634,10 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
 
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
-/// %2 = iterators.insertvalue %arg0[0] (%1 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -668,7 +672,7 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
 ///
 /// Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1:3 = call @iterators.upstream.next.0(%0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type)
 /// %2 = scf.if %1#1 -> (!element_type) {
@@ -678,7 +682,8 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
 ///   %4 = llvm.mlir.undef : !element_type
 ///   scf.yield %4 : !element_type
 /// }
-/// %3 = iterators.insertvalue %arg0[0] (%1#0 : !nested_state) : <!nested_state>
+/// %3 = iterators.insertvalue %1#0 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static llvm::SmallVector<Value, 4>
 buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -734,9 +739,10 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1 = call @iterators.upstream.close.0(%0) : (!nested_state) -> !nested_state
-/// %2 = iterators.insertvalue %arg0[0] (%1 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -763,8 +769,8 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : <!nested_state>
-/// %2 = iterators.insertvalue %1[0] (%0 : !nested_state) : <!nested_state>
+/// %1 = iterators.undefstate : !iterators.state<!nested_state>
+/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
 static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
@@ -781,9 +787,10 @@ static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
 
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
-/// %2 = iterators.insertvalue %arg0[0] (%1 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -819,7 +826,7 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
 ///
 /// Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1:3 = call @iterators.upstream.next.0(%0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type)
 /// %2:3 = scf.if %1#1 -> (!nested_state, i1, !element_type) {
@@ -841,7 +848,8 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
 /// } else {
 ///   scf.yield %1#0, %1#1, %1#2 : !nested_state, i1, !element_type
 /// }
-/// %3 = iterators.insertvalue %arg0[0] (%2#0 : !nested_state) : <!nested_state>
+/// %3 = iterators.insertvalue %2#0 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static llvm::SmallVector<Value, 4>
 buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -944,9 +952,10 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <!nested_state> -> !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1 = call @iterators.upstream.close.0(%0) : (!nested_state) -> !nested_state
-/// %2 = iterators.insertvalue %arg0[0] (%1 : !nested_state) : <!nested_state>
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -975,8 +984,8 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : <!nested_state>
-/// %2 = iterators.insertvalue %1[0] (%0 : !nested_state) : <!nested_state>
+/// %1 = iterators.undefstate : !iterators.state<!nested_state>
+/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
 static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
@@ -994,7 +1003,8 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
 /// Builds IR that (re) sets the current index to zero. Possible output:
 ///
 /// %0 = llvm.mlir.constant(0 : i64) : i64
-/// %1 = iterators.insertvalue %arg0[0] (%0 : i64) : <i64, !tabular_view_type>
+/// %1 = iterators.insertvalue %0 into %arg0[0] :
+///          !iterators.state<i64, !tabular_view_type>
 static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
@@ -1018,16 +1028,18 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 ///
 /// Possible output:
 ///
-/// %0 = iterators.extractvalue %arg0[0] : <i64, !tabular_view_type> -> i64
+/// %0 = iterators.extractvalue %arg0[0] :
+///          !iterators.state<i64, !tabular_view_type>
 /// %1 = iterators.extractvalue %arg0[1] :
-///          <i64, !tabular_view_type> -> !tabular_view_type
+///          !iterators.state<i64, !tabular_view_type>
 /// %2 = llvm.extractvalue %1[0 : index] : !tabular_view_type
 /// %3 = arith.cmpi slt, %0, %2 : i64
 /// %4:2 = scf.if %3 -> (!iterators.state<i64, !tabular_view_type>,
 ///                      !element_type) {
 ///   %c1_i64 = arith.constant 1 : i64
 ///   %5 = arith.addi %0, %c1_i64 : i64
-///   %6 = iterators.insertvalue %arg0[0] (%5 : i64) : <i64, !tabular_view_type>
+///   %6 = iterators.insertvalue %5 into %arg0[0] :
+///            !iterators.state<i64, !tabular_view_type>
 ///   %7 = llvm.mlir.undef : !element_type
 ///   %8 = llvm.extractvalue %1[1 : index] : !tabular_view_type
 ///   %9 = llvm.getelementptr %8[%0] : (!llvm.ptr<i32>, i64) -> !llvm.ptr<i32>
@@ -1130,7 +1142,7 @@ static Value buildCloseBody(TabularViewToStreamOp /*op*/,
 /// buffers and an undefined current index. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : <i64, !tabular_view_type>
+/// %1 = iterators.undefstate : !iterators.state<i64, !tabular_view_type>
 /// %2 = iterators.insertvalue %1[1] (%0 : !tabular_view_type) :
 ///          <i64, !tabular_view_type>
 static Value buildStateCreation(TabularViewToStreamOp op,
