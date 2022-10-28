@@ -29,13 +29,13 @@
 // CHECK-NEXT:   }
 
 // CHECK-LABEL: func private @iterators.constantstream.next.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
-// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <i32> -> i32
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : !iterators.state<i32>
 // CHECK-NEXT:    %[[V1:.*]] = arith.constant 4 : i32
 // CHECK-NEXT:    %[[V2:.*]] = arith.cmpi slt, %[[V0]], %[[V1]] : i32
 // CHECK-NEXT:    %[[V3:.*]]:2 = scf.if %[[V2]] -> (!iterators.state<i32>, !llvm.struct<(i32)>) {
 // CHECK-NEXT:      %[[V4:.*]] = arith.constant 1 : i32
 // CHECK-NEXT:      %[[V5:.*]] = arith.addi %[[V0]], %[[V4]] : i32
-// CHECK-NEXT:      %[[V6:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V5]] : i32) : <i32>
+// CHECK-NEXT:      %[[V6:.*]] = iterators.insertvalue %[[V5]] into %[[arg0]][0] : !iterators.state<i32>
 // CHECK-NEXT:      %[[V7:.*]] = llvm.mlir.addressof @iterators.constant_stream_data{{.*}} : !llvm.ptr<array<4 x struct<(i32)>>>
 // CHECK-NEXT:      %[[V8:.*]] = arith.constant 0 : i32
 // CHECK-NEXT:      %[[V9:.*]] = llvm.getelementptr %[[V7]][%[[V8]], %[[V0]]] : (!llvm.ptr<array<4 x struct<(i32)>>>, i32, i32) -> !llvm.ptr<struct<(i32)>>
@@ -50,7 +50,7 @@
 
 // CHECK-LABEL: func private @iterators.constantstream.open.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> !iterators.state<i32>
 // CHECK-NEXT:    %[[V0:.*]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-NEXT:    %[[V1:.*]] = iterators.insertvalue %[[arg0:.*]][0] (%[[V0]] : i32) : <i32>
+// CHECK-NEXT:    %[[V1:.*]] = iterators.insertvalue %[[V0]] into %[[arg0:.*]][0] : !iterators.state<i32>
 // CHECK-NEXT:    return %[[V1]] : !iterators.state<i32>
 // CHECK-NEXT:  }
 
@@ -59,7 +59,7 @@ func.func @main() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!element_type>)
-  // CHECK-NEXT:   %[[V0:.*]] = iterators.undefstate : <i32>
+  // CHECK-NEXT:   %[[V0:.*]] = iterators.undefstate : !iterators.state<i32>
   return
   // CHECK-NEXT:   return
 }

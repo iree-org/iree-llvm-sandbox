@@ -4,14 +4,14 @@
 !element_type = !llvm.struct<(i32)>
 
 // CHECK-LABEL: func.func private @iterators.filter.close.{{[0-9]+}}(%{{.*}}: !iterators.state<!iterators.state<i32>>) -> !iterators.state<!iterators.state<i32>> {
-// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <!iterators.state<i32>> -> !iterators.state<i32>
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:    %[[V1:.*]] = call @iterators.{{[a-zA-Z]+}}.close.{{[0-9]+}}(%[[V0]]) : ([[upstreamStateType:.*]]) -> [[upstreamStateType]]
-// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V1]] : !iterators.state<i32>) : <!iterators.state<i32>>
+// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[V1]] into %[[arg0]][0] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:    return %[[V2]] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:  }
 
 // CHECK-LABEL: func.func private @iterators.filter.next.{{[0-9]+}}(%{{.*}}: !iterators.state<!iterators.state<i32>>) -> (!iterators.state<!iterators.state<i32>>, i1, !llvm.struct<(i32)>)
-// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <!iterators.state<i32>> -> !iterators.state<i32>
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:    %[[V1:.*]]:3 = scf.while (%[[arg1:.*]] = %[[V0]]) : ([[upstreamStateType:.*]]) -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>) {
 // CHECK-NEXT:      %[[V3:.*]]:3 = func.call @iterators.{{[a-zA-Z]+}}.next.0(%[[arg1]]) : ([[upstreamStateType]]) -> ([[upstreamStateType]], i1, !llvm.struct<(i32)>)
 // CHECK-NEXT:      %[[V4:.*]] = scf.if %[[V3]]#1 -> (i1) {
@@ -28,14 +28,14 @@
 // CHECK-NEXT:    ^bb0(%[[arg2:.*]]: [[upstreamStateType]], %arg2: i1, %arg3: !llvm.struct<(i32)>):
 // CHECK-NEXT:      scf.yield %[[arg2]] : [[upstreamStateType]]
 // CHECK-NEXT:    }
-// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V1]]#0 : !iterators.state<i32>) : <!iterators.state<i32>>
+// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[V1]]#0 into %[[arg0]][0] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:    return %[[V2]], %[[V1]]#1, %[[V1]]#2 : !iterators.state<!iterators.state<i32>>, i1, !llvm.struct<(i32)>
 // CHECK-NEXT:  }
 
 // CHECK-LABEL: func.func private @iterators.filter.open.{{[0-9]+}}(%{{.*}}: !iterators.state<!iterators.state<i32>>) -> !iterators.state<!iterators.state<i32>>
-// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : <!iterators.state<i32>> -> !iterators.state<i32>
+// CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:    %[[V1:.*]] = call @iterators.{{[a-zA-Z]+}}.open.{{[0-9]+}}(%[[V0]]) : ([[upstreamStateType:.*]]) -> [[upstreamStateType]]
-// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg0]][0] (%[[V1]] : !iterators.state<i32>) : <!iterators.state<i32>>
+// CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[V1]] into %[[arg0]][0] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:    return %[[V2]] : !iterators.state<!iterators.state<i32>>
 // CHECK-NEXT:  }
 
@@ -57,8 +57,8 @@ func.func @main() {
   %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
   %filter = "iterators.filter"(%input) {predicateRef = @is_positive_struct}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
-  // CHECK:        %[[V1:.*]] = iterators.undefstate : <!iterators.state<i32>>
-  // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V1]][0] (%[[V0:.*]] : !iterators.state<i32>) : <!iterators.state<i32>>
+  // CHECK:        %[[V1:.*]] = iterators.undefstate : !iterators.state<!iterators.state<i32>>
+  // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V0:.*]] into %[[V1]][0] : !iterators.state<!iterators.state<i32>>
   return
   // CHECK-NEXT:   return
 }
