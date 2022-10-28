@@ -11,7 +11,7 @@ func.func @main() {
 
   %one_field_tuple = "iterators.constanttuple"() { values = [1 : i32] } : () -> tuple<i32>
   // CHECK-NEXT:     %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<"tuple[[S1:.*]]", (i32)>
-  // CHECK-NEXT:     %[[V2:.*]] = llvm.mlir.constant(1 : i32) : i32
+  // CHECK-NEXT:     %[[V2:.*]] = arith.constant 1 : i32
   // CHECK-NEXT:     %[[V3:.*]] = llvm.insertvalue %[[V2]], %[[V1]][0 : index] : !llvm.struct<"tuple[[S1]]", (i32)>
 
   "iterators.printtuple"(%one_field_tuple) : (tuple<i32>) -> ()
@@ -24,11 +24,11 @@ func.func @main() {
 
   %three_field_tuple = "iterators.constanttuple"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
   // CHECK-NEXT:     %[[V4:.*]] = llvm.mlir.undef : !llvm.struct<"tuple[[S2:.*]]", (i32, i32, i32)>
-  // CHECK-NEXT:     %[[V5:.*]] = llvm.mlir.constant(1 : i32) : i32
+  // CHECK-NEXT:     %[[V5:.*]] = arith.constant 1 : i32
   // CHECK-NEXT:     %[[V6:.*]] = llvm.insertvalue %[[V5]], %[[V4]][0 : index] : !llvm.struct<"tuple[[S2]]", (i32, i32, i32)>
-  // CHECK-NEXT:     %[[V7:.*]] = llvm.mlir.constant(2 : i32) : i32
+  // CHECK-NEXT:     %[[V7:.*]] = arith.constant 2 : i32
   // CHECK-NEXT:     %[[V8:.*]] = llvm.insertvalue %[[V7]], %[[V6]][1 : index] : !llvm.struct<"tuple[[S2]]", (i32, i32, i32)>
-  // CHECK-NEXT:     %[[V9:.*]] = llvm.mlir.constant(3 : i32) : i32
+  // CHECK-NEXT:     %[[V9:.*]] = arith.constant 3 : i32
   // CHECK-NEXT:     %[[Va:.*]] = llvm.insertvalue %[[V9]], %[[V8]][2 : index] : !llvm.struct<"tuple[[S2]]", (i32, i32, i32)>
 
   return

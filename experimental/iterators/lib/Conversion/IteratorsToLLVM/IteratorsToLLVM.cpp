@@ -157,7 +157,7 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
       // Create constant value op.
       Attribute field = values[i];
       Type fieldType = field.getType();
-      auto valueOp = rewriter.create<LLVM::ConstantOp>(loc, fieldType, field);
+      auto valueOp = rewriter.create<arith::ConstantOp>(loc, fieldType, field);
 
       // Insert into struct.
       structValue =
@@ -268,7 +268,7 @@ static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
   // Insert constant zero into state.
   Type i32 = b.getI32Type();
   Attribute zeroAttr = b.getI32IntegerAttr(0);
-  Value zeroValue = b.create<LLVM::ConstantOp>(i32, zeroAttr);
+  Value zeroValue = b.create<arith::ConstantOp>(i32, zeroAttr);
   Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), zeroValue);
 
@@ -1014,7 +1014,7 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
   // Insert constant zero into state.
   Type i64 = b.getI64Type();
   Attribute zeroAttr = b.getI64IntegerAttr(0);
-  Value zeroValue = b.create<LLVM::ConstantOp>(i64, zeroAttr);
+  Value zeroValue = b.create<arith::ConstantOp>(i64, zeroAttr);
   return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
                                             zeroValue);
 }

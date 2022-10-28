@@ -29,7 +29,7 @@
 // CHECK-NEXT:  }
 
 // CHECK-LABEL: func private @iterators.tabular_view_to_stream.open.{{[0-9]+}}(%{{.*}}: !iterators.state<i64, !llvm.struct<(i64, ptr<i32>)>>) -> !iterators.state<i64, !llvm.struct<(i64, ptr<i32>)>>
-// CHECK-NEXT:    %[[V0:.*]] = llvm.mlir.constant(0 : i64) : i64
+// CHECK-NEXT:    %[[V0:.*]] = arith.constant 0 : i64
 // CHECK-NEXT:    %[[V1:.*]] = iterators.insertvalue %[[V0]] into %[[arg0:.*]][0] : !iterators.state<i64, !llvm.struct<(i64, ptr<i32>)>>
 // CHECK-NEXT:    return %[[V1]] : !iterators.state<i64, !llvm.struct<(i64, ptr<i32>)>>
 // CHECK-NEXT:  }
