@@ -334,14 +334,14 @@ def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
     AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
               "    [$index.cast<IntegerAttr>().getInt()]",
               "$result.getType()"],
-             "the return type must match the field type at the given index">
+             "the return type must match the field type at the given index">,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
     ]> {
   let summary = "Extract the field value of the state";
   let arguments = (ins Iterators_State:$state, IndexAttr:$index);
   let results = (outs AnyType:$result);
   let assemblyFormat = [{
-    $state `[` $index `]` attr-dict `:`
-      qualified(type($state)) `->` qualified(type($result))
+    $state `[` $index `]` attr-dict `:` qualified(type($state))
   }];
   let description = [{
     Extracts the value of the given iterator state at the given index.
@@ -353,7 +353,7 @@ def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
     ```
     %state = ...
     %value = iterators.extractvalue %state[0] :
-                 !iterators.state<i32, tensor<?xi32>> -> i32
+                 !iterators.state<i32, tensor<?xi32>>
     ```
   }];
 }
@@ -374,8 +374,8 @@ def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
   let arguments = (ins Iterators_State:$state, IndexAttr:$index, AnyType:$value);
   let results = (outs Iterators_State:$result);
   let assemblyFormat = [{
-    $state `[` $index `]` `(` $value `:` qualified(type($value)) `)`
-      attr-dict `:` qualified(type($result))
+    $value `into` $state `[` $index `]` attr-dict `:` qualified(type($state))
+      custom<InsertValueType>(type($value), ref(type($state)), ref($index))
   }];
   let description = [{
     Inserts the given value into the given iterator state at the given index.
