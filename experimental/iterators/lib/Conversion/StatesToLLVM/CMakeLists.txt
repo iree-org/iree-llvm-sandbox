@@ -11,4 +11,5 @@ add_mlir_conversion_library(MLIRStatesToLLVM
   MLIRIterators
   MLIRLLVMDialect
   MLIRPass
+  MLIRSCFTransforms
 )
