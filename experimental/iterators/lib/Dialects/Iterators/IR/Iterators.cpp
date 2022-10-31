@@ -45,8 +45,32 @@ void IteratorsDialect::initialize() {
 // Iterators operations
 //===----------------------------------------------------------------------===//
 
+static ParseResult parseInsertValueType(AsmParser & /*parser*/, Type &valueType,
+                                        Type stateType, IntegerAttr indexAttr) {
+  int64_t index = indexAttr.getValue().getSExtValue();
+  auto castedStateType = stateType.cast<StateType>();
+  valueType = castedStateType.getFieldTypes()[index];
+  return success();
+}
+
+static void printInsertValueType(AsmPrinter & /*printer*/, Operation * /*op*/,
+                                 Type /*valueType*/, Type /*stateType*/,
+                                 IntegerAttr /*indexAttr*/) {}
+
 #define GET_OP_CLASSES
 #include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
+
+LogicalResult ExtractValueOp::inferReturnTypes(
+    MLIRContext * /*context*/, Optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, RegionRange regions,
+    SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto stateType = operands[0].getType().cast<StateType>();
+  auto indexAttr = attributes.getAs<IntegerAttr>("index");
+  int64_t index = indexAttr.getValue().getSExtValue();
+  Type fieldType = stateType.getFieldTypes()[index];
+  inferredReturnTypes.assign({fieldType});
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // Iterators types
