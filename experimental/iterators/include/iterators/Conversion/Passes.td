@@ -29,8 +29,8 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
     currently only works if the use-def chains of `Stream`s form a tree, i.e.,
     every `Stream` is used as an operand by exactly one subsequent iterator.
 
-    More precisely, for each iterator, the lowering produces a state in the form
-    of an `!llvm.struct<...>`, including any local state that the iterator might
+    More precisely, for each iterator, the lowering produces a state with a
+    number of typed fields, including any local state that the iterator might
     require **plus the states of all iterators in the transitive use-def chain**
     of its operands. The computations are expressed as three functions, `Open`,
     `Next`, and `Close`, which operate on that state and which continuously pass
@@ -55,6 +55,26 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
     "func::FuncDialect",
     "LLVM::LLVMDialect",
     "scf::SCFDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// IteratorsToLLVM
+//===----------------------------------------------------------------------===//
+
+def ConvertStatesToLLVM : Pass<"convert-states-to-llvm", "ModuleOp"> {
+  let summary = "Convert the operations on iterator states into the LLVM "
+                "dialect";
+  let description = [{
+    This lowering pass converts operations on iterator states into equivalent
+    operations of the LLVM dialect. Currently, the ops on iterator states are
+    essentially equivalent to the LLVM ops dealing with structs (but allow
+    arbitrary types), so the lowering only consists of straightforward,
+    one-to-one patterns.
+  }];
+  let constructor = "mlir::createConvertStatesToLLVMPass()";
+  let dependentDialects = [
+    "LLVM::LLVMDialect"
   ];
 }
 

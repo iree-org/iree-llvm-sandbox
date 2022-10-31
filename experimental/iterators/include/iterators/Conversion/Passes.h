@@ -10,6 +10,7 @@
 #define ITERATORS_CONVERSION_PASSES_H
 
 #include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
+#include "iterators/Conversion/StatesToLLVM/StatesToLLVM.h"
 #include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
 #include "mlir/Pass/Pass.h"
 
