@@ -258,8 +258,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
 /// Builds IR that resets the current index to 0. Possible result:
 ///
 /// %0 = llvm.mlir.constant(0 : i32) : i32
-/// %1 = llvm.insertvalue %0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.constant_stream_state", (i32)>
+/// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
 static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
@@ -270,7 +269,8 @@ static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
   Type i32 = b.getI32Type();
   Attribute zeroAttr = b.getI32IntegerAttr(0);
   Value zeroValue = b.create<LLVM::ConstantOp>(i32, zeroAttr);
-  Value updatedState = createInsertValueOp(b, initialState, zeroValue, {0});
+  Value updatedState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), zeroValue);
 
   return updatedState;
 }
@@ -348,16 +348,13 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 ///
 /// llvm.mlir.global internal constant @iterators.constant_stream_data.0() : ...
 /// // ...
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.constant_stream_state", (i32)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<i32>
 /// %c4_i32 = arith.constant 4 : i32
 /// %1 = arith.cmpi slt, %0, %c4_i32 : i32
-/// %2:2 = scf.if %1 -> (!llvm.struct<"iterators.constant_stream_state", (i32)>,
-///                      !element_type) {
+/// %2:2 = scf.if %1 -> (!iterators.state<i32>, !element_type) {
 ///   %c1_i32 = arith.constant 1 : i32
 ///   %3 = arith.addi %0, %c1_i32 : i32
-///   %4 = llvm.insertvalue %3, %arg0[0 : index] :
-///            !llvm.struct<"iterators.constant_stream_state", (i32)>
+///   %4 = iterators.insertvalue %3 into %arg0[0] : !iterators.state<i32>
 ///   %5 = llvm.mlir.addressof @iterators.constant_stream_data.0 :
 ///            !llvm.ptr<array<4 x !element_type>>
 ///   %c0_i32 = arith.constant 0 : i32
@@ -365,12 +362,10 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 ///            (!llvm.ptr<array<4 x !element_type>>, i32, i32)
 ///                -> !llvm.ptr<!element_type>
 ///   %7 = llvm.load %6 : !llvm.ptr<!element_type>
-///   scf.yield %4, %7 :
-///       !llvm.struct<"iterators.constant_stream_state", (i32)>, !element_type
+///   scf.yield %4, %7 : !iterators.state<i32>, !element_type
 /// } else {
 ///   %3 = llvm.mlir.undef : !element_type
-///   scf.yield %arg0, %3 :
-///       !llvm.struct<"iterators.constant_stream_state", (i32)>, !element_type
+///   scf.yield %arg0, %3 : !iterators.state<i32>, !element_type
 /// }
 static llvm::SmallVector<Value, 4>
 buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
@@ -380,7 +375,8 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
   Type i32 = b.getI32Type();
 
   // Extract current index.
-  Value currentIndex = createExtractValueOp(b, i32, initialState, {0});
+  Value currentIndex = b.create<iterators::ExtractValueOp>(
+      loc, i32, initialState, b.getIndexAttr(0));
 
   // Test if we have reached the end of the range.
   int64_t numElements = op.value().size();
@@ -399,8 +395,8 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
                                                    /*width=*/32);
         ArithBuilder ab(b, b.getLoc());
         Value updatedCurrentIndex = ab.add(currentIndex, one);
-        Value updatedState =
-            createInsertValueOp(b, initialState, updatedCurrentIndex, {0});
+        Value updatedState = b.create<iterators::InsertValueOp>(
+            initialState, b.getIndexAttr(0), updatedCurrentIndex);
 
         // Load element from global data at current index.
         GlobalOp globalArray = buildGlobalData(op, b, elementType);
@@ -439,14 +435,11 @@ static Value buildCloseBody(ConstantStreamOp /*op*/, OpBuilder & /*builder*/,
 /// (uninitialized) current index. Possible result:
 ///
 /// %0 = llvm.mlir.constant(0 : i32) : i32
-/// %1 = llvm.insertvalue %0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.constant_stream_state", (i32)>
-/// return %1 : !llvm.struct<"iterators.constant_stream_state", (i32)>
+/// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
 static Value buildStateCreation(ConstantStreamOp op,
                                 ConstantStreamOp::Adaptor /*adaptor*/,
-                                OpBuilder &builder,
-                                LLVM::LLVMStructType stateType) {
-  return builder.create<UndefOp>(op.getLoc(), stateType);
+                                OpBuilder &builder, StateType stateType) {
+  return builder.create<UndefStateOp>(op.getLoc(), stateType);
 }
 
 //===----------------------------------------------------------------------===//
@@ -455,12 +448,10 @@ static Value buildStateCreation(ConstantStreamOp op,
 
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.filter_state", !nested_state>
-/// %1 = call @iterators.upstream.open.0(%0) :
-///          (!nested_state) -> !nested_state
-/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -469,8 +460,8 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -479,8 +470,8 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState =
-      createInsertValueOp(b, initialState, updatedUpstreamState, {0});
+  Value updatedState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), updatedUpstreamState);
 
   return updatedState;
 }
@@ -495,8 +486,7 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 ///
 /// Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1:3 = scf.while (%arg1 = %0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type) {
 ///   %3:3 = func.call @iterators.upstream.next.0(%arg1) :
@@ -515,8 +505,8 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 /// ^bb0(%arg1: !nested_state, %arg2: i1, %arg3: !element_type):
 ///   scf.yield %arg1 : !nested_state
 /// }
-/// %2 = llvm.insertvalue %1#0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %2 = iterators.insertvalue %1#0 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static llvm::SmallVector<Value, 4>
 buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -525,8 +515,8 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Main while loop.
   Type i1 = b.getI1Type();
@@ -584,8 +574,8 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Update state.
   Value finalUpstreamState = whileOp->getResult(0);
-  Value finalState =
-      createInsertValueOp(b, initialState, finalUpstreamState, {0});
+  Value finalState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), finalUpstreamState);
   Value hasNext = whileOp->getResult(1);
   Value nextElement = whileOp->getResult(2);
 
@@ -594,12 +584,10 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
-/// %1 = call @iterators.upstream.close.0(%0) :
-///          (!nested_state) -> !nested_state
-/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1 = call @iterators.upstream.close.0(%0) : (!nested_state) -> !nested_state
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -608,8 +596,8 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -618,7 +606,9 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(b, initialState, updatedUpstreamState, {0})
+  return b
+      .create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
+                                        updatedUpstreamState)
       .getResult();
 }
 
@@ -626,18 +616,16 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.filter_state",
-///                                     (!nested_state)>
-/// %2 = llvm.insertvalue %0, %1[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %1 = iterators.undefstate : !iterators.state<!nested_state>
+/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
 static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
-                                OpBuilder &builder,
-                                LLVM::LLVMStructType stateType) {
+                                OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefOp>(stateType);
+  Value undefState = b.create<UndefStateOp>(stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(b, undefState, upstreamState, {0});
+  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
+                                            upstreamState);
 }
 
 //===----------------------------------------------------------------------===//
@@ -646,12 +634,10 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
 
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.map_state", !nested_state>
-/// %1 = call @iterators.upstream.open.0(%0) :
-///          (!nested_state) -> !nested_state
-/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.map_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -660,8 +646,8 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -670,8 +656,8 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState =
-      createInsertValueOp(b, initialState, updatedUpstreamState, {0});
+  Value updatedState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), updatedUpstreamState);
 
   return updatedState;
 }
@@ -686,28 +672,18 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
 ///
 /// Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.map_state", (!nested_state)>
-/// %1:3 = scf.while (%arg1 = %0) :
-///            (!nested_state) -> (!nested_state, i1, !element_type) {
-///   %3:3 = func.call @iterators.upstream.next.0(%arg1) :
-///              (!nested_state) -> (!nested_state, i1, !element_type)
-///   %4 = scf.if %3#1 -> (i1) {
-///     %7 = func.call @predicate(%3#2) : (!element_type) -> i1
-///     scf.yield %7 : i1
-///   } else {
-///     scf.yield %3#1 : i1
-///   }
-///   %true = arith.constant true
-///   %5 = arith.xori %4, %true : i1
-///   %6 = arith.andi %3#1, %5 : i1
-///   scf.condition(%6) %3#0, %3#1, %3#2 : !nested_state, i1, !element_type
-/// } do {
-/// ^bb0(%arg1: !nested_state, %arg2: i1, %arg3: !element_type):
-///   scf.yield %arg1 : !nested_state
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1:3 = call @iterators.upstream.next.0(%0) :
+///            (!nested_state) -> (!nested_state, i1, !element_type)
+/// %2 = scf.if %1#1 -> (!element_type) {
+///   %4 = func.call @map_function(%1#2) : (!element_type) -> !element_type
+///   scf.yield %4 : !element_type
+/// } else {
+///   %4 = llvm.mlir.undef : !element_type
+///   scf.yield %4 : !element_type
 /// }
-/// %2 = llvm.insertvalue %1#0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.map_state", (!nested_state)>
+/// %3 = iterators.insertvalue %1#0 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static llvm::SmallVector<Value, 4>
 buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -716,8 +692,8 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Extract input element type.
   StreamType inputStreamType = op.input().getType().cast<StreamType>();
@@ -755,20 +731,18 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Update state.
   Value finalUpstreamState = nextCall.getResult(0);
-  Value finalState =
-      createInsertValueOp(b, initialState, finalUpstreamState, {0});
+  Value finalState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), finalUpstreamState);
 
   return {finalState, hasNext, mappedElement};
 }
 
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.map_state", (!nested_state)>
-/// %1 = call @iterators.upstream.close.0(%0) :
-///          (!nested_state) -> !nested_state
-/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.map_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1 = call @iterators.upstream.close.0(%0) : (!nested_state) -> !nested_state
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -777,8 +751,8 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -787,25 +761,24 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(b, initialState, updatedUpstreamState, {0})
-      .getResult();
+  return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
+                                            updatedUpstreamState);
 }
 
 /// Builds IR that initializes the iterator state with the state of the upstream
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.map_state", (!nested_state)>
-/// %2 = llvm.insertvalue %0, %1[0 : index] :
-///          !llvm.struct<"iterators.filter_state", (!nested_state)>
+/// %1 = iterators.undefstate : !iterators.state<!nested_state>
+/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
 static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
-                                OpBuilder &builder,
-                                LLVM::LLVMStructType stateType) {
+                                OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefOp>(stateType);
+  Value undefState = b.create<UndefStateOp>(stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(b, undefState, upstreamState, {0});
+  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
+                                            upstreamState);
 }
 
 //===----------------------------------------------------------------------===//
@@ -814,12 +787,10 @@ static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
 
 /// Builds IR that opens the nested upstream iterator. Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", !nested_state>
-/// %1 = call @iterators.upstream.open.0(%0) :
-///          (!nested_state) -> !nested_state
-/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -828,8 +799,8 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Open on upstream.
   SymbolRefAttr openFunc = upstreamInfos[0].openFunc;
@@ -838,8 +809,8 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState =
-      createInsertValueOp(b, initialState, updatedUpstreamState, {0});
+  Value updatedState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), updatedUpstreamState);
 
   return updatedState;
 }
@@ -855,31 +826,30 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
 ///
 /// Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
 /// %1:3 = call @iterators.upstream.next.0(%0) :
 ///            (!nested_state) -> (!nested_state, i1, !element_type)
 /// %2:3 = scf.if %1#1 -> (!nested_state, i1, !element_type) {
 ///   %4:3 = scf.while (%arg1 = %1#0, %arg2 = %1#2) :
 ///              (!nested_state, !element_type) ->
-///                 (!nested_state, !element_type, !element_type) {
-///     %5:3 = call @iterators.upstream.next.0(%arg1) :
+///                  (!nested_state, !element_type, !element_type) {
+///     %5:3 = func.call @iterators.upstream.next.0(%arg1) :
 ///                (!nested_state) -> (!nested_state, i1, !element_type)
-///     scf.condition(%5#1) %5#0, %5#2, %arg2 :
+///     scf.condition(%5#1) %5#0, %arg2, %5#2 :
 ///         !nested_state, !element_type, !element_type
 ///   } do {
 ///   ^bb0(%arg1: !nested_state, %arg2: !element_type, %arg3: !element_type):
-///     %5 = call @reduce_func(%arg2, %arg3) :
+///     %5 = func.call @reduce_func(%arg2, %arg3) :
 ///              (!element_type, !element_type) -> !element_type
-///     scf.yield %arg1, %8 : !nested_state, !element_type
+///     scf.yield %arg1, %5 : !nested_state, !element_type
 ///   }
 ///   %true = arith.constant true
-///   scf.yield %4#0, %true, %4#2 : !nested_state, i1, !element_type
+///   scf.yield %4#0, %true, %4#1 : !nested_state, i1, !element_type
 /// } else {
 ///   scf.yield %1#0, %1#1, %1#2 : !nested_state, i1, !element_type
 /// }
-/// %3 = llvm.insertvalue %2#0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
+/// %3 = iterators.insertvalue %2#0 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static llvm::SmallVector<Value, 4>
 buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -888,8 +858,8 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Get first result from upstream.
   Type i1 = b.getI1Type();
@@ -972,8 +942,8 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Update state.
   Value finalUpstreamState = ifOp->getResult(0);
-  Value finalState =
-      createInsertValueOp(b, initialState, finalUpstreamState, {0});
+  Value finalState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), finalUpstreamState);
   Value hasNext = ifOp->getResult(1);
   Value nextElement = ifOp->getResult(2);
 
@@ -982,12 +952,10 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
 /// Builds IR that closes the nested upstream iterator. Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
-/// %1 = call @iterators.upstream.close.0(%0) :
-///          (!nested_state) -> !nested_state
-/// %2 = llvm.insertvalue %1, %arg0[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<!nested_state>
+/// %1 = call @iterators.upstream.close.0(%0) : (!nested_state) -> !nested_state
+/// %2 = iterators.insertvalue %1 into %arg0[0] :
+///          !iterators.state<!nested_state>
 static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
   Location loc = op.getLoc();
@@ -996,8 +964,8 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState =
-      createExtractValueOp(b, upstreamStateType, initialState, {0});
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+      upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Close on upstream.
   SymbolRefAttr closeFunc = upstreamInfos[0].closeFunc;
@@ -1006,7 +974,9 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return createInsertValueOp(b, initialState, updatedUpstreamState, {0})
+  return b
+      .create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
+                                        updatedUpstreamState)
       .getResult();
 }
 
@@ -1014,18 +984,16 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = llvm.mlir.undef : !llvm.struct<"iterators.reduce_state",
-///                                     (!nested_state)>
-/// %2 = llvm.insertvalue %0, %1[0 : index] :
-///          !llvm.struct<"iterators.reduce_state", (!nested_state)>
+/// %1 = iterators.undefstate : !iterators.state<!nested_state>
+/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
 static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
-                                OpBuilder &builder,
-                                LLVM::LLVMStructType stateType) {
+                                OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefOp>(loc, stateType);
+  Value undefState = b.create<UndefStateOp>(loc, stateType);
   Value upstreamState = adaptor.input();
-  return createInsertValueOp(b, undefState, upstreamState, {0});
+  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
+                                            upstreamState);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1035,9 +1003,8 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
 /// Builds IR that (re) sets the current index to zero. Possible output:
 ///
 /// %0 = llvm.mlir.constant(0 : i64) : i64
-/// %1 = llvm.insertvalue %0, %arg0[0 : index] :
-///          !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                       (i64, !tabular_view_type)>
+/// %1 = iterators.insertvalue %0 into %arg0[0] :
+///          !iterators.state<i64, !tabular_view_type>
 static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
                            Value initialState,
                            ArrayRef<IteratorInfo> upstreamInfos) {
@@ -1048,9 +1015,8 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
   Type i64 = b.getI64Type();
   Attribute zeroAttr = b.getI64IntegerAttr(0);
   Value zeroValue = b.create<LLVM::ConstantOp>(i64, zeroAttr);
-  Value updatedState = createInsertValueOp(b, initialState, zeroValue, {0});
-
-  return updatedState;
+  return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
+                                            zeroValue);
 }
 
 /// Builds IR that assembles an element from the values in the buffers at the
@@ -1062,38 +1028,29 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 ///
 /// Possible output:
 ///
-/// %0 = llvm.extractvalue %arg0[0 : index] :
-///          !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                       (i64, !tabular_view_type)>
-/// %1 = llvm.extractvalue %arg0[1 : index] :
-///          !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                       (i64, !tabular_view_type)>
-/// %2 = llvm.extractvalue %1[0 : index] : !llvm.!tabular_view_type
+/// %0 = iterators.extractvalue %arg0[0] :
+///          !iterators.state<i64, !tabular_view_type>
+/// %1 = iterators.extractvalue %arg0[1] :
+///          !iterators.state<i64, !tabular_view_type>
+/// %2 = llvm.extractvalue %1[0 : index] : !tabular_view_type
 /// %3 = arith.cmpi slt, %0, %2 : i64
-/// %4:2 = scf.if %3 -> (!llvm.struct<"iterators.tabular_view_to_stream_state",
-///                                   (i64, !tabular_view_type)>,
+/// %4:2 = scf.if %3 -> (!iterators.state<i64, !tabular_view_type>,
 ///                      !element_type) {
 ///   %c1_i64 = arith.constant 1 : i64
 ///   %5 = arith.addi %0, %c1_i64 : i64
-///   %6 = llvm.insertvalue %5, %arg0[0 : index] :
-///            !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                         (i64, !tabular_view_type)>
+///   %6 = iterators.insertvalue %5 into %arg0[0] :
+///            !iterators.state<i64, !tabular_view_type>
 ///   %7 = llvm.mlir.undef : !element_type
-///   %8 = llvm.extractvalue %1[1 : index] : !llvm.!tabular_view_type
-///   %9 = llvm.getelementptr %8[%0] :
-///            (!llvm.ptr<!column_type_0>, i64) -> !llvm.ptr<!column_type_0>
-///   %10 = llvm.load %9 : !llvm.ptr<!column_type_0>
+///   %8 = llvm.extractvalue %1[1 : index] : !tabular_view_type
+///   %9 = llvm.getelementptr %8[%0] : (!llvm.ptr<i32>, i64) -> !llvm.ptr<i32>
+///   %10 = llvm.load %9 : !llvm.ptr<i32>
 ///   %11 = llvm.insertvalue %10, %7[0 : index] : !element_type
 ///   scf.yield %6, %11 :
-///       !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                    (i64, !tabular_view_type)>,
-///       !element_type
+///       !iterators.state<i64, !tabular_view_type>, !element_type
 /// } else {
 ///   %5 = llvm.mlir.undef : !element_type
 ///   scf.yield %arg0, %5 :
-///       !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                    (i64, !tabular_view_type)>,
-///       !element_type
+///       !iterators.state<i64, !tabular_view_type>, !element_type
 /// }
 static llvm::SmallVector<Value, 4>
 buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
@@ -1105,13 +1062,14 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
   auto elementStructType = elementType.cast<LLVMStructType>();
 
   // Extract current index.
-  Value currentIndex = createExtractValueOp(b, i64, initialState, {0});
+  Value currentIndex =
+      b.create<iterators::ExtractValueOp>(i64, initialState, b.getIndexAttr(0));
 
   // Extract input column buffers.
-  auto stateType = initialState.getType().cast<LLVMStructType>();
-  Type structOfInputBuffersType = stateType.getBody()[1];
-  Value structOfInputBuffers =
-      createExtractValueOp(b, structOfInputBuffersType, initialState, {1});
+  auto stateType = initialState.getType().cast<StateType>();
+  Type structOfInputBuffersType = stateType.getFieldTypes()[1];
+  Value structOfInputBuffers = b.create<iterators::ExtractValueOp>(
+      structOfInputBuffersType, initialState, b.getIndexAttr(1));
 
   // Test if we have reached the end of the range.
   Value lastIndex = createExtractValueOp(b, i64, structOfInputBuffers, {0});
@@ -1129,8 +1087,8 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
                                                    /*width=*/64);
         ArithBuilder ab(b, b.getLoc());
         Value updatedCurrentIndex = ab.add(currentIndex, one);
-        Value updatedState =
-            createInsertValueOp(b, initialState, updatedCurrentIndex, {0});
+        Value updatedState = b.create<iterators::InsertValueOp>(
+            initialState, b.getIndexAttr(0), updatedCurrentIndex);
 
         // Assemble field values from values at current index of column
         // buffers.
@@ -1184,25 +1142,20 @@ static Value buildCloseBody(TabularViewToStreamOp /*op*/,
 /// buffers and an undefined current index. Possible output:
 ///
 /// %0 = ...
-/// %1 = llvm.mlir.undef :
-///          !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                       (i64, !tabular_view_type)>
-/// %2 = llvm.insertvalue %0, %1[1 : index] :
-///          !llvm.struct<"iterators.tabular_view_to_stream_state",
-///                       (i64, !tabular_view_type)>
+/// %1 = iterators.undefstate : !iterators.state<i64, !tabular_view_type>
+/// %2 = iterators.insertvalue %1[1] (%0 : !tabular_view_type) :
+///          <i64, !tabular_view_type>
 static Value buildStateCreation(TabularViewToStreamOp op,
                                 TabularViewToStreamOp::Adaptor adaptor,
-                                OpBuilder &builder,
-                                LLVM::LLVMStructType stateType) {
+                                OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
 
   // Insert input into iterator state.
-  Value iteratorState = b.create<UndefOp>(stateType);
+  Value iteratorState = b.create<UndefStateOp>(stateType);
   Value input = adaptor.input();
-  iteratorState = createInsertValueOp(b, iteratorState, input, {1});
-
-  return iteratorState;
+  return b.create<iterators::InsertValueOp>(iteratorState, b.getIndexAttr(1),
+                                            input);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1309,8 +1262,7 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
 
 /// Type-switching proxy for builders of iterator state creation.
 static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
-                                LLVM::LLVMStructType stateType,
-                                ValueRange operands) {
+                                StateType stateType, ValueRange operands) {
   return llvm::TypeSwitch<Operation *, Value>(op)
       .Case<
           // clang-format off
@@ -1409,7 +1361,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
   buildCloseFuncInParentModule(op, builder, opInfo, upstreamInfos);
 
   // Create initial state.
-  LLVMStructType stateType = opInfo.stateType;
+  StateType stateType = opInfo.stateType;
   return buildStateCreation(op, builder, stateType, operands);
 }
 
@@ -1425,11 +1377,11 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// Possible result:
 ///
 /// %2 = ... // initialize state of input iterator
-/// %3 = call @iterators.reduce.open.1(%2) :
+/// %3 = call @iterators.upstream.open.1(%2) :
 ///          (!input_state_type) -> !input_state_type
 /// %4:3 = scf.while (%arg0 = %3) :
 ///            (!input_state_type) -> (!input_state_type, i1, !element_type) {
-///   %6:3 = call @iterators.reduce.next.1(%arg0) :
+///   %6:3 = call @iterators.upstream.next.1(%arg0) :
 ///              (!input_state_type) -> (!input_state_type, i1, !element_type)
 ///   scf.condition(%6#1) %6#0, %6#1, %6#2 :
 ///       !input_state_type, i1, !element_type
@@ -1438,7 +1390,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 ///   "iterators.print"(%arg1) : (!element_type) -> ()
 ///   scf.yield %arg0 : !input_state_type
 /// }
-/// %5 = call @iterators.reduce.close.1(%4#0) :
+/// %5 = call @iterators.upstream.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
 static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
                                   ArrayRef<IteratorInfo> upstreamInfos,
@@ -1702,7 +1654,8 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
   ConversionTarget target(getContext());
   target.addLegalDialect<arith::ArithmeticDialect, LLVMDialect,
                          scf::SCFDialect>();
-  target.addLegalOp<ModuleOp>();
+  target.addLegalOp<ModuleOp, UndefStateOp, iterators::ExtractValueOp,
+                    iterators::InsertValueOp>();
   RewritePatternSet patterns(&getContext());
 
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);

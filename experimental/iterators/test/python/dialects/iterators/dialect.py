@@ -97,7 +97,8 @@ def testEndToEndStandalone():
         return
       }
       ''')
-  pm = PassManager.parse('convert-iterators-to-llvm,convert-func-to-llvm,' +
+  pm = PassManager.parse('convert-iterators-to-llvm,convert-states-to-llvm,' +
+                         'convert-func-to-llvm,' +
                          'convert-scf-to-cf,convert-cf-to-llvm')
   pm.run(mod)
   engine = ExecutionEngine(mod)
@@ -120,7 +121,8 @@ def testEndToEndWithInput():
       }
       ''')
   pm = PassManager.parse(
-      'convert-iterators-to-llvm,convert-memref-to-llvm,convert-func-to-llvm,'
+      'convert-iterators-to-llvm,convert-states-to-llvm,'
+      'convert-memref-to-llvm,convert-func-to-llvm,'
       'reconcile-unrealized-casts,convert-scf-to-cf,convert-cf-to-llvm')
   pm.run(mod)
 
