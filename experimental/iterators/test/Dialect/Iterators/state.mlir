@@ -9,9 +9,11 @@ func.func @testUndefInsertExtract() {
 // CHECK-NEXT:     %[[V0:.*]] = iterators.undefstate : !iterators.state<i32>
   %value = arith.constant 0 : i32
 // CHECK-NEXT:     %[[V1:.*]] = arith.constant 0 : i32
-  %inserted_state = iterators.insertvalue %value into %initial_state[0] : !iterators.state<i32>
+  %inserted_state = iterators.insertvalue %value into
+                        %initial_state[0] : !iterators.state<i32>
 // CHECK-NEXT:     %[[V2:.*]] = iterators.insertvalue %[[V1]] into %[[V0]][0] : !iterators.state<i32>
-  %extracted_value = iterators.extractvalue %inserted_state[0] : !iterators.state<i32>
+  %extracted_value = iterators.extractvalue %inserted_state[0] :
+                         !iterators.state<i32>
 // CHECK-NEXT:     %[[V3:.*]] = iterators.extractvalue %[[V2]][0] : !iterators.state<i32>
   return
 // CHECK-NEXT:     return
