@@ -54,7 +54,7 @@ def testParse():
       '%0 = "iterators.constantstream"() {value = []} : () -> (!iterators.stream<!llvm.struct<(i32)>>)'
   )
   # CHECK:      module {
-  # CHECK-NEXT:   %0 = "iterators.constantstream"() {value = []} : () -> !iterators.stream<!llvm.struct<(i32)>>
+  # CHECK-NEXT:   %[[V0:.*]] = "iterators.constantstream"() {value = []} : () -> !iterators.stream<!llvm.struct<(i32)>>
   # CHECK-NEXT: }
   print(mod)
 

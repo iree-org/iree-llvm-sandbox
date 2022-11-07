@@ -15,7 +15,7 @@ func.func @main() {
 // CHECK-NEXT:    %[[V0:.*]] = "iterators.constantstream"{{.*}}
   %unpacked = "iterators.map"(%input) {mapFuncRef = @unpack_i32} :
                   (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
-// CHECK-NEXT:    %[[V1:.*]] = "iterators.map"(%[[V0]]) {mapFuncRef = @unpack_i32} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<i32>
+// CHECK-NEXT:    %[[V1:mapped.*]] = "iterators.map"(%[[V0]]) {mapFuncRef = @unpack_i32} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<i32>
   return
 // CHECK-NEXT:    return
 }

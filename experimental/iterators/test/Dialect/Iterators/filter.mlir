@@ -18,7 +18,7 @@ func.func @main() {
   %filtered = "iterators.filter"(%input) {predicateRef = @is_positive_struct} :
                   (!iterators.stream<!i32_struct>) ->
                       (!iterators.stream<!i32_struct>)
-// CHECK-NEXT:    %[[V1:.*]] = "iterators.filter"(%[[V0]]) {predicateRef = @is_positive_struct} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:    %[[V1:filtered.*]] = "iterators.filter"(%[[V0]]) {predicateRef = @is_positive_struct} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<!llvm.struct<(i32)>>
   return
 // CHECK-NEXT:    return
 }
