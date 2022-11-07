@@ -1,5 +1,3 @@
-// Test that we can parse and verify ops on iterator state correctly, and that
-// they round-trip through assembly.
 // RUN: mlir-proto-opt %s \
 // RUN: | FileCheck %s
 
