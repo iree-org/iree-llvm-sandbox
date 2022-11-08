@@ -1765,17 +1765,20 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
         convertIteratorOp(op, mappedOperands, rewriter, analysis);
     TypeSwitch<Operation *>(op)
         .Case<IteratorOpInterface>([&](auto op) {
+          // Iterator op: remember result for conversion of later ops.
           assert(converted.size() == 1 &&
                  "Expected iterator op to be converted to one value.");
           mapping.map(op->getResult(0), converted[0]);
         })
         .Case<StreamToValueOp>([&](auto op) {
+          // Special case: uses will not be converted, so replace them.
           assert(converted.size() == 2 &&
                  "Expected StreamToValueOp to be converted to two values.");
           op->getResult(0).replaceAllUsesWith(converted[0]);
           op->getResult(1).replaceAllUsesWith(converted[1]);
         })
         .Case<SinkOp>([&](auto op) {
+          // Special case: no result, nothing to do.
           assert(converted.empty() &&
                  "Expected sink op to be converted to no value.");
         });
