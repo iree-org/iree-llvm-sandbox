@@ -1,7 +1,6 @@
 # RUN: %PYTHON %s | FileCheck %s
 
 import ctypes
-import os
 
 import pandas as pd
 import numpy as np
