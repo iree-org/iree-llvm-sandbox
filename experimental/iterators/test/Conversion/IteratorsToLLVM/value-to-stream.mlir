@@ -23,7 +23,7 @@ func.func @main() {
 // CHECK-LABEL:  func.func @main() {
   %value = arith.constant 42 : i32
   // CHECK-NEXT:   %[[V0:.*]] = arith.constant 42 : i32
-  %stream = iterators.value_to_stream %value : <i32>
+  %stream = iterators.value_to_stream %value : !iterators.stream<i32>
   // CHECK-NEXT:   %[[V1:.*]] = iterators.undefstate : !iterators.state<i1, i32>
   // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V0]] into %[[V1]][1] : !iterators.state<i1, i32>
   return

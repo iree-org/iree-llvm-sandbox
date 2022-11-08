@@ -318,12 +318,12 @@ def Iterators_StreamToValueOp : Iterators_Base_Op<"stream_to_value",
     Example:
     ```mlir
     %stream = ...
-    %value = iterators.stream_to_value %stream : <i32>
+    %value = iterators.stream_to_value %stream : !iterators.stream<i32>
     ```
   }];
   let arguments = (ins Iterators_Stream:$input);
   let results = (outs AnyType:$result, I1:$hasResult);
-  let assemblyFormat = "$input attr-dict `:` type($input)";
+  let assemblyFormat = "$input attr-dict `:` qualified(type($input))";
 }
 
 def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
@@ -341,12 +341,12 @@ def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
     Example:
     ```mlir
     %value = arith.constant 42 : i32
-    %stream = iterators.value_to_stream %value : <i32>
+    %stream = iterators.value_to_stream %value : !iterators.stream<i32>
     ```
   }];
   let arguments = (ins AnyType:$input);
   let results = (outs Iterators_Stream:$result);
-  let assemblyFormat = "$input attr-dict `:` type($result)";
+  let assemblyFormat = "$input attr-dict `:` qualified(type($result))";
 }
 
 //===----------------------------------------------------------------------===//
