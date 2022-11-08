@@ -1159,6 +1159,92 @@ static Value buildStateCreation(TabularViewToStreamOp op,
 }
 
 //===----------------------------------------------------------------------===//
+// ValueToStreamOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that sets `hasReturned` to false. Possible output:
+///
+/// %3 = iterators.insertvalue %false into %arg0[1] : !iterators.state<i1, i32>
+static Value buildOpenBody(ValueToStreamOp op, OpBuilder &builder,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> /*upstreamInfos*/) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Reset hasReturned to false.
+  Value constFalse = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/1);
+  Value updatedState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), constFalse);
+
+  return updatedState;
+}
+
+/// Builds IR that returns the value in the first call and end-of-stream
+/// otherwise. Pseudo-code:
+///
+/// if hasReturned: return {}
+/// return value
+///
+/// Possible output:
+///
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<i1, i32>
+/// %true = arith.constant true
+/// %1 = arith.xori %true, %0 : i1
+/// %2 = iterators.extractvalue %arg0[1] : !iterators.state<i1, i32>
+/// %3 = iterators.insertvalue %true into %arg0[0] : !iterators.state<i1, i32>
+static llvm::SmallVector<Value, 4>
+buildNextBody(ValueToStreamOp op, OpBuilder &builder, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type i1 = b.getI1Type();
+
+  // Check if the iterator has returned an element already (since it should
+  // return one only in the first call to next).
+  Value hasReturned =
+      b.create<iterators::ExtractValueOp>(i1, initialState, b.getIndexAttr(0));
+
+  // Compute hasNext: we have an element iff we have not returned before, i.e.,
+  // iff "not hasReturend". We simulate "not" with "xor true".
+  Value constTrue = b.create<arith::ConstantIntOp>(/*value=*/1, /*width=*/1);
+  Value hasNext = b.create<arith::XOrIOp>(constTrue, hasReturned);
+
+  // Extract value as next element.
+  Value nextElement = b.create<iterators::ExtractValueOp>(
+      elementType, initialState, b.getIndexAttr(1));
+
+  // Update state.
+  Value finalState = b.create<iterators::InsertValueOp>(
+      initialState, b.getIndexAttr(0), constTrue);
+
+  return {finalState, hasNext, nextElement};
+}
+
+/// Forwards the initial state. The ValueToStreamOp doesn't do anything on
+/// Close.
+static Value buildCloseBody(ValueToStreamOp /*op*/, OpBuilder & /*builder*/,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> /*upstreamInfos*/) {
+  return initialState;
+}
+
+/// Builds IR that initializes the iterator state with value. Possible output:
+///
+/// %0 = ...
+/// %1 = iterators.undefstate : !iterators.state<i1, i32>
+/// %2 = iterators.insertvalue %0 into %1[1] : !iterators.state<i1, i32>
+static Value buildStateCreation(ValueToStreamOp op,
+                                ValueToStreamOp::Adaptor adaptor,
+                                OpBuilder &builder, StateType stateType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Value undefState = b.create<UndefStateOp>(loc, stateType);
+  Value value = adaptor.input();
+  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(1),
+                                            value);
+}
+
+//===----------------------------------------------------------------------===//
 // Helpers for creating Open/Next/Close functions and state creation.
 //===----------------------------------------------------------------------===//
 
@@ -1216,7 +1302,8 @@ static Value buildOpenBody(Operation *op, OpBuilder &builder,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildOpenBody(op, builder, initialState, upstreamInfos);
@@ -1234,7 +1321,8 @@ buildNextBody(Operation *op, OpBuilder &builder, Value initialState,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildNextBody(op, builder, initialState, upstreamInfos,
@@ -1253,7 +1341,8 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         return buildCloseBody(op, builder, initialState, upstreamInfos);
@@ -1270,7 +1359,8 @@ static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
           FilterOp,
           MapOp,
           ReduceOp,
-          TabularViewToStreamOp
+          TabularViewToStreamOp,
+          ValueToStreamOp
           // clang-format on
           >([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;
@@ -1457,6 +1547,61 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
   return {};
 }
 
+/// Converts the given StreamToValueOp to LLVM using the converted operands.
+/// This consists of opening the input iterator, consuming one element (which is
+/// the result of this op), and closing it again. Pseudo code:
+///
+/// upstream->Open()
+/// value = upstream->Next()
+/// upstream->Close()
+///
+/// Possible result:
+///
+/// %0 = ...
+/// %1 = call @iterators.upstream.open.0(%0) : (!nested_state) -> !nested_state
+/// %2:3 = call @iterators.upstream.next.0(%1) :
+///            (!nested_state) -> (!nested_state, i1, !element_type)
+/// %3 = call @iterators.upstream.close.0(%2#0) :
+///          (!nested_state) -> !nested_state
+static SmallVector<Value> convert(StreamToValueOp op,
+                                  StreamToValueOpAdaptor adaptor,
+                                  ArrayRef<IteratorInfo> upstreamInfos,
+                                  OpBuilder &rewriter) {
+  Location loc = op->getLoc();
+  ImplicitLocOpBuilder b(loc, rewriter);
+
+  // Look up IteratorInfo about the upstream iterator.
+  IteratorInfo upstreamInfo = upstreamInfos[0];
+
+  Type stateType = upstreamInfo.stateType;
+  SymbolRefAttr openFunc = upstreamInfo.openFunc;
+  SymbolRefAttr nextFunc = upstreamInfo.nextFunc;
+  SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
+
+  // Open upstream iterator. ---------------------------------------------------
+  Value initialState = adaptor.input();
+  auto openCallOp = b.create<func::CallOp>(openFunc, stateType, initialState);
+  Value openedUpstreamState = openCallOp->getResult(0);
+
+  // Consume one element from upstream iterator --------------------------------
+  // Input and return types.
+  auto elementType = op.input().getType().cast<StreamType>().getElementType();
+  Type i1 = b.getI1Type();
+  SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
+
+  func::CallOp nextCallOp =
+      b.create<func::CallOp>(nextFunc, nextResultTypes, openedUpstreamState);
+
+  Value consumedUpstreamState = nextCallOp->getResult(0);
+  Value hasValue = nextCallOp->getResult(1);
+  Value value = nextCallOp->getResult(2);
+
+  // Close upstream iterator. --------------------------------------------------
+  b.create<func::CallOp>(closeFunc, stateType, consumedUpstreamState);
+
+  return {value, hasValue};
+}
+
 /// Converts the given op to LLVM using the converted operands from the upstream
 /// iterator. This function is essentially a switch between conversion functions
 /// for sink and non-sink iterator ops.
@@ -1489,7 +1634,7 @@ convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
         return SmallVector<Value>{
             convert(op, operands, opInfo, upstreamInfos, builder)};
       })
-      .Case<SinkOp>([&](auto op) {
+      .Case<SinkOp, StreamToValueOp>([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;
         OpAdaptor adaptor(operands, op->getAttrDictionary());
         return convert(op, adaptor, upstreamInfos, builder);
@@ -1579,8 +1724,9 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
   // to the worklist *after* all of its upstream iterators.
   SmallVector<Operation *, 16> workList;
   module->walk<WalkOrder::PreOrder>([&](Operation *op) {
-    TypeSwitch<Operation *, void>(op).Case<IteratorOpInterface, SinkOp>(
-        [&](Operation *op) { workList.push_back(op); });
+    TypeSwitch<Operation *, void>(op)
+        .Case<IteratorOpInterface, SinkOp, StreamToValueOp>(
+            [&](Operation *op) { workList.push_back(op); });
   });
 
   // Convert iterator ops in worklist order.
@@ -1606,6 +1752,8 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
                               .create<UnrealizedConversionCastOp>(
                                   loc, convertedType, operand)
                               .getResult(0);
+        } else {
+          mappedOperand = operand;
         }
       }
 
@@ -1617,11 +1765,20 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
         convertIteratorOp(op, mappedOperands, rewriter, analysis);
     TypeSwitch<Operation *>(op)
         .Case<IteratorOpInterface>([&](auto op) {
+          // Iterator op: remember result for conversion of later ops.
           assert(converted.size() == 1 &&
                  "Expected iterator op to be converted to one value.");
           mapping.map(op->getResult(0), converted[0]);
         })
+        .Case<StreamToValueOp>([&](auto op) {
+          // Special case: uses will not be converted, so replace them.
+          assert(converted.size() == 2 &&
+                 "Expected StreamToValueOp to be converted to two values.");
+          op->getResult(0).replaceAllUsesWith(converted[0]);
+          op->getResult(1).replaceAllUsesWith(converted[1]);
+        })
         .Case<SinkOp>([&](auto op) {
+          // Special case: no result, nothing to do.
           assert(converted.empty() &&
                  "Expected sink op to be converted to no value.");
         });
