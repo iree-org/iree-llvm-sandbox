@@ -2,11 +2,22 @@
 
 from abc import ABC, abstractmethod
 import argparse
+import ctypes
 from datetime import datetime
 import json
+import os
 import time
 
 import numpy as np
+import pandas as pd
+
+from mlir_iterators.dialects import iterators as it
+from mlir_iterators.dialects import tabular as tab
+from mlir_iterators.execution_engine import ExecutionEngine
+from mlir_iterators.ir import Context, Module
+from mlir_iterators.passmanager import PassManager
+from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
+import mlir_iterators.all_passes_registration
 
 
 def setup_data(num_elements, dtype):
@@ -68,8 +79,77 @@ class NumpyMethod(Method):
     return np.dot(a, b).item()
 
 
+class IteratorsMethod(Method):
+
+  @classmethod
+  @property
+  def name(cls):
+    return 'iterators'
+
+  def __init__(self):
+    super().__init__()
+    self.df = None  # Keep reference to prevent GC.
+    self.dtype = None
+    self.engine = None
+    self.sample_input = None
+
+  def prepare_inputs(self, a, b):
+    self.df = pd.DataFrame({'a': a, 'b': b}, copy=False)
+    self.dtype = self.df.dtypes[0]
+    self.sample_input = ctypes.pointer(to_tabular_view_descriptor(self.df[0:0]))
+    return ctypes.pointer(to_tabular_view_descriptor(self.df))
+
+  def _load_code(self):
+    # Load code from file.
+    current_dir = os.path.dirname(os.path.realpath(__file__))
+    code_path = os.path.join(current_dir, 'iterators.mlir')
+    with open(code_path, 'r') as f:
+      code = f.read()
+
+    # Adapt code to dtype.
+    type_name = self.dtype.kind + str(self.dtype.itemsize * 8)
+    KIND_NAMES = {'i': 'int', 'f': 'float'}
+    kind_name = KIND_NAMES[self.dtype.kind]
+
+    code = code\
+      .replace('!element_type = i32', '!element_type = ' + type_name) \
+      .replace('mapFuncRef = @mul_struct_int', 'mapFuncRef = @mul_struct_' + kind_name) \
+      .replace('reduceFuncRef = @sum_int', 'reduceFuncRef = @sum_' + kind_name)
+
+    if self.dtype.kind == 'i':
+      code = code.replace('!int_type = i32', '!int_type = ' + type_name)
+    else:
+      code = code.replace('!float_type = f32', '!float_type = ' + type_name)
+
+    return code
+
+  def compile(self):
+    with Context():
+      it.register_dialect()
+      tab.register_dialect()
+      code = self._load_code()
+      mod = Module.parse(code)
+      pm = PassManager.parse(
+          'convert-iterators-to-llvm,convert-states-to-llvm,'
+          'convert-memref-to-llvm,convert-func-to-llvm,'
+          'reconcile-unrealized-casts,convert-scf-to-cf,convert-cf-to-llvm')
+    pm.run(mod)
+    self.engine = ExecutionEngine(mod, opt_level=3)
+
+    # Invoke once to move set-up time out of run time.
+    self.run(self.sample_input)
+
+  def run(self, inputs):
+    ctypes_class = np.ctypeslib.as_ctypes_type(self.dtype)
+    result = ctypes_class(-1)
+    pointer = ctypes.pointer(result)
+    self.engine.invoke('main', inputs, ctypes.pointer(pointer))
+    return result.value
+
+
 # Registry of methods that can be benchmarked.
 METHODS = {cls.name: cls for cls in [
+    IteratorsMethod,
     NumpyMethod,
 ]}
 

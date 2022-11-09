@@ -45,6 +45,7 @@ jobs:
         python configure.py --iterators
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
+        echo "PYTHONPATH=${PYTHONPATH}:${GITHUB_WORKSPACE}/sandbox/build/tools/sandbox/python_packages" >> $GITHUB_ENV
 
     - name: Run lit tests
       run: |
@@ -54,3 +55,4 @@ jobs:
     - name: Run benchmarks
       run: |
         python ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.py --method numpy
+        python ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.py --method iterators
