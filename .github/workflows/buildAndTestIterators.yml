@@ -56,3 +56,10 @@ jobs:
       run: |
         ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
         ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
+
+    - name: Archive benchmark plots
+      uses: actions/upload-artifact@v3
+      with:
+        name: iterators-benchmark-plots
+        path: |
+          sandbox/experimental/iterators/benchmarks/**/*.pdf
