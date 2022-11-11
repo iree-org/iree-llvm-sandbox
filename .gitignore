@@ -30,9 +30,6 @@ compile_commands.json
 *build*/
 ./runners/build*/
 
-# Benchmark dir
-benchmarks/
-
 # lit files
 .lit_test_times.txt
 Output/
