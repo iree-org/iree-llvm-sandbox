@@ -54,5 +54,5 @@ jobs:
 
     - name: Run benchmarks
       run: |
-        python ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.py --method numpy
-        python ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.py --method iterators
+        ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
+        ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
