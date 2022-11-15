@@ -1,7 +1,7 @@
 // RUN: rel_opt.py %s | filecheck %s
 
 // Query: table['a', 'b']
-module() {
+builtin.module() {
   ibis.selection() ["names" = ["a", "b"]] {
     // selection input
     ibis.unbound_table() ["table_name" = "t"] {

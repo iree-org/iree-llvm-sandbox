@@ -4,7 +4,7 @@
 // The renaming projection outside could be pushed through the select and then
 // fused with a projection on the basetables.
 
-module() {
+builtin.module() {
   rel_alg.project() ["names" = ["c"]] {
     rel_alg.select() {
         rel_alg.table() ["table_name" = "t"] {

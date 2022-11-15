@@ -1,6 +1,6 @@
 // RUN: rel_opt.py -p impl-to-iterators %s | filecheck %s
 
-module() {
+builtin.module() {
   %0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.full_table_scan() ["table_name" = "some_name"]
   %1 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]> = rel_impl.select(%0 : !rel_impl.bag<[!rel_impl.schema_element<"id", !rel_impl.int32>]>) {
     ^0(%2 : !rel_impl.tuple<[!rel_impl.schema_element<"id", !rel_impl.int32>]>):
@@ -13,15 +13,15 @@ module() {
 
 //      CHECK: func.func() ["sym_name" = "main", "function_type" = !fun<[!iterators.columnar_batch<!tuple<[!i32]>>], []>, "sym_visibility" = "private", "llvm.emit_c_interface"] {
 // CHECK-NEXT:   ^{{.*}}(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>):
-// CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.scan_columnar_batch(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>)
-// CHECK-NEXT:   %{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>> = iterators.filter(%{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>>) ["predicateRef" = @s0]
-// CHECK-NEXT:   iterators.sink(%{{.*}} : !iterators.stream<!llvm.struct<"", [!i32]>>)
+// CHECK-NEXT:     %{{.*}} : !iterators.stream<!llvm.struct<(!i32)>> = iterators.scan_columnar_batch(%{{.*}} : !iterators.columnar_batch<!tuple<[!i32]>>)
+// CHECK-NEXT:   %{{.*}} : !iterators.stream<!llvm.struct<(!i32)>> = iterators.filter(%{{.*}} : !iterators.stream<!llvm.struct<(!i32)>>) ["predicateRef" = @s0]
+// CHECK-NEXT:   iterators.sink(%{{.*}} : !iterators.stream<!llvm.struct<(!i32)>>)
 // CHECK-NEXT:   func.return()
 // CHECK-NEXT: }
-// CHECK-NEXT: func.func() ["sym_name" = "s0", "function_type" = !fun<[!llvm.struct<"", [!i32]>], [!i1]>, "sym_visibility" = "private"] {
-// CHECK-NEXT:   ^{{.*}}(%{{.*}} : !llvm.struct<"", [!i32]>):
+// CHECK-NEXT: func.func() ["sym_name" = "s0", "function_type" = !fun<[!llvm.struct<(!i32)>], [!i1]>, "sym_visibility" = "private"] {
+// CHECK-NEXT:   ^{{.*}}(%{{.*}} : !llvm.struct<(!i32)>):
 // CHECK-NEXT:     %{{.*}} : !i32 = arith.constant() ["value" = 0 : !i32]
-// CHECK-NEXT:     %{{.*}} : !i32 = llvm.extractvalue(%{{.*}} : !llvm.struct<"", [!i32]>) ["position" = [0 : !index]]
+// CHECK-NEXT:     %{{.*}} : !i32 = llvm.extractvalue(%{{.*}} : !llvm.struct<(!i32)>) ["position" = [0 : !index]]
 // CHECK-NEXT:     %{{.*}} : !i1 = arith.cmpi(%{{.*}} : !i32, %{{.*}} : !i32) ["predicate" = 4 : !i64]
 // CHECK-NEXT:     func.return(%{{.*}} : !i1)
 // CHECK-NEXT: }

@@ -1,6 +1,6 @@
 // RUN: rel_opt.py -p alg-to-ssa %s | filecheck %s
 
-module() {
+builtin.module() {
     rel_alg.aggregate() ["col_names" = ["im"], "functions" = ["sum"], "res_names" = ["idsum"], "by" = []] {
         rel_alg.project() ["names" = ["im"]] {
             rel_alg.table() ["table_name" = "t"] {
