@@ -19,7 +19,7 @@ func.func @main() {
   %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct} :
                  (!iterators.stream<!i32_struct>) ->
                      (!iterators.stream<!i32_struct>)
-// CHECK-NEXT:    %[[V1:.*]] = "iterators.reduce"(%[[V0]]) {reduceFuncRef = @sum_struct} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<!llvm.struct<(i32)>>
+// CHECK-NEXT:    %[[V1:reduced.*]] = "iterators.reduce"(%[[V0]]) {reduceFuncRef = @sum_struct} : (!iterators.stream<!llvm.struct<(i32)>>) -> !iterators.stream<!llvm.struct<(i32)>>
   return
 // CHECK-NEXT:    return
 }

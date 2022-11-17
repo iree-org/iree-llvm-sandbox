@@ -11,6 +11,7 @@
 
 include "iterators/Dialect/Tabular/IR/TabularDialect.td"
 include "iterators/Dialect/Tabular/IR/TabularTypes.td"
+include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
 
 class Tabular_Op<string mnemonic, list<Trait> traits = []> :
@@ -32,8 +33,8 @@ class StaticShapeAndContiguousRowMajorMemRefRankOf<list<Type> allowedTypes,
           MemRefRankOf<allowedTypes, ranks>.summary #
           " with static shape and continguous row-major layout">;
 
-def Tabular_ViewAsTabularOp
-    : Tabular_Op<"view_as_tabular"> {
+def Tabular_ViewAsTabularOp : Tabular_Op<"view_as_tabular",
+    [DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Creates a `tabular_view` from the given memrefs";
   let description = [{
     Converts a variadic number of memrefs of rank 1 into the columns of a
@@ -48,7 +49,7 @@ def Tabular_ViewAsTabularOp
       %t2 = arith.constant dense<[3, 4, 5]> : tensor<3xi64>
       %m1 = bufferization.to_memref %t1 : memref<3xi32>
       %m2 = bufferization.to_memref %t2 : memref<3xi64>
-      %view = "tabular.view_as_tabular"(%m1, %m2)
+      %tabularview = "tabular.view_as_tabular"(%m1, %m2)
         : (memref<3xi32>, memref<3xi64>)
           -> !tabular.tabular_view<i32,i64>
     ```
@@ -60,6 +61,13 @@ def Tabular_ViewAsTabularOp
   let hasVerifier = true;
   let assemblyFormat = [{
     operands attr-dict `:` functional-type($memrefs, $view)
+  }];
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    void $cppClass::getAsmResultNames(
+        llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
+      setNameFn(getResult(), "tabularview");
+    }
   }];
 }
 
