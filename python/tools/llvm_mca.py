@@ -146,13 +146,11 @@ def main():
                       default=shutil.which('mlir-translate'),
                       help='executable name of or full path to mlir-translate')
 
-  parser.add_argument(
+  group = parser.add_mutually_exclusive_group(required=True)
+  group.add_argument(
       '-mlir-file',
-      default='',
       help='(optional) full path to mlir file in the llvm dialect')
-  parser.add_argument('-obj-file',
-                      default='',
-                      help='(optional) full path to obj file')
+  group.add_argument('-obj-file', help='(optional) full path to obj file')
 
   parser.add_argument('-c',
                       '-cpu',
