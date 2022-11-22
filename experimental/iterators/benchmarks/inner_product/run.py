@@ -129,10 +129,14 @@ class IteratorsMethod(Method):
       tab.register_dialect()
       code = self._load_code()
       mod = Module.parse(code)
-      pm = PassManager.parse(
-          'convert-iterators-to-llvm,convert-states-to-llvm,'
-          'convert-memref-to-llvm,convert-func-to-llvm,'
-          'reconcile-unrealized-casts,convert-scf-to-cf,convert-cf-to-llvm')
+      pm = PassManager.parse(  # (Comment for better formatting.)
+          'convert-iterators-to-llvm,'
+          'convert-states-to-llvm,'
+          'convert-memref-to-llvm,'
+          'convert-func-to-llvm,'
+          'reconcile-unrealized-casts,'
+          'convert-scf-to-cf,'
+          'convert-cf-to-llvm')
     pm.run(mod)
     self.engine = ExecutionEngine(mod, opt_level=3)
 
