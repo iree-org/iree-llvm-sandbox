@@ -45,8 +45,21 @@ jobs:
         python configure.py --iterators
         ccache -s
         echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
+        echo "PYTHONPATH=${PYTHONPATH}:${GITHUB_WORKSPACE}/sandbox/build/tools/sandbox/python_packages" >> $GITHUB_ENV
 
-    - name: Test
+    - name: Run lit tests
       run: |
         cd ${GITHUB_WORKSPACE}/sandbox
         python run_tests.py --iterators-tests
+
+    - name: Run benchmarks
+      run: |
+        ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
+        ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
+
+    - name: Archive benchmark plots
+      uses: actions/upload-artifact@v3
+      with:
+        name: iterators-benchmark-plots
+        path: |
+          sandbox/experimental/iterators/benchmarks/**/*.pdf
