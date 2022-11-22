@@ -164,6 +164,7 @@ def main():
                       help='arch to compile for')
   parser.add_argument('-f',
                       '-fn',
+                      required=True,
                       help='name of the function to run through llvm_mca')
   args = vars(parser.parse_args())
 
