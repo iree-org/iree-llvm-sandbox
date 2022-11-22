@@ -169,7 +169,7 @@ def main():
                       help='name of the function to run through llvm_mca')
   args = vars(parser.parse_args())
 
-  if 'obj_file' in args:
+  if args['obj_file']:
     objdump_and_llvm_mca(args, args['obj_file'])
   else:
     objdump_and_llvm_mca(args, compile_to_object(args))
