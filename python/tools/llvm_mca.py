@@ -107,7 +107,7 @@ def compile_to_object(args):
 def main():
   parser = argparse.ArgumentParser(description="""
     Utility to compile to obj and instrument with llvm-mca.
-    Given -mlir_file=/tmp/foo.mlir, this creates the intermediate files:
+    Given -mlir-file=/tmp/foo.mlir, this creates the intermediate files:
        /tmp/foo.mlir.ll
        /tmp/foo.mlir.o
 
