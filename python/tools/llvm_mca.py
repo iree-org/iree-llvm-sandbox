@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import shutil
 import subprocess
 
 cpu_choices = [
@@ -129,15 +130,21 @@ def main():
       [-mlir-file=/tmp/foo.mlir] \
       [-obj-file=/tmp/foo.o] \
   """)
-  parser.add_argument('-llvm-llc', default='', help='full path to llc')
-  parser.add_argument('-llvm-mca', default='', help='full path to llvm-mca')
+  parser.add_argument('-llvm-llc',
+                      default=shutil.which('llc'),
+                      help='executable name of or full path to llc')
+  parser.add_argument('-llvm-mca',
+                      default=shutil.which('llvm-mca'),
+                      help='executable name of or full path to llvm-mca')
   parser.add_argument('-llvm-objdump',
-                      default='',
-                      help='full path to llvm-objdump')
-  parser.add_argument('-llvm-opt', default='', help='full path to opt')
+                      default=shutil.which('llvm-objdump'),
+                      help='executable name of or full path to llvm-objdump')
+  parser.add_argument('-llvm-opt',
+                      default=shutil.which('opt'),
+                      help='executable name of or full path to opt')
   parser.add_argument('-mlir-translate',
-                      default='',
-                      help='full path to mlir-translate')
+                      default=shutil.which('mlir-translate'),
+                      help='executable name of or full path to mlir-translate')
 
   parser.add_argument(
       '-mlir-file',
