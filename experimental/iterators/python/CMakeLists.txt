@@ -66,6 +66,7 @@ add_mlir_python_common_capi_library(IteratorsPythonCAPI
   IteratorsPythonSources
   MLIRPythonExtension.AllPassesRegistration
   MLIRPythonSources.Core
+  MLIRPythonSources.Dialects
   MLIRPythonSources.ExecutionEngine
   MLIRPythonSources.Passes
 )
@@ -80,6 +81,7 @@ add_mlir_python_modules(IteratorsPythonModules
   IteratorsPythonSources
   MLIRPythonExtension.AllPassesRegistration
   MLIRPythonSources.Core
+  MLIRPythonSources.Dialects
   MLIRPythonSources.ExecutionEngine
   MLIRPythonSources.Passes
   COMMON_CAPI_LINK_LIBS
