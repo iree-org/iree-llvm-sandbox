@@ -33,20 +33,14 @@ exhaust() {(
 test() {(
   for n in ${NUM_ELEMENTS[@]}
   do
-    for _ in 1 2  # Run twice for stddev to make sense
-    do
-      "$RUN_SCRIPT" -n $n
-    done
+    "$RUN_SCRIPT" -n $n -r 2  # Run twice for stddev to make sense
   done
 
   for t in ${DTYPES[@]}
   do
     for m in ${METHODS[@]}
     do
-      for _ in 1 2  # Run twice for stddev to make sense
-      do
-        "$RUN_SCRIPT" -t $t -m $m
-      done
+      "$RUN_SCRIPT" -t $t -m $m -r 2   # Run twice for stddev to make sense
     done
   done
 )}

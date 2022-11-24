@@ -132,6 +132,11 @@ def main():
   # Read measurement data.
   df = pd.read_json(args.input_file, orient='records', lines=True)
 
+  # Unnest nested data.
+  df = df.explode(['results', 'run_times_ns'])
+  df = df.rename(columns={'results': 'result', 'run_times_ns': 'run_time_ns'})
+  df.run_time_ns = df.run_time_ns.astype(np.int64)
+
   # Compute times in us.
   df['run_time_us'] = df.run_time_ns / 1000
   df['compile_time_us'] = df.compile_time_ns / 1000

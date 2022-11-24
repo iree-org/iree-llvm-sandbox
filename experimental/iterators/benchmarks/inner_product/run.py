@@ -60,9 +60,27 @@ class Method(ABC):
     pass
 
   @abstractmethod
-  def run(self, inputs):
-    """Run the benchmark on the previously prepared data."""
+  def run_once(self, inputs):
+    """Run the benchmark on the previously prepared data once."""
     pass
+
+  def run(self, inputs, num_repetitions):
+    """Run the benchmark on the previously prepared data num_repetitions times.
+    Implementations may overload this function to run the repetitions in a tight
+    loop."""
+    run_times_ns = []
+    results = []
+    for _ in range(num_repetitions):
+      start = time.time()
+      result = self.run_once(inputs)
+      end = time.time()
+
+      run_time_s = end - start
+      run_time_ns = int(run_time_s * 10**9)
+      run_times_ns.append(run_time_ns)
+      results.append(result)
+
+    return run_times_ns, results
 
 
 class NumpyMethod(Method):
@@ -74,7 +92,7 @@ class NumpyMethod(Method):
   def name(cls):
     return 'numpy'
 
-  def run(self, inputs):
+  def run_once(self, inputs):
     a, b = inputs
     return np.dot(a, b).item()
 
@@ -141,9 +159,9 @@ class IteratorsMethod(Method):
     self.engine = ExecutionEngine(mod, opt_level=3)
 
     # Invoke once to move set-up time out of run time.
-    self.run(self.sample_input)
+    self.run(self.sample_input, num_repetitions=1)
 
-  def run(self, inputs):
+  def run_once(self, inputs):
     ctypes_class = np.ctypeslib.as_ctypes_type(self.dtype)
     result = ctypes_class(-1)
     pointer = ctypes.pointer(result)
@@ -164,6 +182,12 @@ def parse_args():
 
   parser = argparse.ArgumentParser(
       description='Run benchmark computing inner product of two vectors.')
+  parser.add_argument('-r',
+                      '--num-repetitions',
+                      metavar='N',
+                      type=int,
+                      default=1,
+                      help='Number of repetitions in immediate succession.')
   parser.add_argument('-n',
                       '--num-elements',
                       metavar='N',
@@ -208,23 +232,24 @@ def main():
 
   # Run computation.
   start = time.time()
-  res = method.run(inputs)
+  run_times_ns, results = method.run(inputs, args.num_repetitions)
   end = time.time()
-  run_time_s = end - start
+  total_run_time_s = end - start
 
   # Assemble and print benchmark data.
   prepare_time_ns = int(prepare_time_s * 10**9)
   compile_time_ns = int(compile_time_s * 10**9)
-  run_time_ns = int(run_time_s * 10**9)
+  total_run_time_ns = int(total_run_time_s * 10**9)
 
   data = {
       'method': method.name,
       'dtype': dtype.name,
       'num_elements': num_elements,
-      'run_time_ns': run_time_ns,
+      'total_run_time_ns': total_run_time_ns,
+      'run_times_ns': run_times_ns,
       'prepare_time_ns': prepare_time_ns,
       'compile_time_ns': compile_time_ns,
-      'result': str(res),
+      'results': results,
       'datetime': datetime.now().isoformat(),
   }
 
