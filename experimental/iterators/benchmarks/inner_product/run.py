@@ -11,13 +11,74 @@ import time
 import numpy as np
 import pandas as pd
 
+from iree.compiler.runtime.np_to_memref import get_ranked_memref_descriptor
 from mlir_iterators.dialects import iterators as it
 from mlir_iterators.dialects import tabular as tab
+from mlir_iterators.dialects import arith, func, memref, scf
 from mlir_iterators.execution_engine import ExecutionEngine
-from mlir_iterators.ir import Context, Module
+from mlir_iterators.ir import (
+    Context,  # (Comment preserves formatting.)
+    DictAttr,
+    IndexType,
+    IntegerType,
+    InsertionPoint,
+    Location,
+    MemRefType,
+    Module,
+    SymbolTable,
+    UnitAttr,
+)
 from mlir_iterators.passmanager import PassManager
 from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
 import mlir_iterators.all_passes_registration
+
+_MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
+_MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
+_MLIR_C_RUNNER_UTILS_LIB_ENV = "MLIR_C_RUNNER_UTILS_LIB"
+_MLIR_C_RUNNER_UTILS_LIB_DEFAULT = "libmlir_c_runner_utils.so"
+
+
+# Copied from mlir.sandbox.compilation. That package uses the vanilla `mlir`
+# package instead of `mlir_iterators` as the rest of this file, so they are
+# incompatible.
+def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
+  """Produces the benchmarking function.
+
+  This function calls the given function `bench` as many times as requested by
+  its last argument.
+  """
+  i64_type = IntegerType.get_signless(64)
+  nano_time = func.FuncOp("nanoTime", ([], [i64_type]), visibility="private")
+  nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+
+  memref_of_i64_type = MemRefType.get([-1], i64_type)
+  wrapper = func.FuncOp(
+      # Same signature and an extra buffer of indices to save timings.
+      name,
+      (bench.arguments.types + [memref_of_i64_type], bench.type.results),
+      visibility="public")
+  wrapper.attributes["llvm.emit_c_interface"] = UnitAttr.get()
+
+  num_results = len(bench.type.results)
+  with InsertionPoint(wrapper.add_entry_block()):
+    timer_buffer = wrapper.arguments[-1]
+    zero = arith.ConstantOp.create_index(0)
+    n_iterations = memref.DimOp(IndexType.get(), timer_buffer, zero)
+    one = arith.ConstantOp.create_index(1)
+    iter_args = list(wrapper.arguments[-num_results - 1:-1])
+    loop = scf.ForOp(zero, n_iterations, one, iter_args)
+    with InsertionPoint(loop.body):
+      start = func.CallOp(nano_time, [])
+      args = list(wrapper.arguments[:-num_results - 1])
+      args.extend(loop.inner_iter_args)
+      call = func.CallOp(bench, args)
+      end = func.CallOp(nano_time, [])
+      time = arith.SubIOp(end, start)
+      memref.StoreOp(time, timer_buffer, [loop.induction_variable])
+      scf.YieldOp(list(call.results))
+    func.ReturnOp(loop)
+
+  return wrapper
 
 
 def setup_data(num_elements, dtype):
@@ -142,21 +203,30 @@ class IteratorsMethod(Method):
     return code
 
   def compile(self):
-    with Context():
+    with Context(), Location.unknown():
       it.register_dialect()
       tab.register_dialect()
       code = self._load_code()
       mod = Module.parse(code)
+      symbol_table = SymbolTable(mod.operation)
+      main_func = symbol_table['main']
+      with InsertionPoint(mod.body):
+        emit_benchmarking_function('main_bench', main_func)
       pm = PassManager.parse(  # (Comment for better formatting.)
           'convert-iterators-to-llvm,'
           'convert-states-to-llvm,'
           'convert-memref-to-llvm,'
+          'convert-scf-to-cf,'
           'convert-func-to-llvm,'
           'reconcile-unrealized-casts,'
-          'convert-scf-to-cf,'
           'convert-cf-to-llvm')
     pm.run(mod)
-    self.engine = ExecutionEngine(mod, opt_level=3)
+    shared_libs = [
+        os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
+        os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV,
+                  _MLIR_C_RUNNER_UTILS_LIB_DEFAULT)
+    ]
+    self.engine = ExecutionEngine(mod, shared_libs=shared_libs, opt_level=3)
 
     # Invoke once to move set-up time out of run time.
     self.run(self.sample_input, num_repetitions=1)
@@ -164,9 +234,25 @@ class IteratorsMethod(Method):
   def run_once(self, inputs):
     ctypes_class = np.ctypeslib.as_ctypes_type(self.dtype)
     result = ctypes_class(-1)
-    pointer = ctypes.pointer(result)
-    self.engine.invoke('main', inputs, ctypes.pointer(pointer))
+    result_ptr = ctypes.pointer(result)
+    self.engine.invoke('main', inputs, ctypes.pointer(result_ptr))
     return result.value
+
+  def run(self, inputs, num_repetitions):
+    ctypes_class = np.ctypeslib.as_ctypes_type(self.dtype)
+    result = ctypes_class(-1)
+    result_ptr = ctypes.pointer(result)
+
+    timings = np.empty([num_repetitions], dtype=np.int64)
+    timings_desc = get_ranked_memref_descriptor(timings)
+
+    self.engine.invoke('main_bench', inputs, ctypes.pointer(result_ptr),
+                       ctypes.pointer(ctypes.pointer(timings_desc)))
+
+    # Assume deterministic results for simplicity.
+    results = [result.value] * num_repetitions
+
+    return timings.tolist(), results
 
 
 # Registry of methods that can be benchmarked.
