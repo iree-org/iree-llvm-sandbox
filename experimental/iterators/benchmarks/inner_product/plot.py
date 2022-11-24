@@ -132,6 +132,11 @@ def main():
   # Read measurement data.
   df = pd.read_json(args.input_file, orient='records', lines=True)
 
+  # Compute times in us.
+  df['run_time_us'] = df.run_time_ns / 1000
+  df['compile_time_us'] = df.compile_time_ns / 1000
+  df['prepare_time_us'] = df.prepare_time_ns / 1000
+
   # Aggregate.
   df = df \
     .groupby(['method', 'dtype', 'num_elements']) \

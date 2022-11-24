@@ -213,17 +213,17 @@ def main():
   run_time_s = end - start
 
   # Assemble and print benchmark data.
-  prepare_time_us = int(prepare_time_s * 10**6)
-  compile_time_us = int(compile_time_s * 10**6)
-  run_time_us = int(run_time_s * 10**6)
+  prepare_time_ns = int(prepare_time_s * 10**9)
+  compile_time_ns = int(compile_time_s * 10**9)
+  run_time_ns = int(run_time_s * 10**9)
 
   data = {
       'method': method.name,
       'dtype': dtype.name,
       'num_elements': num_elements,
-      'run_time_us': run_time_us,
-      'prepare_time_us': prepare_time_us,
-      'compile_time_us': compile_time_us,
+      'run_time_ns': run_time_ns,
+      'prepare_time_ns': prepare_time_ns,
+      'compile_time_ns': compile_time_ns,
       'result': str(res),
       'datetime': datetime.now().isoformat(),
   }
