@@ -38,3 +38,7 @@ fi
 p=time_by_method_dtype; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/run_${p}.pdf" -p run
 p=time_by_method_dtype; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/compile_${p}.pdf" -p compile
 p=time_by_num_elements; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/run_${p}.pdf" -p run
+p=throughput_by_num_elements_dtype; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/${p}_iterators.pdf" -m iterators
+p=throughput_by_num_elements_dtype; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/${p}_numpy.pdf" -m numpy
+p=throughput_by_num_elements_method; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/${p}_int32.pdf" -t int32
+p=throughput_by_num_elements_method; "$PLOT_SCRIPT" $p -i "$infile" -o "$outdir/${p}_float32.pdf" -t float32

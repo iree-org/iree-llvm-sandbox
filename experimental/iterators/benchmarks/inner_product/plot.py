@@ -8,6 +8,54 @@ import numpy as np
 import pandas as pd
 
 
+def plot_throughput_by_num_elements_dtype(df, ax, dtype):
+  # Filter.
+  df = df[df.method == dtype]
+
+  # Set up plot.
+  ax.set_xscale('log', base=2)
+
+  ax.set_ylabel('Throughput [GElems/s]')
+  ax.set_xlabel('Number of elements')
+
+  # Plot.
+  lines = sorted(df['dtype'].unique())
+  for dtype in lines:
+    df_series = df[df['dtype'] == dtype]
+    ax.errorbar(df_series.num_elements,
+                df_series['throughput_median'] / 10**9,
+                yerr=df_series['throughput_std'] / 10**9,
+                label=dtype)
+  ax.legend()
+
+  # Ticks and limits.
+  ax.set_ylim(ymin=0)
+
+
+def plot_throughput_by_num_elements_method(df, ax, dtype):
+  # Filter.
+  df = df[df['dtype'] == dtype]
+
+  # Set up plot.
+  ax.set_xscale('log', base=2)
+
+  ax.set_ylabel('Throughput [GElems/s]')
+  ax.set_xlabel('Number of elements')
+
+  # Plot.
+  lines = sorted(df.method.unique())
+  for method in lines:
+    df_series = df[df.method == method]
+    ax.errorbar(df_series.num_elements,
+                df_series['throughput_median'] / 10**9,
+                yerr=df_series['throughput_std'] / 10**9,
+                label=method)
+  ax.legend()
+
+  # Ticks and limits.
+  ax.set_ylim(ymin=0)
+
+
 def plot_time_by_num_elements(df, ax, dtype, phase):
   # Filter.
   df = df[df['dtype'] == dtype]
@@ -90,7 +138,12 @@ def parse_args():
       description='Plot measurements of the inner product benchmark.')
   parser.add_argument('plot',
                       metavar='PLOT',
-                      choices=['time_by_num_elements', 'time_by_method_dtype'],
+                      choices=[
+                          'time_by_num_elements',
+                          'throughput_by_num_elements_dtype',
+                          'throughput_by_num_elements_method',
+                          'time_by_method_dtype',
+                      ],
                       help='Name of the plot that should be produced.')
   parser.add_argument('-i',
                       '--input-file',
@@ -110,6 +163,12 @@ def parse_args():
                       type=str,
                       default='int32',
                       help='dtype by which to filter.')
+  parser.add_argument('-m',
+                      '--method',
+                      metavar='METHOD',
+                      type=str,
+                      default='iterators',
+                      help='Method by which to filter.')
   parser.add_argument('-n',
                       '--num-elements',
                       metavar='N',
@@ -142,6 +201,8 @@ def main():
   df['compile_time_us'] = df.compile_time_ns / 1000
   df['prepare_time_us'] = df.prepare_time_ns / 1000
 
+  df['throughput'] = df.num_elements / df.run_time_ns * 10**9
+
   # Aggregate.
   df = df \
     .groupby(['method', 'dtype', 'num_elements']) \
@@ -150,6 +211,7 @@ def main():
                   'run_time_us',
                   'prepare_time_us',
                   'compile_time_us',
+                  'throughput',
                 ]}) \
     .reset_index() \
     .sort_values(['method', 'dtype', 'num_elements'])
@@ -169,6 +231,12 @@ def main():
 
   if args.plot == 'time_by_num_elements':
     plot_time_by_num_elements(df, ax, args.dtype, args.phase)
+  if args.plot == 'throughput_by_num_elements_method':
+    assert args.phase == 'run'
+    plot_throughput_by_num_elements_method(df, ax, args.dtype)
+  if args.plot == 'throughput_by_num_elements_dtype':
+    assert args.phase == 'run'
+    plot_throughput_by_num_elements_dtype(df, ax, args.method)
   elif args.plot == 'time_by_method_dtype':
     plot_time_by_method_dtype(df, ax, args.num_elements, args.phase)
 
