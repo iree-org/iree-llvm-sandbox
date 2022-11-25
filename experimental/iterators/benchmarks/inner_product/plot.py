@@ -40,7 +40,7 @@ def plot_time_by_num_elements(df, ax, dtype, phase):
   ax.set_ylim(ymin, ymax)
 
 
-def time_by_method_dtype(df, ax, num_elements, phase):
+def plot_time_by_method_dtype(df, ax, num_elements, phase):
   # Filter.
   df = df[df.num_elements == num_elements]
 
@@ -170,7 +170,7 @@ def main():
   if args.plot == 'time_by_num_elements':
     plot_time_by_num_elements(df, ax, args.dtype, args.phase)
   elif args.plot == 'time_by_method_dtype':
-    time_by_method_dtype(df, ax, args.num_elements, args.phase)
+    plot_time_by_method_dtype(df, ax, args.num_elements, args.phase)
 
   plt.savefig(args.output_file, format='pdf', bbox_inches='tight', pad_inches=0)
   plt.close()
