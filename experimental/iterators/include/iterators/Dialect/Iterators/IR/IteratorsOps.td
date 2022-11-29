@@ -375,6 +375,49 @@ def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
   }];
 }
 
+def Iterators_TensorToStreamOp : Iterators_Op<"tensor_to_stream",
+    [AllMatch<["$input.getType().cast<TensorType>().getRank()",
+               "$result.getType().cast<StreamType>().getElementType()"
+               "                 .cast<TensorType>().getRank()"],
+               "the input tensor and those in the result stream "
+               "have the same rank">,
+     AllMatch<["$input.getType().cast<TensorType>().getElementType()",
+               "$result.getType().cast<StreamType>().getElementType()"
+               "                 .cast<TensorType>().getElementType()"],
+               "the input tensor and those in the result stream "
+               "have the same element type">,
+     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+  let summary = "Produces a stream of slices from a given tensor";
+  // TODO(ingomueller): allow for a padding value for non-dividing sizes?
+  // TODO(ingomueller): allow for strides? what would that even mean exactly?
+  // TODO(ingomueller): allow for defining the iteration order?
+  // TODO(ingomueller): expose iteration indices?
+  let description = [{
+    Produces a stream of all non-overlapping, statically shaped, unit-strided
+    slices from a given tensor in an implementation-defined order. The slices
+    are tensors of the same rank (and element type) as the input tensor (i.e.,
+    no rank reduction is done). In the dimensions where the resulting tensor
+    size divides the input tensor size, the resulting tensors fully cover the
+    input tensor; if the sizes do not divide, the remainders are dropped.
+
+    Example:
+    ```mlir
+    %stream_of_tensors = iterators.tensor_to_stream %input :
+                tensor<?xi32> to !iterators.stream<tensor<4xi32>>
+    ```
+  }];
+  let arguments = (ins AnyRankedTensor:$input);
+  let results = (outs Iterators_StreamOf<AnyStaticShapeTensor>:$result);
+  let assemblyFormat = "$input attr-dict `:` type($input) `to` type($result)";
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    void $cppClass::getAsmResultNames(
+        llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
+      setNameFn(getResult(), "fromtensor");
+    }
+  }];
+}
+
 /// The sink op is a special op that only consumes a stream of values and
 /// produces nothing.
 /// It is not marked with Iterators_IteratorOpInterface.
