@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from iree.compiler.runtime.np_to_memref import get_ranked_memref_descriptor
+from mlir.sandbox.utils import realign
 from mlir_iterators.dialects import iterators as it
 from mlir_iterators.dialects import tabular as tab
 from mlir_iterators.dialects import arith, func, memref, scf
@@ -85,8 +86,8 @@ def setup_data(num_elements, dtype):
   """Sets up the input data: two `numpy.arrays` with `num_elements` each of
   type `dtype`."""
 
-  a = np.arange(num_elements, dtype=dtype)
-  b = np.arange(num_elements, dtype=dtype)
+  a = realign(np.arange(num_elements, dtype=dtype))
+  b = realign(np.arange(num_elements, dtype=dtype))
   return a, b
 
 
