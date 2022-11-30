@@ -257,7 +257,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
 
 /// Builds IR that resets the current index to 0. Possible result:
 ///
-/// %0 = llvm.mlir.constant(0 : i32) : i32
+/// %0 = arith.constant 0 : i32
 /// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
 static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
                            Value initialState,
@@ -434,7 +434,7 @@ static Value buildCloseBody(ConstantStreamOp /*op*/, OpBuilder & /*builder*/,
 /// Builds IR that creates an initial iterator state consisting of an
 /// (uninitialized) current index. Possible result:
 ///
-/// %0 = llvm.mlir.constant(0 : i32) : i32
+/// %0 = arith.constant 0 : i32
 /// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
 static Value buildStateCreation(ConstantStreamOp op,
                                 ConstantStreamOp::Adaptor /*adaptor*/,
@@ -1000,9 +1000,9 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
 // TabularViewToStreamOp.
 //===----------------------------------------------------------------------===//
 
-/// Builds IR that (re) sets the current index to zero. Possible output:
+/// Builds IR that (re)sets the current index to zero. Possible output:
 ///
-/// %0 = llvm.mlir.constant(0 : i64) : i64
+/// %0 = arith.constant 0 : i64
 /// %1 = iterators.insertvalue %0 into %arg0[0] :
 ///          !iterators.state<i64, !tabular_view_type>
 static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
@@ -1144,7 +1144,7 @@ static Value buildCloseBody(TabularViewToStreamOp /*op*/,
 /// %0 = ...
 /// %1 = iterators.undefstate : !iterators.state<i64, !tabular_view_type>
 /// %2 = iterators.insertvalue %1[1] (%0 : !tabular_view_type) :
-///          <i64, !tabular_view_type>
+///          !iterators.state<i64, !tabular_view_type>
 static Value buildStateCreation(TabularViewToStreamOp op,
                                 TabularViewToStreamOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
