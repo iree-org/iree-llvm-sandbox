@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import os
+import shutil
 import subprocess
 
 cpu_choices = [
@@ -108,7 +108,7 @@ def compile_to_object(args):
 def main():
   parser = argparse.ArgumentParser(description="""
     Utility to compile to obj and instrument with llvm-mca.
-    Given -mlir_file=/tmp/foo.mlir, this creates the intermediate files:
+    Given -mlir-file=/tmp/foo.mlir, this creates the intermediate files:
        /tmp/foo.mlir.ll
        /tmp/foo.mlir.o
 
@@ -130,23 +130,27 @@ def main():
       [-mlir-file=/tmp/foo.mlir] \
       [-obj-file=/tmp/foo.o] \
   """)
-  parser.add_argument('-llvm-llc', default='', help='full path to llc')
-  parser.add_argument('-llvm-mca', default='', help='full path to llvm-mca')
+  parser.add_argument('-llvm-llc',
+                      default=shutil.which('llc'),
+                      help='executable name of or full path to llc')
+  parser.add_argument('-llvm-mca',
+                      default=shutil.which('llvm-mca'),
+                      help='executable name of or full path to llvm-mca')
   parser.add_argument('-llvm-objdump',
-                      default='',
-                      help='full path to llvm-objdump')
-  parser.add_argument('-llvm-opt', default='', help='full path to opt')
+                      default=shutil.which('llvm-objdump'),
+                      help='executable name of or full path to llvm-objdump')
+  parser.add_argument('-llvm-opt',
+                      default=shutil.which('opt'),
+                      help='executable name of or full path to opt')
   parser.add_argument('-mlir-translate',
-                      default='',
-                      help='full path to mlir-translate')
+                      default=shutil.which('mlir-translate'),
+                      help='executable name of or full path to mlir-translate')
 
-  parser.add_argument(
+  group = parser.add_mutually_exclusive_group(required=True)
+  group.add_argument(
       '-mlir-file',
-      default='',
       help='(optional) full path to mlir file in the llvm dialect')
-  parser.add_argument('-obj-file',
-                      default='',
-                      help='(optional) full path to obj file')
+  group.add_argument('-obj-file', help='(optional) full path to obj file')
 
   parser.add_argument('-c',
                       '-cpu',
@@ -160,10 +164,11 @@ def main():
                       help='arch to compile for')
   parser.add_argument('-f',
                       '-fn',
+                      required=True,
                       help='name of the function to run through llvm_mca')
   args = vars(parser.parse_args())
 
-  if 'obj_file' in args:
+  if args['obj_file']:
     objdump_and_llvm_mca(args, args['obj_file'])
   else:
     objdump_and_llvm_mca(args, compile_to_object(args))
