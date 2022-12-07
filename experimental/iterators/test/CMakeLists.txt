@@ -31,6 +31,10 @@ set_target_properties(check-iterators PROPERTIES FOLDER "Tests")
 
 add_lit_testsuites(Iterators ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${ITERATORS_TEST_DEPENDS})
 
+# Top-level build targets for test dependencies.
 add_custom_target(check-iterators-dependencies)
 add_dependencies(check-iterators-dependencies ${ITERATORS_TEST_DEPENDS})
 add_dependencies(iterators-all check-iterators-dependencies)
+
+# Recurse into subdirectories.
+add_subdirectory(lib)

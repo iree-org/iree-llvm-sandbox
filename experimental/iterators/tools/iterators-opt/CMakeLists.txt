@@ -21,6 +21,7 @@ target_link_libraries(iterators-opt
 
   ${dialect_libs}
   ${conversion_libs}
+  IteratorsOneToNTypeConversionTestPass
   MLIRAffineAnalysis
   MLIRAnalysis
   MLIRDialect

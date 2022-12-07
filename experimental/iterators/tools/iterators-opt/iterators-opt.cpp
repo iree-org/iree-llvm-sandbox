@@ -22,8 +22,22 @@
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
+#include <mlir/IR/DialectRegistry.h>
 
 using namespace mlir;
+
+namespace mlir {
+namespace iterators {
+namespace test {
+void registerTestDialect(DialectRegistry &);
+void registerTestOneToNTypeConversionPass();
+} // namespace test
+} // namespace iterators
+} // namespace mlir
+
+namespace test {
+void registerTestDialect(DialectRegistry &);
+} // namespace test
 
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
@@ -39,9 +53,13 @@ int main(int argc, char **argv) {
   registerAllPasses();
   registerIteratorsConversionPasses();
 
+  iterators::test::registerTestOneToNTypeConversionPass();
+
   DialectRegistry registry;
   registerAllDialects(registry);
   registerIteratorDialects(registry);
+
+  test::registerTestDialect(registry);
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
                             registry,
