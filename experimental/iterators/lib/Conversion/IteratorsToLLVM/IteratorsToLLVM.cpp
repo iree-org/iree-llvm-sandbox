@@ -20,6 +20,7 @@
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
@@ -1220,6 +1221,149 @@ static Value buildStateCreation(TabularViewToStreamOp op,
 }
 
 //===----------------------------------------------------------------------===//
+// TensorToStreamOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that (re)sets the current index to zero. Possible output:
+///
+/// %0 = arith.constant 0 : index
+/// %1 = iterators.insertvalue %0 into %arg0[0] :
+///          !iterators.state<index, !tensor_type>
+static Value buildOpenBody(TensorToStreamOp op, OpBuilder &builder,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Insert constant zero into state.
+  Value zeroValue = b.create<arith::ConstantIndexOp>(0);
+  return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
+                                            zeroValue);
+}
+
+/// Builds IR that extracts a slice of the desired size from the input tensor at
+/// current index and increments that index by the output tensor size.
+/// Pseudo-code:
+///
+/// if current_index + output_size > len(input):
+///   return {}
+/// slice = input[current_index..current_index+output_size-1]
+/// current_index += output_size
+/// return slice
+///
+/// Possible output:
+///
+/// %0 = iterators.extractvalue %arg0[0] : !iterators.state<index, !tensor_type>
+/// %1 = iterators.extractvalue %arg0[1] : !iterators.state<index, !tensor_type>
+/// %c0 = arith.constant 0 : index
+/// %dim = tensor.dim %1, %c0 : !tensor_type
+/// %2 = arith.cmpi slt, %0, %dim : index
+/// %3:2 = scf.if %2 -> (!iterators.state<index, !tensor_type>, tensor<2xi32>) {
+///   %c2 = arith.constant 2 : index
+///   %4 = arith.addi %c2, %0 : index
+///   %state = iterators.insertvalue %4 into %arg0[0] :
+///                !iterators.state<index, !tensor_type>
+///   %extracted_slice = tensor.extract_slice %1[%0] [2] [1] :
+///                          !tensor_type to tensor<2xi32>
+///   scf.yield %state, %extracted_slice :
+///       !iterators.state<index, !tensor_type>, tensor<2xi32>
+/// } else {
+///   %extracted_slice = tensor.extract_slice %1[0] [2] [1] :
+///                          !tensor_type to tensor<2xi32>
+///   scf.yield %arg0, %extracted_slice :
+///       !iterators.state<index, !tensor_type>, tensor<2xi32>
+/// }
+static llvm::SmallVector<Value, 4>
+buildNextBody(TensorToStreamOp op, OpBuilder &builder, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op->getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type indexType = b.getIndexType();
+
+  RankedTensorType elementTensorType = elementType.cast<RankedTensorType>();
+  int64_t elementTensorSize = elementTensorType.getDimSize(0);
+
+  // Extract current index.
+  Value currentIndex = b.create<iterators::ExtractValueOp>(
+      indexType, initialState, b.getIndexAttr(0));
+
+  // Extract input tensor.
+  auto stateType = initialState.getType().cast<StateType>();
+  Type inputTensorType = stateType.getFieldTypes()[1];
+  Value inputTensor = b.create<iterators::ExtractValueOp>(
+      inputTensorType, initialState, b.getIndexAttr(1));
+
+  // Test if we have reached the end of the range.
+  Value lastIndex = b.create<tensor::DimOp>(inputTensor, 0);
+
+  ArithBuilder ab(b, b.getLoc());
+  Value hasNext = ab.slt(currentIndex, lastIndex);
+  auto ifOp = b.create<scf::IfOp>(
+      /*condition=*/hasNext,
+      /*thenBuilder=*/
+      [&](OpBuilder &builder, Location loc) {
+        ImplicitLocOpBuilder b(loc, builder);
+
+        // Increment index and update state.
+        Value increment = b.create<arith::ConstantIndexOp>(elementTensorSize);
+        Value updatedCurrentIndex =
+            b.create<arith::AddIOp>(indexType, increment, currentIndex);
+        Value updatedState = b.create<iterators::InsertValueOp>(
+            initialState, b.getIndexAttr(0), updatedCurrentIndex);
+
+        // Extract current slice from input tensor.
+        Value nextElement = b.create<tensor::ExtractSliceOp>(
+            elementTensorType, inputTensor,
+            /*offsets=*/ArrayRef<OpFoldResult>{currentIndex},
+            /*sizes=*/ArrayRef<OpFoldResult>{b.getIndexAttr(elementTensorSize)},
+            /*strides=*/ArrayRef<OpFoldResult>{b.getIndexAttr(1)});
+
+        b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
+      },
+      /*elseBuilder=*/
+      [&](OpBuilder &builder, Location loc) {
+        // Don't modify state; return first slice.
+        // TODO(ingomueller): Is it always safe to extract that slice?
+        ImplicitLocOpBuilder b(loc, builder);
+        Value nextElement = b.create<tensor::ExtractSliceOp>(
+            elementTensorType, inputTensor,
+            /*offsets=*/ArrayRef<OpFoldResult>{b.getIndexAttr(0)},
+            /*sizes=*/ArrayRef<OpFoldResult>{b.getIndexAttr(elementTensorSize)},
+            /*strides=*/ArrayRef<OpFoldResult>{b.getIndexAttr(1)});
+        b.create<scf::YieldOp>(ValueRange{initialState, nextElement});
+      });
+
+  Value finalState = ifOp->getResult(0);
+  Value nextElement = ifOp.getResult(1);
+  return {finalState, hasNext, nextElement};
+}
+
+/// Builds IR that does nothing. The TensorToStreamOp does not need to do
+/// anything on close.
+static Value buildCloseBody(TensorToStreamOp /*op*/, OpBuilder & /*rewriter*/,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> /*upstreamInfos*/) {
+  return initialState;
+}
+
+/// Builds IR that initializes the iterator state with the input tensor and an
+/// initial current index (whose value doesn't matter). Possible output:
+///
+/// %0 = ...
+/// %1 = arith.constant 0 : index
+/// %2 = iterators.createstate(%1, %0) : !iterators.state<index, !tensor_type>
+static Value buildStateCreation(TensorToStreamOp op,
+                                TensorToStreamOp::Adaptor adaptor,
+                                OpBuilder &builder, StateType stateType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Value tensor = adaptor.getInput();
+  Value initialCurrentIndex = b.create<arith::ConstantIndexOp>(0);
+  return b.create<CreateStateOp>(stateType,
+                                 ValueRange{initialCurrentIndex, tensor});
+}
+
+//===----------------------------------------------------------------------===//
 // ValueToStreamOp.
 //===----------------------------------------------------------------------===//
 
@@ -1363,6 +1507,7 @@ static Value buildOpenBody(Operation *op, OpBuilder &builder,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
+          TensorToStreamOp,
           ValueToStreamOp
           // clang-format on
           >([&](auto op) {
@@ -1382,6 +1527,7 @@ buildNextBody(Operation *op, OpBuilder &builder, Value initialState,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
+          TensorToStreamOp,
           ValueToStreamOp
           // clang-format on
           >([&](auto op) {
@@ -1402,6 +1548,7 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
+          TensorToStreamOp,
           ValueToStreamOp
           // clang-format on
           >([&](auto op) {
@@ -1420,6 +1567,7 @@ static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
+          TensorToStreamOp,
           ValueToStreamOp
           // clang-format on
           >([&](auto op) {
