@@ -13,6 +13,7 @@
 
 #include "iterators/Conversion/Passes.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Dialect/Iterators/Transforms/Passes.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   registerIteratorsConversionPasses();
+  registerIteratorsPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
