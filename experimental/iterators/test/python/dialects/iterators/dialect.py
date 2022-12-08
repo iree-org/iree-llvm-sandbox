@@ -82,7 +82,8 @@ def testEndToEndStandalone():
       ''')
   pm = PassManager.parse('builtin.module('
                          'convert-iterators-to-llvm,'
-                         'convert-states-to-llvm,'
+                         'decompose-iterator-states,'
+                         'canonicalize,'
                          'convert-func-to-llvm,'
                          'convert-scf-to-cf,'
                          'convert-cf-to-llvm)')
@@ -108,7 +109,8 @@ def testEndToEndWithInput():
       ''')
   pm = PassManager.parse('builtin.module('
                          'convert-iterators-to-llvm,'
-                         'convert-states-to-llvm,'
+                         'decompose-iterator-states,'
+                         'canonicalize,'
                          'expand-strided-metadata,'
                          'finalize-memref-to-llvm,'
                          'convert-func-to-llvm,'
