@@ -59,6 +59,8 @@ def DecomposeIteratorStates : Pass<"decompose-iterator-states", "ModuleOp"> {
   }];
   let constructor = "mlir::createDecomposeIteratorStatesPass()";
   let dependentDialects = [
+    "scf::SCFDialect",
+    "func::FuncDialect",
   ];
 }
 
