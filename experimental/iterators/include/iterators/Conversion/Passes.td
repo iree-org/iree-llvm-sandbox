@@ -59,7 +59,7 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
-// IteratorsToLLVM
+// StatesToLLVM
 //===----------------------------------------------------------------------===//
 
 def ConvertStatesToLLVM : Pass<"convert-states-to-llvm", "ModuleOp"> {
