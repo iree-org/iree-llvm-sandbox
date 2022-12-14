@@ -29,7 +29,7 @@ jobs:
     - name: Install Ninja
       uses: ingomueller-net/llvm-actions/install-ninja@main
     - name: Download source code
-      uses: llvm/actions/get-llvm-project-src@main
+      uses: ingomueller-net/llvm-actions//get-llvm-project-src@main
       with:
         ref: 'llvmorg-15.0.6'
         repo: 'llvm/llvm-project'
