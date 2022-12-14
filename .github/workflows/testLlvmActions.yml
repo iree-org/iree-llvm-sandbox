@@ -57,7 +57,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install Ninja
-        uses: llvm/actions/install-ninja@main
+        uses: ingomueller-net/llvm-actions/install-ninja@main
       # actions/checkout deletes any existing files in the new git directory,
       # so this needs to either run before ccache-action or it has to use
       # clean: false.
