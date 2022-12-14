@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Install Ninja
-      uses: llvm/actions/install-ninja@main
+      uses: ingomueller-net/llvm-actions/install-ninja@main
     - name: Download source code
       uses: llvm/actions/get-llvm-project-src@main
       with:
