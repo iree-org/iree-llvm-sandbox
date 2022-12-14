@@ -17,6 +17,7 @@ jobs:
     - uses: actions/checkout@v3
       with:
         repository: 'llvm/llvm-project'
+        ref: 'llvmorg-15.0.6'
     - name: Get LLVM version
       id: version
       uses: llvm/actions/get-llvm-version@main
