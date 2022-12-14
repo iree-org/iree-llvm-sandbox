@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build and Test
+  version:
+    name: LLVM version
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
@@ -21,3 +21,21 @@ jobs:
     - name: Get LLVM version
       id: version
       uses: ingomueller-net/llvm-actions/get-llvm-version@main
+
+  build:
+    name: Build LLVM
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Install Ninja
+      uses: llvm/actions/install-ninja@main
+    - name: Download source code
+      uses: llvm/actions/get-llvm-project-src@main
+      with:
+        ref: 'llvmorg-15.0.6'
+        repo: 'llvm/llvm-project'
+    - name: Configure
+      run: |
+        mkdir install
+        cmake -B build -S llvm -G Ninja -DLLVM_ENABLE_PROJECTS=clang -DCMAKE_BUILD_TYPE=Debug -DLLVM_TARGETS_TO_BUILD="" -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON -DCMAKE_C_FLAGS_DEBUG="-g1 -Og" -DCMAKE_CXX_FLAGS_DEBUG="-g1 -Og" -DCMAKE_INSTALL_PREFIX=`pwd`/install llvm
+    - name: Build
+      run: ninja -C build/
