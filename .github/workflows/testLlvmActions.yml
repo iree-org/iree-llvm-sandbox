@@ -79,7 +79,7 @@ jobs:
           key: sccache-windows-2019
           variant: sccache
       - name: Build and Test
-        uses: llvm/actions/build-test-llvm-project@main
+        uses: ingomueller-net/llvm-actions/build-test-llvm-project@main
         env:
           # Workaround for https://github.com/actions/virtual-environments/issues/5900.
           # This should be a no-op for non-mac OSes
