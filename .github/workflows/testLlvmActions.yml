@@ -45,7 +45,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - name: Setup Windows
-        uses: llvm/actions/setup-windows@main
+        uses: ingomueller-net/llvm-actions/setup-windows@main
         with:
           arch: amd64
       # On Windows, starting with win19/20220814.1, cmake choose the 32-bit
