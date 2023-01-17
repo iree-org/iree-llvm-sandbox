@@ -58,11 +58,11 @@ mlir::LLVM::createInsertValueOp(OpBuilder &builder, Location loc,
                                 Value container, Value value,
                                 ArrayRef<int64_t> position) {
   // Create index attribute.
-  ArrayAttr indicesAttr = builder.getIndexArrayAttr(position);
+  DenseI64ArrayAttr positionAttr = builder.getDenseI64ArrayAttr(position);
 
   // Insert into struct.
   return builder.create<LLVM::InsertValueOp>(loc, container, value,
-                                             indicesAttr);
+                                             positionAttr);
 }
 
 LLVM::InsertValueOp
@@ -76,10 +76,11 @@ LLVM::ExtractValueOp
 mlir::LLVM::createExtractValueOp(OpBuilder &builder, Location loc, Type res,
                                  Value container, ArrayRef<int64_t> position) {
   // Create index attribute.
-  ArrayAttr indicesAttr = builder.getIndexArrayAttr(position);
+  DenseI64ArrayAttr positionAttr = builder.getDenseI64ArrayAttr(position);
 
   // Extract from struct.
-  return builder.create<LLVM::ExtractValueOp>(loc, res, container, indicesAttr);
+  return builder.create<LLVM::ExtractValueOp>(loc, res, container,
+                                              positionAttr);
 }
 
 LLVM::ExtractValueOp
