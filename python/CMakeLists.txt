@@ -54,7 +54,7 @@ add_mlir_python_common_capi_library(SandboxSandboxCAPI
   RELATIVE_INSTALL_ROOT "../../../.."
   DECLARED_SOURCES
     MLIRPythonSources
-    MLIRPythonExtension.AllPassesRegistration
+    MLIRPythonExtension.RegisterEverything
     SandboxSources
 )
 
@@ -69,7 +69,7 @@ add_mlir_python_modules(SandboxSandboxPythonModules
   INSTALL_PREFIX "python_packages/iree_llvm_sandbox/mlir"
   DECLARED_SOURCES
     MLIRPythonSources
-    MLIRPythonExtension.AllPassesRegistration
+    MLIRPythonExtension.RegisterEverything
     SandboxSources
   COMMON_CAPI_LINK_LIBS
     SandboxSandboxCAPI
@@ -103,7 +103,7 @@ add_mlir_python_common_capi_library(IREECAPI
   RELATIVE_INSTALL_ROOT "../../../../.."
   DECLARED_SOURCES
     MLIRPythonSources
-    MLIRPythonExtension.AllPassesRegistration
+    MLIRPythonExtension.RegisterEverything
     ${_addl_sources}
 )
 
@@ -118,7 +118,7 @@ add_mlir_python_modules(IREEPythonModules
   INSTALL_PREFIX "python_packages/iree_llvm_sandboxiree/compiler"
   DECLARED_SOURCES
     MLIRPythonSources
-    MLIRPythonExtension.AllPassesRegistration
+    MLIRPythonExtension.RegisterEverything
     ${_addl_sources}
   COMMON_CAPI_LINK_LIBS
     IREECAPI

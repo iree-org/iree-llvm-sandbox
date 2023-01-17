@@ -64,11 +64,10 @@ add_mlir_python_common_capi_library(IteratorsPythonCAPI
   RELATIVE_INSTALL_ROOT "../../../.."
   DECLARED_SOURCES
   IteratorsPythonSources
-  MLIRPythonExtension.AllPassesRegistration
+  MLIRPythonExtension.RegisterEverything
   MLIRPythonSources.Core
   MLIRPythonSources.Dialects
   MLIRPythonSources.ExecutionEngine
-  MLIRPythonSources.Passes
 )
 
 # ###############################################################################
@@ -79,11 +78,10 @@ add_mlir_python_modules(IteratorsPythonModules
   INSTALL_PREFIX "python_packages/mlir_iterators"
   DECLARED_SOURCES
   IteratorsPythonSources
-  MLIRPythonExtension.AllPassesRegistration
+  MLIRPythonExtension.RegisterEverything
   MLIRPythonSources.Core
   MLIRPythonSources.Dialects
   MLIRPythonSources.ExecutionEngine
-  MLIRPythonSources.Passes
   COMMON_CAPI_LINK_LIBS
   IteratorsPythonCAPI
 )

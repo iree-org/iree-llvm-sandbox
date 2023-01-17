@@ -11,7 +11,6 @@ from mlir_iterators.dialects import tabular as tab
 from mlir_iterators.passmanager import PassManager
 from mlir_iterators.execution_engine import ExecutionEngine
 from mlir_iterators.ir import Context, Module, IntegerType
-import mlir_iterators.all_passes_registration
 
 
 def run(f):

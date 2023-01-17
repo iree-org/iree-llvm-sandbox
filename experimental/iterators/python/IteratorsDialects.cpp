@@ -13,7 +13,6 @@
 
 #include "iterators-c/Dialects.h"
 #include "mlir-c/IR.h"
-#include "mlir-c/Registration.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
 namespace py = pybind11;
