@@ -440,10 +440,10 @@ def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
 def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
     NoSideEffect,
     PredOpTrait<"index must exist in state",
-      CPred<"static_cast<uint64_t>($index.cast<IntegerAttr>().getInt())"
+      CPred<"static_cast<uint64_t>($index.getSExtValue())"
             "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
     AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
-              "    [$index.cast<IntegerAttr>().getInt()]",
+              "    [$index.getSExtValue()]",
               "$result.getType()"],
              "the return type must match the field type at the given index">,
     DeclareOpInterfaceMethods<InferTypeOpInterface>
@@ -473,10 +473,10 @@ def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
     NoSideEffect,
     PredOpTrait<
       "index must exist in state",
-      CPred<"static_cast<uint64_t>($index.cast<IntegerAttr>().getInt())"
+      CPred<"static_cast<uint64_t>($index.getSExtValue())"
             "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
     AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
-              "    [$index.cast<IntegerAttr>().getInt()]",
+              "    [$index.getSExtValue()]",
               "$value.getType()"],
              "the value type must match the field type at the given index">,
     AllTypesMatch<["state", "result"]>,
