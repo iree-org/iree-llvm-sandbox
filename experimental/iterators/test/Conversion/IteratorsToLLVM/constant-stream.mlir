@@ -11,20 +11,20 @@
 // CHECK-NEXT:     %[[V0:.*]] = llvm.mlir.undef : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:     %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
 // CHECK-NEXT:     %[[V2:.*]] = llvm.mlir.constant(0 : i32) : i32
-// CHECK-NEXT:     %[[V3:.*]] = llvm.insertvalue %[[V2]], %[[V1]][0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:     %[[V4:.*]] = llvm.insertvalue %[[V3]], %[[V0]][0 : index] : !llvm.array<4 x struct<(i32)>>
+// CHECK-NEXT:     %[[V3:.*]] = llvm.insertvalue %[[V2]], %[[V1]][0] : !llvm.struct<(i32)>
+// CHECK-NEXT:     %[[V4:.*]] = llvm.insertvalue %[[V3]], %[[V0]][0] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:     %[[V5:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
 // CHECK-NEXT:     %[[V6:.*]] = llvm.mlir.constant(1 : i32) : i32
-// CHECK-NEXT:     %[[V7:.*]] = llvm.insertvalue %[[V6]], %[[V5]][0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:     %[[V8:.*]] = llvm.insertvalue %[[V7]], %[[V4]][1 : index] : !llvm.array<4 x struct<(i32)>>
+// CHECK-NEXT:     %[[V7:.*]] = llvm.insertvalue %[[V6]], %[[V5]][0] : !llvm.struct<(i32)>
+// CHECK-NEXT:     %[[V8:.*]] = llvm.insertvalue %[[V7]], %[[V4]][1] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:     %[[V9:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
 // CHECK-NEXT:     %[[V10:.*]] = llvm.mlir.constant(2 : i32) : i32
-// CHECK-NEXT:     %[[V11:.*]] = llvm.insertvalue %[[V10]], %[[V9]][0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:     %[[V12:.*]] = llvm.insertvalue %[[V11]], %[[V8]][2 : index] : !llvm.array<4 x struct<(i32)>>
+// CHECK-NEXT:     %[[V11:.*]] = llvm.insertvalue %[[V10]], %[[V9]][0] : !llvm.struct<(i32)>
+// CHECK-NEXT:     %[[V12:.*]] = llvm.insertvalue %[[V11]], %[[V8]][2] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:     %[[V13:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
 // CHECK-NEXT:     %[[V14:.*]] = llvm.mlir.constant(3 : i32) : i32
-// CHECK-NEXT:     %[[V15:.*]] = llvm.insertvalue %[[V14]], %[[V13]][0 : index] : !llvm.struct<(i32)>
-// CHECK-NEXT:     %[[V16:.*]] = llvm.insertvalue %[[V15]], %[[V12]][3 : index] : !llvm.array<4 x struct<(i32)>>
+// CHECK-NEXT:     %[[V15:.*]] = llvm.insertvalue %[[V14]], %[[V13]][0] : !llvm.struct<(i32)>
+// CHECK-NEXT:     %[[V16:.*]] = llvm.insertvalue %[[V15]], %[[V12]][3] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:     llvm.return %[[V16]] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:   }
 

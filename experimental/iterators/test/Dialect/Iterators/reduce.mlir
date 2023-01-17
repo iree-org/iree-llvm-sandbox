@@ -4,10 +4,10 @@
 !i32_struct = !llvm.struct<(i32)>
 
 func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_struct {
-  %lhsi = llvm.extractvalue %lhs[0 : index] : !i32_struct
-  %rhsi = llvm.extractvalue %rhs[0 : index] : !i32_struct
+  %lhsi = llvm.extractvalue %lhs[0] : !i32_struct
+  %rhsi = llvm.extractvalue %rhs[0] : !i32_struct
   %i = arith.addi %lhsi, %rhsi : i32
-  %result = llvm.insertvalue %i, %lhs[0 : index] : !i32_struct
+  %result = llvm.insertvalue %i, %lhs[0] : !i32_struct
   return %result : !i32_struct
 }
 

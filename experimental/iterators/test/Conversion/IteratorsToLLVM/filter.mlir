@@ -41,8 +41,8 @@
 
 func.func private @is_positive_struct(%struct : !element_type) -> i1 {
 // CHECK-LABEL: func.func private @is_positive_struct(%{{.*}}: !llvm.struct<(i32)>) -> i1 {
-  %i = llvm.extractvalue %struct[0 : index] : !element_type
-// CHECK-NEXT:    %[[i:.*]] = llvm.extractvalue %[[struct:.*]][0 : index] : !llvm.struct<(i32)>
+  %i = llvm.extractvalue %struct[0] : !element_type
+// CHECK-NEXT:    %[[i:.*]] = llvm.extractvalue %[[struct:.*]][0] : !llvm.struct<(i32)>
   %zero = arith.constant 0 : i32
 // CHECK-NEXT:    %[[zero:.*]] = arith.constant 0 : i32
   %cmp = arith.cmpi "sgt", %i, %zero : i32

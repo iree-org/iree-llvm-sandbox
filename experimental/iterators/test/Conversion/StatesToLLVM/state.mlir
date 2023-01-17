@@ -8,9 +8,9 @@ func.func @testUndefInsertExtract() {
   %value = arith.constant 0 : i32
 // CHECK-NEXT:     %[[V1:.*]] = arith.constant 0 : i32
   %inserted_state = iterators.insertvalue %value into %initial_state[0] : !iterators.state<i32>
-// CHECK-NEXT:     %[[V2:.*]] = llvm.insertvalue %[[V1]], %[[V0]][0 : index] : !llvm.struct<(i32)>
+// CHECK-NEXT:     %[[V2:.*]] = llvm.insertvalue %[[V1]], %[[V0]][0] : !llvm.struct<(i32)>
   %extracted_value = iterators.extractvalue %inserted_state[0] : !iterators.state<i32>
-// CHECK-NEXT:     %[[V3:.*]] = llvm.extractvalue %[[V2]][0 : index] : !llvm.struct<(i32)>
+// CHECK-NEXT:     %[[V3:.*]] = llvm.extractvalue %[[V2]][0] : !llvm.struct<(i32)>
   return
 // CHECK-NEXT:     return
 }
@@ -21,7 +21,7 @@ func.func @testNestedType() {
   %outer_state = iterators.undefstate : !iterators.state<i32, !iterators.state<i32>>
 // CHECK-NEXT:     %[[V0:.*]] = llvm.mlir.undef : !llvm.struct<(i32, struct<(i32)>)>
   %inner_state = iterators.extractvalue %outer_state[1] : !iterators.state<i32, !iterators.state<i32>>
-// CHECK-NEXT:     %[[V1:.*]] = llvm.extractvalue %[[V0]][1 : index] : !llvm.struct<(i32, struct<(i32)>)>
+// CHECK-NEXT:     %[[V1:.*]] = llvm.extractvalue %[[V0]][1] : !llvm.struct<(i32, struct<(i32)>)>
   return
 // CHECK-NEXT:     return
 }

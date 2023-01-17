@@ -4,7 +4,7 @@
 !i32_struct = !llvm.struct<(i32)>
 
 func.func private @unpack_i32(%input : !i32_struct) -> i32 {
-  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  %i = llvm.extractvalue %input[0] : !i32_struct
   return %i : i32
 }
 

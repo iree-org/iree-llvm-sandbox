@@ -9,10 +9,10 @@
 !i32_struct = !llvm.struct<(i32)>
 
 func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_struct {
-  %lhsi = llvm.extractvalue %lhs[0 : index] : !i32_struct
-  %rhsi = llvm.extractvalue %rhs[0 : index] : !i32_struct
+  %lhsi = llvm.extractvalue %lhs[0] : !i32_struct
+  %rhsi = llvm.extractvalue %rhs[0] : !i32_struct
   %i = arith.addi %lhsi, %rhsi : i32
-  %result = llvm.insertvalue %i, %lhs[0 : index] : !i32_struct
+  %result = llvm.insertvalue %i, %lhs[0] : !i32_struct
   return %result : !i32_struct
 }
 
@@ -33,13 +33,13 @@ func.func private @sum_i32(%lhs : i32, %rhs : i32) -> i32 {
 }
 
 func.func private @unpack_i32(%input : !i32_struct) -> i32 {
-  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  %i = llvm.extractvalue %input[0] : !i32_struct
   return %i : i32
 }
 
 func.func private @pack_i32(%input : i32) -> !i32_struct {
   %undef = llvm.mlir.undef : !i32_struct
-  %result =  llvm.insertvalue %input, %undef[0 : index] : !i32_struct
+  %result =  llvm.insertvalue %input, %undef[0] : !i32_struct
   return %result : !i32_struct
 }
 
@@ -63,8 +63,8 @@ func.func @reduce_sum_i32() {
 // Return input where second struct field is larger. Return lhs on equality or
 // unordered.
 func.func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32f32_struct {
-  %lhsf = llvm.extractvalue %lhs[1 : index] : !i32f32_struct
-  %rhsf = llvm.extractvalue %rhs[1 : index] : !i32f32_struct
+  %lhsf = llvm.extractvalue %lhs[1] : !i32f32_struct
+  %rhsf = llvm.extractvalue %rhs[1] : !i32f32_struct
   %cmp = arith.cmpf "uge", %lhsf, %rhsf : f32
   %result = scf.if %cmp -> !i32f32_struct {
     scf.yield %lhs : !i32f32_struct

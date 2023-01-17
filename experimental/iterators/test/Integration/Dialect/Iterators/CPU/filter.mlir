@@ -9,7 +9,7 @@
 !i32_struct = !llvm.struct<(i32)>
 
 func.func private @is_positive_struct(%struct : !i32_struct) -> i1 {
-  %i = llvm.extractvalue %struct[0 : index] : !i32_struct
+  %i = llvm.extractvalue %struct[0] : !i32_struct
   %zero = arith.constant 0 : i32
   %cmp = arith.cmpi "sgt", %i, %zero : i32
   return %cmp : i1
@@ -34,13 +34,13 @@ func.func private @is_positive_i32(%i : i32) -> i1 {
 }
 
 func.func private @unpack_i32(%input : !i32_struct) -> i32 {
-  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  %i = llvm.extractvalue %input[0] : !i32_struct
   return %i : i32
 }
 
 func.func private @pack_i32(%input : i32) -> !i32_struct {
   %undef = llvm.mlir.undef : !i32_struct
-  %result =  llvm.insertvalue %input, %undef[0 : index] : !i32_struct
+  %result =  llvm.insertvalue %input, %undef[0] : !i32_struct
   return %result : !i32_struct
 }
 

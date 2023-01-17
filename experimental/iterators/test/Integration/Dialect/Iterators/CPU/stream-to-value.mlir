@@ -9,7 +9,7 @@
 func.func @test_non_empty() {
   %i = arith.constant 42 : i32
   %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %value = llvm.insertvalue %i, %undef[0 : index] : !llvm.struct<(i32)>
+  %value = llvm.insertvalue %i, %undef[0] : !llvm.struct<(i32)>
   %stream = iterators.value_to_stream %value :
                 !iterators.stream<!llvm.struct<(i32)>>
   %result:2 = iterators.stream_to_value %stream :
@@ -29,7 +29,7 @@ func.func private @return_false(%struct : !llvm.struct<(i32)>) -> i1 {
 func.func @test_empty() {
   %i = arith.constant 1337 : i32
   %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %value = llvm.insertvalue %i, %undef[0 : index] : !llvm.struct<(i32)>
+  %value = llvm.insertvalue %i, %undef[0] : !llvm.struct<(i32)>
   %stream = iterators.value_to_stream %value :
                 !iterators.stream<!llvm.struct<(i32)>>
   %filtered = "iterators.filter"(%stream) {predicateRef = @return_false} :

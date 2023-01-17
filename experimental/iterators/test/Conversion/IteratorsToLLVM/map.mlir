@@ -33,12 +33,12 @@
 
 func.func private @double_struct(%struct : !element_type) -> !element_type {
 // CHECK-LABEL: func.func private @double_struct(%{{.*}}: !llvm.struct<(i32)>) -> !llvm.struct<(i32)> {
-  %i = llvm.extractvalue %struct[0 : index] : !element_type
-// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0 : index] : !llvm.struct<(i32)>
+  %i = llvm.extractvalue %struct[0] : !element_type
+// CHECK-NEXT:    %[[V0:.*]] = llvm.extractvalue %[[arg0:.*]][0] : !llvm.struct<(i32)>
   %doubled = arith.addi %i, %i : i32
 // CHECK-NEXT:    %[[V1:.*]] = arith.addi %[[V0]], %[[V0]] : i32
-  %result = llvm.insertvalue %doubled, %struct[0 : index] : !element_type
-// CHECK-NEXT:    %[[V2:.*]] = llvm.insertvalue %[[V1]], %[[arg0]][0 : index] : !llvm.struct<(i32)>
+  %result = llvm.insertvalue %doubled, %struct[0] : !element_type
+// CHECK-NEXT:    %[[V2:.*]] = llvm.insertvalue %[[V1]], %[[arg0]][0] : !llvm.struct<(i32)>
   return %result : !element_type
 // CHECK-NEXT:    return %[[V2]] : !llvm.struct<(i32)>
 }
