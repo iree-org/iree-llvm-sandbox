@@ -169,7 +169,7 @@ def Iterators_FilterOp : Iterators_Op<"filter",
   let extraClassDeclaration = [{
     func::FuncOp getPredicate() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
-          *this, predicateRefAttr());
+          *this, getPredicateRefAttr());
     }
   }];
   let extraClassDefinition = [{
@@ -228,7 +228,7 @@ def Iterators_MapOp : Iterators_Op<"map",
   let extraClassDeclaration = [{
     func::FuncOp getMapFunc() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
-          *this, mapFuncRefAttr());
+          *this, getMapFuncRefAttr());
     }
   }];
   let extraClassDefinition = [{
@@ -294,7 +294,7 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
   let extraClassDeclaration = [{
     func::FuncOp getReduceFunc() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
-          *this, reduceFuncRefAttr());
+          *this, getReduceFuncRefAttr());
     }
   }];
   let extraClassDefinition = [{

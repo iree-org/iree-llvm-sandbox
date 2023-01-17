@@ -88,7 +88,7 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
     Location loc = op->getLoc();
 
     // Create empty struct for view.
-    Type viewStructType = typeConverter->convertType(op.view().getType());
+    Type viewStructType = typeConverter->convertType(op.getView().getType());
     Value viewStruct = rewriter.create<UndefOp>(loc, viewStructType);
 
     // Extract column pointers and number of elements.
