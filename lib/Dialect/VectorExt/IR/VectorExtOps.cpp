@@ -100,15 +100,15 @@ ParseResult mlir::vector_ext::PredicateOp::parse(OpAsmParser &parser,
 void mlir::vector_ext::PredicateOp::print(OpAsmPrinter &p) {
   bool printBlockTerminators = false;
 
-  p << "(" << predicateMask() << ", [" << indices() << "], " << incomingMask()
-    << ") : " << predicateMask().getType();
-  if (!results().empty()) {
+  p << "(" << getPredicateMask() << ", [" << getIndices() << "], "
+    << getIncomingMask() << ") : " << getPredicateMask().getType();
+  if (!getResults().empty()) {
     p << " -> (" << getResultTypes() << ")";
     // Print yield explicitly if the op defines values.
     printBlockTerminators = true;
   }
   p << " ";
-  p.printRegion(truePredicateRegion(),
+  p.printRegion(getTruePredicateRegion(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/printBlockTerminators);
 
@@ -132,7 +132,7 @@ void PredicateOp::getSuccessorRegions(
   // The `truePredicate` (and the future `falsePredicate` region)  will always
   // be executed regardless of the condition since they are not modeling control
   // but data flow.
-  regions.push_back(RegionSuccessor(&truePredicateRegion()));
+  regions.push_back(RegionSuccessor(&getTruePredicateRegion()));
 }
 
 #define GET_OP_CLASSES
