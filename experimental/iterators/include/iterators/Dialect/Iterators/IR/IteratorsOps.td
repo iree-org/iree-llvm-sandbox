@@ -75,7 +75,7 @@ def Iterators_ValueMatchesElementTypePred
                 ::llvm::SmallVector<Type>(
                   ::llvm::map_range(
                     $value.dyn_cast<::mlir::ArrayAttr>().begin()->dyn_cast<::mlir::ArrayAttr>(),
-                    [](Attribute attr) { return attr.getType(); }
+                    [](Attribute attr) { return attr.cast<TypedAttr>().getType(); }
                   )
                 )
               )}]>;

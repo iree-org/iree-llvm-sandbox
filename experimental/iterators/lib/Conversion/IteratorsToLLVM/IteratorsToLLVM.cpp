@@ -156,7 +156,7 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
       // Create constant value op.
       Attribute field = values[i];
-      Type fieldType = field.getType();
+      Type fieldType = field.cast<TypedAttr>().getType();
       auto valueOp = rewriter.create<arith::ConstantOp>(loc, fieldType, field);
 
       // Insert into struct.
@@ -324,8 +324,8 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
        llvm::enumerate(valueAttr.getAsValueRange<ArrayAttr>())) {
     Value structValue = b.create<UndefOp>(elementType);
     for (auto &fieldAttr : llvm::enumerate(elementAttr.value())) {
-      auto value = b.create<LLVM::ConstantOp>(fieldAttr.value().getType(),
-                                              fieldAttr.value());
+      auto value = b.create<LLVM::ConstantOp>(
+          fieldAttr.value().cast<TypedAttr>().getType(), fieldAttr.value());
       structValue = createInsertValueOp(
           b, structValue, value, {static_cast<int64_t>(fieldAttr.index())});
     }
