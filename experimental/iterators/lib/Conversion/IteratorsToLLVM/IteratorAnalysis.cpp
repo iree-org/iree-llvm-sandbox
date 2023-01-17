@@ -109,7 +109,7 @@ StateType StateTypeComputer::operator()(
     llvm::SmallVector<StateType> /*upstreamStateTypes*/) {
   MLIRContext *context = op->getContext();
   Type indexType = IntegerType::get(context, /*width=*/64);
-  Type viewType = typeConverter.convertType(op.input().getType());
+  Type viewType = typeConverter.convertType(op.getInput().getType());
   return StateType::get(context, {indexType, viewType});
 }
 
