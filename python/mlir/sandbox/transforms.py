@@ -6,8 +6,6 @@ from iree.compiler.dialects import builtin, pdl
 from mlir.sandbox.variables import *
 from mlir.sandbox.transform import Transform
 
-# import mlir.all_passes_registration
-
 import typing as tp
 
 

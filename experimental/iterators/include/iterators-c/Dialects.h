@@ -10,7 +10,6 @@
 #define ITERATORS_C_DIALECTS_H
 
 #include "mlir-c/IR.h"
-#include "mlir-c/Registration.h"
 #include "mlir-c/Support.h"
 
 #ifdef __cplusplus
