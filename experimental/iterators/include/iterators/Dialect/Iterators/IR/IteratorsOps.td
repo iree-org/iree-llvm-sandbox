@@ -135,7 +135,7 @@ class Iterators_PredicateFunctionType
 
 /// A FlatSymbolRef referring to a predicate.
 def Iterators_PredicateFunctionSymbol
-  : Confined<FlatSymbolRefAttr, [
+  : ConfinedAttr<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
@@ -192,7 +192,7 @@ class Iterators_MapFunctionType
 
 /// A FlatSymbolRef referring to a predicate.
 def Iterators_MapFunctionSymbol
-  : Confined<FlatSymbolRefAttr, [
+  : ConfinedAttr<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
@@ -257,7 +257,7 @@ class Iterators_ReduceFunctionType
 
 /// A FlatSymbolRef referring to a reduce function.
 def Iterators_ReduceFunctionSymbol
-  : Confined<FlatSymbolRefAttr, [
+  : ConfinedAttr<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",

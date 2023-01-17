@@ -95,13 +95,13 @@ def Iterators_HomogeneouslyTypedArrayArrayAttrConstraint
         }]>,
       "where all inner arrays have the same type sequence">;
 def Iterators_HomogeneouslyTypedArrayArrayAttr
-  : Confined<Iterators_ArrayArrayAttr,
-            [Iterators_HomogeneouslyTypedArrayArrayAttrConstraint]>;
+  : ConfinedAttr<Iterators_ArrayArrayAttr,
+                 [Iterators_HomogeneouslyTypedArrayArrayAttrConstraint]>;
 
 /// ArrayAttr of ArrayAttr where the inner ArrayAttrs have matching element
 /// types and all those types are numeric.
 def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
-  : Confined<Iterators_ArrayArrayAttr, [
+  : ConfinedAttr<Iterators_ArrayArrayAttr, [
         Iterators_HomogeneouslyTypedArrayArrayAttrConstraint,
         AttrConstraint<
           Or<[
