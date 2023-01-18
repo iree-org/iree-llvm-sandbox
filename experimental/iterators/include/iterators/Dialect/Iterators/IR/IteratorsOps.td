@@ -423,7 +423,7 @@ def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
 //===----------------------------------------------------------------------===//
 
 def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
-    [NoSideEffect,
+    [Pure,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Create an undefined iterator state";
   let results = (outs Iterators_State:$result);
@@ -451,7 +451,7 @@ def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
 }
 
 def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
-    NoSideEffect,
+    Pure,
     PredOpTrait<"index must exist in state",
       CPred<"static_cast<uint64_t>($index.getSExtValue())"
             "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
@@ -483,7 +483,7 @@ def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
 }
 
 def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
-    NoSideEffect,
+    Pure,
     PredOpTrait<
       "index must exist in state",
       CPred<"static_cast<uint64_t>($index.getSExtValue())"
