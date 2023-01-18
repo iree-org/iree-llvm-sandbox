@@ -7,7 +7,7 @@
 // CHECK-NEXT:    return %[[arg0:.*]] : !iterators.state<i32>
 // CHECK-NEXT:  }
 
-// CHECK-LABEL:  llvm.mlir.global internal constant @iterators.constant_stream_data{{.*}}() : !llvm.array<4 x struct<(i32)>> {
+// CHECK-LABEL:  llvm.mlir.global internal constant @iterators.constant_stream_data{{.*}}() {addr_space = 0 : i32} : !llvm.array<4 x struct<(i32)>> {
 // CHECK-NEXT:     %[[V0:.*]] = llvm.mlir.undef : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:     %[[V1:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
 // CHECK-NEXT:     %[[V2:.*]] = llvm.mlir.constant(0 : i32) : i32

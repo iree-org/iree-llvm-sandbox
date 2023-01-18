@@ -9,6 +9,7 @@
 #ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 #define ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 
+#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"

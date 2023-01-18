@@ -10,6 +10,7 @@
 #define DIALECTS_VECTOREXT_VECTOREXTOPS_H
 
 #include "Dialect/VectorExt/VectorExtDialect.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
