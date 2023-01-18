@@ -61,7 +61,7 @@ private:
       return LLVMStructType::getNewIdentified(type.getContext(), "tuple",
                                               tupleType.getTypes());
     }
-    return llvm::None;
+    return std::nullopt;
   }
 };
 

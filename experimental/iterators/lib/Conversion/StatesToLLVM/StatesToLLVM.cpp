@@ -53,7 +53,7 @@ private:
       }
       return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
     }
-    return llvm::None;
+    return std::nullopt;
   }
 };
 

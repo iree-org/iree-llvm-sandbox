@@ -44,7 +44,7 @@ TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
   addConversion([&](Type type) -> llvm::Optional<Type> {
     if (type.isa<MemRefType>())
       return llvmTypeConverter.convertType(type);
-    return llvm::None;
+    return std::nullopt;
   });
 }
 
@@ -57,7 +57,7 @@ Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
                     [](Type t) { return LLVMPointerType::get(t); });
     return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
   }
-  return llvm::None;
+  return std::nullopt;
 }
 
 /// Lowers view_as_tabular to LLVM IR that extracts the bare pointers and the

@@ -188,11 +188,11 @@ private:
           }
         }
         if (!extract) {
-          return llvm::None;
+          return std::nullopt;
         }
         auto vecType = extract.getResult().getType().cast<VectorType>();
         if (dstVec && dstVec != vecType)
-          return llvm::None;
+          return std::nullopt;
         dstVec = vecType;
       }
       return SmallVector<int64_t, 4>(dstVec.getShape().begin(),
@@ -206,11 +206,11 @@ private:
         insert = yieldOp.getOperand(0).getDefiningOp<InsertStridedSliceOp>();
       }
       if (!insert)
-        return llvm::None;
+        return std::nullopt;
       ArrayRef<int64_t> shape = insert.getSourceVectorType().getShape();
       return SmallVector<int64_t, 4>(shape.begin(), shape.end());
     }
-    return llvm::None;
+    return std::nullopt;
   }
 
   static LogicalResult filter(Operation *op) {
