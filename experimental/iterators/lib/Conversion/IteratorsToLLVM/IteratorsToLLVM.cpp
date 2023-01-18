@@ -1273,9 +1273,8 @@ buildOpenNextCloseInParentModule(Operation *originalOp, OpBuilder &builder,
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(module.getBody());
 
-  auto visibility = StringAttr::get(context, "private");
   auto funcType = FunctionType::get(context, inputType, returnTypes);
-  FuncOp funcOp = b.create<FuncOp>(funcName, funcType, visibility);
+  FuncOp funcOp = b.create<FuncOp>(funcName, funcType);
   funcOp.setPrivate();
 
   // Create initial block.
