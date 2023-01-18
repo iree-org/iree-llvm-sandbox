@@ -9,9 +9,9 @@
 !i32_struct = !llvm.struct<(i32)>
 
 func.func private @double_struct(%struct : !i32_struct) -> !i32_struct {
-  %i = llvm.extractvalue %struct[0 : index] : !i32_struct
+  %i = llvm.extractvalue %struct[0] : !i32_struct
   %doubled = arith.addi %i, %i : i32
-  %result = llvm.insertvalue %doubled, %struct[0 : index] : !i32_struct
+  %result = llvm.insertvalue %doubled, %struct[0] : !i32_struct
   return %result : !i32_struct
 }
 
@@ -32,11 +32,11 @@ func.func @map_double_struct() {
 !i32f32_struct = !llvm.struct<(i32, f32)>
 
 func.func private @add_field(%input : !i32_struct) -> !i32f32_struct {
-  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  %i = llvm.extractvalue %input[0] : !i32_struct
   %f = arith.sitofp %i : i32 to f32
   %undef = llvm.mlir.undef : !i32f32_struct
-  %extended =  llvm.insertvalue %i, %undef[0 : index] : !i32f32_struct
-  %result =  llvm.insertvalue %f, %extended[1 : index] : !i32f32_struct
+  %extended =  llvm.insertvalue %i, %undef[0] : !i32f32_struct
+  %result =  llvm.insertvalue %f, %extended[1] : !i32f32_struct
   return %result : !i32f32_struct
 }
 
@@ -54,13 +54,13 @@ func.func @map_add_field() {
 }
 
 func.func private @unpack_i32(%input : !i32_struct) -> i32 {
-  %i = llvm.extractvalue %input[0 : index] : !i32_struct
+  %i = llvm.extractvalue %input[0] : !i32_struct
   return %i : i32
 }
 
 func.func private @pack_i32(%input : i32) -> !i32_struct {
   %undef = llvm.mlir.undef : !i32_struct
-  %result =  llvm.insertvalue %input, %undef[0 : index] : !i32_struct
+  %result =  llvm.insertvalue %input, %undef[0] : !i32_struct
   return %result : !i32_struct
 }
 

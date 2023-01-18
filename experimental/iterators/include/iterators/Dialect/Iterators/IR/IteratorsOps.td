@@ -75,7 +75,7 @@ def Iterators_ValueMatchesElementTypePred
                 ::llvm::SmallVector<Type>(
                   ::llvm::map_range(
                     $value.dyn_cast<::mlir::ArrayAttr>().begin()->dyn_cast<::mlir::ArrayAttr>(),
-                    [](Attribute attr) { return attr.getType(); }
+                    [](Attribute attr) { return attr.cast<TypedAttr>().getType(); }
                   )
                 )
               )}]>;
@@ -135,7 +135,7 @@ class Iterators_PredicateFunctionType
 
 /// A FlatSymbolRef referring to a predicate.
 def Iterators_PredicateFunctionSymbol
-  : Confined<FlatSymbolRefAttr, [
+  : ConfinedAttr<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
@@ -192,7 +192,7 @@ class Iterators_MapFunctionType
 
 /// A FlatSymbolRef referring to a predicate.
 def Iterators_MapFunctionSymbol
-  : Confined<FlatSymbolRefAttr, [
+  : ConfinedAttr<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
@@ -257,7 +257,7 @@ class Iterators_ReduceFunctionType
 
 /// A FlatSymbolRef referring to a reduce function.
 def Iterators_ReduceFunctionSymbol
-  : Confined<FlatSymbolRefAttr, [
+  : ConfinedAttr<FlatSymbolRefAttr, [
         ReferToOp<"func::FuncOp">,
         AttrConstraint<
           SubstLeaves<"$_self",
@@ -440,10 +440,10 @@ def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
 def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
     NoSideEffect,
     PredOpTrait<"index must exist in state",
-      CPred<"static_cast<uint64_t>($index.cast<IntegerAttr>().getInt())"
+      CPred<"static_cast<uint64_t>($index.getSExtValue())"
             "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
     AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
-              "    [$index.cast<IntegerAttr>().getInt()]",
+              "    [$index.getSExtValue()]",
               "$result.getType()"],
              "the return type must match the field type at the given index">,
     DeclareOpInterfaceMethods<InferTypeOpInterface>
@@ -473,10 +473,10 @@ def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
     NoSideEffect,
     PredOpTrait<
       "index must exist in state",
-      CPred<"static_cast<uint64_t>($index.cast<IntegerAttr>().getInt())"
+      CPred<"static_cast<uint64_t>($index.getSExtValue())"
             "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
     AllMatch<["$state.getType().cast<StateType>().getFieldTypes()"
-              "    [$index.cast<IntegerAttr>().getInt()]",
+              "    [$index.getSExtValue()]",
               "$value.getType()"],
              "the value type must match the field type at the given index">,
     AllTypesMatch<["state", "result"]>,

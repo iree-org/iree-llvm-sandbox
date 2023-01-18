@@ -79,10 +79,10 @@ def testEndToEndStandalone():
   mod = Module.parse('''
       !element_type = !llvm.struct<(i32)>
       func.func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
-        %lhsi = llvm.extractvalue %lhs[0 : index] : !element_type
-        %rhsi = llvm.extractvalue %rhs[0 : index] : !element_type
+        %lhsi = llvm.extractvalue %lhs[0] : !element_type
+        %rhsi = llvm.extractvalue %rhs[0] : !element_type
         %i = arith.addi %lhsi, %rhsi : i32
-        %result = llvm.insertvalue %i, %lhs[0 : index] : !element_type
+        %result = llvm.insertvalue %i, %lhs[0] : !element_type
         return %result : !element_type
       }
       func.func @main() attributes { llvm.emit_c_interface } {

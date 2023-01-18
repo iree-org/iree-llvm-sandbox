@@ -16,7 +16,7 @@ func.func @main() {
   // CHECK-NEXT:      %[[V4]] = llvm.mlir.addressof @frmt_spec.anonymous_tuple : !llvm.ptr<array<8 x i8>>
   // CHECK-NEXT:      %[[V5:.*]] = llvm.mlir.constant(0 : i64) : i64
   // CHECK-NEXT:      %[[V6:.*]] = llvm.getelementptr %[[V4]][%[[V5]], %[[V5]]] : (!llvm.ptr<array<8 x i8>>, i64, i64) -> !llvm.ptr<i8>
-  // CHECK-NEXT:      %[[V7:.*]] = llvm.extractvalue %[[arg2:.*]][0 : index] : !llvm.struct<(i32)>
+  // CHECK-NEXT:      %[[V7:.*]] = llvm.extractvalue %[[arg2:.*]][0] : !llvm.struct<(i32)>
   // CHECK-NEXT:      %[[V9:.*]] = llvm.zext %[[V7]] : i32 to i64
   // CHECK-NEXT:      %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[V9]]) : (!llvm.ptr<i8>, i64) -> i32
   // CHECK-NEXT:      scf.yield %[[arg1]] : [[rootStateType]]

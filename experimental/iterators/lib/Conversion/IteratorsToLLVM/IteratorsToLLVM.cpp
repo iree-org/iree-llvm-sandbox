@@ -156,7 +156,7 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
       // Create constant value op.
       Attribute field = values[i];
-      Type fieldType = field.getType();
+      Type fieldType = field.cast<TypedAttr>().getType();
       auto valueOp = rewriter.create<arith::ConstantOp>(loc, fieldType, field);
 
       // Insert into struct.
@@ -324,8 +324,8 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
        llvm::enumerate(valueAttr.getAsValueRange<ArrayAttr>())) {
     Value structValue = b.create<UndefOp>(elementType);
     for (auto &fieldAttr : llvm::enumerate(elementAttr.value())) {
-      auto value = b.create<LLVM::ConstantOp>(fieldAttr.value().getType(),
-                                              fieldAttr.value());
+      auto value = b.create<LLVM::ConstantOp>(
+          fieldAttr.value().cast<TypedAttr>().getType(), fieldAttr.value());
       structValue = createInsertValueOp(
           b, structValue, value, {static_cast<int64_t>(fieldAttr.index())});
     }
@@ -1032,7 +1032,7 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 ///          !iterators.state<i64, !tabular_view_type>
 /// %1 = iterators.extractvalue %arg0[1] :
 ///          !iterators.state<i64, !tabular_view_type>
-/// %2 = llvm.extractvalue %1[0 : index] : !tabular_view_type
+/// %2 = llvm.extractvalue %1[0] : !tabular_view_type
 /// %3 = arith.cmpi slt, %0, %2 : i64
 /// %4:2 = scf.if %3 -> (!iterators.state<i64, !tabular_view_type>,
 ///                      !element_type) {
@@ -1041,10 +1041,10 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 ///   %6 = iterators.insertvalue %5 into %arg0[0] :
 ///            !iterators.state<i64, !tabular_view_type>
 ///   %7 = llvm.mlir.undef : !element_type
-///   %8 = llvm.extractvalue %1[1 : index] : !tabular_view_type
+///   %8 = llvm.extractvalue %1[1] : !tabular_view_type
 ///   %9 = llvm.getelementptr %8[%0] : (!llvm.ptr<i32>, i64) -> !llvm.ptr<i32>
 ///   %10 = llvm.load %9 : !llvm.ptr<i32>
-///   %11 = llvm.insertvalue %10, %7[0 : index] : !element_type
+///   %11 = llvm.insertvalue %10, %7[0] : !element_type
 ///   scf.yield %6, %11 :
 ///       !iterators.state<i64, !tabular_view_type>, !element_type
 /// } else {

@@ -40,14 +40,14 @@
 
 func.func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !element_type {
 // CHECK-LABEL: func private @sum_struct(%{{.*}}: !llvm.struct<(i32)>, %{{.*}}: !llvm.struct<(i32)>) -> !llvm.struct<(i32)>
-  %lhsi = llvm.extractvalue %lhs[0 : index] : !element_type
-// CHECK-NEXT:    %[[lhsi:.*]] = llvm.extractvalue %[[lhs:.*]][0 : index] : !llvm.struct<(i32)>
-  %rhsi = llvm.extractvalue %rhs[0 : index] : !element_type
-// CHECK-NEXT:    %[[rhsi:.*]] = llvm.extractvalue %[[rhs:.*]][0 : index] : !llvm.struct<(i32)>
+  %lhsi = llvm.extractvalue %lhs[0] : !element_type
+// CHECK-NEXT:    %[[lhsi:.*]] = llvm.extractvalue %[[lhs:.*]][0] : !llvm.struct<(i32)>
+  %rhsi = llvm.extractvalue %rhs[0] : !element_type
+// CHECK-NEXT:    %[[rhsi:.*]] = llvm.extractvalue %[[rhs:.*]][0] : !llvm.struct<(i32)>
   %i = arith.addi %lhsi, %rhsi : i32
 // CHECK-NEXT:    %[[i:.*]] = arith.addi %[[lhsi]], %[[rhsi]] : i32
-  %result = llvm.insertvalue %i, %lhs[0 : index] : !element_type
-// CHECK-NEXT:    %[[result:.*]] = llvm.insertvalue %[[i]], %[[lhs]][0 : index] : !llvm.struct<(i32)>
+  %result = llvm.insertvalue %i, %lhs[0] : !element_type
+// CHECK-NEXT:    %[[result:.*]] = llvm.insertvalue %[[i]], %[[lhs]][0] : !llvm.struct<(i32)>
   return %result : !element_type
 // CHECK-NEXT:    return %[[result]] : !llvm.struct<(i32)>
 }

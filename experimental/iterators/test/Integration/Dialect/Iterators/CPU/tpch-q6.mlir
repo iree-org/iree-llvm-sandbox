@@ -34,9 +34,9 @@
 //    - 24 (l_quantity): 24 : i8
 
 func.func private @q6_predicate(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i1 {
-  %quantity = llvm.extractvalue %input[0 : index] : !llvm.struct<(i8,i32,i8,i16)>
-  %discount = llvm.extractvalue %input[2 : index] : !llvm.struct<(i8,i32,i8,i16)>
-  %shipdate = llvm.extractvalue %input[3 : index] : !llvm.struct<(i8,i32,i8,i16)>
+  %quantity = llvm.extractvalue %input[0] : !llvm.struct<(i8,i32,i8,i16)>
+  %discount = llvm.extractvalue %input[2] : !llvm.struct<(i8,i32,i8,i16)>
+  %shipdate = llvm.extractvalue %input[3] : !llvm.struct<(i8,i32,i8,i16)>
 
   // Test lower bound on shipdate.
   %c8766 = arith.constant 8677 : i16
@@ -78,22 +78,22 @@ func.func private @q6_predicate(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i1 {
 
 func.func private @compute_discounted_price(%input : !llvm.struct<(i8,i32,i8,i16)>)
     -> !llvm.struct<(i32)> {
-  %extendedprice = llvm.extractvalue %input[1 : index] : !llvm.struct<(i8,i32,i8,i16)>
-  %discount = llvm.extractvalue %input[2 : index] : !llvm.struct<(i8,i32,i8,i16)>
+  %extendedprice = llvm.extractvalue %input[1] : !llvm.struct<(i8,i32,i8,i16)>
+  %discount = llvm.extractvalue %input[2] : !llvm.struct<(i8,i32,i8,i16)>
   %discount_i32 = llvm.zext %discount : i8 to i32
   %resulti = arith.muli %extendedprice, %discount_i32 : i32
   %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %result = llvm.insertvalue %resulti, %undef[0 : index] : !llvm.struct<(i32)>
+  %result = llvm.insertvalue %resulti, %undef[0] : !llvm.struct<(i32)>
   return %result : !llvm.struct<(i32)>
 }
 
 func.func private @sum_struct(%lhs : !llvm.struct<(i32)>,
                               %rhs : !llvm.struct<(i32)>)
     -> !llvm.struct<(i32)> {
-  %lhsi = llvm.extractvalue %lhs[0 : index] : !llvm.struct<(i32)>
-  %rhsi = llvm.extractvalue %rhs[0 : index] : !llvm.struct<(i32)>
+  %lhsi = llvm.extractvalue %lhs[0] : !llvm.struct<(i32)>
+  %rhsi = llvm.extractvalue %rhs[0] : !llvm.struct<(i32)>
   %i = arith.addi %lhsi, %rhsi : i32
-  %result = llvm.insertvalue %i, %lhs[0 : index] : !llvm.struct<(i32)>
+  %result = llvm.insertvalue %i, %lhs[0] : !llvm.struct<(i32)>
   return %result : !llvm.struct<(i32)>
 }
 

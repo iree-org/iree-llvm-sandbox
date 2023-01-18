@@ -75,8 +75,8 @@ Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
 /// %4 = llvm.extractvalue %1[3, 0] :
 ///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
 ///                      array<1 x i64>, array<1 x i64>)>
-/// %5 = llvm.insertvalue %3, %2[1 : index] : !llvm.struct<(i64, ptr<i32>)>
-/// %6 = llvm.insertvalue %4, %5[0 : index] : !llvm.struct<(i64, ptr<i32>)>
+/// %5 = llvm.insertvalue %3, %2[1] : !llvm.struct<(i64, ptr<i32>)>
+/// %6 = llvm.insertvalue %4, %5[0] : !llvm.struct<(i64, ptr<i32>)>
 struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
   ViewAsTabularOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                           PatternBenefit benefit = 1)

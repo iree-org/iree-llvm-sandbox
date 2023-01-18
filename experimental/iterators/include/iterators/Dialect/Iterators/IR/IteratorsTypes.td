@@ -51,7 +51,8 @@ def Iterators_TupleOfNumerics : TupleOf<Iterators_NumericTypes.types>;
 
 /// Attribute of numeric type.
 def Iterators_NumericAttr
-  : Attr<SubstLeaves<"$_self", "$_self.getType()",
+  : Attr<SubstLeaves<"$_self",
+                     "$_self.isa<TypedAttr>() && $_self.cast<TypedAttr>().getType()",
                      Iterators_AnyNumeric.predicate>,
         "any numeric type">;
 
@@ -89,18 +90,18 @@ def Iterators_HomogeneouslyTypedArrayArrayAttrConstraint
               return ::llvm::SmallVector<Type>(
                 ::llvm::map_range(
                   attr.dyn_cast<::mlir::ArrayAttr>(),
-                  [](Attribute attr) { return attr.getType(); }));;
+                  [](Attribute attr) { return attr.cast<TypedAttr>().getType(); }));;
             }))
         }]>,
       "where all inner arrays have the same type sequence">;
 def Iterators_HomogeneouslyTypedArrayArrayAttr
-  : Confined<Iterators_ArrayArrayAttr,
-            [Iterators_HomogeneouslyTypedArrayArrayAttrConstraint]>;
+  : ConfinedAttr<Iterators_ArrayArrayAttr,
+                 [Iterators_HomogeneouslyTypedArrayArrayAttrConstraint]>;
 
 /// ArrayAttr of ArrayAttr where the inner ArrayAttrs have matching element
 /// types and all those types are numeric.
 def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
-  : Confined<Iterators_ArrayArrayAttr, [
+  : ConfinedAttr<Iterators_ArrayArrayAttr, [
         Iterators_HomogeneouslyTypedArrayArrayAttrConstraint,
         AttrConstraint<
           Or<[

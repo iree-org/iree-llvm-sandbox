@@ -4,7 +4,7 @@
 !i32_struct = !llvm.struct<(i32)>
 
 func.func private @is_positive_struct(%struct : !i32_struct) -> i1 {
-  %i = llvm.extractvalue %struct[0 : index] : !i32_struct
+  %i = llvm.extractvalue %struct[0] : !i32_struct
   %zero = arith.constant 0 : i32
   %cmp = arith.cmpi "sgt", %i, %zero : i32
   return %cmp : i1
