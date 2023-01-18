@@ -71,7 +71,7 @@ LogicalResult ViewAsTabularOp::verify() {
   }
 
   // Verify all memrefs are of equal static length.
-  if (!llvm::is_splat(llvm::map_range(getMemrefs().getTypes(), [](Type t) {
+  if (!llvm::all_equal(llvm::map_range(getMemrefs().getTypes(), [](Type t) {
         return t.cast<MemRefType>().getDimSize(0);
       }))) {
     std::string lengths;
