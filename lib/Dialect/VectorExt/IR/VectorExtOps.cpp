@@ -28,7 +28,7 @@ void mlir::vector_ext::buildTerminatedBody(OpBuilder &builder, Location loc) {
 void PredicateOp::build(OpBuilder &builder, OperationState &result,
                         Value predicateMask, ValueRange indices,
                         Value incomingMask) {
-  build(builder, result, /*resultTypes=*/llvm::None, predicateMask, indices,
+  build(builder, result, /*resultTypes=*/std::nullopt, predicateMask, indices,
         incomingMask);
 }
 
@@ -115,7 +115,7 @@ void mlir::vector_ext::PredicateOp::print(OpAsmPrinter &p) {
   p.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
-/// Given the region at `index`, or the parent operation if `index` is None,
+/// Given the region at `index`, or the parent operation if `index` is nullopt,
 /// return the successor regions. These are the regions that may be selected
 /// during the flow of control. `operands` is a set of optional attributes that
 /// correspond to a constant value for each operand, or null if that operand is

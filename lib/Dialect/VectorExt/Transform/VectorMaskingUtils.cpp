@@ -77,7 +77,7 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
     Optional<Value> maybeIncomingMask) {
   // TODO: Support multi-block regions.
   if (!regionToPredicate->hasOneBlock())
-    return llvm::None;
+    return std::nullopt;
 
   // Compute the range of operations that will be moved within vector.predicate
   // and the definitions within the range with users outside the range.
@@ -95,7 +95,7 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
   builder.setInsertionPointToStart(&blockToPredicate);
   Value predicateMask = createPredicateMask(builder);
   if (!predicateMask)
-    return llvm::None;
+    return std::nullopt;
 
   // Generate the vector.predicate operation and move 'opsToMove' within its
   // truePredicateRegion. We have to rewire the def-use chain for those
