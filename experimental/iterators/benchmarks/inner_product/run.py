@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 
 from iree.compiler.runtime.np_to_memref import get_ranked_memref_descriptor
-from mlir.sandbox.utils import realign
 from mlir_iterators.dialects import iterators as it
 from mlir_iterators.dialects import tabular as tab
 from mlir_iterators.dialects import arith, func, memref, scf
@@ -31,7 +30,6 @@ from mlir_iterators.ir import (
 )
 from mlir_iterators.passmanager import PassManager
 from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
-import mlir_iterators.all_passes_registration
 
 _MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
 _MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
@@ -80,6 +78,23 @@ def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
     func.ReturnOp(loop)
 
   return wrapper
+
+
+# Copied from mlir.sandbox.utils. That package uses the vanilla `mlir` package
+# instead of `mlir_iterators` as the rest of this file, so they are
+# incompatible.
+def realign(allocated_unaligned: np.ndarray, byte_alignment: int = 64):
+  shape = allocated_unaligned.shape
+  dt = allocated_unaligned.dtype
+  effective_size_in_bytes = np.prod(shape) * np.dtype(dt).itemsize
+  total_size_in_bytes = effective_size_in_bytes + byte_alignment
+  buf = np.empty(total_size_in_bytes, dtype=np.byte)
+  off = (-buf.ctypes.data % byte_alignment)
+  allocated_aligned = buf[off:off +
+                          effective_size_in_bytes].view(dt).reshape(shape)
+  np.copyto(allocated_aligned, allocated_unaligned)
+  assert allocated_aligned.ctypes.data % byte_alignment == 0
+  return allocated_aligned
 
 
 def setup_data(num_elements, dtype):
