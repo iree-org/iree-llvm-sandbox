@@ -20,7 +20,8 @@ class VectorExt_Op<string mnemonic, list<Trait> traits = []> :
 
 def VectorExt_PredicateOp : VectorExt_Op<"predicate",
       [DeclareOpInterfaceMethods<RegionBranchOpInterface>,
-       SingleBlockImplicitTerminator<"vector_ext::YieldOp">, RecursiveSideEffects]> {
+       SingleBlockImplicitTerminator<"vector_ext::YieldOp">,
+       RecursiveMemoryEffects]> {
   let summary = "vector.predicate operation";
   let description = [{ TODO }];
 
@@ -43,7 +44,7 @@ def VectorExt_PredicateOp : VectorExt_Op<"predicate",
 }
 
 def VectorExt_YieldOp : VectorExt_Op<"yield", [
-    NoSideEffect, ReturnLike, Terminator]> {
+    NoMemoryEffect, ReturnLike, Terminator]> {
   let summary = "VectorExt yield op";
   let description = [{
     `vector_ext.yield` is a special terminator operation for blocks inside
