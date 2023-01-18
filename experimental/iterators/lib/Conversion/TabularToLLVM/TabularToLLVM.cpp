@@ -94,8 +94,10 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
     // Extract column pointers and number of elements.
     Value numElements;
     for (const auto &indexedOperand : llvm::enumerate(adaptor.getOperands())) {
-      assert(isStaticShapeAndContiguousRowMajor(
-          op->getOperandTypes()[indexedOperand.index()].cast<MemRefType>()));
+      assert(op->getOperandTypes()[indexedOperand.index()]
+                 .cast<MemRefType>()
+                 .getLayout()
+                 .isIdentity());
 
       // Extract pointer and number of elements from memref descriptor.
       MemRefDescriptor descriptor(indexedOperand.value());
