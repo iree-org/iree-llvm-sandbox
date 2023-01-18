@@ -14,8 +14,8 @@
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Utils/MLIRSupport.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/Arithmetic/Utils/Utils.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -1811,8 +1811,7 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<arith::ArithmeticDialect, LLVMDialect,
-                         scf::SCFDialect>();
+  target.addLegalDialect<arith::ArithDialect, LLVMDialect, scf::SCFDialect>();
   target.addLegalOp<ModuleOp, UndefStateOp, iterators::ExtractValueOp,
                     iterators::InsertValueOp>();
   RewritePatternSet patterns(&getContext());
