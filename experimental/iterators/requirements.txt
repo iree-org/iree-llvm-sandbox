@@ -1,0 +1,9 @@
+# MLIR dependencies.
+-r third_party/llvm-project/mlir/python/requirements.txt
+
+# Testing.
+lit
+
+# Plotting.
+pandas
+matplotlib

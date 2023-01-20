@@ -60,7 +60,7 @@ declare_mlir_python_sources(IteratorsPythonSources.ExecutionEngine
 add_mlir_python_common_capi_library(IteratorsPythonCAPI
   INSTALL_COMPONENT IteratorsPythonModules
   INSTALL_DESTINATION python_packages/iterators/mlir_iterators/_mlir_libs
-  OUTPUT_DIRECTORY "${IREE_LLVM_SANDBOX_BINARY_DIR}/python_packages/mlir_iterators/_mlir_libs"
+  OUTPUT_DIRECTORY "${ITERATORS_BINARY_DIR}/python_packages/mlir_iterators/_mlir_libs"
   RELATIVE_INSTALL_ROOT "../../../.."
   DECLARED_SOURCES
   IteratorsPythonSources
@@ -74,7 +74,7 @@ add_mlir_python_common_capi_library(IteratorsPythonCAPI
 # Instantiation of all Python modules
 # ###############################################################################
 add_mlir_python_modules(IteratorsPythonModules
-  ROOT_PREFIX "${IREE_LLVM_SANDBOX_BINARY_DIR}/python_packages/mlir_iterators"
+  ROOT_PREFIX "${ITERATORS_BINARY_DIR}/python_packages/mlir_iterators"
   INSTALL_PREFIX "python_packages/mlir_iterators"
   DECLARED_SOURCES
   IteratorsPythonSources
@@ -85,3 +85,5 @@ add_mlir_python_modules(IteratorsPythonModules
   COMMON_CAPI_LINK_LIBS
   IteratorsPythonCAPI
 )
+
+add_dependencies(iterators-all IteratorsPythonModules)

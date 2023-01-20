@@ -1,3 +1,6 @@
 [submodule "third_party/iree"]
 	path = third_party/iree
 	url = https://github.com/google/iree.git
+[submodule "experimental/iterators/third_party/llvm-project"]
+	path = experimental/iterators/third_party/llvm-project
+	url = https://github.com/llvm/llvm-project.git
