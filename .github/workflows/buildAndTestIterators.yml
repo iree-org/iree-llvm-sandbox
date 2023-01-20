@@ -78,8 +78,7 @@ jobs:
 
     - name: Run lit tests
       run: |
-        cd ${GITHUB_WORKSPACE}/sandbox
-        # python run_tests.py --iterators-tests
+        cmake --build ${ITERATORS_MAIN_BINARY_DIR} --target check-iterators
 
     - name: Run benchmarks
       run: |
