@@ -22,30 +22,11 @@
 
 using namespace mlir;
 
-#ifdef SANDBOX_ENABLE_ITERATORS
-#include "iterators/Conversion/Passes.h"
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
-
-static void registerIteratorDialects(DialectRegistry &registry) {
-  registry.insert<
-      // clang-format off
-      mlir::iterators::IteratorsDialect,
-      mlir::iterators::TabularDialect
-      // clang-format on
-      >();
-  registerIteratorsConversionPasses();
-}
-#else
-static void registerIteratorDialects(DialectRegistry &registry) {}
-#endif
-
 int main(int argc, char **argv) {
   registerAllPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
-  registerIteratorDialects(registry);
 
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }
