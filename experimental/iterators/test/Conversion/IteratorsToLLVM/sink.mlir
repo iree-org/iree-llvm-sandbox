@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-iterators-to-llvm \
+// RUN: iterators-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 !element_type = !llvm.struct<(i32)>
