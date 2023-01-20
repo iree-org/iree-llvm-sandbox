@@ -11,7 +11,6 @@ import time
 import numpy as np
 import pandas as pd
 
-from iree.compiler.runtime.np_to_memref import get_ranked_memref_descriptor
 from mlir_iterators.dialects import iterators as it
 from mlir_iterators.dialects import tabular as tab
 from mlir_iterators.dialects import arith, func, memref, scf
@@ -29,6 +28,7 @@ from mlir_iterators.ir import (
     UnitAttr,
 )
 from mlir_iterators.passmanager import PassManager
+from mlir_iterators.runtime.np_to_memref import get_ranked_memref_descriptor
 from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
 
 _MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
