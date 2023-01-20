@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s \
+// RUN: iterators-opt %s \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -convert-states-to-llvm \
 // RUN:   -convert-func-to-llvm \

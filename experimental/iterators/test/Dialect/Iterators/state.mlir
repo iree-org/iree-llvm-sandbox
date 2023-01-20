@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s \
+// RUN: iterators-opt %s \
 // RUN: | FileCheck %s
 
 func.func @testUndefInsertExtract() {

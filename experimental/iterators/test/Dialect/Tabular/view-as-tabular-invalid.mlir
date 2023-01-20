@@ -1,5 +1,5 @@
 // Test error messages of constraints of ViewAsTabularOp.
-// RUN: mlir-proto-opt --verify-diagnostics --split-input-file %s
+// RUN: iterators-opt --verify-diagnostics --split-input-file %s
 
 func.func @testNumberOfTypesMismatch() {
   %t1 = arith.constant dense<[0, 1, 2]> : tensor<3xi32>

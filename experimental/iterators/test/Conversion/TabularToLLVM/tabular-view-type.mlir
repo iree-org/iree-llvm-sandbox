@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-tabular-to-llvm \
+// RUN: iterators-opt %s -convert-tabular-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 func.func @func_call_return(%view1 : !tabular.tabular_view<i32>) -> !tabular.tabular_view<i32> {

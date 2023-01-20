@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-iterators-to-llvm \
+// RUN: iterators-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 // CHECK-LABEL: func.func private @iterators.value_to_stream.close.{{[0-9]+}}(%{{.*}}: !iterators.state<i1, i32>) -> !iterators.state<i1, i32> {
