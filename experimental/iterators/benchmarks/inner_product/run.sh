@@ -33,6 +33,9 @@ exhaust() {(
 # Test all values of all parameters.
 #
 test() {(
+  # Tell bash to fail if one command fails.
+  set -e
+
   for n in ${NUM_ELEMENTS[@]}
   do
     "$RUN_SCRIPT" -n $n -r 2  # Run twice for stddev to make sense
