@@ -20,8 +20,8 @@
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -1718,7 +1718,7 @@ convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
 static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
   IRRewriter rewriter(module.getContext());
   IteratorAnalysis analysis(module, typeConverter);
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
 
   // Collect all iterator ops in a worklist. Within each block, the iterator
   // ops are seen by the walker in sequential order, so each iterator is added
