@@ -385,7 +385,7 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
   ArithBuilder ab(b, b.getLoc());
   Value hasNext = ab.slt(currentIndex, lastIndex);
   auto ifOp = b.create<scf::IfOp>(
-      TypeRange{initialState.getType(), elementType}, hasNext,
+      /*condition=*/hasNext,
       /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
@@ -536,7 +536,7 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
         // If we got an element, apply predicate.
         auto ifOp = b.create<scf::IfOp>(
-            i1, hasNext,
+            /*condition=*/hasNext,
             /*ifBuilder=*/
             [&](OpBuilder &builder, Location loc) {
               ImplicitLocOpBuilder b(loc, builder);
@@ -710,7 +710,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // If we got an element, apply map function.
   auto ifOp = b.create<scf::IfOp>(
-      elementType, hasNext,
+      /*condition=*/hasNext,
       /*ifBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         // Apply map function.
@@ -871,7 +871,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
   // Check for empty upstream.
   Value firstHasNext = firstNextCall->getResult(1);
   auto ifOp = b.create<scf::IfOp>(
-      loc, nextResultTypes, firstHasNext,
+      /*condition=*/firstHasNext,
       /*ifBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
@@ -1077,7 +1077,7 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
   ArithBuilder ab(b, b.getLoc());
   Value hasNext = ab.slt(currentIndex, lastIndex);
   auto ifOp = b.create<scf::IfOp>(
-      TypeRange{initialState.getType(), elementType}, hasNext,
+      /*condition=*/hasNext,
       /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
