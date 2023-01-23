@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s \
+// RUN: iterators-opt %s \
 // RUN:   -convert-iterators-to-llvm -reconcile-unrealized-casts \
 // RUN: | FileCheck --enable-var-scope %s
 

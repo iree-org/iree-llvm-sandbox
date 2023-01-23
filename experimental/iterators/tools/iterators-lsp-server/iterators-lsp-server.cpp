@@ -1,4 +1,4 @@
-//===-- mlir-proto-lsp-server.cpp - LSP server for sandbox ------*- C++ -*-===//
+//===-- iterators-lsp-server.cpp - LSP server for Iterators -----*- C++ -*-===//
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,6 +14,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "iterators/Conversion/Passes.h"
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -22,11 +25,22 @@
 
 using namespace mlir;
 
+static void registerIteratorDialects(DialectRegistry &registry) {
+  registry.insert<
+      // clang-format off
+      mlir::iterators::IteratorsDialect,
+      mlir::iterators::TabularDialect
+      // clang-format on
+      >();
+}
+
 int main(int argc, char **argv) {
   registerAllPasses();
+  registerIteratorsConversionPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registerIteratorDialects(registry);
 
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }

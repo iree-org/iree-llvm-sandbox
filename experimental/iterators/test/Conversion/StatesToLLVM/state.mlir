@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-states-to-llvm \
+// RUN: iterators-opt %s -convert-states-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 func.func @testUndefInsertExtract() {

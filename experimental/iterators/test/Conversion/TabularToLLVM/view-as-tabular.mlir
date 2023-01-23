@@ -1,4 +1,4 @@
-// RUN: mlir-proto-opt %s -convert-tabular-to-llvm \
+// RUN: iterators-opt %s -convert-tabular-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 func.func @main(%memref : memref<3xi32>) {

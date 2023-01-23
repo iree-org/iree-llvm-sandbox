@@ -16,6 +16,11 @@ jobs:
     env:
       LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
     steps:
+    - name: Compute Iterators base path
+      run: |
+        echo "ITERATORS_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators" | tee -a $GITHUB_ENV
+        echo "ITERATORS_MAIN_BINARY_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators/build" | tee -a $GITHUB_ENV
+
     - name: Set up Python
       uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
       with:
@@ -29,7 +34,7 @@ jobs:
 
     - name: Install Python depends
       run: |
-        python -m pip install -r ${GITHUB_WORKSPACE}/sandbox/requirements.txt
+        python -m pip install -r ${ITERATORS_MAIN_SRC_DIR}/requirements.txt
 
     - name: Install Ninja
       uses: llvm/actions/install-ninja@6a57890d0e3f9f35dfc72e7e48bc5e1e527cdd6c # Jan 17
@@ -37,22 +42,43 @@ jobs:
     - name: Ccache for C++ compilation
       uses: hendrikmuhs/ccache-action@621a41397ed83711c72862638d9ff6e63fca3041 # v1.2.3
       with:
-        key: ${{ runner.os }}-buildtestasserts
+        key: ${{ runner.os }}-iterators
         # LLVM needs serious cache size
         max-size: 6G
 
+    - name: Configure CMake
+      run: |
+        cmake \
+          -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
+          -DLLVM_TARGETS_TO_BUILD=X86 \
+          -DMLIR_INCLUDE_INTEGRATION_TESTS=ON \
+          -DLLVM_ENABLE_ASSERTIONS=ON \
+          -DBUILD_SHARED_LIBS=ON \
+          -DLLVM_INCLUDE_UTILS=ON \
+          -DLLVM_INSTALL_UTILS=ON \
+          -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
+          -DMLIR_ENABLE_PYTHON_BENCHMARKS=ON \
+          -DPython3_EXECUTABLE=$(which python) \
+          -DLLVM_EXTERNAL_PROJECTS=iterators \
+          -DLLVM_EXTERNAL_ITERATORS_SOURCE_DIR=${ITERATORS_MAIN_SRC_DIR} \
+          -DLLVM_ENABLE_LLD=ON \
+          -DLLVM_CCACHE_BUILD=ON \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DCMAKE_C_COMPILER:FILEPATH=clang \
+          -DCMAKE_CXX_COMPILER:FILEPATH=clang++ \
+          -S${ITERATORS_MAIN_SRC_DIR}/third_party/llvm-project/llvm \
+          -B${ITERATORS_MAIN_BINARY_DIR} -G Ninja
+        echo "PYTHONPATH=${PYTHONPATH}:${ITERATORS_MAIN_BINARY_DIR}/tools/iterators/python_packages" | tee -a $GITHUB_ENV
+
     - name: Build
       run: |
-        cd ${GITHUB_WORKSPACE}/sandbox
-        python configure.py --iterators
+        cmake --build ${ITERATORS_MAIN_BINARY_DIR} --target iterators-all
         ccache -s
-        echo "IREE_LLVM_SANDBOX_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/build" >> $GITHUB_ENV
-        echo "PYTHONPATH=${PYTHONPATH}:${GITHUB_WORKSPACE}/sandbox/build/tools/sandbox/python_packages" >> $GITHUB_ENV
 
     - name: Run lit tests
       run: |
-        cd ${GITHUB_WORKSPACE}/sandbox
-        python run_tests.py --iterators-tests
+        cmake --build ${ITERATORS_MAIN_BINARY_DIR} --target check-iterators
 
     - name: Run benchmarks
       run: |

@@ -17,13 +17,6 @@ def parse_arguments():
       default=False,
       action=argparse.BooleanOptionalAction,
   )
-  parser.add_argument(
-      "--iterators-tests",
-      help="Run Iterators tests.",
-      dest="iterators_tests",
-      default=False,
-      action=argparse.BooleanOptionalAction,
-  )
   return parser.parse_args()
 
 
@@ -118,10 +111,6 @@ def main(args):
   if not args.gpu_integration_tests:
     lit_args.append("--filter-out=Integration/Dialect/VectorExt/GPU")
   test_dirs = ["test"]
-  if args.iterators_tests:
-    test_dirs += [
-        "experimental/iterators/unittests", "experimental/iterators/test"
-    ]
   returncode = subprocess.call(lit_args + test_dirs, env=_configure_env())
   if returncode != 0:
     print(f"-> lit tests failed!")

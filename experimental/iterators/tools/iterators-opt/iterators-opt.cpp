@@ -1,4 +1,4 @@
-//===- mlir-opt.cpp - MLIR Optimizer Driver -------------------------------===//
+//===- iterators-opt.cpp - Optimizer Driver for Iterators -----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,7 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Dialect/VectorExt/VectorExtDialect.h"
+#include "iterators/Conversion/Passes.h"
+#include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -23,29 +25,23 @@
 
 using namespace mlir;
 
-#ifdef SANDBOX_ENABLE_ALP
-#include "alp/Transforms/Passes.h"
-static void registerALPPasses() { registerALPPasses(); }
-#else
-static void registerALPPasses() {}
-#endif
-
-namespace mlir {
-namespace test_ext {
-void registerTestVectorMaskingUtils();
-} // namespace test_ext
-} // namespace mlir
+static void registerIteratorDialects(DialectRegistry &registry) {
+  registry.insert<
+      // clang-format off
+      mlir::iterators::IteratorsDialect,
+      mlir::iterators::TabularDialect
+      // clang-format on
+      >();
+}
 
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
-  registerALPPasses();
-
-  mlir::test_ext::registerTestVectorMaskingUtils();
+  registerIteratorsConversionPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
-  registry.insert<vector_ext::VectorExtDialect>();
+  registerIteratorDialects(registry);
 
   return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
                             registry,
