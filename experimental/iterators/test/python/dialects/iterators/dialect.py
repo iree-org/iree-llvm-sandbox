@@ -67,7 +67,7 @@ def testConvertIteratorsToLlvm():
         return
       }
       ''')
-  pm = PassManager.parse('convert-iterators-to-llvm')
+  pm = PassManager.parse('builtin.module(convert-iterators-to-llvm)')
   # Just check that there are no errors...
   pm.run(mod)
   print(mod)
@@ -95,9 +95,12 @@ def testEndToEndStandalone():
         return
       }
       ''')
-  pm = PassManager.parse('convert-iterators-to-llvm,convert-states-to-llvm,' +
-                         'convert-func-to-llvm,' +
-                         'convert-scf-to-cf,convert-cf-to-llvm')
+  pm = PassManager.parse('builtin.module('
+                         'convert-iterators-to-llvm,'
+                         'convert-states-to-llvm,'
+                         'convert-func-to-llvm,'
+                         'convert-scf-to-cf,'
+                         'convert-cf-to-llvm)')
   pm.run(mod)
   engine = ExecutionEngine(mod)
   # CHECK: (6)
@@ -118,10 +121,14 @@ def testEndToEndWithInput():
         return
       }
       ''')
-  pm = PassManager.parse(
-      'convert-iterators-to-llvm,convert-states-to-llvm,'
-      'convert-memref-to-llvm,convert-func-to-llvm,'
-      'reconcile-unrealized-casts,convert-scf-to-cf,convert-cf-to-llvm')
+  pm = PassManager.parse('builtin.module('
+                         'convert-iterators-to-llvm,'
+                         'convert-states-to-llvm,'
+                         'convert-memref-to-llvm,'
+                         'convert-func-to-llvm,'
+                         'reconcile-unrealized-casts,'
+                         'convert-scf-to-cf,'
+                         'convert-cf-to-llvm)')
   pm.run(mod)
 
   # Set up test data. Note that pandas data frames are have are columnar, i.e.,

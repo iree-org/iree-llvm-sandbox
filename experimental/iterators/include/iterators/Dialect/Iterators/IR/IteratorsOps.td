@@ -15,6 +15,7 @@ include "iterators/Dialect/Tabular/IR/TabularTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpAsmInterface.td"
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
 
 class Iterators_Base_Op<string mnemonic, list<Trait> traits = []> :
     Op<Iterators_Dialect, mnemonic, traits> {
@@ -121,33 +122,8 @@ class LookupFuncType<string opName, string symbolName>
             "    " # symbolName # ".dyn_cast<FlatSymbolRefAttr>())"
             "       .getFunctionType()">;
 
-/// A predicate, that is, a function with a signature of the form (T) -> i1.
-class Iterators_PredicateFunctionType
-  : Type<And<[FunctionType.predicate,
-              CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 1">,
-              CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">,
-              SubstLeaves<"$_self",
-                      "$_self.dyn_cast<FunctionType>().getResult(0)",
-                      I1.predicate>
-             ]>,
-         "function with signature (T) -> i1",
-         "FunctionType">;
-
-/// A FlatSymbolRef referring to a predicate.
-def Iterators_PredicateFunctionSymbol
-  : ConfinedAttr<FlatSymbolRefAttr, [
-        ReferToOp<"func::FuncOp">,
-        AttrConstraint<
-          SubstLeaves<"$_self",
-                      LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
-                      Iterators_PredicateFunctionType<>.predicate>,
-          "referring to a " # Iterators_PredicateFunctionType<>.summary>
-      ]>;
-
 def Iterators_FilterOp : Iterators_Op<"filter",
-    [AllMatch<["getPredicate().getArgumentTypes().front()",
-               "$input.getType().dyn_cast<StreamType>().getElementType()"],
-              "the signature of the predicate must match the element type">,
+    [DeclareOpInterfaceMethods<SymbolUserOpInterface>,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Filter the elements of the input using a predicate";
   let description = [{
@@ -163,13 +139,16 @@ def Iterators_FilterOp : Iterators_Op<"filter",
   }];
   let arguments = (ins
       Iterators_Stream:$input,
-      Iterators_PredicateFunctionSymbol:$predicateRef
+      FlatSymbolRefAttr:$predicateRef
     );
   let results = (outs Iterators_Stream:$result);
   let extraClassDeclaration = [{
+    /// Lookup the predicate in the nearest symbol table and return the
+    /// corresponding FuncOp if it exists. It is not safe to call this function
+    /// during verification.
     func::FuncOp getPredicate() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
-          *this, predicateRefAttr());
+          *this, getPredicateRefAttr());
     }
   }];
   let extraClassDefinition = [{
@@ -178,36 +157,37 @@ def Iterators_FilterOp : Iterators_Op<"filter",
         llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
       setNameFn(getResult(), "filtered");
     }
+
+    /// Implement SymbolUserOpInterface.
+    LogicalResult $cppClass::verifySymbolUses(SymbolTableCollection &symbolTable) {
+      Type i1 = IntegerType::get(getContext(), 1);
+
+      func::FuncOp funcOp = getPredicate();
+      if (!funcOp)
+        return emitOpError() << "uses the symbol '" << getPredicateRef()
+                             << "', which does not reference a valid function";
+
+      FunctionType funcType = funcOp.getFunctionType();
+      if (funcType.getNumInputs() != 1 ||
+          funcType.getNumResults() != 1 ||
+          funcType.getResult(0) != i1)
+        return emitOpError() << "uses the symbol '" << getPredicateRef()
+                             << "', which does not refer to a function with a "
+                             << "signature of the form (T) -> i1";
+
+      if (getPredicate().getFunctionType().getInput(0) !=
+          getInput().getType().cast<StreamType>().getElementType())
+        return emitOpError() << "uses the symbol '" << getPredicateRef()
+                             << "', whose return type does not match the "
+                             << "element type";
+
+      return success();
+    }
   }];
 }
 
-/// A predicate, that is, a function with a signature of the form (T) -> i1.
-class Iterators_MapFunctionType
-  : Type<And<[FunctionType.predicate,
-              CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 1">,
-              CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">
-             ]>,
-         "function with signature (T1) -> T2",
-         "FunctionType">;
-
-/// A FlatSymbolRef referring to a predicate.
-def Iterators_MapFunctionSymbol
-  : ConfinedAttr<FlatSymbolRefAttr, [
-        ReferToOp<"func::FuncOp">,
-        AttrConstraint<
-          SubstLeaves<"$_self",
-                      LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
-                      Iterators_MapFunctionType<>.predicate>,
-          "referring to a " # Iterators_MapFunctionType<>.summary>
-      ]>;
-
 def Iterators_MapOp : Iterators_Op<"map",
-    [AllMatch<["getMapFunc().getArgumentTypes().front()",
-               "$input.getType().dyn_cast<StreamType>().getElementType()"],
-              "the argument of the map function must match the input element type">,
-     AllMatch<["getMapFunc().getResultTypes().front()",
-               "$result.getType().dyn_cast<StreamType>().getElementType()"],
-              "the return type of the map function must match the result element type">,
+    [DeclareOpInterfaceMethods<SymbolUserOpInterface>,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Maps (or transforms) each element of the input to another one.";
   let description = [{
@@ -222,13 +202,16 @@ def Iterators_MapOp : Iterators_Op<"map",
   }];
   let arguments = (ins
       Iterators_Stream:$input,
-      Iterators_MapFunctionSymbol:$mapFuncRef
+      FlatSymbolRefAttr:$mapFuncRef
     );
   let results = (outs Iterators_Stream:$result);
   let extraClassDeclaration = [{
+    /// Lookup the map function in the nearest symbol table and return the
+    /// corresponding FuncOp if it exists. It is not safe to call this function
+    /// during verification.
     func::FuncOp getMapFunc() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
-          *this, mapFuncRefAttr());
+          *this, getMapFuncRefAttr());
     }
   }];
   let extraClassDefinition = [{
@@ -237,39 +220,40 @@ def Iterators_MapOp : Iterators_Op<"map",
         llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
       setNameFn(getResult(), "mapped");
     }
+
+    /// Implement SymbolUserOpInterface.
+    LogicalResult $cppClass::verifySymbolUses(SymbolTableCollection &symbolTable) {
+      func::FuncOp funcOp = getMapFunc();
+      if (!funcOp)
+        return emitOpError() << "uses the symbol '" << getMapFuncRef()
+                             << "', which does not reference a valid function";
+
+      FunctionType funcType = funcOp.getFunctionType();
+      if (funcType.getNumInputs() != 1 ||
+          funcType.getNumResults() != 1)
+        return emitOpError() << "uses the symbol '" << getMapFuncRef()
+                             << "', which does not refer to a function with a "
+                             << "signature of the form (T1) -> T2";
+
+      if (funcType.getInput(0) !=
+          getInput().getType().cast<StreamType>().getElementType())
+        return emitOpError() << "uses the symbol '" << getMapFuncRef()
+                             << "', whose return type does not match the input "
+                             << "element type";
+
+      if (funcType.getResult(0) !=
+          getResult().getType().cast<StreamType>().getElementType())
+        return emitOpError() << "uses the symbol '" << getMapFuncRef()
+                             << "', whose argument type does not match the "
+                             << "result element type";
+
+      return success();
+    }
   }];
 }
 
-/// A reduce function, that is, a function with a signature of the form
-/// (T, T) -> T.
-class Iterators_ReduceFunctionType
-  : Type<And<[FunctionType.predicate,
-              CPred<"$_self.dyn_cast<FunctionType>().getInputs().size() == 2">,
-              CPred<"$_self.dyn_cast<FunctionType>().getResults().size() == 1">,
-              AllMatchPred<[
-                "$_self.dyn_cast<FunctionType>().getInput(0)",
-                "$_self.dyn_cast<FunctionType>().getInput(1)",
-                "$_self.dyn_cast<FunctionType>().getResult(0)",
-              ]>
-             ]>,
-         "function with signature (T, T) -> T",
-         "FunctionType">;
-
-/// A FlatSymbolRef referring to a reduce function.
-def Iterators_ReduceFunctionSymbol
-  : ConfinedAttr<FlatSymbolRefAttr, [
-        ReferToOp<"func::FuncOp">,
-        AttrConstraint<
-          SubstLeaves<"$_self",
-                      LookupFuncType<"_op", "$_self.dyn_cast<FlatSymbolRefAttr>()">.result,
-                      Iterators_ReduceFunctionType<>.predicate>,
-          "referring to a " # Iterators_ReduceFunctionType<>.summary>
-      ]>;
-
 def Iterators_ReduceOp : Iterators_Op<"reduce",
-    [AllMatch<["getReduceFunc().getResultTypes().front()",
-               "$input.getType().dyn_cast<StreamType>().getElementType()"],
-              "the signature of the reduce function must match the element type">,
+    [DeclareOpInterfaceMethods<SymbolUserOpInterface>,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Reduce the input to a single tuple";
   let description = [{
@@ -288,13 +272,16 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
   }];
   let arguments = (ins
       Iterators_Stream:$input,
-      Iterators_ReduceFunctionSymbol:$reduceFuncRef
+      FlatSymbolRefAttr:$reduceFuncRef
     );
   let results = (outs Iterators_Stream:$result);
   let extraClassDeclaration = [{
+    /// Lookup the reduce function in the nearest symbol table and return the
+    /// corresponding FuncOp if it exists. It is not safe to call this function
+    /// during verification.
     func::FuncOp getReduceFunc() {
       return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
-          *this, reduceFuncRefAttr());
+          *this, getReduceFuncRefAttr());
     }
   }];
   let extraClassDefinition = [{
@@ -302,6 +289,32 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
     void $cppClass::getAsmResultNames(
         llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
       setNameFn(getResult(), "reduced");
+    }
+
+    /// Implement SymbolUserOpInterface.
+    LogicalResult $cppClass::verifySymbolUses(SymbolTableCollection &symbolTable) {
+      func::FuncOp funcOp = getReduceFunc();
+      if (!funcOp)
+        return emitOpError() << "uses the symbol '" << getReduceFuncRef()
+                             << "', which does not reference a valid function";
+
+      FunctionType funcType = funcOp.getFunctionType();
+      if (funcType.getNumInputs() != 2 ||
+          funcType.getNumResults() != 1 ||
+          !llvm::all_equal({funcType.getInput(0),
+                            funcType.getInput(1),
+                            funcType.getResult(0)}))
+        return emitOpError() << "uses the symbol '" << getReduceFuncRef()
+                             << "', which does not refer to a function with a "
+                             << "signature of the form (T, T) -> T";
+
+      if (funcType.getResult(0) !=
+          getResult().getType().cast<StreamType>().getElementType())
+        return emitOpError() << "uses the symbol '" << getReduceFuncRef()
+                             << "', whose argument type does not match the "
+                             << "element type";
+
+      return success();
     }
   }];
 }
@@ -410,7 +423,7 @@ def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
 //===----------------------------------------------------------------------===//
 
 def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
-    [NoSideEffect,
+    [Pure,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Create an undefined iterator state";
   let results = (outs Iterators_State:$result);
@@ -438,7 +451,7 @@ def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
 }
 
 def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
-    NoSideEffect,
+    Pure,
     PredOpTrait<"index must exist in state",
       CPred<"static_cast<uint64_t>($index.getSExtValue())"
             "    < $state.getType().cast<StateType>().getFieldTypes().size()">>,
@@ -470,7 +483,7 @@ def Iterators_ExtractValueOp : Iterators_Base_Op<"extractvalue", [
 }
 
 def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
-    NoSideEffect,
+    Pure,
     PredOpTrait<
       "index must exist in state",
       CPred<"static_cast<uint64_t>($index.getSExtValue())"

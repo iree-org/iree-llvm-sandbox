@@ -44,7 +44,7 @@ TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
   addConversion([&](Type type) -> llvm::Optional<Type> {
     if (type.isa<MemRefType>())
       return llvmTypeConverter.convertType(type);
-    return llvm::None;
+    return std::nullopt;
   });
 }
 
@@ -57,7 +57,7 @@ Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
                     [](Type t) { return LLVMPointerType::get(t); });
     return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
   }
-  return llvm::None;
+  return std::nullopt;
 }
 
 /// Lowers view_as_tabular to LLVM IR that extracts the bare pointers and the
@@ -88,14 +88,16 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
     Location loc = op->getLoc();
 
     // Create empty struct for view.
-    Type viewStructType = typeConverter->convertType(op.view().getType());
+    Type viewStructType = typeConverter->convertType(op.getView().getType());
     Value viewStruct = rewriter.create<UndefOp>(loc, viewStructType);
 
     // Extract column pointers and number of elements.
     Value numElements;
     for (const auto &indexedOperand : llvm::enumerate(adaptor.getOperands())) {
-      assert(isStaticShapeAndContiguousRowMajor(
-          op->getOperandTypes()[indexedOperand.index()].cast<MemRefType>()));
+      assert(op->getOperandTypes()[indexedOperand.index()]
+                 .cast<MemRefType>()
+                 .getLayout()
+                 .isIdentity());
 
       // Extract pointer and number of elements from memref descriptor.
       MemRefDescriptor descriptor(indexedOperand.value());

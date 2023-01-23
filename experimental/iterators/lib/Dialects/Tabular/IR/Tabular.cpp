@@ -48,19 +48,19 @@ void TabularDialect::initialize() {
 #include "iterators/Dialect/Tabular/IR/TabularOps.cpp.inc"
 
 LogicalResult ViewAsTabularOp::verify() {
-  auto viewType = view().getType().cast<TabularViewType>();
+  auto viewType = getView().getType().cast<TabularViewType>();
   TypeRange columnTypes = viewType.getColumnTypes();
 
   // Verify matching column/element types.
-  if (columnTypes.size() != memrefs().size()) {
+  if (columnTypes.size() != getMemrefs().size()) {
     return emitOpError()
            << "type mismatch: should return a tabular view with the same "
            << "number of columns as the number of input memrefs (expected: "
-           << memrefs().size() << ", found: " << columnTypes.size() << ").";
+           << getMemrefs().size() << ", found: " << columnTypes.size() << ").";
   }
   for (size_t i = 0; i < columnTypes.size(); i++) {
     Type memrefElementType =
-        memrefs().getTypes()[i].cast<MemRefType>().getElementType();
+        getMemrefs().getTypes()[i].cast<MemRefType>().getElementType();
     if (memrefElementType != columnTypes[i]) {
       return emitOpError()
              << "type mismatch: returned tabular view has column type "
@@ -71,13 +71,13 @@ LogicalResult ViewAsTabularOp::verify() {
   }
 
   // Verify all memrefs are of equal static length.
-  if (!llvm::is_splat(llvm::map_range(memrefs().getTypes(), [](Type t) {
+  if (!llvm::all_equal(llvm::map_range(getMemrefs().getTypes(), [](Type t) {
         return t.cast<MemRefType>().getDimSize(0);
       }))) {
     std::string lengths;
     {
       llvm::raw_string_ostream stream(lengths);
-      llvm::interleaveComma(memrefs().getTypes(), stream, [&](Type type) {
+      llvm::interleaveComma(getMemrefs().getTypes(), stream, [&](Type type) {
         stream << type.cast<MemRefType>().getDimSize(0);
       });
     }

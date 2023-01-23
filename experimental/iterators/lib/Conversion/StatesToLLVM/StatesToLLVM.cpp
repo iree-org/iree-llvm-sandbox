@@ -53,7 +53,7 @@ private:
       }
       return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
     }
-    return llvm::None;
+    return std::nullopt;
   }
 };
 
@@ -85,8 +85,8 @@ struct ExtractValueOpLowering
     Location loc = op->getLoc();
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
     Value value =
-        createExtractValueOp(rewriter, loc, resultType, adaptor.state(),
-                             {adaptor.index().getSExtValue()});
+        createExtractValueOp(rewriter, loc, resultType, adaptor.getState(),
+                             {adaptor.getIndex().getSExtValue()});
     rewriter.replaceOp(op, value);
     return success();
   }
@@ -102,9 +102,9 @@ struct InsertValueOpLowering
   matchAndRewrite(iterators::InsertValueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Value updatedState =
-        createInsertValueOp(rewriter, loc, adaptor.state(), adaptor.value(),
-                            {adaptor.index().getSExtValue()});
+    Value updatedState = createInsertValueOp(
+        rewriter, loc, adaptor.getState(), adaptor.getValue(),
+        {adaptor.getIndex().getSExtValue()});
     rewriter.replaceOp(op, updatedState);
     return success();
   }

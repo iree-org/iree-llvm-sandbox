@@ -14,14 +14,14 @@
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Utils/MLIRSupport.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/Arithmetic/Utils/Utils.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
@@ -61,7 +61,7 @@ private:
       return LLVMStructType::getNewIdentified(type.getContext(), "tuple",
                                               tupleType.getTypes());
     }
-    return llvm::None;
+    return std::nullopt;
   }
 };
 
@@ -145,14 +145,14 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
     Location loc = op->getLoc();
 
     // Convert tuple type.
-    Type tupleType = op.tuple().getType();
+    Type tupleType = op.getTuple().getType();
     Type structType = typeConverter->convertType(tupleType);
 
     // Undef.
     Value structValue = rewriter.create<UndefOp>(loc, structType);
 
     // Insert values.
-    ArrayAttr values = op.values();
+    ArrayAttr values = op.getValues();
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
       // Create constant value op.
       Attribute field = values[i];
@@ -178,7 +178,7 @@ struct PrintTupleOpLowering : public OpConversionPattern<PrintTupleOp> {
   LogicalResult
   matchAndRewrite(PrintTupleOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<PrintOp>(op, adaptor.tuple());
+    rewriter.replaceOpWithNewOp<PrintOp>(op, adaptor.getTuple());
     return success();
   }
 };
@@ -194,7 +194,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     Location loc = op->getLoc();
     Type i32 = rewriter.getI32Type();
 
-    auto structType = adaptor.element().getType().cast<LLVMStructType>();
+    auto structType = adaptor.getElement().getType().cast<LLVMStructType>();
 
     // Assemble format string in the form `(%lli, %lg, ...)`.
     std::string format("(");
@@ -228,7 +228,7 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
       // Extract from struct.
       Type fieldType = fieldTypes[i];
       Value value = createExtractValueOp(rewriter, loc, fieldType,
-                                         adaptor.element(), {i});
+                                         adaptor.getElement(), {i});
 
       // Extend.
       Value extValue;
@@ -306,7 +306,7 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
   StringAttr nameAttr = b.getStringAttr(candidateName);
 
   // Create global op.
-  ArrayAttr valueAttr = op.value();
+  ArrayAttr valueAttr = op.getValue();
   LLVMArrayType globalType = LLVMArrayType::get(elementType, valueAttr.size());
   OpBuilder::InsertionGuard insertGuard(b);
   b.setInsertionPointToStart(module.getBody());
@@ -379,13 +379,13 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
       loc, i32, initialState, b.getIndexAttr(0));
 
   // Test if we have reached the end of the range.
-  int64_t numElements = op.value().size();
+  int64_t numElements = op.getValue().size();
   Value lastIndex = b.create<arith::ConstantIntOp>(/*value=*/numElements,
                                                    /*width=*/32);
   ArithBuilder ab(b, b.getLoc());
   Value hasNext = ab.slt(currentIndex, lastIndex);
   auto ifOp = b.create<scf::IfOp>(
-      TypeRange{initialState.getType(), elementType}, hasNext,
+      /*condition=*/hasNext,
       /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
@@ -536,14 +536,14 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
         // If we got an element, apply predicate.
         auto ifOp = b.create<scf::IfOp>(
-            i1, hasNext,
+            /*condition=*/hasNext,
             /*ifBuilder=*/
             [&](OpBuilder &builder, Location loc) {
               ImplicitLocOpBuilder b(loc, builder);
 
               // Call predicate.
               auto predicateCall = b.create<func::CallOp>(
-                  i1, op.predicateRef(), ValueRange{nextElement});
+                  i1, op.getPredicateRef(), ValueRange{nextElement});
               Value isMatch = predicateCall->getResult(0);
               b.create<scf::YieldOp>(loc, isMatch);
             },
@@ -623,7 +623,7 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
   Value undefState = b.create<UndefStateOp>(stateType);
-  Value upstreamState = adaptor.input();
+  Value upstreamState = adaptor.getInput();
   return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
                                             upstreamState);
 }
@@ -696,7 +696,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Extract input element type.
-  StreamType inputStreamType = op.input().getType().cast<StreamType>();
+  StreamType inputStreamType = op.getInput().getType().cast<StreamType>();
   Type inputElementType = inputStreamType.getElementType();
 
   // Call next.
@@ -710,12 +710,12 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // If we got an element, apply map function.
   auto ifOp = b.create<scf::IfOp>(
-      elementType, hasNext,
+      /*condition=*/hasNext,
       /*ifBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         // Apply map function.
         ImplicitLocOpBuilder b(loc, builder);
-        auto mapCall = b.create<func::CallOp>(elementType, op.mapFuncRef(),
+        auto mapCall = b.create<func::CallOp>(elementType, op.getMapFuncRef(),
                                               ValueRange{nextElement});
         Value mappedElement = mapCall->getResult(0);
         b.create<scf::YieldOp>(mappedElement);
@@ -776,7 +776,7 @@ static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
   Value undefState = b.create<UndefStateOp>(stateType);
-  Value upstreamState = adaptor.input();
+  Value upstreamState = adaptor.getInput();
   return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
                                             upstreamState);
 }
@@ -871,7 +871,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
   // Check for empty upstream.
   Value firstHasNext = firstNextCall->getResult(1);
   auto ifOp = b.create<scf::IfOp>(
-      loc, nextResultTypes, firstHasNext,
+      /*condition=*/firstHasNext,
       /*ifBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
@@ -916,7 +916,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
               // Call reduce function.
               auto reduceCall =
-                  b.create<func::CallOp>(elementType, op.reduceFuncRef(),
+                  b.create<func::CallOp>(elementType, op.getReduceFuncRef(),
                                          ValueRange{accumulator, nextElement});
               Value newAccumulator = reduceCall->getResult(0);
 
@@ -991,7 +991,7 @@ static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
   Value undefState = b.create<UndefStateOp>(loc, stateType);
-  Value upstreamState = adaptor.input();
+  Value upstreamState = adaptor.getInput();
   return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
                                             upstreamState);
 }
@@ -1077,7 +1077,7 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
   ArithBuilder ab(b, b.getLoc());
   Value hasNext = ab.slt(currentIndex, lastIndex);
   auto ifOp = b.create<scf::IfOp>(
-      TypeRange{initialState.getType(), elementType}, hasNext,
+      /*condition=*/hasNext,
       /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
@@ -1153,7 +1153,7 @@ static Value buildStateCreation(TabularViewToStreamOp op,
 
   // Insert input into iterator state.
   Value iteratorState = b.create<UndefStateOp>(stateType);
-  Value input = adaptor.input();
+  Value input = adaptor.getInput();
   return b.create<iterators::InsertValueOp>(iteratorState, b.getIndexAttr(1),
                                             input);
 }
@@ -1239,7 +1239,7 @@ static Value buildStateCreation(ValueToStreamOp op,
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
   Value undefState = b.create<UndefStateOp>(loc, stateType);
-  Value value = adaptor.input();
+  Value value = adaptor.getInput();
   return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(1),
                                             value);
 }
@@ -1273,9 +1273,8 @@ buildOpenNextCloseInParentModule(Operation *originalOp, OpBuilder &builder,
   OpBuilder::InsertionGuard guard(b);
   b.setInsertionPointToStart(module.getBody());
 
-  auto visibility = StringAttr::get(context, "private");
   auto funcType = FunctionType::get(context, inputType, returnTypes);
-  FuncOp funcOp = b.create<FuncOp>(funcName, funcType, visibility);
+  FuncOp funcOp = b.create<FuncOp>(funcName, funcType);
   funcOp.setPrivate();
 
   // Create initial block.
@@ -1497,14 +1496,15 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
   SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
 
   // Open input iterator. ------------------------------------------------------
-  Value initialState = adaptor.input();
+  Value initialState = adaptor.getInput();
   auto openCallOp =
       builder.create<func::CallOp>(openFunc, stateType, initialState);
   Value openedUpstreamState = openCallOp->getResult(0);
 
   // Consume input iterator in while loop. -------------------------------------
   // Input and return types.
-  Type elementType = op.input().getType().cast<StreamType>().getElementType();
+  Type elementType =
+      op.getInput().getType().cast<StreamType>().getElementType();
   Type i1 = builder.getI1Type();
   SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
   SmallVector<Type> whileResultTypes = {stateType, elementType};
@@ -1579,13 +1579,14 @@ static SmallVector<Value> convert(StreamToValueOp op,
   SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
 
   // Open upstream iterator. ---------------------------------------------------
-  Value initialState = adaptor.input();
+  Value initialState = adaptor.getInput();
   auto openCallOp = b.create<func::CallOp>(openFunc, stateType, initialState);
   Value openedUpstreamState = openCallOp->getResult(0);
 
   // Consume one element from upstream iterator --------------------------------
   // Input and return types.
-  auto elementType = op.input().getType().cast<StreamType>().getElementType();
+  auto elementType =
+      op.getInput().getType().cast<StreamType>().getElementType();
   Type i1 = b.getI1Type();
   SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
 
@@ -1717,7 +1718,7 @@ convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
 static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
   IRRewriter rewriter(module.getContext());
   IteratorAnalysis analysis(module, typeConverter);
-  BlockAndValueMapping mapping;
+  IRMapping mapping;
 
   // Collect all iterator ops in a worklist. Within each block, the iterator
   // ops are seen by the walker in sequential order, so each iterator is added
@@ -1809,8 +1810,7 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<arith::ArithmeticDialect, LLVMDialect,
-                         scf::SCFDialect>();
+  target.addLegalDialect<arith::ArithDialect, LLVMDialect, scf::SCFDialect>();
   target.addLegalOp<ModuleOp, UndefStateOp, iterators::ExtractValueOp,
                     iterators::InsertValueOp>();
   RewritePatternSet patterns(&getContext());

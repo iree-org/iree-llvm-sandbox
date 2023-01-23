@@ -83,7 +83,7 @@ def Iterators_HomogeneouslyTypedArrayArrayAttrConstraint
   : AttrConstraint<
       CPred<[{
         $_self.dyn_cast<::mlir::ArrayAttr>().size() == 0 ||
-        ::llvm::is_splat(
+        ::llvm::all_equal(
           ::llvm::map_range(
             $_self.dyn_cast<::mlir::ArrayAttr>().getValue(),
             [](::mlir::Attribute attr) {
