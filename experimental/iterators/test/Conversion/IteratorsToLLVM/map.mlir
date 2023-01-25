@@ -44,15 +44,16 @@ func.func private @double_struct(%struct : !element_type) -> !element_type {
 }
 // CHECK-NEXT:  }
 
-// CHECK-LABEL: func.func @main() {
 func.func @main() {
+// CHECK-LABEL:  func.func @main() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!element_type>)
+  // CHECK:        %[[V0:.*]] = iterators.createstate({{.*}}) : [[upstreamStateType:.*]]
   %reduce = "iterators.map"(%input) {mapFuncRef = @double_struct}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
-  "iterators.sink"(%reduce) : (!iterators.stream<!element_type>) -> ()
-  // CHECK:        %[[V1:.*]] = iterators.undefstate : !iterators.state<!iterators.state<i32>>
-  // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V0:.*]] into %[[V1]][0] : !iterators.state<!iterators.state<i32>>
+  // CHECK-NEXT:   %[[V1:.*]] = iterators.createstate(%[[V0]]) : !iterators.state<[[upstreamStateType]]>
   return
+  // CHECK-NEXT:   return
 }
+// CHECK-NEXT:   }

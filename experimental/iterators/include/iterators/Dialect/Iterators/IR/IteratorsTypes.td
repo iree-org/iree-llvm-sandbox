@@ -178,7 +178,10 @@ def Iterators_State : Iterators_Type<"State", "state"> {
     Example:
 
     ```
-    %undef_state = iterators.undefstate : !iterators.state<i32, tensor<?xi32>>
+    %i32 = ...
+    %tensor = ...
+    %state = iterators.createstate(%i32, %tensor) :
+                 !iterators.state<i32, tensor<?xi32>>
     ```
   }];
 }

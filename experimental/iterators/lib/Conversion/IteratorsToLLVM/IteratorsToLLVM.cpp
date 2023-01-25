@@ -435,11 +435,15 @@ static Value buildCloseBody(ConstantStreamOp /*op*/, OpBuilder & /*builder*/,
 /// (uninitialized) current index. Possible result:
 ///
 /// %0 = arith.constant 0 : i32
-/// %1 = iterators.insertvalue %0 into %arg0[0] : !iterators.state<i32>
+/// %1 = iterators.createstate(%0) : !iterators.state<i32>
 static Value buildStateCreation(ConstantStreamOp op,
                                 ConstantStreamOp::Adaptor /*adaptor*/,
                                 OpBuilder &builder, StateType stateType) {
-  return builder.create<UndefStateOp>(op.getLoc(), stateType);
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Value initialIndex =
+      b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/32);
+  return b.create<CreateStateOp>(stateType, initialIndex);
 }
 
 //===----------------------------------------------------------------------===//
@@ -616,16 +620,13 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : !iterators.state<!nested_state>
-/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
+/// %1 = iterators.createstate(%0) : !iterators.state<!nested_state>
 static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefStateOp>(stateType);
   Value upstreamState = adaptor.getInput();
-  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
-                                            upstreamState);
+  return b.create<CreateStateOp>(stateType, upstreamState);
 }
 
 //===----------------------------------------------------------------------===//
@@ -769,16 +770,13 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : !iterators.state<!nested_state>
-/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
+/// %1 = iterators.createstate(%0) : !iterators.state<!nested_state>
 static Value buildStateCreation(MapOp op, MapOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefStateOp>(stateType);
   Value upstreamState = adaptor.getInput();
-  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
-                                            upstreamState);
+  return b.create<CreateStateOp>(stateType, upstreamState);
 }
 
 //===----------------------------------------------------------------------===//
@@ -984,16 +982,13 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
 /// iterator. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : !iterators.state<!nested_state>
-/// %2 = iterators.insertvalue %0 into %1[0] : !iterators.state<!nested_state>
+/// %1 = iterators.createstate(%0) : !iterators.state<!nested_state>
 static Value buildStateCreation(ReduceOp op, ReduceOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefStateOp>(loc, stateType);
   Value upstreamState = adaptor.getInput();
-  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(0),
-                                            upstreamState);
+  return b.create<CreateStateOp>(stateType, upstreamState);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1142,20 +1137,19 @@ static Value buildCloseBody(TabularViewToStreamOp /*op*/,
 /// buffers and an undefined current index. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : !iterators.state<i64, !tabular_view_type>
-/// %2 = iterators.insertvalue %1[1] (%0 : !tabular_view_type) :
+/// %1 = arith.constant 0 : i64
+/// %2 = iterators.createstate(%0, %1) :
 ///          !iterators.state<i64, !tabular_view_type>
 static Value buildStateCreation(TabularViewToStreamOp op,
                                 TabularViewToStreamOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-
-  // Insert input into iterator state.
-  Value iteratorState = b.create<UndefStateOp>(stateType);
-  Value input = adaptor.getInput();
-  return b.create<iterators::InsertValueOp>(iteratorState, b.getIndexAttr(1),
-                                            input);
+  Value tabularView = adaptor.getInput();
+  Value initialIndex =
+      b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/64);
+  return b.create<CreateStateOp>(stateType,
+                                 ValueRange{initialIndex, tabularView});
 }
 
 //===----------------------------------------------------------------------===//
@@ -1231,17 +1225,17 @@ static Value buildCloseBody(ValueToStreamOp /*op*/, OpBuilder & /*builder*/,
 /// Builds IR that initializes the iterator state with value. Possible output:
 ///
 /// %0 = ...
-/// %1 = iterators.undefstate : !iterators.state<i1, i32>
-/// %2 = iterators.insertvalue %0 into %1[1] : !iterators.state<i1, i32>
+/// %1 = arith.constant false
+/// %2 = iterators.createstate(%0, %1) :
+///          !iterators.state<i1, !value_type>
 static Value buildStateCreation(ValueToStreamOp op,
                                 ValueToStreamOp::Adaptor adaptor,
                                 OpBuilder &builder, StateType stateType) {
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Value undefState = b.create<UndefStateOp>(loc, stateType);
   Value value = adaptor.getInput();
-  return b.create<iterators::InsertValueOp>(undefState, b.getIndexAttr(1),
-                                            value);
+  Value hasReturned = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/1);
+  return b.create<CreateStateOp>(stateType, ValueRange{hasReturned, value});
 }
 
 //===----------------------------------------------------------------------===//
@@ -1811,7 +1805,7 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
   target.addLegalDialect<arith::ArithDialect, LLVMDialect, scf::SCFDialect>();
-  target.addLegalOp<ModuleOp, UndefStateOp, iterators::ExtractValueOp,
+  target.addLegalOp<ModuleOp, CreateStateOp, iterators::ExtractValueOp,
                     iterators::InsertValueOp>();
   RewritePatternSet patterns(&getContext());
 
