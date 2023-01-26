@@ -2,6 +2,9 @@ llvm_canonicalize_cmake_booleans(
   MLIR_ENABLE_BINDINGS_PYTHON
   )
 
+# Passed to lit.site.cfg.py.in to set up the path where to find libraries.
+set(MLIR_LIB_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+
 configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.site.cfg.py.in
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg.py
@@ -14,6 +17,8 @@ set(ITERATORS_TEST_DEPENDS
   FileCheck
   iterators-opt
   mlir-cpu-runner
+  mlir_c_runner_utils
+  mlir_runner_utils
   not
   )
 list(APPEND ITERATORS_TEST_DEPENDS IteratorsPythonModules)
