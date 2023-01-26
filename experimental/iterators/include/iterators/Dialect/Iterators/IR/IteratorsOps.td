@@ -311,7 +311,7 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
       if (funcType.getResult(0) !=
           getResult().getType().cast<StreamType>().getElementType())
         return emitOpError() << "uses the symbol '" << getReduceFuncRef()
-                             << "', whose argument type does not match the "
+                             << "', whose result type does not match the "
                              << "element type";
 
       return success();
