@@ -4,6 +4,7 @@ import lit.formats
 import lit.util
 
 from lit.llvm import llvm_config
+from lit.llvm.subst import ToolSubst
 
 # Configuration file for the 'lit' test runner.
 
@@ -22,6 +23,7 @@ config.test_source_root = os.path.dirname(__file__)
 config.test_exec_root = os.path.join(config.iterators_build_root, 'test')
 
 config.substitutions.append(('%PATH%', config.environment['PATH']))
+config.substitutions.append(('%shlibext', config.llvm_shlib_ext))
 
 llvm_config.with_system_environment(['HOME', 'INCLUDE', 'LIB', 'TMP', 'TEMP'])
 
@@ -54,6 +56,7 @@ llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 tool_dirs = [config.iterators_tools_dir, config.llvm_tools_dir]
 tools = [
     'iterators-opt',
+    ToolSubst('%mlir_lib_dir', config.mlir_lib_dir),
 ]
 
 # Pass through LLVM_SYMBOLIZER_PATH from environment
