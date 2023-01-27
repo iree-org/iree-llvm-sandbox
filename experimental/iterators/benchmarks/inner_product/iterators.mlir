@@ -20,8 +20,8 @@
 // Implementation for integer types.
 //
 func.func private @mul_struct_int(%struct : !struct_type_int) -> !int_type {
-  %lhs = llvm.extractvalue %struct[0 : index] : !struct_type_int
-  %rhs = llvm.extractvalue %struct[1 : index] : !struct_type_int
+  %lhs = llvm.extractvalue %struct[0] : !struct_type_int
+  %rhs = llvm.extractvalue %struct[1] : !struct_type_int
   %sum = arith.muli %lhs, %rhs : !int_type
   return %sum : !int_type
 }
@@ -35,8 +35,8 @@ func.func private @sum_int(%lhs : !int_type, %rhs : !int_type) -> !int_type {
 // Implementation for float types.
 //
 func.func private @mul_struct_float(%struct : !struct_type_float) -> !float_type {
-  %lhs = llvm.extractvalue %struct[0 : index] : !struct_type_float
-  %rhs = llvm.extractvalue %struct[1 : index] : !struct_type_float
+  %lhs = llvm.extractvalue %struct[0] : !struct_type_float
+  %rhs = llvm.extractvalue %struct[1] : !struct_type_float
   %sum = arith.mulf %lhs, %rhs : !float_type
   return %sum : !float_type
 }
