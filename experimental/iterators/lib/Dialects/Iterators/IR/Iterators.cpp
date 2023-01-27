@@ -12,6 +12,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/Support/LogicalResult.h"
+#include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -23,6 +24,19 @@ using namespace mlir::iterators;
 
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.cpp.inc"
 
+namespace {
+/// This class defines the interface for handling inlining for iterators
+/// dialect operations.
+struct IteratorsInlinerInterface : public DialectInlinerInterface {
+  using DialectInlinerInterface::DialectInlinerInterface;
+
+  /// All iterators dialect ops can be inlined.
+  bool isLegalToInline(Operation *, Region *, bool, IRMapping &) const final {
+    return true;
+  }
+};
+} // namespace
+
 void IteratorsDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
@@ -32,6 +46,7 @@ void IteratorsDialect::initialize() {
 #define GET_TYPEDEF_LIST
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
       >();
+  addInterfaces<IteratorsInlinerInterface>();
 }
 
 //===----------------------------------------------------------------------===//
