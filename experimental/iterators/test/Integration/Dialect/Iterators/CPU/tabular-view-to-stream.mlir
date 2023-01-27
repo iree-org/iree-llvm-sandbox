@@ -2,7 +2,10 @@
 // RUN:   -convert-tabular-to-llvm \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -convert-states-to-llvm \
-// RUN:   -arith-bufferize -cse -convert-memref-to-llvm -reconcile-unrealized-casts \
+// RUN:   -arith-bufferize -cse \
+// RUN:   -expand-strided-metadata \
+// RUN:   -finalize-memref-to-llvm \
+// RUN:   -reconcile-unrealized-casts \
 // RUN:   -convert-func-to-llvm \
 // RUN:   -convert-scf-to-cf -convert-cf-to-llvm \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
