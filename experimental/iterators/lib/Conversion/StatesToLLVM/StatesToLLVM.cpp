@@ -57,18 +57,31 @@ private:
   }
 };
 
-struct UndefStateOpLowering : public OpConversionPattern<UndefStateOp> {
-  UndefStateOpLowering(TypeConverter &typeConverter, MLIRContext *context,
-                       PatternBenefit benefit = 1)
+struct CreateStateOpLowering : public OpConversionPattern<CreateStateOp> {
+  CreateStateOpLowering(TypeConverter &typeConverter, MLIRContext *context,
+                        PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
-  matchAndRewrite(UndefStateOp op, OpAdaptor adaptor,
+  matchAndRewrite(CreateStateOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Type structType = getTypeConverter()->convertType(op.getResult().getType());
-    Value undef = rewriter.create<LLVM::UndefOp>(loc, structType);
-    rewriter.replaceOp(op, undef);
+
+    // Create undef struct.
+    Type stateType = op.getResult().getType();
+    Type structType = getTypeConverter()->convertType(stateType);
+    Value state = rewriter.create<LLVM::UndefOp>(loc, structType);
+
+    // Insert values.
+    for (auto &it : llvm::enumerate(adaptor.getValues())) {
+      Value value = it.value();
+      int64_t index = it.index();
+      state = createInsertValueOp(rewriter, loc, state, value, {index});
+    }
+
+    // `state` now constists of a struct with all fields set.
+    rewriter.replaceOp(op, state);
+
     return success();
   }
 };
@@ -114,7 +127,7 @@ void mlir::iterators::populateStatesToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
-      UndefStateOpLowering,
+      CreateStateOpLowering,
       ExtractValueOpLowering,
       InsertValueOpLowering
       // clang-format on

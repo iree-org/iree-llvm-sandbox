@@ -422,23 +422,28 @@ def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
 // Ops related to Iterator bodies.
 //===----------------------------------------------------------------------===//
 
-def Iterators_UndefStateOp : Iterators_Base_Op<"undefstate",
+def Iterators_CreateStateOp : Iterators_Base_Op<"createstate",
     [Pure,
+     TypesMatchWith<"types of provided values much match the field types of "
+                    "the resulting state", "result", "values",
+                    "$_self.cast<StateType>().getFieldTypes()">,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
-  let summary = "Create an undefined iterator state";
+  let summary = "Create an iterator state out of the given values";
+  let arguments = (ins Variadic<AnyType>:$values);
   let results = (outs Iterators_State:$result);
-  let assemblyFormat = "attr-dict `:` qualified(type($result))";
+  let assemblyFormat = "`(` $values `)` attr-dict `:` qualified(type($result))";
   let description = [{
-    Creates an iterator state of the given type with undefined field values.
-    All fields have to be set individually with `insertvalue` before the whole
-    state is fully defined.
+    Create a new iterator state filled with the given values.
 
-    This is similar to `llvm.undef` for `llvm.struct`.
+    This is similar to `complex.create`.
 
     Example:
 
     ```
-    %undef_state = iterators.undefstate : !iterators.state<i32, tensor<?xi32>>
+    %i32 = ...
+    %tensor = ...
+    %state = iterators.createstate(%i32, %tensor) :
+                 !iterators.state<i32, tensor<?xi32>>
     ```
   }];
   let extraClassDefinition = [{

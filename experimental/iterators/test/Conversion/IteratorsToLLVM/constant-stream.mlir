@@ -59,7 +59,8 @@ func.func @main() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!element_type>)
-  // CHECK-NEXT:   %[[V0:.*]] = iterators.undefstate : !iterators.state<i32>
+  // CHECK-NEXT:   %[[V0:.*]] = arith.constant 0 : i32
+  // CHECK-NEXT:   %[[V1:.*]] = iterators.createstate(%[[V0]]) : !iterators.state<i32>
   return
   // CHECK-NEXT:   return
 }

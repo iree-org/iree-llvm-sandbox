@@ -54,14 +54,13 @@ func.func private @sum_struct(%lhs : !element_type, %rhs : !element_type) -> !el
 // CHECK-NEXT:  }
 
 func.func @main() {
-  // CHECK-LABEL: func.func @main()
+// CHECK-LABEL:  func.func @main()
   %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
+  // CHECK:        %[[V0:.*]] = iterators.createstate({{.*}}) : [[upstreamStateType:.*]]
   %reduce = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
-  // CHECK:        %[[V1:.*]] = iterators.undefstate : !iterators.state<!iterators.state<i32>>
-  // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V0:.*]] into %[[V1]][0] : !iterators.state<!iterators.state<i32>>
+  // CHECK-NEXT:   %[[V1:.*]] = iterators.createstate(%[[V0]]) : !iterators.state<[[upstreamStateType]]>
   return
   // CHECK-NEXT:   return
 }
 // CHECK-NEXT:   }
-// CHECK-NEXT: }

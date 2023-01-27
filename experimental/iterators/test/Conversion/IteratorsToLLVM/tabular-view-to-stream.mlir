@@ -35,11 +35,12 @@
 // CHECK-NEXT:  }
 
 func.func @main(%input : !tabular.tabular_view<i32>) {
-  // CHECK-LABEL: func.func @main(%{{arg.*}}: !llvm.struct<(i64, ptr<i32>)>) {
+// CHECK-LABEL:  func.func @main(
+// CHECK-SAME:      %[[arg0:.*]]: [[tabularViewType:.*]]) {
   %stream = iterators.tabular_view_to_stream %input
                 to !iterators.stream<!llvm.struct<(i32)>>
-  // CHECK-NEXT:    %[[V1:.*]] = iterators.undefstate : !iterators.state<i64, !llvm.struct<(i64, ptr<i32>)>>
-  // CHECK-NEXT:    %[[V2:.*]] = iterators.insertvalue %[[arg:.*]] into %[[V1]][1] : !iterators.state<i64, !llvm.struct<(i64, ptr<i32>)>>
+  // CHECK-NEXT:   %[[V1:.*]] = arith.constant 0 : i64
+  // CHECK-NEXT:   %[[V2:.*]] = iterators.createstate(%[[V1]], %[[arg0]]) : !iterators.state<i64, [[tabularViewType]]>
   return
   // CHECK-NEXT:   return
 }

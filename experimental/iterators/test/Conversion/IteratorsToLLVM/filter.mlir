@@ -53,14 +53,13 @@ func.func private @is_positive_struct(%struct : !element_type) -> i1 {
 // CHECK-NEXT:  }
 
 func.func @main() {
-  // CHECK-LABEL: func.func @main()
+// CHECK-LABEL:  func.func @main()
   %input = "iterators.constantstream"() { value = [] } : () -> (!iterators.stream<!element_type>)
+  // CHECK:        %[[V0:.*]] = iterators.createstate({{.*}}) : [[upstreamStateType:.*]]
   %filter = "iterators.filter"(%input) {predicateRef = @is_positive_struct}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
-  // CHECK:        %[[V1:.*]] = iterators.undefstate : !iterators.state<!iterators.state<i32>>
-  // CHECK-NEXT:   %[[V2:.*]] = iterators.insertvalue %[[V0:.*]] into %[[V1]][0] : !iterators.state<!iterators.state<i32>>
+  // CHECK-NEXT:   %[[V1:.*]] = iterators.createstate(%[[V0]]) : !iterators.state<[[upstreamStateType]]>
   return
   // CHECK-NEXT:   return
 }
 // CHECK-NEXT:   }
-// CHECK-NEXT: }
