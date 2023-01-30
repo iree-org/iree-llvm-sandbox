@@ -126,6 +126,18 @@ StateType StateTypeComputer::operator()(
   return StateType::get(context, {hasReturned, valueType});
 }
 
+/// The state of ZipOp  consists of the states of its upstream iterators,
+/// i.e., the state of the iterators that produce its input streams.
+template <>
+StateType
+StateTypeComputer::operator()(ZipOp op,
+                              llvm::SmallVector<StateType> upstreamStateTypes) {
+  MLIRContext *context = op->getContext();
+  llvm::SmallVector<Type> upstreamTypes(upstreamStateTypes.begin(),
+                                        upstreamStateTypes.end());
+  return StateType::get(context, upstreamTypes);
+}
+
 /// Build IteratorInfo, assigning new unique names as needed. Takes the
 /// `StateType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
@@ -173,7 +185,8 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             MapOp,
             ReduceOp,
             TabularViewToStreamOp,
-            ValueToStreamOp
+            ValueToStreamOp,
+            ZipOp
             // clang-format on
             >([&](auto op) {
           llvm::SmallVector<StateType> upstreamStateTypes;
