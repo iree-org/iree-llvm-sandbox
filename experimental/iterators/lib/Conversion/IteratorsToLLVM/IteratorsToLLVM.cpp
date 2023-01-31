@@ -161,7 +161,7 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
 
       // Insert into struct.
       structValue =
-          createInsertValueOp(rewriter, loc, structValue, valueOp, {i});
+          rewriter.create<LLVM::InsertValueOp>(loc, structValue, valueOp, i);
     }
 
     rewriter.replaceOp(op, structValue);
@@ -227,8 +227,8 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
       // Extract from struct.
       Type fieldType = fieldTypes[i];
-      Value value = createExtractValueOp(rewriter, loc, fieldType,
-                                         adaptor.getElement(), {i});
+      Value value = rewriter.create<LLVM::ExtractValueOp>(
+          loc, fieldType, adaptor.getElement(), i);
 
       // Extend.
       Value extValue;
@@ -326,11 +326,11 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
     for (auto &fieldAttr : llvm::enumerate(elementAttr.value())) {
       auto value = b.create<LLVM::ConstantOp>(
           fieldAttr.value().cast<TypedAttr>().getType(), fieldAttr.value());
-      structValue = createInsertValueOp(
-          b, structValue, value, {static_cast<int64_t>(fieldAttr.index())});
+      structValue =
+          b.create<LLVM::InsertValueOp>(structValue, value, fieldAttr.index());
     }
-    initValue = createInsertValueOp(
-        b, initValue, structValue, {static_cast<int64_t>(elementAttr.index())});
+    initValue = b.create<LLVM::InsertValueOp>(initValue, structValue,
+                                              elementAttr.index());
   }
 
   b.create<LLVM::ReturnOp>(initValue);
@@ -1067,7 +1067,8 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
       structOfInputBuffersType, initialState, b.getIndexAttr(1));
 
   // Test if we have reached the end of the range.
-  Value lastIndex = createExtractValueOp(b, i64, structOfInputBuffers, {0});
+  Value lastIndex =
+      b.create<LLVM::ExtractValueOp>(i64, structOfInputBuffers, 0);
 
   ArithBuilder ab(b, b.getLoc());
   Value hasNext = ab.slt(currentIndex, lastIndex);
@@ -1095,8 +1096,8 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
           Type columnPointerType = LLVMPointerType::get(fieldType);
 
           // Extract column pointer.
-          Value columnPtr = createExtractValueOp(
-              b, columnPointerType, structOfInputBuffers, {fieldIndex + 1});
+          Value columnPtr = b.create<LLVM::ExtractValueOp>(
+              columnPointerType, structOfInputBuffers, fieldIndex + 1);
 
           // Get element pointer.
           Value gep = b.create<GEPOp>(columnPointerType, columnPtr,
@@ -1106,8 +1107,8 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
           Value fieldValue = b.create<LoadOp>(gep);
 
           // Insert into next element struct.
-          nextElement =
-              createInsertValueOp(b, nextElement, fieldValue, {fieldIndex});
+          nextElement = b.create<LLVM::InsertValueOp>(nextElement, fieldValue,
+                                                      fieldIndex);
         }
 
         b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});

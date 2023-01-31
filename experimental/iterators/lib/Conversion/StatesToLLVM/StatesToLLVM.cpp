@@ -76,7 +76,7 @@ struct CreateStateOpLowering : public OpConversionPattern<CreateStateOp> {
     for (auto &it : llvm::enumerate(adaptor.getValues())) {
       Value value = it.value();
       int64_t index = it.index();
-      state = createInsertValueOp(rewriter, loc, state, value, {index});
+      state = rewriter.create<LLVM::InsertValueOp>(loc, state, value, index);
     }
 
     // `state` now constists of a struct with all fields set.
@@ -97,9 +97,8 @@ struct ExtractValueOpLowering
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
-    Value value =
-        createExtractValueOp(rewriter, loc, resultType, adaptor.getState(),
-                             {adaptor.getIndex().getSExtValue()});
+    Value value = rewriter.create<LLVM::ExtractValueOp>(
+        loc, resultType, adaptor.getState(), adaptor.getIndex().getSExtValue());
     rewriter.replaceOp(op, value);
     return success();
   }
@@ -115,9 +114,9 @@ struct InsertValueOpLowering
   matchAndRewrite(iterators::InsertValueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Value updatedState = createInsertValueOp(
-        rewriter, loc, adaptor.getState(), adaptor.getValue(),
-        {adaptor.getIndex().getSExtValue()});
+    Value updatedState = rewriter.create<LLVM::InsertValueOp>(
+        loc, adaptor.getState(), adaptor.getValue(),
+        adaptor.getIndex().getSExtValue());
     rewriter.replaceOp(op, updatedState);
     return success();
   }
