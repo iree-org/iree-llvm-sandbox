@@ -13,7 +13,6 @@
 #include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
-#include "iterators/Utils/MLIRSupport.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -525,10 +524,10 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
   // Main while loop.
   Type i1 = b.getI1Type();
   SmallVector<Type> nextResultTypes = {upstreamStateType, i1, elementType};
-  scf::WhileOp whileOp = scf::createWhileOp(
-      b, nextResultTypes, initialUpstreamState,
+  scf::WhileOp whileOp = b.create<scf::WhileOp>(
+      nextResultTypes, initialUpstreamState,
       /*beforeBuilder=*/
-      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+      [&](OpBuilder &builder, Location loc, ValueRange args) {
         ImplicitLocOpBuilder b(loc, builder);
 
         Value upstreamState = args[0];
@@ -571,7 +570,7 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
         b.create<scf::ConditionOp>(loopCondition, nextCall->getResults());
       },
       /*afterBuilder=*/
-      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+      [&](OpBuilder &builder, Location loc, ValueRange args) {
         Value upstreamState = args[0];
         builder.create<scf::YieldOp>(loc, upstreamState);
       });
@@ -884,11 +883,10 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
             elementType,       // Accumulator.
             elementType        // Element from last next call.
         };
-        scf::WhileOp whileOp = scf::createWhileOp(
-            b, whileResultTypes, whileInputs,
+        scf::WhileOp whileOp = b.create<scf::WhileOp>(
+            whileResultTypes, whileInputs,
             /*beforeBuilder=*/
-            [&](OpBuilder &builder, Location loc,
-                Block::BlockArgListType args) {
+            [&](OpBuilder &builder, Location loc, ValueRange args) {
               ImplicitLocOpBuilder b(loc, builder);
 
               Value upstreamState = args[0];
@@ -904,8 +902,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
                                       maybeNextElement});
             },
             /*afterBuilder=*/
-            [&](OpBuilder &builder, Location loc,
-                Block::BlockArgListType args) {
+            [&](OpBuilder &builder, Location loc, ValueRange args) {
               ImplicitLocOpBuilder b(loc, builder);
 
               Value upstreamState = args[0];
@@ -1504,10 +1501,10 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
   SmallVector<Type> nextResultTypes = {stateType, i1, elementType};
   SmallVector<Type> whileResultTypes = {stateType, elementType};
 
-  scf::WhileOp whileOp = scf::createWhileOp(
-      builder, whileResultTypes, openedUpstreamState,
+  scf::WhileOp whileOp = builder.create<scf::WhileOp>(
+      whileResultTypes, openedUpstreamState,
       /*beforeBuilder=*/
-      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+      [&](OpBuilder &builder, Location loc, ValueRange args) {
         ImplicitLocOpBuilder b(loc, builder);
 
         Value currentState = args[0];
@@ -1521,7 +1518,7 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
                                    ValueRange{updatedState, nextElement});
       },
       /*afterBuilder=*/
-      [&](OpBuilder &builder, Location loc, Block::BlockArgListType args) {
+      [&](OpBuilder &builder, Location loc, ValueRange args) {
         ImplicitLocOpBuilder b(loc, builder);
 
         Value currentState = args[0];

@@ -9,37 +9,4 @@
 #ifndef ITERATORS_UTILS_MLIRSUPPORT_H
 #define ITERATORS_UTILS_MLIRSUPPORT_H
 
-#include "mlir/IR/Block.h"
-#include "mlir/IR/OperationSupport.h"
-
-namespace mlir {
-class NamedAttribute;
-class OpBuilder;
-class ImplicitLocOpBuilder;
-} // namespace mlir
-
-namespace mlir {
-namespace scf {
-class WhileOp;
-
-WhileOp createWhileOp(
-    OpBuilder &builder, Location loc, TypeRange resultTypes,
-    ValueRange operands,
-    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
-        beforeBuilder,
-    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
-        afterBuilder,
-    llvm::ArrayRef<NamedAttribute> attributes = {});
-
-WhileOp createWhileOp(
-    ImplicitLocOpBuilder &builder, TypeRange resultTypes, ValueRange operands,
-    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
-        beforeBuilder,
-    llvm::function_ref<void(OpBuilder &, Location, Block::BlockArgListType)>
-        afterBuilder,
-    llvm::ArrayRef<NamedAttribute> attributes = {});
-
-} // namespace scf
-} // namespace mlir
-
 #endif // ITERATORS_UTILS_MLIRSUPPORT_H

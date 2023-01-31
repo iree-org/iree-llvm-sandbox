@@ -10,7 +10,6 @@
 
 #include "../PassDetail.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
-#include "iterators/Utils/MLIRSupport.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
