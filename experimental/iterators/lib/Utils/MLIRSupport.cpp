@@ -8,7 +8,6 @@
 
 #include "iterators/Utils/MLIRSupport.h"
 
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 
@@ -51,41 +50,4 @@ scf::WhileOp mlir::scf::createWhileOp(
     ArrayRef<NamedAttribute> attributes) {
   return createWhileOp(builder, builder.getLoc(), resultTypes, operands,
                        beforeBuilder, afterBuilder, attributes);
-}
-
-LLVM::InsertValueOp
-mlir::LLVM::createInsertValueOp(OpBuilder &builder, Location loc,
-                                Value container, Value value,
-                                ArrayRef<int64_t> position) {
-  // Create index attribute.
-  DenseI64ArrayAttr positionAttr = builder.getDenseI64ArrayAttr(position);
-
-  // Insert into struct.
-  return builder.create<LLVM::InsertValueOp>(loc, container, value,
-                                             positionAttr);
-}
-
-LLVM::InsertValueOp
-mlir::LLVM::createInsertValueOp(ImplicitLocOpBuilder &builder, Value container,
-                                Value value, ArrayRef<int64_t> position) {
-  return createInsertValueOp(builder, builder.getLoc(), container, value,
-                             position);
-}
-
-LLVM::ExtractValueOp
-mlir::LLVM::createExtractValueOp(OpBuilder &builder, Location loc, Type res,
-                                 Value container, ArrayRef<int64_t> position) {
-  // Create index attribute.
-  DenseI64ArrayAttr positionAttr = builder.getDenseI64ArrayAttr(position);
-
-  // Extract from struct.
-  return builder.create<LLVM::ExtractValueOp>(loc, res, container,
-                                              positionAttr);
-}
-
-LLVM::ExtractValueOp
-mlir::LLVM::createExtractValueOp(ImplicitLocOpBuilder &builder, Type res,
-                                 Value container, ArrayRef<int64_t> position) {
-  return createExtractValueOp(builder, builder.getLoc(), res, container,
-                              position);
 }

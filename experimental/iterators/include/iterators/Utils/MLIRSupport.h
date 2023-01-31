@@ -40,28 +40,6 @@ WhileOp createWhileOp(
     llvm::ArrayRef<NamedAttribute> attributes = {});
 
 } // namespace scf
-
-namespace LLVM {
-class InsertValueOp;
-class ExtractValueOp;
-
-InsertValueOp createInsertValueOp(OpBuilder &builder, Location loc,
-                                  Value container, Value value,
-                                  ArrayRef<int64_t> position);
-
-InsertValueOp createInsertValueOp(ImplicitLocOpBuilder &builder,
-                                  Value container, Value value,
-                                  ArrayRef<int64_t> position);
-
-ExtractValueOp createExtractValueOp(OpBuilder &builder, Location loc, Type res,
-                                    Value container,
-                                    ArrayRef<int64_t> position);
-
-ExtractValueOp createExtractValueOp(ImplicitLocOpBuilder &builder, Type res,
-                                    Value container,
-                                    ArrayRef<int64_t> position);
-
-} // namespace LLVM
 } // namespace mlir
 
 #endif // ITERATORS_UTILS_MLIRSUPPORT_H
