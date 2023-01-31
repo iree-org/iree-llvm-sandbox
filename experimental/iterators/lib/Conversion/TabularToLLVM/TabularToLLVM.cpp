@@ -92,23 +92,22 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
 
     // Extract column pointers and number of elements.
     Value numElements;
-    for (const auto &indexedOperand : llvm::enumerate(adaptor.getOperands())) {
-      assert(op->getOperandTypes()[indexedOperand.index()]
+    for (auto [index, operand] : llvm::enumerate(adaptor.getOperands())) {
+      assert(op->getOperandTypes()[index]
                  .cast<MemRefType>()
                  .getLayout()
                  .isIdentity());
 
       // Extract pointer and number of elements from memref descriptor.
-      MemRefDescriptor descriptor(indexedOperand.value());
+      MemRefDescriptor descriptor(operand);
       Value ptr = descriptor.alignedPtr(rewriter, loc);
-      if (indexedOperand.index() == 0) {
+      if (index == 0) {
         numElements = descriptor.size(rewriter, loc, 0);
       }
 
       // Insert pointer into view struct.
-      auto idx = static_cast<int64_t>(indexedOperand.index()) + 1;
       viewStruct =
-          rewriter.create<LLVM::InsertValueOp>(loc, viewStruct, ptr, idx);
+          rewriter.create<LLVM::InsertValueOp>(loc, viewStruct, ptr, index + 1);
     }
 
     // Insert number of elements.
