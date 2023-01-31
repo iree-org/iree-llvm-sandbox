@@ -58,13 +58,13 @@ LogicalResult ViewAsTabularOp::verify() {
            << "number of columns as the number of input memrefs (expected: "
            << getMemrefs().size() << ", found: " << columnTypes.size() << ").";
   }
-  for (size_t i = 0; i < columnTypes.size(); i++) {
+  for (auto [idx, columnType] : llvm::enumerate(columnTypes)) {
     Type memrefElementType =
-        getMemrefs().getTypes()[i].cast<MemRefType>().getElementType();
-    if (memrefElementType != columnTypes[i]) {
+        getMemrefs().getTypes()[idx].cast<MemRefType>().getElementType();
+    if (memrefElementType != columnType) {
       return emitOpError()
              << "type mismatch: returned tabular view has column type "
-             << columnTypes[i] << " at index " << i << " but should have type "
+             << columnType << " at index " << idx << " but should have type "
              << memrefElementType << ", the element type of the memref at the "
              << "same index.";
     }

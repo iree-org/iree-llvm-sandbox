@@ -152,15 +152,14 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
 
     // Insert values.
     ArrayAttr values = op.getValues();
-    for (int i = 0; i < static_cast<int>(values.size()); i++) {
+    for (auto [idx, field] : llvm::enumerate(values)) {
       // Create constant value op.
-      Attribute field = values[i];
       Type fieldType = field.cast<TypedAttr>().getType();
       auto valueOp = rewriter.create<arith::ConstantOp>(loc, fieldType, field);
 
       // Insert into struct.
       structValue =
-          rewriter.create<LLVM::InsertValueOp>(loc, structValue, valueOp, i);
+          rewriter.create<LLVM::InsertValueOp>(loc, structValue, valueOp, idx);
     }
 
     rewriter.replaceOp(op, structValue);
@@ -223,11 +222,10 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     // Assemble arguments to printf.
     SmallVector<Value, 8> values = {formatSpec};
     ArrayRef<Type> fieldTypes = structType.getBody();
-    for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
+    for (auto [idx, fieldType] : llvm::enumerate(fieldTypes)) {
       // Extract from struct.
-      Type fieldType = fieldTypes[i];
       Value value = rewriter.create<LLVM::ExtractValueOp>(
-          loc, fieldType, adaptor.getElement(), i);
+          loc, fieldType, adaptor.getElement(), idx);
 
       // Extend.
       Value extValue;
