@@ -339,7 +339,7 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 }
 
 /// Builds IR that produces the element at the current index and increments that
-/// index. Also creates a global constant with the data. Pseudo-code:
+/// index. Also creates a global constant with the data. Pseudocode:
 ///
 /// if currentIndex > max: return {}
 /// return data[currentIndex++]
@@ -481,7 +481,7 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 }
 
 /// Builds IR that consumes all elements of the upstream iterator and returns
-/// a stream of those that pass the given precicate. Pseudo-code:
+/// a stream of those that pass the given precicate. Pseudocode:
 ///
 /// while (nextTuple = upstream->Next()):
 ///     if precicate(nextTuple):
@@ -665,7 +665,7 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
 
 /// Builds IR that consumes all elements of the upstream iterator and returns
 /// a stream where each original element is mapped to/transformed into a new
-/// element using the given map function. Pseudo-code:
+/// element using the given map function. Pseudocode:
 ///
 /// if (nextTuple = upstream->Next()):
 ///     return mapFunc(nextTuple)
@@ -814,7 +814,7 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
 }
 
 /// Builds IR that consumes all elements of the upstream iterator and combines
-/// them into a single one using the given reduce function. Pseudo-code:
+/// them into a single one using the given reduce function. Pseudocode:
 ///
 /// accumulator = upstream->Next()
 /// if !accumulator: return {}
@@ -1015,7 +1015,7 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 }
 
 /// Builds IR that assembles an element from the values in the buffers at the
-/// current index and increments that index. Pseudo-code: Pseudo-code:
+/// current index and increments that index. Pseudocode:
 ///
 /// tuple = (buffer[current_index] for buffer in input)
 /// current_index++
@@ -1174,7 +1174,7 @@ static Value buildOpenBody(ValueToStreamOp op, OpBuilder &builder,
 }
 
 /// Builds IR that returns the value in the first call and end-of-stream
-/// otherwise. Pseudo-code:
+/// otherwise. Pseudocode:
 ///
 /// if hasReturned: return {}
 /// return value
@@ -1450,7 +1450,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 
 /// Converts the given sink to LLVM using the converted input iterator. The
 /// current sink consumes the input iterator and prints each element it
-/// produces. Pseudo code:
+/// produces. Pseudocode:
 ///
 /// input->Open()
 /// while (nextTuple = input->Next())
@@ -1543,7 +1543,7 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
 
 /// Converts the given StreamToValueOp to LLVM using the converted operands.
 /// This consists of opening the input iterator, consuming one element (which is
-/// the result of this op), and closing it again. Pseudo code:
+/// the result of this op), and closing it again. Pseudocode:
 ///
 /// upstream->Open()
 /// value = upstream->Next()
