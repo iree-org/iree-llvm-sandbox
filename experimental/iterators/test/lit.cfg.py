@@ -46,13 +46,10 @@ config.excludes = [
     "lit.site.cfg.py",
 ]
 
-# test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.path.join(config.iterators_build_root, 'test')
-config.iterators_tools_dir = os.path.join(config.iterators_build_root, 'bin')
-
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 
+config.iterators_tools_dir = os.path.join(config.iterators_build_root, 'bin')
 tool_dirs = [config.iterators_tools_dir, config.llvm_tools_dir]
 tools = [
     'iterators-opt',
