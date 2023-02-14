@@ -63,7 +63,7 @@ if "LLVM_SYMBOLIZER_PATH" in os.environ:
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
-itertors_python_path = os.path.join(config.iterators_build_root,
-                                    'python_packages')
-llvm_config.with_environment('PYTHONPATH', [itertors_python_path],
+iterators_python_path = os.path.join(config.iterators_build_root,
+                                     'python_packages')
+llvm_config.with_environment('PYTHONPATH', [iterators_python_path],
                              append_path=True)
