@@ -16,6 +16,7 @@ set(ITERATORS_TEST_DEPENDS
   count
   FileCheck
   iterators-opt
+  IteratorsRuntime
   mlir-cpu-runner
   mlir_c_runner_utils
   mlir_runner_utils
