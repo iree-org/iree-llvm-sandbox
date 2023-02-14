@@ -9,6 +9,7 @@ add_dependencies(iterators-tools iterators-opt)
 list(APPEND dialect_libs
   MLIRIterators
   MLIRTabular
+  MLIRTupleDialect
   )
 list(APPEND conversion_libs
   MLIRIteratorsToLLVM

@@ -18,6 +18,7 @@
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Iterators/Transforms/Passes.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
+#include "iterators/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -30,7 +31,8 @@ static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
       // clang-format off
       mlir::iterators::IteratorsDialect,
-      mlir::iterators::TabularDialect
+      mlir::iterators::TabularDialect,
+      mlir::tuple::TupleDialect
       // clang-format on
       >();
 }

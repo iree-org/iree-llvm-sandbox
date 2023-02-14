@@ -53,6 +53,12 @@ MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGetColumnType(MlirType type,
 /// Returns tuple type that represents one row of the given tabular view.
 MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGetRowType(MlirType type);
 
+//===----------------------------------------------------------------------===//
+// Tuple dialect and attributes
+//===----------------------------------------------------------------------===//
+
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Tuple, tuple);
+
 #ifdef __cplusplus
 }
 #endif
