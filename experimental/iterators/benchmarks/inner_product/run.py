@@ -231,7 +231,8 @@ class IteratorsMethod(Method):
       pm = PassManager.parse(  # (Comment for better formatting.)
           'convert-iterators-to-llvm,'
           'convert-states-to-llvm,'
-          'convert-memref-to-llvm,'
+          'expand-strided-metadata,'
+          'finalize-memref-to-llvm,'
           'convert-scf-to-cf,'
           'convert-func-to-llvm,'
           'reconcile-unrealized-casts,'
