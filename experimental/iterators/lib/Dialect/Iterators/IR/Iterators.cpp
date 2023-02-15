@@ -7,8 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
 
+#include "iterators/Dialect/Iterators/IR/ArrowUtils.h"
+#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/TypeUtilities.h"

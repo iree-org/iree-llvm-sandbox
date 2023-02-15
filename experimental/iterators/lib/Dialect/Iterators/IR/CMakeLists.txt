@@ -1,4 +1,5 @@
 add_mlir_library(MLIRIterators
+  ArrowUtils.cpp
   Iterators.cpp
 
   LINK_LIBS PUBLIC

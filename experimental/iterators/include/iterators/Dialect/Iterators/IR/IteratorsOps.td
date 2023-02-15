@@ -192,6 +192,54 @@ def Iterators_FilterOp : Iterators_Op<"filter",
   }];
 }
 
+def Iterators_FromArrowArrayStreamOp : Iterators_Op<"from_arrow_array_stream", [
+    TypesMatchWith<"type of operand must be an LLVM 'struct ArrowArrayStream'",
+                   "result", "arrowStream",
+                   "mlir::LLVM::LLVMPointerType::get("
+                   "    mlir::iterators::getArrowArrayStreamType("
+                   "        $_self.getContext()))">,
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+  let summary = "Converts an arrow array stream into a stream of tabular views";
+  let description = [{
+    Wraps an Apache Arrow Array Stream using the Arrow C stream interface in
+    an `Iterators_Op`, i.e., converts the `ArrowArrayStream`, which produces a
+    stream of `ArrowArrays`, into an `Iterator_Op` that produces a stream of
+    `Tabular_TabularView`. This allows to read from any producer of Apache Arrow
+    Arrays (a.k.a "record batches"), including file readers for CSV, JSON,
+    Parquet, and others, libraries and languages such as pyarrow (and thus
+    Python and pandas), remote processes via Arrow IPC, and many others.
+
+    **Limitations:** Currently, only a few numeric data types, only ArrowArrays
+    without offset, and no nullable or nested types are supported. These
+    limitations are inherited in part from the runtime and in part from
+    TabularView. Furthermore, returning TabularViews, which are references,
+    limits the lifetime of each returned element until when the next element is
+    produced, so it is up to consuming iterator ops to copy any buffers that
+    have to live longer. Finally, Arrow array streams have no "reset"/"re-open"
+    method, i.e., they can only consumed once, so the lowering to
+    open/next/close, in which that is possible, breaks if re-opening is
+    attempted.
+
+    Example:
+    ```mlir
+    func.func @main(%external_input: !llvm.ptr<!arrow_array_stream>) ->
+          !iterators.stream<!tabular.tabular_view<i32>> {
+      %tabular_view_stream = iterators.from_arrow_array_stream %external_input
+            to !iterators.stream<!tabular.tabular_view<i32>>
+    ```
+  }];
+  let arguments = (ins LLVM_PointerTo<LLVM_AnyStruct>:$arrowStream);
+  let results = (outs Iterators_StreamOf<Tabular_TabularView>:$result);
+  let assemblyFormat = "$arrowStream attr-dict `to` qualified(type($result))";
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    void $cppClass::getAsmResultNames(
+        llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
+      setNameFn(getResult(), "fromarrowstream");
+    }
+  }];
+}
+
 def Iterators_MapOp : Iterators_Op<"map",
     [DeclareOpInterfaceMethods<SymbolUserOpInterface>,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
