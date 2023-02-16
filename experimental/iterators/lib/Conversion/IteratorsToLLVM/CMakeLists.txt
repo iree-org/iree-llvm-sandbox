@@ -1,4 +1,5 @@
 add_mlir_conversion_library(MLIRIteratorsToLLVM
+  ArrowUtils.cpp
   IteratorsToLLVM.cpp
   IteratorAnalysis.cpp
 

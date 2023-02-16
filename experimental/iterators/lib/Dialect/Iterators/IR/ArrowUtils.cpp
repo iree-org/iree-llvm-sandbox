@@ -59,7 +59,7 @@ LLVMStructType getArrowSchemaType(MLIRContext *context) {
   auto voidType = LLVMVoidType::get(context);
   Type releaseFunc = LLVMFunctionType::get(voidType, arrowSchemaPtr);
 
-  ArrayRef<Type> body = {
+  ArrayRef<Type> body{
       charPtr /*format*/,
       charPtr /*name*/,
       charPtr /*metadata*/,
@@ -99,7 +99,7 @@ LLVMStructType getArrowArrayStreamType(MLIRContext *context) {
   Type getLastErrorFunc = LLVMFunctionType::get(charPtr, arrowArrayStreamPtr);
   Type releaseFunc = LLVMFunctionType::get(voidType, arrowArrayStreamPtr);
 
-  ArrayRef<Type> body = {
+  ArrayRef<Type> body{
       LLVMPointerType::get(getSchemaFunc) /*get_schema*/,
       LLVMPointerType::get(getNextFunc) /*get_next*/,
       LLVMPointerType::get(getLastErrorFunc) /*get_last_error*/,
