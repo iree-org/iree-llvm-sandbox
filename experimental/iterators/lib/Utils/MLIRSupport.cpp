@@ -10,9 +10,22 @@
 
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 
 using namespace mlir;
+
+LLVM::LLVMFuncOp mlir::LLVM::lookupOrCreateFn(ModuleOp moduleOp, StringRef name,
+                                              ArrayRef<Type> paramTypes,
+                                              Type resultType, bool isVarArg) {
+  auto func = moduleOp.lookupSymbol<LLVM::LLVMFuncOp>(name);
+  if (func)
+    return func;
+  OpBuilder b(moduleOp.getBodyRegion());
+  return b.create<LLVM::LLVMFuncOp>(
+      moduleOp->getLoc(), name,
+      LLVM::LLVMFunctionType::get(resultType, paramTypes, isVarArg));
+}
 
 // TODO: Move builder to core MLIR.
 scf::WhileOp mlir::scf::createWhileOp(

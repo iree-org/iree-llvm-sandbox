@@ -67,29 +67,11 @@ private:
 
 /// Return a symbol reference to the printf function, inserting it into the
 /// module if necessary.
-static FlatSymbolRefAttr lookupOrInsertPrintf(OpBuilder &builder,
-                                              ModuleOp module) {
-  MLIRContext *context = builder.getContext();
-  Location loc = module->getLoc();
-  ImplicitLocOpBuilder b(loc, builder);
+static LLVMFuncOp lookupOrInsertPrintf(OpBuilder &builder, ModuleOp module) {
   Type i8 = builder.getI8Type();
+  Type charPtr = LLVMPointerType::get(i8);
   Type i32 = builder.getI32Type();
-
-  if (module.lookupSymbol<LLVMFuncOp>("printf"))
-    return SymbolRefAttr::get(context, "printf");
-
-  // Create a function declaration for printf, the signature is:
-  //   * `i32 (i8*, ...)`
-  LLVMPointerType charPointerType = LLVMPointerType::get(i8);
-  LLVMFunctionType printfFunctionType =
-      LLVMFunctionType::get(i32, charPointerType,
-                            /*isVarArg=*/true);
-
-  // Insert the printf function into the body of the parent module.
-  OpBuilder::InsertionGuard insertGuard(b);
-  b.setInsertionPointToStart(module.getBody());
-  b.create<LLVMFuncOp>("printf", printfFunctionType);
-  return SymbolRefAttr::get(context, "printf");
+  return lookupOrCreateFn(module, "printf", {charPtr}, i32, /*isVarArg=*/true);
 }
 
 /// Return a value representing an access into a global string with the given
@@ -192,7 +174,6 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
   matchAndRewrite(PrintOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Type i32 = rewriter.getI32Type();
 
     auto structType = adaptor.getElement().getType().cast<LLVMStructType>();
 
@@ -244,8 +225,8 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     }
 
     // Generate call to printf.
-    FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
-    rewriter.create<LLVM::CallOp>(loc, i32, printfRef, values);
+    LLVMFuncOp printfFunc = lookupOrInsertPrintf(rewriter, module);
+    rewriter.create<LLVM::CallOp>(loc, printfFunc, values);
     rewriter.eraseOp(op);
     return success();
   }

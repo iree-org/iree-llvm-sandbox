@@ -13,9 +13,10 @@
 #include "mlir/IR/OperationSupport.h"
 
 namespace mlir {
+class ImplicitLocOpBuilder;
+class ModuleOp;
 class NamedAttribute;
 class OpBuilder;
-class ImplicitLocOpBuilder;
 } // namespace mlir
 
 namespace mlir {
@@ -44,6 +45,12 @@ WhileOp createWhileOp(
 namespace LLVM {
 class InsertValueOp;
 class ExtractValueOp;
+class LLVMFuncOp;
+
+/// Create a FuncOp with signature `resultType`(`paramTypes`)` and name `name`.
+LLVM::LLVMFuncOp lookupOrCreateFn(ModuleOp moduleOp, StringRef name,
+                                  ArrayRef<Type> paramTypes = {},
+                                  Type resultType = {}, bool isVarArg = false);
 
 InsertValueOp createInsertValueOp(OpBuilder &builder, Location loc,
                                   Value container, Value value,
