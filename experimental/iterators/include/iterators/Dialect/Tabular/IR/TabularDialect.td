@@ -15,6 +15,18 @@ include "mlir/IR/OpBase.td"
 // Dialect definition
 //===----------------------------------------------------------------------===//
 
+// TODO(ingomueller): This dialect should probably not be lowered to LLVM
+//                    directly. I think it would be a better design to treat
+//                    tabular views (potentially with a different name) as a
+//                    bundle of several tensors, which we can access (and maybe
+//                    update) one at a time. It is then up to the consumer to
+//                    extract rows or batches of rows from the tensors, for
+//                    which they can use the usual means. The default lowering
+//                    would then simple decompose the tabular view into its
+//                    constituant tensors, which would not affect the accesses
+//                    to rows or row batches. After that decomposition, normal
+//                    bufferization can run without knowing the tabular
+//                    provenance of the tensors.
 def Tabular_Dialect : Dialect {
   let name = "tabular";
   let cppNamespace = "::mlir::iterators";

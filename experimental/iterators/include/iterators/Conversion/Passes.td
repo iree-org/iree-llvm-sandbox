@@ -82,6 +82,10 @@ def ConvertStatesToLLVM : Pass<"convert-states-to-llvm", "ModuleOp"> {
 // TabularToLLVM
 //===----------------------------------------------------------------------===//
 
+// TODO(ingomueller): This pass should probably not exist. Instead, tabular
+//                    views should be lowered into its constituant components,
+//                    which could be tensors, in order to compose better with
+//                    other dialects and passes.
 def ConvertTabularToLLVM : Pass<"convert-tabular-to-llvm", "ModuleOp"> {
   let summary = "Convert the tabular dialect to the LLVM dialect";
   let description = [{
