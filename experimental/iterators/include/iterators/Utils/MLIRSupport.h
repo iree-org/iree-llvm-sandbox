@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_UTILS_MLIR_SUPPORT_H
-#define ITERATORS_UTILS_MLIR_SUPPORT_H
+#ifndef ITERATORS_UTILS_MLIRSUPPORT_H
+#define ITERATORS_UTILS_MLIRSUPPORT_H
 
 #include "mlir/IR/Block.h"
 #include "mlir/IR/OperationSupport.h"
@@ -64,4 +64,4 @@ ExtractValueOp createExtractValueOp(ImplicitLocOpBuilder &builder, Type res,
 } // namespace LLVM
 } // namespace mlir
 
-#endif // ITERATORS_UTILS_MLIR_SUPPORT_H
+#endif // ITERATORS_UTILS_MLIRSUPPORT_H
