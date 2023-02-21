@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef EXPERIMENTAL_ITERATORS_LIB_CONVERSION_PASSDETAIL_H
-#define EXPERIMENTAL_ITERATORS_LIB_CONVERSION_PASSDETAIL_H
+#ifndef LIB_CONVERSION_PASSDETAIL_H
+#define LIB_CONVERSION_PASSDETAIL_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -21,4 +21,4 @@ namespace mlir {
 
 } // namespace mlir
 
-#endif // EXPERIMENTAL_ITERATORS_LIB_CONVERSION_PASSDETAIL_H
+#endif // LIB_CONVERSION_PASSDETAIL_H

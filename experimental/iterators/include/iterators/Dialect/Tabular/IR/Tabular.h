@@ -1,4 +1,4 @@
-//===-- TabularDialect.h - Tabular dialect ----------------------*- C++ -*-===//
+//===-- Tabular.h - Tabular dialect -----------------------------*- C++ -*-===//
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TABULAR_DIALECT_TABULAR_IR_TABULAR_H
-#define TABULAR_DIALECT_TABULAR_IR_TABULAR_H
+#ifndef ITERATORS_DIALECT_TABULAR_IR_TABULAR_H
+#define ITERATORS_DIALECT_TABULAR_IR_TABULAR_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dialect.h"
@@ -30,4 +30,4 @@ namespace iterators {
 #define GET_OP_CLASSES
 #include "iterators/Dialect/Tabular/IR/TabularOps.h.inc"
 
-#endif // TABULAR_DIALECT_TABULAR_IR_TABULAR_H
+#endif // ITERATORS_DIALECT_TABULAR_IR_TABULAR_H

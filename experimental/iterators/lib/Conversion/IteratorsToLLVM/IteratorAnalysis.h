@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef EXPERIMENTAL_ITERATORS_LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
-#define EXPERIMENTAL_ITERATORS_LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
+#ifndef LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
+#define LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Utils/NameAssigner.h"
@@ -83,4 +83,4 @@ private:
 } // namespace iterators
 } // namespace mlir
 
-#endif // EXPERIMENTAL_ITERATORS_LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
+#endif // LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
