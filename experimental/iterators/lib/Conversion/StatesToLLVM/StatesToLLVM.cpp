@@ -72,9 +72,7 @@ struct CreateStateOpLowering : public OpConversionPattern<CreateStateOp> {
     Value state = rewriter.create<LLVM::UndefOp>(loc, structType);
 
     // Insert values.
-    for (auto &it : llvm::enumerate(adaptor.getValues())) {
-      Value value = it.value();
-      int64_t index = it.index();
+    for (auto [index, value] : llvm::enumerate(adaptor.getValues())) {
       state = rewriter.create<LLVM::InsertValueOp>(loc, state, value, index);
     }
 

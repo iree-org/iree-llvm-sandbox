@@ -152,15 +152,14 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
 
     // Insert values.
     ArrayAttr values = op.getValues();
-    for (int i = 0; i < static_cast<int>(values.size()); i++) {
+    for (auto [idx, field] : llvm::enumerate(values)) {
       // Create constant value op.
-      Attribute field = values[i];
       Type fieldType = field.cast<TypedAttr>().getType();
       auto valueOp = rewriter.create<arith::ConstantOp>(loc, fieldType, field);
 
       // Insert into struct.
       structValue =
-          rewriter.create<LLVM::InsertValueOp>(loc, structValue, valueOp, i);
+          rewriter.create<LLVM::InsertValueOp>(loc, structValue, valueOp, idx);
     }
 
     rewriter.replaceOp(op, structValue);
@@ -223,11 +222,10 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     // Assemble arguments to printf.
     SmallVector<Value, 8> values = {formatSpec};
     ArrayRef<Type> fieldTypes = structType.getBody();
-    for (int i = 0; i < static_cast<int>(fieldTypes.size()); i++) {
+    for (auto [idx, fieldType] : llvm::enumerate(fieldTypes)) {
       // Extract from struct.
-      Type fieldType = fieldTypes[i];
       Value value = rewriter.create<LLVM::ExtractValueOp>(
-          loc, fieldType, adaptor.getElement(), i);
+          loc, fieldType, adaptor.getElement(), idx);
 
       // Extend.
       Value extValue;
@@ -319,17 +317,17 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
   b.createBlock(&globalArray.getInitializer());
   Value initValue = b.create<UndefOp>(globalType);
 
-  for (auto &elementAttr :
+  for (auto [elemIndex, elemAttr] :
        llvm::enumerate(valueAttr.getAsValueRange<ArrayAttr>())) {
     Value structValue = b.create<UndefOp>(elementType);
-    for (auto &fieldAttr : llvm::enumerate(elementAttr.value())) {
+    for (auto [fieldIndex, fieldAttr] : llvm::enumerate(elemAttr)) {
       auto value = b.create<LLVM::ConstantOp>(
-          fieldAttr.value().cast<TypedAttr>().getType(), fieldAttr.value());
+          fieldAttr.cast<TypedAttr>().getType(), fieldAttr);
       structValue =
-          b.create<LLVM::InsertValueOp>(structValue, value, fieldAttr.index());
+          b.create<LLVM::InsertValueOp>(structValue, value, fieldIndex);
     }
-    initValue = b.create<LLVM::InsertValueOp>(initValue, structValue,
-                                              elementAttr.index());
+    initValue =
+        b.create<LLVM::InsertValueOp>(initValue, structValue, elemIndex);
   }
 
   b.create<LLVM::ReturnOp>(initValue);
@@ -1086,10 +1084,8 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
         // Assemble field values from values at current index of column
         // buffers.
         Value nextElement = b.create<UndefOp>(elementType);
-        for (const auto &indexedFieldType :
+        for (auto [fieldIndex, fieldType] :
              llvm::enumerate(elementStructType.getBody())) {
-          auto fieldIndex = static_cast<int64_t>(indexedFieldType.index());
-          Type fieldType = indexedFieldType.value();
           Type columnPointerType = LLVMPointerType::get(fieldType);
 
           // Extract column pointer.
