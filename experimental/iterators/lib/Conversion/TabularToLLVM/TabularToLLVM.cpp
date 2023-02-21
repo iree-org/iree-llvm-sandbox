@@ -10,7 +10,6 @@
 
 #include "../PassDetail.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
-#include "iterators/Utils/MLIRSupport.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -108,12 +107,13 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
 
       // Insert pointer into view struct.
       auto idx = static_cast<int64_t>(indexedOperand.index()) + 1;
-      viewStruct = createInsertValueOp(rewriter, loc, viewStruct, ptr, {idx});
+      viewStruct =
+          rewriter.create<LLVM::InsertValueOp>(loc, viewStruct, ptr, idx);
     }
 
     // Insert number of elements.
     viewStruct =
-        createInsertValueOp(rewriter, loc, viewStruct, numElements, {0});
+        rewriter.create<LLVM::InsertValueOp>(loc, viewStruct, numElements, 0);
 
     // Replace original op.
     rewriter.replaceOp(op, {viewStruct});
