@@ -81,6 +81,10 @@ static ValueRange buildUnrealizedCast(OpBuilder &builder, TypeRange resultTypes,
 /// and returns the results of these casts. If the conversion mapping of a value
 /// maps a type to itself (i.e., is an identity conversion), then no cast is
 /// inserted and the original value is returned instead.
+/// Note that these unrealized are different from target materializations in
+/// that they are *always* inserted, even if they immediately fold away, such
+/// that patterns always see valid intermediate IR, whereas materilizations are
+/// only used in the places where the unrealized casts *don't* fold away.
 static SmallVector<Value>
 buildUnrealizedForwardCasts(ValueRange originalValues,
                             OneToNTypeMapping &conversion,
@@ -114,6 +118,10 @@ buildUnrealizedForwardCasts(ValueRange originalValues,
 /// was mapped to a value of the same type (i.e., the conversion in the mapping
 /// is an identity conversion), then the "converted" value is returned without
 /// cast.
+/// Note that these unrealized are different from source materializations in
+/// that they are *always* inserted, even if they immediately fold away, such
+/// that patterns always see valid intermediate IR, whereas materilizations are
+/// only used in the places where the unrealized casts *don't* fold away.
 static SmallVector<Value>
 buildUnrealizedBackwardsCasts(ValueRange convertedValues,
                               const OneToNTypeMapping &typeConversion,
