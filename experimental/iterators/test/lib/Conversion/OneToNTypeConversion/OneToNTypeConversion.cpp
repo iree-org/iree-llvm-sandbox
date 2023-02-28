@@ -29,16 +29,16 @@ OneToNTypeConverter::materializeTargetConversion(OpBuilder &builder,
   return {};
 }
 
-ArrayRef<Type>
+TypeRange
 OneToNSignatureConversion::getConvertedTypes(unsigned originalTypeNo) const {
-  ArrayRef<Type> convertedTypes = getConvertedTypes();
+  TypeRange convertedTypes = getConvertedTypes();
   if (auto mapping = getInputMapping(originalTypeNo))
     return convertedTypes.slice(mapping->inputNo, mapping->size);
   return {};
 }
 
-ArrayRef<Value>
-OneToNSignatureConversion::getConvertedValues(ArrayRef<Value> convertedValues,
+ValueRange
+OneToNSignatureConversion::getConvertedValues(ValueRange convertedValues,
                                               unsigned originalValueNo) const {
   if (auto mapping = getInputMapping(originalValueNo))
     return convertedValues.slice(mapping->inputNo, mapping->size);
@@ -55,13 +55,13 @@ bool OneToNSignatureConversion::hasNonIdentityConversion() const {
   //      patterns could actually test whether there is anything useful to do
   //      without having access to the signature conversion.
   for (size_t i = 0; i < originalTypes.size(); i++) {
-    ArrayRef<Type> types = getConvertedTypes(i);
+    TypeRange types = getConvertedTypes(i);
     if (!isIdentityConversion(originalTypes[i], types)) {
-      assert(ArrayRef<Type>(originalTypes) != getConvertedTypes());
+      assert(TypeRange(originalTypes) != getConvertedTypes());
       return true;
     }
   }
-  assert(ArrayRef<Type>(originalTypes) == getConvertedTypes());
+  assert(TypeRange(originalTypes) == getConvertedTypes());
   return false;
 }
 
@@ -91,7 +91,7 @@ buildUnrealizedForwardCasts(ValueRange originalValues,
   SmallVector<Value> convertedValues;
   convertedValues.reserve(conversion.getConvertedTypes().size());
   for (auto [idx, originalValue] : llvm::enumerate(originalValues)) {
-    ArrayRef<Type> convertedTypes = conversion.getConvertedTypes(idx);
+    TypeRange convertedTypes = conversion.getConvertedTypes(idx);
 
     // Identity conversion: keep operand as is.
     if (isIdentityConversion(originalValue.getType(), convertedTypes)) {
@@ -123,11 +123,11 @@ buildUnrealizedBackwardsCasts(ValueRange convertedValues,
 
   // Create unrealized cast op for each converted result of the op.
   SmallVector<Value> recastValues;
-  ArrayRef<Type> originalTypes = typeConversion.getOriginalTypes();
+  TypeRange originalTypes = typeConversion.getOriginalTypes();
   recastValues.reserve(originalTypes.size());
   auto convertedValueIt = convertedValues.begin();
   for (auto [idx, originalType] : llvm::enumerate(originalTypes)) {
-    ArrayRef<Type> convertedTypes = typeConversion.getConvertedTypes(idx);
+    TypeRange convertedTypes = typeConversion.getConvertedTypes(idx);
     size_t numConvertedValues = convertedTypes.size();
     if (isIdentityConversion(originalType, convertedTypes)) {
       // Identity conversion: take result as is.
@@ -204,7 +204,7 @@ Block *applySignatureConversion(Block *block,
   // Add block arguments to new block.
   for (size_t i = 0; i < block->getNumArguments(); i++) {
     BlockArgument arg = block->getArgument(i);
-    ArrayRef<Type> convertedTypes = argumentConversion.getConvertedTypes(i);
+    TypeRange convertedTypes = argumentConversion.getConvertedTypes(i);
     if (isIdentityConversion(arg.getType(), convertedTypes)) {
       // Identity conversion: take argument as is.
       BlockArgument newArg = newBlock->addArgument(arg.getType(), arg.getLoc());

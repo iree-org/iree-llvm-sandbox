@@ -37,7 +37,7 @@ public:
       return failure();
 
     // Create new IfOp.
-    ArrayRef<Type> convertedResultTypes = resultConversion.getConvertedTypes();
+    TypeRange convertedResultTypes = resultConversion.getConvertedTypes();
     auto newOp = rewriter.create<IfOp>(loc, convertedResultTypes,
                                        op.getCondition(), true);
     newOp->setAttrs(op->getAttrs());
@@ -74,7 +74,7 @@ public:
       return failure();
 
     // Create new WhileOp.
-    ArrayRef<Type> convertedResultTypes = resultConversion.getConvertedTypes();
+    TypeRange convertedResultTypes = resultConversion.getConvertedTypes();
 
     auto newOp =
         rewriter.create<WhileOp>(loc, convertedResultTypes, convertedOperands);

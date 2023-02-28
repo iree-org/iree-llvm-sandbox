@@ -99,7 +99,7 @@ public:
       return failure();
 
     // Compute converted operands corresponding to original input tuple.
-    ArrayRef<Value> convertedTuple =
+    ValueRange convertedTuple =
         operandConversion.getConvertedValues(convertedOperands, 0);
 
     // Got those converted operands that correspond to the index-th element of

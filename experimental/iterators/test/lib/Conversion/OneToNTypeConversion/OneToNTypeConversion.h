@@ -75,15 +75,15 @@ public:
 
   /// Returns the list of types that corresponds to the original type at the
   /// given index.
-  ArrayRef<Type> getConvertedTypes(unsigned originalTypeNo) const;
+  TypeRange getConvertedTypes(unsigned originalTypeNo) const;
 
   /// Returns the list of original types.
-  ArrayRef<Type> getOriginalTypes() const { return originalTypes; }
+  TypeRange getOriginalTypes() const { return originalTypes; }
 
   /// Returns the slice of converted values that corresponds the original value
   /// at the given index.
-  ArrayRef<Value> getConvertedValues(ArrayRef<Value> convertedValues,
-                                     unsigned originalValueNo) const;
+  ValueRange getConvertedValues(ValueRange convertedValues,
+                                unsigned originalValueNo) const;
 
   /// Returns true iff at least one type conversion maps an input type to a type
   /// that is different from itself.
