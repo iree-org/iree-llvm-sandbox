@@ -53,9 +53,9 @@ bool OneToNTypeMapping::hasNonIdentityConversion() const {
   //      iff there was no non-identity type conversion. If that is true, the
   //      patterns could actually test whether there is anything useful to do
   //      without having access to the signature conversion.
-  for (size_t i = 0; i < originalTypes.size(); i++) {
+  for (auto [i, originalType] : llvm::enumerate(originalTypes)) {
     TypeRange types = getConvertedTypes(i);
-    if (!isIdentityConversion(originalTypes[i], types)) {
+    if (!isIdentityConversion(originalType, types)) {
       assert(TypeRange(originalTypes) != getConvertedTypes());
       return true;
     }
@@ -203,8 +203,7 @@ Block *applySignatureConversion(Block *block,
   rewriter.replaceAllUsesWith(block, newBlock);
 
   // Add block arguments to new block.
-  for (size_t i = 0; i < block->getNumArguments(); i++) {
-    BlockArgument arg = block->getArgument(i);
+  for (auto [i, arg] : llvm::enumerate(block->getArguments())) {
     TypeRange convertedTypes = argumentConversion.getConvertedTypes(i);
     if (isIdentityConversion(arg.getType(), convertedTypes)) {
       // Identity conversion: take argument as is.
