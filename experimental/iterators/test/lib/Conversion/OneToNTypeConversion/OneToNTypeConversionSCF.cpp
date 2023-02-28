@@ -27,17 +27,17 @@ public:
 
   FailureOr<SmallVector<Value>> matchAndRewrite(
       IfOp op, PatternRewriter &rewriter,
-      const OneToNSignatureConversion & /*operandConversion*/,
-      const OneToNSignatureConversion &resultConversion,
+      const OneToNTypeMapping & /*operandMapping*/,
+      const OneToNTypeMapping &resultMapping,
       const SmallVector<Value> & /*convertedOperands*/) const override {
     Location loc = op->getLoc();
 
     // Nothing to do if there is no non-identity conversion.
-    if (!resultConversion.hasNonIdentityConversion())
+    if (!resultMapping.hasNonIdentityConversion())
       return failure();
 
     // Create new IfOp.
-    TypeRange convertedResultTypes = resultConversion.getConvertedTypes();
+    TypeRange convertedResultTypes = resultMapping.getConvertedTypes();
     auto newOp = rewriter.create<IfOp>(loc, convertedResultTypes,
                                        op.getCondition(), true);
     newOp->setAttrs(op->getAttrs());
@@ -62,32 +62,32 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(WhileOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion &resultConversion,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const override {
     Location loc = op->getLoc();
 
     // Nothing to do if the op doesn't have any non-identity conversions for its
     // operands or results.
-    if (!operandConversion.hasNonIdentityConversion() &&
-        !resultConversion.hasNonIdentityConversion())
+    if (!operandMapping.hasNonIdentityConversion() &&
+        !resultMapping.hasNonIdentityConversion())
       return failure();
 
     // Create new WhileOp.
-    TypeRange convertedResultTypes = resultConversion.getConvertedTypes();
+    TypeRange convertedResultTypes = resultMapping.getConvertedTypes();
 
     auto newOp =
         rewriter.create<WhileOp>(loc, convertedResultTypes, convertedOperands);
     newOp->setAttrs(op->getAttrs());
 
     // Update block signatures.
-    std::array<OneToNSignatureConversion, 2> blockConversions = {
-        operandConversion, resultConversion};
+    std::array<OneToNTypeMapping, 2> blockMappings = {operandMapping,
+                                                      resultMapping};
     for (unsigned int i : {0u, 1u}) {
       Region *region = &op.getRegion(i);
       Block *block = &region->front();
 
-      applySignatureConversion(block, blockConversions[i], rewriter);
+      applySignatureConversion(block, blockMappings[i], rewriter);
 
       // Move updated region to new WhileOp.
       Region &dstRegion = newOp.getRegion(i);
@@ -104,11 +104,11 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(YieldOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion & /*resultConversion*/,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
     // Nothing to do if there is no non-identity conversion.
-    if (!operandConversion.hasNonIdentityConversion())
+    if (!operandMapping.hasNonIdentityConversion())
       return failure();
 
     // Convert operands.
@@ -125,11 +125,11 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(ConditionOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion & /*resultConversion*/,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
     // Nothing to do if there is no non-identity conversion.
-    if (!operandConversion.hasNonIdentityConversion())
+    if (!operandMapping.hasNonIdentityConversion())
       return failure();
 
     // Convert operands.

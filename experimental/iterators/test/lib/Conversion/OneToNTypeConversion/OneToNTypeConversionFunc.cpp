@@ -28,20 +28,20 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(CallOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion &resultConversion,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const override {
     Location loc = op->getLoc();
 
     // Nothing to do if the op doesn't have any non-identity conversions for its
     // operands or results.
-    if (!operandConversion.hasNonIdentityConversion() &&
-        !resultConversion.hasNonIdentityConversion())
+    if (!operandMapping.hasNonIdentityConversion() &&
+        !resultMapping.hasNonIdentityConversion())
       return failure();
 
     // Create new CallOp.
-    auto newOp = rewriter.create<CallOp>(
-        loc, resultConversion.getConvertedTypes(), convertedOperands);
+    auto newOp = rewriter.create<CallOp>(loc, resultMapping.getConvertedTypes(),
+                                         convertedOperands);
     newOp->setAttrs(op->getAttrs());
 
     return SmallVector<Value>(newOp->getResults());
@@ -54,38 +54,40 @@ public:
 
   FailureOr<SmallVector<Value>> matchAndRewrite(
       FuncOp op, PatternRewriter &rewriter,
-      const OneToNSignatureConversion & /*operandConversion*/,
-      const OneToNSignatureConversion & /*resultConversion*/,
+      const OneToNTypeMapping & /*operandMapping*/,
+      const OneToNTypeMapping & /*resultMapping*/,
       const SmallVector<Value> & /*convertedOperands*/) const override {
-    // Construct conversion mapping for arguments.
-    OneToNSignatureConversion argumentConversion(op.getArgumentTypes());
-    if (failed(typeConverter->convertSignatureArgs(op.getArgumentTypes(),
-                                                   argumentConversion)))
+    auto *typeConverter = getTypeConverter<OneToNTypeConverter>();
+
+    // Construct mapping for function arguments.
+    OneToNTypeMapping argumentMapping(op.getArgumentTypes());
+    if (failed(typeConverter->computeTypeMapping(op.getArgumentTypes(),
+                                                 argumentMapping)))
       return failure();
 
-    // Construct conversion mapping for arguments.
-    OneToNSignatureConversion funcResultConversion(op.getResultTypes());
-    if (failed(typeConverter->convertSignatureArgs(op.getResultTypes(),
-                                                   funcResultConversion)))
+    // Construct mapping for function results.
+    OneToNTypeMapping funcResultMapping(op.getResultTypes());
+    if (failed(typeConverter->computeTypeMapping(op.getResultTypes(),
+                                                 funcResultMapping)))
       return failure();
 
     // Nothing to do if the op doesn't have any non-identity conversions for its
     // operands or results.
-    if (!argumentConversion.hasNonIdentityConversion() &&
-        !funcResultConversion.hasNonIdentityConversion())
+    if (!argumentMapping.hasNonIdentityConversion() &&
+        !funcResultMapping.hasNonIdentityConversion())
       return failure();
 
     // Update the function signature in-place.
     auto newType = FunctionType::get(rewriter.getContext(),
-                                     argumentConversion.getConvertedTypes(),
-                                     funcResultConversion.getConvertedTypes());
+                                     argumentMapping.getConvertedTypes(),
+                                     funcResultMapping.getConvertedTypes());
     rewriter.updateRootInPlace(op, [&] { op.setType(newType); });
 
     // Update block signatures.
     if (!op.isExternal()) {
       Region *region = &op.getBody();
       Block *block = &region->front();
-      applySignatureConversion(block, argumentConversion, rewriter);
+      applySignatureConversion(block, argumentMapping, rewriter);
     }
 
     return SmallVector<Value>(op->getResults());
@@ -98,11 +100,11 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(ReturnOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion & /*resultConversion*/,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
     // Nothing to do if there is no non-identity conversion.
-    if (!operandConversion.hasNonIdentityConversion())
+    if (!operandMapping.hasNonIdentityConversion())
       return failure();
 
     // Convert operands.

@@ -29,8 +29,7 @@ OneToNTypeConverter::materializeTargetConversion(OpBuilder &builder,
   return {};
 }
 
-TypeRange
-OneToNSignatureConversion::getConvertedTypes(unsigned originalTypeNo) const {
+TypeRange OneToNTypeMapping::getConvertedTypes(unsigned originalTypeNo) const {
   TypeRange convertedTypes = getConvertedTypes();
   if (auto mapping = getInputMapping(originalTypeNo))
     return convertedTypes.slice(mapping->inputNo, mapping->size);
@@ -38,8 +37,8 @@ OneToNSignatureConversion::getConvertedTypes(unsigned originalTypeNo) const {
 }
 
 ValueRange
-OneToNSignatureConversion::getConvertedValues(ValueRange convertedValues,
-                                              unsigned originalValueNo) const {
+OneToNTypeMapping::getConvertedValues(ValueRange convertedValues,
+                                      unsigned originalValueNo) const {
   if (auto mapping = getInputMapping(originalValueNo))
     return convertedValues.slice(mapping->inputNo, mapping->size);
   return {};
@@ -49,7 +48,7 @@ static bool isIdentityConversion(Type originalType, TypeRange convertedTypes) {
   return convertedTypes.size() == 1 && convertedTypes[0] == originalType;
 }
 
-bool OneToNSignatureConversion::hasNonIdentityConversion() const {
+bool OneToNTypeMapping::hasNonIdentityConversion() const {
   // XXX: I think that the original types and the converted types are the same
   //      iff there was no non-identity type conversion. If that is true, the
   //      patterns could actually test whether there is anything useful to do
@@ -84,7 +83,7 @@ static ValueRange buildUnrealizedCast(OpBuilder &builder, TypeRange resultTypes,
 /// inserted and the original value is returned instead.
 static SmallVector<Value>
 buildUnrealizedForwardCasts(ValueRange originalValues,
-                            OneToNSignatureConversion &conversion,
+                            OneToNTypeMapping &conversion,
                             RewriterBase &rewriter) {
 
   // Convert each operand one by one.
@@ -117,7 +116,7 @@ buildUnrealizedForwardCasts(ValueRange originalValues,
 /// cast.
 static SmallVector<Value>
 buildUnrealizedBackwardsCasts(ValueRange convertedValues,
-                              const OneToNSignatureConversion &typeConversion,
+                              const OneToNTypeMapping &typeConversion,
                               RewriterBase &rewriter) {
   assert(typeConversion.getConvertedTypes() == convertedValues.getTypes());
 
@@ -149,27 +148,29 @@ buildUnrealizedBackwardsCasts(ValueRange convertedValues,
 LogicalResult
 OneToNConversionPattern::matchAndRewrite(Operation *op,
                                          PatternRewriter &rewriter) const {
+  auto *typeConverter = getTypeConverter<OneToNTypeConverter>();
+
   // Construct conversion mapping for results.
   Operation::result_type_range originalResultTypes = op->getResultTypes();
-  OneToNSignatureConversion resultConversion(originalResultTypes);
-  if (failed(typeConverter->convertSignatureArgs(originalResultTypes,
-                                                 resultConversion)))
+  OneToNTypeMapping resultMapping(originalResultTypes);
+  if (failed(typeConverter->computeTypeMapping(originalResultTypes,
+                                               resultMapping)))
     return failure();
 
   // Construct conversion mapping for operands.
   Operation::operand_type_range originalOperandTypes = op->getOperandTypes();
-  OneToNSignatureConversion operandConversion(originalOperandTypes);
-  if (failed(typeConverter->convertSignatureArgs(originalOperandTypes,
-                                                 operandConversion)))
+  OneToNTypeMapping operandMapping(originalOperandTypes);
+  if (failed(typeConverter->computeTypeMapping(originalOperandTypes,
+                                               operandMapping)))
     return failure();
 
   // Cast operands to target types.
-  SmallVector<Value> convertedOperands = buildUnrealizedForwardCasts(
-      op->getOperands(), operandConversion, rewriter);
+  SmallVector<Value> convertedOperands =
+      buildUnrealizedForwardCasts(op->getOperands(), operandMapping, rewriter);
 
   // Apply actual pattern.
-  auto result = matchAndRewrite(op, rewriter, operandConversion,
-                                resultConversion, convertedOperands);
+  auto result = matchAndRewrite(op, rewriter, operandMapping, resultMapping,
+                                convertedOperands);
 
   if (failed(result))
     return failure();
@@ -184,8 +185,8 @@ OneToNConversionPattern::matchAndRewrite(Operation *op,
     return success();
 
   // Cast op results back to the original types and use those.
-  SmallVector<Value> castResults = buildUnrealizedBackwardsCasts(
-      replacementValues, resultConversion, rewriter);
+  SmallVector<Value> castResults =
+      buildUnrealizedBackwardsCasts(replacementValues, resultMapping, rewriter);
   rewriter.replaceOp(op, castResults);
 
   return success();
@@ -194,7 +195,7 @@ OneToNConversionPattern::matchAndRewrite(Operation *op,
 namespace mlir {
 namespace iterators {
 Block *applySignatureConversion(Block *block,
-                                OneToNSignatureConversion &argumentConversion,
+                                OneToNTypeMapping &argumentConversion,
                                 RewriterBase &rewriter) {
   // Split the block at the beginning to get a new block to use for the
   // updated signature.

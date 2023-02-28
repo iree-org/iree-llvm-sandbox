@@ -71,8 +71,8 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(::test::MakeTupleOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion & /*resultConversion*/,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
     // Simply forward converted operands.
     return convertedOperands;
@@ -87,26 +87,26 @@ public:
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(::test::GetTupleElementOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion & /*resultConversion*/,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
-    // Construct conversion mapping for field types.
+    // Construct mapping for tuple element types.
     auto stateType = op->getOperand(0).getType().cast<TupleType>();
     TypeRange originalElementTypes = stateType.getTypes();
-    OneToNSignatureConversion elementConversion(originalElementTypes);
+    OneToNTypeMapping elementMapping(originalElementTypes);
     if (failed(typeConverter->convertSignatureArgs(originalElementTypes,
-                                                   elementConversion)))
+                                                   elementMapping)))
       return failure();
 
     // Compute converted operands corresponding to original input tuple.
     ValueRange convertedTuple =
-        operandConversion.getConvertedValues(convertedOperands, 0);
+        operandMapping.getConvertedValues(convertedOperands, 0);
 
     // Got those converted operands that correspond to the index-th element of
     // the original input tuple.
     size_t index = op.getIndex();
     ValueRange extractedElement =
-        elementConversion.getConvertedValues(convertedTuple, index);
+        elementMapping.getConvertedValues(convertedTuple, index);
 
     return SmallVector<Value>(extractedElement);
   }

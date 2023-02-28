@@ -44,6 +44,15 @@ public:
       std::function<std::optional<SmallVector<Value>>(OpBuilder &, TypeRange,
                                                       Value, Location)>;
 
+  /// Creates the mapping of the given range of original types to target types
+  /// of the conversion and stores that mapping in the given (signature)
+  /// conversion. This function simply calls TypeConverter::convertSignatureArgs
+  /// and exists here with a different name to reflect the broader semantic.
+  LogicalResult computeTypeMapping(TypeRange types,
+                                   SignatureConversion &result) {
+    return convertSignatureArgs(types, result);
+  }
+
   /// Applies one of the user-provided 1:N target materializations (in LIFO
   /// order).
   std::optional<SmallVector<Value>>
@@ -61,13 +70,13 @@ private:
   SmallVector<OneToNMaterializationCallbackFn, 2> oneToNTargetMaterializations;
 };
 
-/// This class extends SignatureConversion with several for writing 1:N
-/// conversion patterns. SignatureConversion provides a 1:N mapping of types;
-/// the extensions provides additional accessor into the mapping as well as
-/// access to the original types.
-class OneToNSignatureConversion : public TypeConverter::SignatureConversion {
+/// Stores a 1:N mapping of types and provides several useful accessors. This
+/// class extends SignatureConversion, which already supports 1:N type mappings
+/// but lacks some accessors into the mapping as well as access to the original
+/// types.
+class OneToNTypeMapping : public TypeConverter::SignatureConversion {
 public:
-  OneToNSignatureConversion(TypeRange originalTypes)
+  OneToNTypeMapping(TypeRange originalTypes)
       : TypeConverter::SignatureConversion(originalTypes.size()),
         originalTypes(originalTypes) {}
 
@@ -133,22 +142,22 @@ public:
   /// provided with the converted operands (which thus have target types). Since
   /// 1:N conversion are supported, there is usually no 1:1 relationship between
   /// the original and the converted operands. Instead, the provided
-  /// `operandConversion` can be used to access the converted operands that
-  /// correspond to a particular original operand. Similarly, `resultConversion`
+  /// `operandMapping` can be used to access the converted operands that
+  /// correspond to a particular original operand. Similarly, `resultMapping`
   /// is provided to help with assembling the result values (which may have 1:N
   /// correspondences as well). The function is expted to return the converted
   /// result values if the conversion succeeds and failuare otherwise (in which
   /// case any modifications of the IR have to be rolled back first). The
   /// correspondance of original and converted result values needs to correspond
-  /// to `resultConversion`. For both the converted operands and results, the
+  /// to `resultMapping`. For both the converted operands and results, the
   /// calling overload inserts appropriate unrealized casts that produce and
   /// consume them, and replaces the uses of the results with the results of the
   /// casts. If the returned result values are the same as those of the original
   /// op, an in-place update is assumed and the result values are left as is.
   virtual FailureOr<SmallVector<Value>>
   matchAndRewrite(Operation *op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion &resultConversion,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const = 0;
 
   LogicalResult matchAndRewrite(Operation *op,
@@ -171,17 +180,17 @@ public:
   /// Overload that derived classes have to override for their op type.
   virtual FailureOr<SmallVector<Value>>
   matchAndRewrite(SourceOp op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion &resultConversion,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const = 0;
 
   FailureOr<SmallVector<Value>>
   matchAndRewrite(Operation *op, PatternRewriter &rewriter,
-                  const OneToNSignatureConversion &operandConversion,
-                  const OneToNSignatureConversion &resultConversion,
+                  const OneToNTypeMapping &operandMapping,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const final {
-    return matchAndRewrite(cast<SourceOp>(op), rewriter, operandConversion,
-                           resultConversion, convertedOperands);
+    return matchAndRewrite(cast<SourceOp>(op), rewriter, operandMapping,
+                           resultMapping, convertedOperands);
   }
 };
 
@@ -194,7 +203,7 @@ public:
 /// ArgConverter::applySignatureConversion but (1) handles 1:N type conversion
 /// properly and probably (2) doesn't handle many other edge cases.
 Block *applySignatureConversion(Block *block,
-                                OneToNSignatureConversion &argumentConversion,
+                                OneToNTypeMapping &argumentConversion,
                                 RewriterBase &rewriter);
 
 /// Main function that 1:N conversion passes should call. The patterns are
