@@ -94,6 +94,16 @@ public:
   ValueRange getConvertedValues(ValueRange convertedValues,
                                 unsigned originalValueNo) const;
 
+  /// Fills the given result vector with as many copies of the location of the
+  /// original value as the number of values it is converted to.
+  void convertLocation(Value originalValue, unsigned originalValueNo,
+                       llvm::SmallVectorImpl<Location> &result) const;
+
+  /// Fills the given result vector with as many copies of the lociation of each
+  /// original value as the number of values they are respectively converted to.
+  void convertLocations(ValueRange originalValues,
+                        llvm::SmallVectorImpl<Location> &result) const;
+
   /// Returns true iff at least one type conversion maps an input type to a type
   /// that is different from itself.
   bool hasNonIdentityConversion() const;

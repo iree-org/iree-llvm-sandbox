@@ -44,6 +44,20 @@ OneToNTypeMapping::getConvertedValues(ValueRange convertedValues,
   return {};
 }
 
+void OneToNTypeMapping::convertLocation(
+    Value originalValue, unsigned originalValueNo,
+    llvm::SmallVectorImpl<Location> &result) const {
+  if (auto mapping = getInputMapping(originalValueNo))
+    result.append(mapping->size, originalValue.getLoc());
+}
+
+void OneToNTypeMapping::convertLocations(
+    ValueRange originalValues, llvm::SmallVectorImpl<Location> &result) const {
+  assert(originalValues.size() == getOriginalTypes().size());
+  for (auto &[i, value] : llvm::enumerate(originalValues))
+    convertLocation(value, i, result);
+}
+
 static bool isIdentityConversion(Type originalType, TypeRange convertedTypes) {
   return convertedTypes.size() == 1 && convertedTypes[0] == originalType;
 }
@@ -207,33 +221,37 @@ Block *applySignatureConversion(Block *block,
                                 RewriterBase &rewriter) {
   // Split the block at the beginning to get a new block to use for the
   // updated signature.
-  Block *newBlock = rewriter.splitBlock(block, block->begin());
+  SmallVector<Location> locs;
+  argumentConversion.convertLocations(block->getArguments(), locs);
+  Block *newBlock =
+      rewriter.createBlock(block, argumentConversion.getConvertedTypes(), locs);
   rewriter.replaceAllUsesWith(block, newBlock);
 
-  // Add block arguments to new block.
+  // Create necessary casts in new block.
+  SmallVector<Value> castResults;
   for (auto [i, arg] : llvm::enumerate(block->getArguments())) {
     TypeRange convertedTypes = argumentConversion.getConvertedTypes(i);
+    ValueRange newArgs =
+        argumentConversion.getConvertedValues(newBlock->getArguments(), i);
     if (isIdentityConversion(arg.getType(), convertedTypes)) {
       // Identity conversion: take argument as is.
-      BlockArgument newArg = newBlock->addArgument(arg.getType(), arg.getLoc());
-      rewriter.replaceAllUsesWith(arg, newArg);
+      assert(newArgs.size() == 1);
+      castResults.push_back(newArgs.front());
     } else {
       // Non-identity conversion: cast the converted arguments to the original
       // type.
-      SmallVector<Location> locs(convertedTypes.size(), arg.getLoc());
-      auto newArgsRange = newBlock->addArguments(convertedTypes, locs);
-      SmallVector<Value> newArgs(newArgsRange.begin(), newArgsRange.end());
       PatternRewriter::InsertionGuard g(rewriter);
       rewriter.setInsertionPointToStart(newBlock);
-      ValueRange castArgument =
+      ValueRange castResult =
           buildUnrealizedCast(rewriter, arg.getType(), newArgs);
-      assert(castArgument.size() == 1);
-      rewriter.replaceAllUsesWith(arg, castArgument.front());
+      assert(castResult.size() == 1);
+      castResults.push_back(castResult.front());
     }
   }
 
-  // Delete old (now empty) block.
-  rewriter.eraseBlock(block);
+  // Merge old block into new block such that we only have the latter with the
+  // new signature.
+  rewriter.mergeBlocks(block, newBlock, castResults);
 
   return newBlock;
 }
