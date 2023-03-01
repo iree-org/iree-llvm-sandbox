@@ -97,7 +97,7 @@ static ValueRange buildUnrealizedCast(OpBuilder &builder, TypeRange resultTypes,
 /// inserted and the original value is returned instead.
 /// Note that these unrealized are different from target materializations in
 /// that they are *always* inserted, even if they immediately fold away, such
-/// that patterns always see valid intermediate IR, whereas materilizations are
+/// that patterns always see valid intermediate IR, whereas materializations are
 /// only used in the places where the unrealized casts *don't* fold away.
 static SmallVector<Value>
 buildUnrealizedForwardCasts(ValueRange originalValues,
@@ -134,7 +134,7 @@ buildUnrealizedForwardCasts(ValueRange originalValues,
 /// cast.
 /// Note that these unrealized are different from source materializations in
 /// that they are *always* inserted, even if they immediately fold away, such
-/// that patterns always see valid intermediate IR, whereas materilizations are
+/// that patterns always see valid intermediate IR, whereas materializations are
 /// only used in the places where the unrealized casts *don't* fold away.
 static SmallVector<Value>
 buildUnrealizedBackwardsCasts(ValueRange convertedValues,
@@ -301,7 +301,7 @@ LogicalResult applyOneToNConversion(Operation *op,
     SmallVector<Value> materializedResults;
 
     // Determine whether operands or results are already legal to know which
-    // kind of materilization this is.
+    // kind of materialization this is.
     ValueRange operands = castOp.getOperands();
     bool areOperandTypesLegal = llvm::all_of(
         operands.getTypes(), [&](Type t) { return typeConverter.isLegal(t); });
@@ -309,7 +309,7 @@ LogicalResult applyOneToNConversion(Operation *op,
         resultTypes, [&](Type t) { return typeConverter.isLegal(t); });
 
     if (!areOperandTypesLegal && areResultsTypesLegal && operands.size() == 1) {
-      // This is a target materilization.
+      // This is a target materialization.
       std::optional<SmallVector<Value>> maybeResults =
           typeConverter.materializeTargetConversion(
               rewriter, castOp->getLoc(), resultTypes, operands.front());
@@ -321,7 +321,7 @@ LogicalResult applyOneToNConversion(Operation *op,
       // This is a source or an argument materialization.
       std::optional<Value> maybeResult;
       if (llvm::all_of(operands, [&](Value v) { return v.isa<OpResult>(); })) {
-        // This is an source materialization.
+        // This is a source materialization.
         maybeResult = typeConverter.materializeSourceConversion(
             rewriter, castOp->getLoc(), resultTypes.front(),
             castOp.getOperands());
