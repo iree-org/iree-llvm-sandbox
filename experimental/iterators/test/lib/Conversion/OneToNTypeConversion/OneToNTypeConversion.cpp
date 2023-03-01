@@ -327,6 +327,8 @@ LogicalResult applyOneToNConversion(Operation *op,
             castOp.getOperands());
       } else {
         // This is an argument materialization.
+        assert(llvm::all_of(operands,
+                            [&](Value v) { return v.isa<BlockArgument>(); }));
         maybeResult = typeConverter.materializeArgumentConversion(
             rewriter, castOp->getLoc(), resultTypes.front(),
             castOp.getOperands());
