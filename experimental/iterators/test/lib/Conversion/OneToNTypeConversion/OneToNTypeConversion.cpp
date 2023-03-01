@@ -320,7 +320,7 @@ LogicalResult applyOneToNConversion(Operation *op,
                resultTypes.size() == 1) {
       // This is a source or an argument materialization.
       std::optional<Value> maybeResult;
-      if (llvm::all_of(operands, [&](Value v) { return v.getDefiningOp(); })) {
+      if (llvm::all_of(operands, [&](Value v) { return v.isa<OpResult>(); })) {
         // This is an source materialization.
         maybeResult = typeConverter.materializeArgumentConversion(
             rewriter, castOp->getLoc(), resultTypes.front(),
