@@ -178,6 +178,45 @@ void OneToNPatternRewriter::replaceOp(Operation *op, ValueRange newValues,
   replaceOp(op, castResults);
 }
 
+Block *OneToNPatternRewriter::applySignatureConversion(
+    Block *block, OneToNTypeMapping &argumentConversion) {
+  // Split the block at the beginning to get a new block to use for the
+  // updated signature.
+  SmallVector<Location> locs;
+  argumentConversion.convertLocations(block->getArguments(), locs);
+  Block *newBlock =
+      createBlock(block, argumentConversion.getConvertedTypes(), locs);
+  replaceAllUsesWith(block, newBlock);
+
+  // Create necessary casts in new block.
+  SmallVector<Value> castResults;
+  for (auto [i, arg] : llvm::enumerate(block->getArguments())) {
+    TypeRange convertedTypes = argumentConversion.getConvertedTypes(i);
+    ValueRange newArgs =
+        argumentConversion.getConvertedValues(newBlock->getArguments(), i);
+    if (isIdentityConversion(arg.getType(), convertedTypes)) {
+      // Identity conversion: take argument as is.
+      assert(newArgs.size() == 1);
+      castResults.push_back(newArgs.front());
+    } else {
+      // Non-identity conversion: cast the converted arguments to the original
+      // type.
+      PatternRewriter::InsertionGuard g(*this);
+      setInsertionPointToStart(newBlock);
+      ValueRange castResult =
+          buildUnrealizedCast(*this, arg.getType(), newArgs);
+      assert(castResult.size() == 1);
+      castResults.push_back(castResult.front());
+    }
+  }
+
+  // Merge old block into new block such that we only have the latter with the
+  // new signature.
+  mergeBlocks(block, newBlock, castResults);
+
+  return newBlock;
+}
+
 LogicalResult
 OneToNConversionPattern::matchAndRewrite(Operation *op,
                                          PatternRewriter &rewriter) const {
@@ -222,46 +261,6 @@ OneToNConversionPattern::matchAndRewrite(Operation *op,
 
 namespace mlir {
 namespace iterators {
-Block *applySignatureConversion(Block *block,
-                                OneToNTypeMapping &argumentConversion,
-                                RewriterBase &rewriter) {
-  // Split the block at the beginning to get a new block to use for the
-  // updated signature.
-  SmallVector<Location> locs;
-  argumentConversion.convertLocations(block->getArguments(), locs);
-  Block *newBlock =
-      rewriter.createBlock(block, argumentConversion.getConvertedTypes(), locs);
-  rewriter.replaceAllUsesWith(block, newBlock);
-
-  // Create necessary casts in new block.
-  SmallVector<Value> castResults;
-  for (auto [i, arg] : llvm::enumerate(block->getArguments())) {
-    TypeRange convertedTypes = argumentConversion.getConvertedTypes(i);
-    ValueRange newArgs =
-        argumentConversion.getConvertedValues(newBlock->getArguments(), i);
-    if (isIdentityConversion(arg.getType(), convertedTypes)) {
-      // Identity conversion: take argument as is.
-      assert(newArgs.size() == 1);
-      castResults.push_back(newArgs.front());
-    } else {
-      // Non-identity conversion: cast the converted arguments to the original
-      // type.
-      PatternRewriter::InsertionGuard g(rewriter);
-      rewriter.setInsertionPointToStart(newBlock);
-      ValueRange castResult =
-          buildUnrealizedCast(rewriter, arg.getType(), newArgs);
-      assert(castResult.size() == 1);
-      castResults.push_back(castResult.front());
-    }
-  }
-
-  // Merge old block into new block such that we only have the latter with the
-  // new signature.
-  rewriter.mergeBlocks(block, newBlock, castResults);
-
-  return newBlock;
-}
-
 // This function applies the provided patterns using
 // applyPatternsAndFoldGreedily and then replaces all newly inserted
 // UnrealizedConversionCastOps that haven't folded away. ("Backward" casts from

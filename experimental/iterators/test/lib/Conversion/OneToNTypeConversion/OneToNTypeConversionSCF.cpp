@@ -89,7 +89,7 @@ public:
       Region *region = &op.getRegion(i);
       Block *block = &region->front();
 
-      applySignatureConversion(block, blockMappings[i], rewriter);
+      rewriter.applySignatureConversion(block, blockMappings[i]);
 
       // Move updated region to new WhileOp.
       Region &dstRegion = newOp.getRegion(i);

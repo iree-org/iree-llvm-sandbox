@@ -89,7 +89,7 @@ public:
     if (!op.isExternal()) {
       Region *region = &op.getBody();
       Block *block = &region->front();
-      applySignatureConversion(block, argumentMapping, rewriter);
+      rewriter.applySignatureConversion(block, argumentMapping);
     }
 
     return success();

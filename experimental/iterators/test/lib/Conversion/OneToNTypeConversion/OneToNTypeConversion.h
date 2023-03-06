@@ -156,6 +156,17 @@ public:
   void replaceOp(Operation *op, ValueRange newValues,
                  const OneToNTypeMapping &resultMapping);
   using PatternRewriter::replaceOp;
+
+  /// Applies the given argument conversion to the given block. This consists of
+  /// replacing each original argument with N arguments as specified in the
+  /// argument conversion and inserting unrealized casts from the converted
+  /// values to the original types, which are then used in lieu of the original
+  /// ones. (Eventually, applyOneToNConversion replaces these casts with a
+  /// user-provided argument materialization if necessary.) This is similar to
+  /// ArgConverter::applySignatureConversion but (1) handles 1:N type conversion
+  /// properly and probably (2) doesn't handle many other edge cases.
+  Block *applySignatureConversion(Block *block,
+                                  OneToNTypeMapping &argumentConversion);
 };
 
 /// Base class for patterns with 1:N type conversions. Derived classes have to
@@ -221,18 +232,6 @@ public:
                            resultMapping, convertedOperands);
   }
 };
-
-/// Applies the given argument conversion to the given block. This consists of
-/// replacing each original argument with N arguments as specified in the
-/// argument conversion and inserting unrealized casts from the converted values
-/// to the original types, which are then used in lieu of the original ones.
-/// (Eventually, applyOneToNConversion replaces these casts with a
-/// user-provided argument materialization if necessary.) This is similar to
-/// ArgConverter::applySignatureConversion but (1) handles 1:N type conversion
-/// properly and probably (2) doesn't handle many other edge cases.
-Block *applySignatureConversion(Block *block,
-                                OneToNTypeMapping &argumentConversion,
-                                RewriterBase &rewriter);
 
 /// Main function that 1:N conversion passes should call. The patterns are
 /// expected to insert unrealized casts to maintain the types of operands and
