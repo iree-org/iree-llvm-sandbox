@@ -156,7 +156,7 @@ public:
   /// correspond to a particular original operand. Similarly, `resultMapping`
   /// is provided to help with assembling the result values (which may have 1:N
   /// correspondences as well). The function is expted to return the converted
-  /// result values if the conversion succeeds and failuare otherwise (in which
+  /// result values if the conversion succeeds and failure otherwise (in which
   /// case any modifications of the IR have to be rolled back first). The
   /// correspondance of original and converted result values needs to correspond
   /// to `resultMapping`. For both the converted operands and results, the
