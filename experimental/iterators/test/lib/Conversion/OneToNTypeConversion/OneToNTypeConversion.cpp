@@ -78,15 +78,46 @@ bool OneToNTypeMapping::hasNonIdentityConversion() const {
   return false;
 }
 
+enum class CastKind {
+  // Casts block arguments in the target type back to the source type. (If
+  // necessary, this cast becomes an argument materialization.)
+  Argument,
+
+  // Casts other values in the target type back to the source type. (If
+  // necessary, this cast becomes a source materialization.)
+  Source,
+
+  // Casts values in the source type to the target type. (If necessary, this
+  // cast becomes a target materialization.)
+  Target
+};
+
+/// Mapping of enum values to string values.
+static const std::unordered_map<CastKind, StringRef> castKindNames = {
+    {CastKind::Argument, "argument"},
+    {CastKind::Source, "source"},
+    {CastKind::Target, "target"}};
+
+/// Attribute name that is used to annotate inserted unrealized casts with their
+/// kind (source, argument, or target).
+static const char *const castKindAttrName =
+    "__one-to-n-type-conversion_cast-kind__";
+
 /// Builds an UnrealizedConversionCastOp from the given inputs to the given
 /// result types. Returns the result values of the cast.
 static ValueRange buildUnrealizedCast(OpBuilder &builder, TypeRange resultTypes,
-                                      ValueRange inputs) {
+                                      ValueRange inputs, CastKind kind) {
+  // Create cast.
   Location loc = builder.getUnknownLoc();
   if (!inputs.empty())
     loc = inputs.front().getLoc();
   auto castOp =
       builder.create<UnrealizedConversionCastOp>(loc, resultTypes, inputs);
+
+  // Store cast kind as attribute.
+  auto kindAttr = StringAttr::get(builder.getContext(), castKindNames.at(kind));
+  castOp->setAttr(castKindAttrName, kindAttr);
+
   return castOp->getResults();
 }
 
@@ -102,7 +133,7 @@ static ValueRange buildUnrealizedCast(OpBuilder &builder, TypeRange resultTypes,
 static SmallVector<Value>
 buildUnrealizedForwardCasts(ValueRange originalValues,
                             OneToNTypeMapping &conversion,
-                            RewriterBase &rewriter) {
+                            RewriterBase &rewriter, CastKind kind) {
 
   // Convert each operand one by one.
   SmallVector<Value> convertedValues;
@@ -118,7 +149,7 @@ buildUnrealizedForwardCasts(ValueRange originalValues,
 
     // Non-identity conversion: materialize target types.
     ValueRange castResult =
-        buildUnrealizedCast(rewriter, convertedTypes, originalValue);
+        buildUnrealizedCast(rewriter, convertedTypes, originalValue, kind);
     convertedValues.append(castResult.begin(), castResult.end());
   }
 
@@ -157,7 +188,8 @@ buildUnrealizedBackwardsCasts(ValueRange convertedValues,
       // Non-identity conversion: cast back to source type.
       ValueRange recastValue = buildUnrealizedCast(
           rewriter, originalType,
-          ValueRange{convertedValueIt, convertedValueIt + numConvertedValues});
+          ValueRange{convertedValueIt, convertedValueIt + numConvertedValues},
+          CastKind::Source);
       assert(recastValue.size() == 1);
       recastValues.push_back(recastValue.front());
     }
@@ -203,8 +235,8 @@ Block *OneToNPatternRewriter::applySignatureConversion(
       // type.
       PatternRewriter::InsertionGuard g(*this);
       setInsertionPointToStart(newBlock);
-      ValueRange castResult =
-          buildUnrealizedCast(*this, arg.getType(), newArgs);
+      ValueRange castResult = buildUnrealizedCast(*this, arg.getType(), newArgs,
+                                                  CastKind::Argument);
       assert(castResult.size() == 1);
       castResults.push_back(castResult.front());
     }
@@ -237,8 +269,8 @@ OneToNConversionPattern::matchAndRewrite(Operation *op,
     return failure();
 
   // Cast operands to target types.
-  SmallVector<Value> convertedOperands =
-      buildUnrealizedForwardCasts(op->getOperands(), operandMapping, rewriter);
+  SmallVector<Value> convertedOperands = buildUnrealizedForwardCasts(
+      op->getOperands(), operandMapping, rewriter, CastKind::Target);
 
   // Create a OneToNPatternRewriter for the pattern, which provides additional
   // functionality.
@@ -266,72 +298,80 @@ namespace iterators {
 // UnrealizedConversionCastOps that haven't folded away. ("Backward" casts from
 // target to source types inserted by a OneToNConversionPattern normally fold
 // away with the "forward" casts from source to target types inserted by the
-// next pattern.) To understand which casts are "newly inserted", we save a list
-// of all casts existing before the patterns are applied and assume that all
-// casts not in that list after the application are new. (This is probably not
-// correct: It might be possible that an existing cast is folded away and a new
-// cast happens to be allocated with exactly the same pointer. Dealing with that
-// possiblity is an open TODO.) Also, we do not track which inserted casts are
-// needed for source, target, or argument materialization, so we do some
-// educated guessing to recover that information. Fixing both issues would
-// require to use a PatternRewriter that overloads various `notify*` functions
-// and similar and tracks all changes there. However, that would require a
-// dedicated pattern application driver, which is currently also left as an open
-// TODO.)
+// next pattern.) To understand which casts are "newly inserted", all casts
+// inserted by this pass are annotated with a string attribute that also
+// documents which kind of the cast (source, argument, or target).
 LogicalResult applyOneToNConversion(Operation *op,
                                     OneToNTypeConverter &typeConverter,
                                     const FrozenRewritePatternSet &patterns) {
-  // Remember existing unrealized casts.
+#ifndef NDEBUG
+  // Remember existing unrealized casts. This data structure is only used in
+  // asserts; building it only for that purpose may be an overkill.
   SmallSet<UnrealizedConversionCastOp, 4> existingCasts;
-  op->walk(
-      [&](UnrealizedConversionCastOp castOp) { existingCasts.insert(castOp); });
+  op->walk([&](UnrealizedConversionCastOp castOp) {
+    assert(!castOp->hasAttr(castKindAttrName));
+    existingCasts.insert(castOp);
+  });
+#endif // NDEBUG
 
   // Apply provided conversion patterns.
   if (failed(applyPatternsAndFoldGreedily(op, patterns)))
     return failure();
 
-  // Find all newly inserted unrealized casts (that haven't folded away).
+  // Find all unrealized casts inserted by the pass that haven't folded away.
   SmallVector<UnrealizedConversionCastOp> worklist;
   op->walk([&](UnrealizedConversionCastOp castOp) {
-    if (!existingCasts.contains(castOp))
+    if (castOp->hasAttr(castKindAttrName)) {
+      assert(!existingCasts.contains(castOp));
       worklist.push_back(castOp);
+    }
   });
 
   // Replace new casts with user materializations.
   IRRewriter rewriter(op->getContext());
   for (UnrealizedConversionCastOp castOp : worklist) {
-    // Create user materialization.
     TypeRange resultTypes = castOp->getResultTypes();
+    ValueRange operands = castOp->getOperands();
+    StringRef castKind =
+        castOp->getAttrOfType<StringAttr>(castKindAttrName).getValue();
     rewriter.setInsertionPoint(castOp);
-    SmallVector<Value> materializedResults;
 
-    // Determine whether operands or results are already legal to know which
-    // kind of materialization this is.
-    ValueRange operands = castOp.getOperands();
+#ifndef NDEBUG
+    // Determine whether operands or results are already legal to test some
+    // assumptions for the different kind of materializations. These properties
+    // are only used it asserts and it may be overkill to compute them.
     bool areOperandTypesLegal = llvm::all_of(
         operands.getTypes(), [&](Type t) { return typeConverter.isLegal(t); });
     bool areResultsTypesLegal = llvm::all_of(
         resultTypes, [&](Type t) { return typeConverter.isLegal(t); });
+#endif // NDEBUG
 
-    if (!areOperandTypesLegal && areResultsTypesLegal && operands.size() == 1) {
-      // This is a target materialization.
+    // Add materialization and remember materialized results.
+    SmallVector<Value> materializedResults;
+    if (castKind == castKindNames.at(CastKind::Target)) {
+      // Target materialization.
+      assert(!areOperandTypesLegal && areResultsTypesLegal &&
+             operands.size() == 1 && "found unexpected target cast");
       std::optional<SmallVector<Value>> maybeResults =
           typeConverter.materializeTargetConversion(
               rewriter, castOp->getLoc(), resultTypes, operands.front());
       if (!maybeResults)
         return failure();
       materializedResults = maybeResults.value();
-    } else if (areOperandTypesLegal && !areResultsTypesLegal &&
-               resultTypes.size() == 1) {
-      // This is a source or an argument materialization.
+    } else {
+      // Source and argument materializations.
+      assert(areOperandTypesLegal && !areResultsTypesLegal &&
+             resultTypes.size() == 1 && "found unexpected cast");
       std::optional<Value> maybeResult;
-      if (llvm::all_of(operands, [&](Value v) { return v.isa<OpResult>(); })) {
-        // This is a source materialization.
+      if (castKind == castKindNames.at(CastKind::Source)) {
+        // Source materialization.
         maybeResult = typeConverter.materializeSourceConversion(
             rewriter, castOp->getLoc(), resultTypes.front(),
             castOp.getOperands());
       } else {
-        // This is an argument materialization.
+        // Argument materialization.
+        assert(castKind == castKindNames.at(CastKind::Argument) &&
+               "unexpected value of cast kind attribute");
         assert(llvm::all_of(operands,
                             [&](Value v) { return v.isa<BlockArgument>(); }));
         maybeResult = typeConverter.materializeArgumentConversion(
@@ -341,11 +381,9 @@ LogicalResult applyOneToNConversion(Operation *op,
       if (!maybeResult.has_value() || !maybeResult.value())
         return failure();
       materializedResults = {maybeResult.value()};
-    } else {
-      assert(false && "unexpected cast inserted");
     }
 
-    // Replace cast with materialization.
+    // Replace the cast with the result of the materialization.
     rewriter.replaceOp(castOp, materializedResults);
   }
 
