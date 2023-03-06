@@ -26,8 +26,8 @@ class ConvertTypesInFuncCallOp : public OneToNOpConversionPattern<CallOp> {
 public:
   using OneToNOpConversionPattern<CallOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(CallOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(CallOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const override {
@@ -44,7 +44,9 @@ public:
                                          convertedOperands);
     newOp->setAttrs(op->getAttrs());
 
-    return SmallVector<Value>(newOp->getResults());
+    rewriter.replaceOp(op, SmallVector<Value>(newOp->getResults()),
+                       resultMapping);
+    return success();
   }
 };
 
@@ -52,8 +54,8 @@ class ConvertTypesInFuncFuncOp : public OneToNOpConversionPattern<FuncOp> {
 public:
   using OneToNOpConversionPattern<FuncOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>> matchAndRewrite(
-      FuncOp op, PatternRewriter &rewriter,
+  LogicalResult matchAndRewrite(
+      FuncOp op, OneToNPatternRewriter &rewriter,
       const OneToNTypeMapping & /*operandMapping*/,
       const OneToNTypeMapping & /*resultMapping*/,
       const SmallVector<Value> & /*convertedOperands*/) const override {
@@ -90,7 +92,7 @@ public:
       applySignatureConversion(block, argumentMapping, rewriter);
     }
 
-    return SmallVector<Value>(op->getResults());
+    return success();
   }
 };
 
@@ -98,8 +100,8 @@ class ConvertTypesInFuncReturnOp : public OneToNOpConversionPattern<ReturnOp> {
 public:
   using OneToNOpConversionPattern<ReturnOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(ReturnOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(ReturnOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
@@ -110,7 +112,7 @@ public:
     // Convert operands.
     rewriter.updateRootInPlace(op, [&] { op->setOperands(convertedOperands); });
 
-    return SmallVector<Value>(op->getResults());
+    return success();
   }
 };
 

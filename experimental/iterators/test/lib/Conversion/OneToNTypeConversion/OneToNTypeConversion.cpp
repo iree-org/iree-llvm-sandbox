@@ -167,6 +167,17 @@ buildUnrealizedBackwardsCasts(ValueRange convertedValues,
   return recastValues;
 }
 
+void OneToNPatternRewriter::replaceOp(Operation *op, ValueRange newValues,
+                                      const OneToNTypeMapping &resultMapping) {
+  // Create a cast back to the original types and replace the results of the
+  // original op with those.
+  assert(newValues.size() == resultMapping.getConvertedTypes().size());
+  assert(op->getResultTypes() == resultMapping.getOriginalTypes());
+  SmallVector<Value> castResults =
+      buildUnrealizedBackwardsCasts(newValues, resultMapping, *this);
+  replaceOp(op, castResults);
+}
+
 LogicalResult
 OneToNConversionPattern::matchAndRewrite(Operation *op,
                                          PatternRewriter &rewriter) const {
@@ -190,26 +201,21 @@ OneToNConversionPattern::matchAndRewrite(Operation *op,
   SmallVector<Value> convertedOperands =
       buildUnrealizedForwardCasts(op->getOperands(), operandMapping, rewriter);
 
+  // Create a OneToNPatternRewriter for the pattern, which provides additional
+  // functionality.
+  // TODO(ingomueller): I guess it would be better to use only one rewriter
+  //                    throughout the whole pass, but that would require to
+  //                    drive the pattern application ourselves, which is a lot
+  //                    of additional boilerplate code. This seems to work fine,
+  //                    so I leave it like this for the time being.
+  OneToNPatternRewriter oneToNPatternRewriter(rewriter.getContext());
+  oneToNPatternRewriter.restoreInsertionPoint(rewriter.saveInsertionPoint());
+  oneToNPatternRewriter.setListener(rewriter.getListener());
+
   // Apply actual pattern.
-  auto result = matchAndRewrite(op, rewriter, operandMapping, resultMapping,
-                                convertedOperands);
-
-  if (failed(result))
+  if (failed(matchAndRewrite(op, oneToNPatternRewriter, operandMapping,
+                             resultMapping, convertedOperands)))
     return failure();
-  SmallVector<Value> &replacementValues = result.value();
-
-  // If replacementValues consist of the results of the original op, assume
-  // in-place update.
-  // TODO: This isn't particularly elegant. Not sure how else to handle that
-  //       case without tracking modifications through the rewriter, which
-  //       would require a custom pattern application driver.
-  if (ValueRange{op->getResults()} == replacementValues)
-    return success();
-
-  // Cast op results back to the original types and use those.
-  SmallVector<Value> castResults =
-      buildUnrealizedBackwardsCasts(replacementValues, resultMapping, rewriter);
-  rewriter.replaceOp(op, castResults);
 
   return success();
 }

@@ -140,6 +140,24 @@ protected:
   TypeConverter *const typeConverter;
 };
 
+/// Specialization of PatternRewriter that OneToNConversionPatterns use. The
+/// class provides additional rewrite methods that are specific to 1:N type
+/// conversions.
+class OneToNPatternRewriter : public PatternRewriter {
+public:
+  OneToNPatternRewriter(MLIRContext *context) : PatternRewriter(context) {}
+
+  /// Replaces the results of the operation with the specified list of values
+  /// mapped back to the original types as specified in the provided type
+  /// mapping. That type mapping must match the replaced op (i.e., the original
+  /// types must be the same as the result types of the op) and the new values
+  /// (i.e., the converted types must be the same as the types of the new
+  /// values).
+  void replaceOp(Operation *op, ValueRange newValues,
+                 const OneToNTypeMapping &resultMapping);
+  using PatternRewriter::replaceOp;
+};
+
 /// Base class for patterns with 1:N type conversions. Derived classes have to
 /// overwrite the `matchAndRewrite`overlaod that provides additional information
 /// for 1:N type conversions.
@@ -164,8 +182,8 @@ public:
   /// consume them, and replaces the uses of the results with the results of the
   /// casts. If the returned result values are the same as those of the original
   /// op, an in-place update is assumed and the result values are left as is.
-  virtual FailureOr<SmallVector<Value>>
-  matchAndRewrite(Operation *op, PatternRewriter &rewriter,
+  virtual LogicalResult
+  matchAndRewrite(Operation *op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const = 0;
@@ -188,14 +206,14 @@ public:
   using OneToNConversionPattern::matchAndRewrite;
 
   /// Overload that derived classes have to override for their op type.
-  virtual FailureOr<SmallVector<Value>>
-  matchAndRewrite(SourceOp op, PatternRewriter &rewriter,
+  virtual LogicalResult
+  matchAndRewrite(SourceOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const = 0;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(Operation *op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(Operation *op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const final {

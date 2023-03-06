@@ -69,13 +69,14 @@ public:
   using OneToNOpConversionPattern<
       ::test::MakeTupleOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(::test::MakeTupleOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(::test::MakeTupleOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping & /*resultMapping*/,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const override {
-    // Simply forward converted operands.
-    return convertedOperands;
+    // Simply replace the current op with the converted operands.
+    rewriter.replaceOp(op, convertedOperands, resultMapping);
+    return success();
   }
 };
 
@@ -85,10 +86,10 @@ public:
   using OneToNOpConversionPattern<
       ::test::GetTupleElementOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(::test::GetTupleElementOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(::test::GetTupleElementOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping & /*resultMapping*/,
+                  const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const override {
     // Construct mapping for tuple element types.
     auto stateType = op->getOperand(0).getType().cast<TupleType>();
@@ -108,7 +109,9 @@ public:
     ValueRange extractedElement =
         elementMapping.getConvertedValues(convertedTuple, index);
 
-    return SmallVector<Value>(extractedElement);
+    rewriter.replaceOp(op, extractedElement, resultMapping);
+
+    return success();
   }
 };
 

@@ -25,8 +25,8 @@ class ConvertTypesInSCFIfOp : public OneToNOpConversionPattern<IfOp> {
 public:
   using OneToNOpConversionPattern<IfOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>> matchAndRewrite(
-      IfOp op, PatternRewriter &rewriter,
+  LogicalResult matchAndRewrite(
+      IfOp op, OneToNPatternRewriter &rewriter,
       const OneToNTypeMapping & /*operandMapping*/,
       const OneToNTypeMapping &resultMapping,
       const SmallVector<Value> & /*convertedOperands*/) const override {
@@ -52,7 +52,9 @@ public:
     rewriter.inlineRegionBefore(op.getElseRegion(), newOp.getElseRegion(),
                                 newOp.getElseRegion().end());
 
-    return SmallVector<Value>(newOp->getResults());
+    rewriter.replaceOp(op, SmallVector<Value>(newOp->getResults()),
+                       resultMapping);
+    return success();
   }
 };
 
@@ -60,8 +62,8 @@ class ConvertTypesInSCFWhileOp : public OneToNOpConversionPattern<WhileOp> {
 public:
   using OneToNOpConversionPattern<WhileOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(WhileOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(WhileOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping &resultMapping,
                   const SmallVector<Value> &convertedOperands) const override {
@@ -94,7 +96,9 @@ public:
       rewriter.inlineRegionBefore(op.getRegion(i), dstRegion, dstRegion.end());
     }
 
-    return SmallVector<Value>(newOp->getResults());
+    rewriter.replaceOp(op, SmallVector<Value>(newOp->getResults()),
+                       resultMapping);
+    return success();
   }
 };
 
@@ -102,8 +106,8 @@ class ConvertTypesInSCFYieldOp : public OneToNOpConversionPattern<YieldOp> {
 public:
   using OneToNOpConversionPattern<YieldOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(YieldOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(YieldOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
@@ -114,7 +118,7 @@ public:
     // Convert operands.
     rewriter.updateRootInPlace(op, [&] { op->setOperands(convertedOperands); });
 
-    return SmallVector<Value>(op->getResults());
+    return success();
   }
 };
 
@@ -123,8 +127,8 @@ class ConvertTypesInSCFConditionOp
 public:
   using OneToNOpConversionPattern<ConditionOp>::OneToNOpConversionPattern;
 
-  FailureOr<SmallVector<Value>>
-  matchAndRewrite(ConditionOp op, PatternRewriter &rewriter,
+  LogicalResult
+  matchAndRewrite(ConditionOp op, OneToNPatternRewriter &rewriter,
                   const OneToNTypeMapping &operandMapping,
                   const OneToNTypeMapping & /*resultMapping*/,
                   const SmallVector<Value> &convertedOperands) const override {
@@ -135,7 +139,7 @@ public:
     // Convert operands.
     rewriter.updateRootInPlace(op, [&] { op->setOperands(convertedOperands); });
 
-    return SmallVector<Value>(op->getResults());
+    return success();
   }
 };
 
