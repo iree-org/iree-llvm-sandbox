@@ -36,29 +36,73 @@ class Iterators_Type<string name, string typeMnemonic, list<Trait> traits = []>
 //     well.
 //===----------------------------------------------------------------------===//
 
+/// List of printable float types.
+def Iterators_PrintableFloatType :
+  FloatOfWidths<[16, 32, 64]>;
+
+/// List of bit-widths of printable integer types.
+def Iterators_PrintableIntegerBitWidths {
+  list<int> widths = [ 1,  2,  3,  4,  5,  6,  7,  8,  9, 10,
+                      11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                      21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                      31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                      41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+                      51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+                      61, 62, 63, 64];
+}
+
+/// Printable integer type.
+def Iterators_PrintableIntegerType :
+  SignlessIntOfWidths<Iterators_PrintableIntegerBitWidths.widths>;
+
+/// Printable complex type.
+def Iterators_PrintableComplexType : Type<Or<[
+  Complex<Iterators_PrintableFloatType>.predicate,
+  Complex<Iterators_PrintableIntegerType>.predicate,
+  ]>>;
+
+/// Any printable numeric type (i.e., any printable complex, float, or integer
+/// type).
+def Iterators_PrintableNumericType : AnyTypeOf<[
+    Iterators_PrintableComplexType,
+    Iterators_PrintableFloatType,
+    Iterators_PrintableIntegerType,
+    Index
+  ]>;
+
+/// Attribute of a printable numeric type.
+def Iterators_PrintableNumericAttr
+  : Attr<SubstLeaves<"$_self",
+                     "$_self.isa<TypedAttr>() && $_self.cast<TypedAttr>().getType()",
+                     Iterators_PrintableNumericType.predicate>,
+        "any printable numeric type">;
+
+/// Array of printable numeric attributes.
+def Iterators_PrintableNumericArrayAttr
+  : TypedArrayAttrBase<Iterators_PrintableNumericAttr,
+                       "array of printable numeric types">;
+
 /// List of LLVM-compatible numeric types.
-def Iterators_NumericTypes {
+def Iterators_NumericLLVMTypes {
   list<Type> types = [I1, I8, I16, I32, I64,
                       F16, F32, F64];
 }
 
-/// Any LLVM-compatible numeric types..
-def Iterators_AnyNumeric
-  : AnyTypeOf<Iterators_NumericTypes.types>;
+/// Any LLVM-compatible numeric type.
+def Iterators_AnyLLVMNumeric
+  : AnyTypeOf<Iterators_NumericLLVMTypes.types>;
 
-/// A tuple consisting only of numeric types.
-def Iterators_TupleOfNumerics : TupleOf<Iterators_NumericTypes.types>;
-
-/// Attribute of numeric type.
-def Iterators_NumericAttr
+/// Attribute of an LLVM-compatible numeric type.
+def Iterators_LLVMNumericAttr
   : Attr<SubstLeaves<"$_self",
                      "$_self.isa<TypedAttr>() && $_self.cast<TypedAttr>().getType()",
-                     Iterators_AnyNumeric.predicate>,
-        "any numeric type">;
+                     Iterators_AnyLLVMNumeric.predicate>,
+        "any LLVM-compatible numeric type">;
 
-/// Array of numeric attributes.
-def Iterators_NumericArrayAttr
-  : TypedArrayAttrBase<Iterators_NumericAttr, "array of numeric types">;
+/// Array of LLVM-compatible numeric attributes.
+def Iterators_LLVMNumericArrayAttr
+  : TypedArrayAttrBase<Iterators_LLVMNumericAttr,
+                       "array of LLVM-compatible numeric types">;
 
 /// An LLVMStructType where the body only uses the provided types.
 class Iterators_LLVMStructOf<list<Type> allowedTypes>
@@ -68,7 +112,42 @@ class Iterators_LLVMStructOf<list<Type> allowedTypes>
 
 /// An LLVMStructType where the body only uses numeric types.
 def Iterators_LLVMStructOfNumerics
-  : Iterators_LLVMStructOf<Iterators_NumericTypes.types>;
+  : Iterators_LLVMStructOf<Iterators_NumericLLVMTypes.types>;
+
+/// An LLVMStructType where the body only uses the given type or structs with
+/// the same restriction (i.e., an LLVMStructType whose flattened element types
+/// match the provided type).
+class Iterators_NestedLLVMStructOf<Type type>
+  : Type<
+      And<[
+        LLVM_AnyStruct.predicate,
+        Concat<
+          "[&](){"
+          "  std::function<void(::mlir::Type, ::llvm::SmallVector<Type>&)>"
+          "    getFlattenedTypes;"
+          "  getFlattenedTypes ="
+          "    [&getFlattenedTypes](::mlir::Type type,"
+          "                         ::llvm::SmallVector<Type>& result) -> void {"
+          "      if (auto structType = type.dyn_cast<::mlir::LLVM::LLVMStructType>()) {"
+          "        for (Type t : structType.getBody())"
+          "          getFlattenedTypes(t, result);"
+          "      } else"
+          "        result.push_back(type);"
+          "    };"
+          "  ::llvm::SmallVector<Type> nestedTypes;"
+          "  getFlattenedTypes($_self, nestedTypes);"
+          "  return ::llvm::all_of(nestedTypes, [](Type t) { "
+          "    return t && (",
+          SubstLeaves<"$_self", "t", type.predicate>,
+          "        ); });"
+          "}()"
+        >
+      ]>,
+      "LLVM struct with any combination of " # type.summary # " values">;
+
+/// An LLVMStructType whose nested element types are all numerics.
+def Iterators_NestedLLVMStructOfNumerics
+  : Iterators_NestedLLVMStructOf<Iterators_AnyLLVMNumeric>;
 
 /// ArrayAttr where the attribute elements are again ArrayAttrs.
 def Iterators_ArrayArrayAttr
@@ -99,17 +178,30 @@ def Iterators_HomogeneouslyTypedArrayArrayAttr
                  [Iterators_HomogeneouslyTypedArrayArrayAttrConstraint]>;
 
 /// ArrayAttr of ArrayAttr where the inner ArrayAttrs have matching element
-/// types and all those types are numeric.
-def Iterators_HomogeneouslyTypedNumericArrayArrayAttr
+/// types and all those types are LLVM-compatible numerics.
+def Iterators_HomogeneouslyTypedLLVMNumericArrayArrayAttr
   : ConfinedAttr<Iterators_ArrayArrayAttr, [
         Iterators_HomogeneouslyTypedArrayArrayAttrConstraint,
         AttrConstraint<
           Or<[
             CPred<"$_self.dyn_cast<::mlir::ArrayAttr>().size() == 0">,
             SubstLeaves<"$_self", "(*($_self.dyn_cast<::mlir::ArrayAttr>().begin()))",
-                        Iterators_NumericArrayAttr.predicate>]>,
+                        Iterators_LLVMNumericArrayAttr.predicate>]>,
           "and where the inner arrays consist of numeric values">
       ]>;
+
+/// Any printable type.
+def Iterators_PrintableType : AnyTypeOf<[
+    Iterators_PrintableNumericType,
+    Iterators_NestedLLVMStructOfNumerics
+  ]>;
+
+/// A tuple consisting only of printable types.
+def Iterators_TupleOfPrintableTypes : TupleOf<[Iterators_PrintableType]>;
+
+/// A potentially nested tuple consisting only of printable types.
+def Iterators_NestedTupleOfPrintableTypes
+  : NestedTupleOf<[Iterators_PrintableType]>;
 
 //===----------------------------------------------------------------------===//
 // Streams (i.e., the data types passed between iterators).

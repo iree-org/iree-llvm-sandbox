@@ -15,6 +15,7 @@
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
+#include "mlir/Dialect/Complex/IR/Complex.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -183,6 +184,104 @@ struct PrintTupleOpLowering : public OpConversionPattern<PrintTupleOp> {
   }
 };
 
+/// Builds IR that prints the given value by appending the required place
+/// holders to the given format string and the corresponding arguments to printf
+/// to the given list of arguments. This function is mainly a type switch to
+/// type-specific implementations.
+static void buildFormatStringAndArguments(Value value, RewriterBase &rewriter,
+                                          Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments);
+
+/// Builds the format string and the corresponding arguments for a value of
+/// ComplexType.
+static void buildFormatStringAndArguments(ComplexType type, Value value,
+                                          RewriterBase &rewriter, Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments) {
+  Value re = rewriter.create<complex::ReOp>(loc, value);
+  buildFormatStringAndArguments(re, rewriter, loc, format, arguments);
+  format.append(" + ");
+  Value im = rewriter.create<complex::ImOp>(loc, value);
+  buildFormatStringAndArguments(im, rewriter, loc, format, arguments);
+  format.append("i");
+}
+
+/// Builds the argument(s) to printf for a value of a numeric type by extending
+/// that value to the numeric type provided as target type (which must have at
+/// least as many bits) using the template argument for the corresponding "ext"
+/// op.
+template <typename ExtOpT>
+static void buildNumericArgument(Type targetType, Value value,
+                                 RewriterBase &rewriter, Location loc,
+                                 SmallVectorImpl<Value> &arguments) {
+  Type type = value.getType();
+  if (type != targetType) {
+    auto extValue = rewriter.create<ExtOpT>(loc, targetType, value);
+    arguments.push_back(extValue);
+  } else
+    arguments.push_back(value);
+}
+
+/// Builds the format string and the corresponding arguments for a value of
+/// FloatType.
+static void buildFormatStringAndArguments(FloatType type, Value value,
+                                          RewriterBase &rewriter, Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments) {
+  Type f64 = rewriter.getF64Type();
+  buildNumericArgument<arith::ExtFOp>(f64, value, rewriter, loc, arguments);
+  format.append("%lg");
+}
+
+/// Builds the format string and the corresponding arguments for a value of
+/// IntegerType.
+static void buildFormatStringAndArguments(IntegerType type, Value value,
+                                          RewriterBase &rewriter, Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments) {
+  assert(type.isSignlessInteger());
+  Type i64 = rewriter.getI64Type();
+  buildNumericArgument<arith::ExtUIOp>(i64, value, rewriter, loc, arguments);
+  format.append("%llu");
+}
+
+/// Builds the format string and the corresponding arguments for a value of
+/// LLVMStructType.
+static void buildFormatStringAndArguments(LLVMStructType type, Value value,
+                                          RewriterBase &rewriter, Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments) {
+  format.append("(");
+  for (auto [idx, elementType] : llvm::enumerate(type.getBody())) {
+    auto element = rewriter.create<LLVM::ExtractValueOp>(loc, value, idx);
+    buildFormatStringAndArguments(element, rewriter, loc, format, arguments);
+    if (idx < type.getBody().size() - 1)
+      format.append(", ");
+  }
+  format.append(")");
+}
+
+static void buildFormatStringAndArguments(Value value, RewriterBase &rewriter,
+                                          Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments) {
+  Type type = value.getType();
+  llvm::TypeSwitch<Type>(type)
+      .Case<
+          // clang-format off
+          ComplexType,
+          FloatType,
+          IntegerType,
+          LLVMStructType
+          // clang-format on
+          >([&](auto type) {
+        return buildFormatStringAndArguments(type, value, rewriter, loc, format,
+                                             arguments);
+      })
+      .Default([](auto) { assert(false && "encountered unexpected type"); });
+}
+
 struct PrintOpLowering : public OpConversionPattern<PrintOp> {
   PrintOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                   PatternBenefit benefit = 1)
@@ -194,57 +293,23 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     Location loc = op->getLoc();
     Type i32 = rewriter.getI32Type();
 
-    auto structType = adaptor.getElement().getType().cast<LLVMStructType>();
-
     // Assemble format string in the form `(%lli, %lg, ...)`.
-    std::string format("(");
-    llvm::raw_string_ostream formatStream(format);
-    llvm::interleaveComma(structType.getBody(), formatStream, [&](Type type) {
-      // We extend lower-precision values later, so use the maximum width for
-      // each type category.
-      StringRef specifier;
-      assert(type.isSignlessIntOrFloat());
-      if (type.isSignlessInteger()) {
-        specifier = "%lli";
-      } else {
-        specifier = "%lg";
-      }
-      formatStream << specifier;
-    });
-    format += ")\n\0"s;
+    SmallString<128> format;
+    SmallVector<Value> arguments = {/*formatSpec=*/Value()};
+    buildFormatStringAndArguments(op.getElement(), rewriter, loc, format,
+                                  arguments);
+    format += "\n\0"s;
 
     // Insert format string as global.
     auto module = op->getParentOfType<ModuleOp>();
-    StringRef tupleName =
-        (structType.isIdentified() ? structType.getName() : "anonymous_tuple");
     Value formatSpec = getOrCreateGlobalString(
-        rewriter, Twine("frmt_spec.") + tupleName, format, module,
-        /*makeUnique=*/!structType.isIdentified());
-
-    // Assemble arguments to printf.
-    SmallVector<Value, 8> values = {formatSpec};
-    ArrayRef<Type> fieldTypes = structType.getBody();
-    for (auto [idx, fieldType] : llvm::enumerate(fieldTypes)) {
-      // Extract from struct.
-      Value value = rewriter.create<LLVM::ExtractValueOp>(
-          loc, fieldType, adaptor.getElement(), idx);
-
-      // Extend.
-      Value extValue;
-      if (fieldType.isSignlessInteger()) {
-        Type i64 = rewriter.getI64Type();
-        extValue = rewriter.create<ZExtOp>(loc, i64, value);
-      } else {
-        Type f64 = rewriter.getF64Type();
-        extValue = rewriter.create<FPExtOp>(loc, f64, value);
-      }
-
-      values.push_back(extValue);
-    }
+        rewriter, Twine("iterators.frmt_spec"), format, module,
+        /*makeUnique=*/true);
+    arguments[0] = formatSpec;
 
     // Generate call to printf.
     FlatSymbolRefAttr printfRef = lookupOrInsertPrintf(rewriter, module);
-    rewriter.create<LLVM::CallOp>(loc, i32, printfRef, values);
+    rewriter.create<LLVM::CallOp>(loc, i32, printfRef, arguments);
     rewriter.eraseOp(op);
     return success();
   }
