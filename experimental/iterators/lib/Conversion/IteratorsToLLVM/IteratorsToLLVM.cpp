@@ -13,6 +13,7 @@
 #include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
+#include "iterators/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
@@ -50,18 +51,7 @@ class IteratorsTypeConverter : public TypeConverter {
 public:
   IteratorsTypeConverter() {
     addConversion([](Type type) { return type; });
-    addConversion(convertTupleType);
     addConversion(TabularTypeConverter::convertTabularViewType);
-  }
-
-private:
-  /// Maps a TupleType to a corresponding LLVMStructType.
-  static Optional<Type> convertTupleType(Type type) {
-    if (auto tupleType = type.dyn_cast<TupleType>()) {
-      return LLVMStructType::getNewIdentified(type.getContext(), "tuple",
-                                              tupleType.getTypes());
-    }
-    return std::nullopt;
   }
 };
 
@@ -143,41 +133,21 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
   matchAndRewrite(ConstantTupleOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
+    ImplicitLocOpBuilder b(loc, rewriter);
 
-    // Convert tuple type.
-    Type tupleType = op.getTuple().getType();
-    Type structType = typeConverter->convertType(tupleType);
-
-    // Undef.
-    Value structValue = rewriter.create<UndefOp>(loc, structType);
-
-    // Insert values.
-    ArrayAttr values = op.getValues();
-    for (auto [idx, field] : llvm::enumerate(values)) {
-      // Create constant value op.
+    // Create values as constants.
+    SmallVector<Value> elements;
+    for (auto [idx, field] : llvm::enumerate(op.getValues())) {
       Type fieldType = field.cast<TypedAttr>().getType();
-      auto valueOp = rewriter.create<arith::ConstantOp>(loc, fieldType, field);
-
-      // Insert into struct.
-      structValue =
-          rewriter.create<LLVM::InsertValueOp>(loc, structValue, valueOp, idx);
+      auto element = b.create<arith::ConstantOp>(fieldType, field);
+      elements.push_back(element);
     }
 
-    rewriter.replaceOp(op, structValue);
-    return success();
-  }
-};
+    // Assemble tuple from elements.
+    Type tupleType = op.getTuple().getType();
+    Value tuple = b.create<tuple::FromElementsOp>(tupleType, elements);
+    rewriter.replaceOp(op, tuple);
 
-/// Applies of 1-to-1 conversion of the given PrintTupleOp to a PrintOp.
-struct PrintTupleOpLowering : public OpConversionPattern<PrintTupleOp> {
-  PrintTupleOpLowering(TypeConverter &typeConverter, MLIRContext *context,
-                       PatternBenefit benefit = 1)
-      : OpConversionPattern(typeConverter, context, benefit) {}
-
-  LogicalResult
-  matchAndRewrite(PrintTupleOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<PrintOp>(op, adaptor.getTuple());
     return success();
   }
 };
@@ -260,6 +230,21 @@ static void buildFormatStringAndArguments(LLVMStructType type, Value value,
   format.append(")");
 }
 
+static void buildFormatStringAndArguments(TupleType type, Value value,
+                                          RewriterBase &rewriter, Location loc,
+                                          SmallString<128> &format,
+                                          SmallVectorImpl<Value> &arguments) {
+  format.append("(");
+  auto elements =
+      rewriter.create<tuple::ToElementsOp>(loc, type.getTypes(), value);
+  for (auto [idx, element] : llvm::enumerate(elements->getResults())) {
+    buildFormatStringAndArguments(element, rewriter, loc, format, arguments);
+    if (idx < type.getTypes().size() - 1)
+      format.append(", ");
+  }
+  format.append(")");
+}
+
 static void buildFormatStringAndArguments(Value value, RewriterBase &rewriter,
                                           Location loc,
                                           SmallString<128> &format,
@@ -271,7 +256,8 @@ static void buildFormatStringAndArguments(Value value, RewriterBase &rewriter,
           ComplexType,
           FloatType,
           IntegerType,
-          LLVMStructType
+          LLVMStructType,
+          TupleType
           // clang-format on
           >([&](auto type) {
         return buildFormatStringAndArguments(type, value, rewriter, loc, format,
@@ -1863,7 +1849,6 @@ void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       ConstantTupleLowering,
-      PrintTupleOpLowering,
       PrintOpLowering
       // clang-format on
       >(typeConverter, patterns.getContext());
@@ -1878,7 +1863,8 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<arith::ArithDialect, LLVMDialect, scf::SCFDialect>();
+  target.addLegalDialect<arith::ArithDialect, LLVMDialect, scf::SCFDialect,
+                         tuple::TupleDialect>();
   target.addLegalOp<ModuleOp, CreateStateOp, iterators::ExtractValueOp,
                     iterators::InsertValueOp>();
   RewritePatternSet patterns(&getContext());

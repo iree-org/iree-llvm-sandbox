@@ -9,6 +9,7 @@
 #ifndef LIB_CONVERSION_PASSDETAIL_H
 #define LIB_CONVERSION_PASSDETAIL_H
 
+#include "iterators/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"

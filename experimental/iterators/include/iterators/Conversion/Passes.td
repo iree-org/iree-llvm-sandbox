@@ -54,7 +54,8 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
   let dependentDialects = [
     "func::FuncDialect",
     "LLVM::LLVMDialect",
-    "scf::SCFDialect"
+    "scf::SCFDialect",
+    "tuple::TupleDialect"
   ];
 }
 

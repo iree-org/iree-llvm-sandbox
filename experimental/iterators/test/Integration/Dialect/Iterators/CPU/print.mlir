@@ -1,9 +1,12 @@
-// RUN: iterators-opt %s -convert-iterators-to-llvm -cse -convert-func-to-llvm | \
+// RUN: iterators-opt %s \
+// RUN:   -convert-iterators-to-llvm \
+// RUN:   -decompose-tuples \
+// RUN:   -cse -convert-func-to-llvm | \
 // RUN: mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
 func.func @print_empty_tuple(%tuple : tuple<>) -> () {
-  "iterators.printtuple"(%tuple) : (tuple<>) -> ()
+  iterators.print(%tuple) : tuple<>
   return
 }
 
@@ -30,24 +33,24 @@ func.func @main() {
   iterators.print()
 
   %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
-  "iterators.printtuple"(%empty_tuple) : (tuple<>) -> ()
+  iterators.print(%empty_tuple) : tuple<>
   // CHECK:      ()
 
   func.call @print_empty_tuple(%empty_tuple) : (tuple<>) -> ()
   // CHECK-NEXT: ()
 
   %one_field_tuple = "iterators.constanttuple"() { values = [1 : i32] } : () -> tuple<i32>
-  "iterators.printtuple"(%one_field_tuple) : (tuple<i32>) -> ()
+  iterators.print(%one_field_tuple) : tuple<i32>
   // CHECK-NEXT: (1)
 
   %three_field_tuple = "iterators.constanttuple"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
-  "iterators.printtuple"(%three_field_tuple) : (tuple<i32, i32, i32>) -> ()
+  iterators.print(%three_field_tuple) : tuple<i32, i32, i32>
   // CHECK-NEXT: (1, 2, 3)
 
   %mixed_field_tuple = "iterators.constanttuple"()
       { values = [1 : i1, 2 : i8, 3 : i16, 4 : i32, 5 : i64, 8.5 : f16, 8.25 : f32, 8.125 : f64] }
       : () -> tuple<i1, i8, i16, i32, i64, f16, f32, f64>
-  "iterators.printtuple"(%mixed_field_tuple) : (tuple<i1, i8, i16, i32, i64, f16, f32, f64>) -> ()
+  iterators.print(%mixed_field_tuple) : tuple<i1, i8, i16, i32, i64, f16, f32, f64>
   // CHECK-NEXT: (1, 2, 3, 4, 5, 8.5, 8.25, 8.125)
 
   %i1 = arith.constant false
