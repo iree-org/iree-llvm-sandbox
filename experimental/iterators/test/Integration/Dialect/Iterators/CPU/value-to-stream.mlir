@@ -7,12 +7,10 @@
 // RUN: | FileCheck %s
 
 func.func @main() {
-  %i = arith.constant 42 : i32
-  %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %value = llvm.insertvalue %i, %undef[0] : !llvm.struct<(i32)>
+  %value = arith.constant 42 : i32
   %stream = iterators.value_to_stream %value :
-                !iterators.stream<!llvm.struct<(i32)>>
-  "iterators.sink"(%stream) : (!iterators.stream<!llvm.struct<(i32)>>) -> ()
-  // CHECK: (42)
+                !iterators.stream<i32>
+  "iterators.sink"(%stream) : (!iterators.stream<i32>) -> ()
+  // CHECK: 42
   return
 }

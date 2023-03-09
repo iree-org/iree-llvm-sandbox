@@ -37,12 +37,6 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
   return %i : i32
 }
 
-func.func private @pack_i32(%input : i32) -> !i32_struct {
-  %undef = llvm.mlir.undef : !i32_struct
-  %result =  llvm.insertvalue %input, %undef[0] : !i32_struct
-  return %result : !i32_struct
-}
-
 func.func @reduce_sum_i32() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [10 : i32], [20 : i32], [30 : i32]] }
@@ -51,10 +45,8 @@ func.func @reduce_sum_i32() {
     : (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
   %reduced = "iterators.reduce"(%unpacked) {reduceFuncRef = @sum_i32}
     : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
-  %repacked = "iterators.map"(%reduced) {mapFuncRef = @pack_i32}
-    : (!iterators.stream<i32>) -> (!iterators.stream<!i32_struct>)
-  "iterators.sink"(%repacked) : (!iterators.stream<!i32_struct>) -> ()
-  // CHECK:      (60)
+  "iterators.sink"(%reduced) : (!iterators.stream<i32>) -> ()
+  // CHECK:      60
   return
 }
 

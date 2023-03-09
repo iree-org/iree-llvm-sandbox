@@ -38,12 +38,6 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
   return %i : i32
 }
 
-func.func private @pack_i32(%input : i32) -> !i32_struct {
-  %undef = llvm.mlir.undef : !i32_struct
-  %result =  llvm.insertvalue %input, %undef[0] : !i32_struct
-  return %result : !i32_struct
-}
-
 func.func @filter_is_positive_i32() {
   %input = "iterators.constantstream"()
     { value = [[0: i32], [2: i32], [-2: i32], [4: i32], [-4: i32]] }
@@ -52,11 +46,9 @@ func.func @filter_is_positive_i32() {
     : (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
   %filtered = "iterators.filter"(%unpacked) {predicateRef = @is_positive_i32}
     : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
-  %repacked = "iterators.map"(%filtered) {mapFuncRef = @pack_i32}
-    : (!iterators.stream<i32>) -> (!iterators.stream<!i32_struct>)
-  "iterators.sink"(%repacked) : (!iterators.stream<!i32_struct>) -> ()
-  // CHECK:      (2)
-  // CHECK-NEXT: (4)
+  "iterators.sink"(%filtered) : (!iterators.stream<i32>) -> ()
+  // CHECK:      2
+  // CHECK-NEXT: 4
   return
 }
 

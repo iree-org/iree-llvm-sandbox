@@ -76,25 +76,17 @@ func.func private @q6_predicate(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i1 {
   return %result : i1
 }
 
-func.func private @compute_discounted_price(%input : !llvm.struct<(i8,i32,i8,i16)>)
-    -> !llvm.struct<(i32)> {
+func.func private @compute_discounted_price(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i32 {
   %extendedprice = llvm.extractvalue %input[1] : !llvm.struct<(i8,i32,i8,i16)>
   %discount = llvm.extractvalue %input[2] : !llvm.struct<(i8,i32,i8,i16)>
   %discount_i32 = llvm.zext %discount : i8 to i32
-  %resulti = arith.muli %extendedprice, %discount_i32 : i32
-  %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %result = llvm.insertvalue %resulti, %undef[0] : !llvm.struct<(i32)>
-  return %result : !llvm.struct<(i32)>
+  %result = arith.muli %extendedprice, %discount_i32 : i32
+  return %result : i32
 }
 
-func.func private @sum_struct(%lhs : !llvm.struct<(i32)>,
-                              %rhs : !llvm.struct<(i32)>)
-    -> !llvm.struct<(i32)> {
-  %lhsi = llvm.extractvalue %lhs[0] : !llvm.struct<(i32)>
-  %rhsi = llvm.extractvalue %rhs[0] : !llvm.struct<(i32)>
-  %i = arith.addi %lhsi, %rhsi : i32
-  %result = llvm.insertvalue %i, %lhs[0] : !llvm.struct<(i32)>
-  return %result : !llvm.struct<(i32)>
+func.func private @sum(%lhs : i32, %rhs : i32) -> i32 {
+  %result = arith.addi %lhs, %rhs : i32
+  return %result : i32
 }
 
 func.func @main() {
@@ -118,15 +110,14 @@ func.func @main() {
   // Project to l_extendedprice * l_discount (in 1/100 cents).
   %mapped = "iterators.map"(%filtered) { mapFuncRef = @compute_discounted_price }
     : (!iterators.stream<!llvm.struct<(i8,i32,i8,i16)>>)
-      -> (!iterators.stream<!llvm.struct<(i32)>>)
+      -> (!iterators.stream<i32>)
 
   // Sum up values.
-  %reduced = "iterators.reduce"(%mapped) { reduceFuncRef = @sum_struct }
-    : (!iterators.stream<!llvm.struct<(i32)>>)
-      -> (!iterators.stream<!llvm.struct<(i32)>>)
+  %reduced = "iterators.reduce"(%mapped) { reduceFuncRef = @sum }
+    : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
 
   "iterators.sink"(%reduced)
-    : (!iterators.stream<!llvm.struct<(i32)>>) -> ()
-  // CHECK: (28128180)
+    : (!iterators.stream<i32>) -> ()
+  // CHECK: 28128180
   return
 }

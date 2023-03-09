@@ -7,39 +7,30 @@
 // RUN: | FileCheck %s
 
 func.func @test_non_empty() {
-  %i = arith.constant 42 : i32
-  %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %value = llvm.insertvalue %i, %undef[0] : !llvm.struct<(i32)>
-  %stream = iterators.value_to_stream %value :
-                !iterators.stream<!llvm.struct<(i32)>>
-  %result:2 = iterators.stream_to_value %stream :
-                  !iterators.stream<!llvm.struct<(i32)>>
+  %value = arith.constant 42 : i32
+  %stream = iterators.value_to_stream %value : !iterators.stream<i32>
+  %result:2 = iterators.stream_to_value %stream : !iterators.stream<i32>
   scf.if %result#1 {
-    "iterators.print"(%result) : (!llvm.struct<(i32)>) -> ()
-    // CHECK: (42)
+    "iterators.print"(%result) : (i32) -> ()
+    // CHECK: 42
   }
   return
 }
 
-func.func private @return_false(%struct : !llvm.struct<(i32)>) -> i1 {
+func.func private @return_false(%arg : i32) -> i1 {
   %false = arith.constant false
   return %false : i1
 }
 
 func.func @test_empty() {
-  %i = arith.constant 1337 : i32
-  %undef = llvm.mlir.undef : !llvm.struct<(i32)>
-  %value = llvm.insertvalue %i, %undef[0] : !llvm.struct<(i32)>
-  %stream = iterators.value_to_stream %value :
-                !iterators.stream<!llvm.struct<(i32)>>
+  %value = arith.constant 1337 : i32
+  %stream = iterators.value_to_stream %value : !iterators.stream<i32>
   %filtered = "iterators.filter"(%stream) {predicateRef = @return_false} :
-      (!iterators.stream<!llvm.struct<(i32)>>) ->
-          (!iterators.stream<!llvm.struct<(i32)>>)
-  %result:2 = iterators.stream_to_value %filtered :
-                  !iterators.stream<!llvm.struct<(i32)>>
+      (!iterators.stream<i32>) -> (!iterators.stream<i32>)
+  %result:2 = iterators.stream_to_value %filtered : !iterators.stream<i32>
   // This shouldn't print anything.
   scf.if %result#1 {
-    "iterators.print"(%result) : (!llvm.struct<(i32)>) -> ()
+    "iterators.print"(%result) : (i32) -> ()
   }
   // Check that next match is the given tuple to ensure that above print wasn't
   // executed.
