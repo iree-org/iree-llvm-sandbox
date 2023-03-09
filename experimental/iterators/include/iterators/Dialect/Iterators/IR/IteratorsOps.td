@@ -361,7 +361,7 @@ def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
 /// It is not marked with Iterators_IteratorOpInterface.
 def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
   let summary = "Consume tuples from an iterator";
-  let arguments = (ins Iterators_StreamOfLLVMStructOfNumerics:$input);
+  let arguments = (ins Iterators_StreamOfPrintableElements:$input);
 }
 
 def Iterators_StreamToValueOp : Iterators_Base_Op<"stream_to_value",

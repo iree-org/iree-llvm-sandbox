@@ -233,6 +233,10 @@ class Iterators_StreamOf<Type elementType>
 def Iterators_StreamOfLLVMStructOfNumerics
   : Iterators_StreamOf<Iterators_LLVMStructOfNumerics>;
 
+/// An Iterators stream of printable elements.
+def Iterators_StreamOfPrintableElements
+  : Iterators_StreamOf<Iterators_PrintableType>;
+
 /// Predicate to verify that a named argument or result's stream type matches a
 /// given type.
 class Iterators_IsStreamOfPred<string name, Type type>
