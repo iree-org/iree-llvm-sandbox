@@ -19,6 +19,7 @@
 #include "iterators/Dialect/Iterators/Transforms/Passes.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Dialect/Tuple/IR/Tuple.h"
+#include "iterators/Dialect/Tuple/Transforms/Passes.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -41,6 +42,7 @@ int main(int argc, char **argv) {
   registerAllPasses();
   registerIteratorsConversionPasses();
   registerIteratorsPasses();
+  registerTuplePasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
