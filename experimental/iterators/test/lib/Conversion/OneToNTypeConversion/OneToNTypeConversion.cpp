@@ -315,8 +315,10 @@ LogicalResult applyOneToNConversion(Operation *op,
 #endif // NDEBUG
 
   // Apply provided conversion patterns.
-  if (failed(applyPatternsAndFoldGreedily(op, patterns)))
+  if (failed(applyPatternsAndFoldGreedily(op, patterns))) {
+    emitError(op->getLoc()) << "failed to apply conversion patterns";
     return failure();
+  }
 
   // Find all unrealized casts inserted by the pass that haven't folded away.
   SmallVector<UnrealizedConversionCastOp> worklist;
@@ -355,8 +357,11 @@ LogicalResult applyOneToNConversion(Operation *op,
       std::optional<SmallVector<Value>> maybeResults =
           typeConverter.materializeTargetConversion(
               rewriter, castOp->getLoc(), resultTypes, operands.front());
-      if (!maybeResults)
+      if (!maybeResults) {
+        emitError(castOp->getLoc())
+            << "failed to create target materialization";
         return failure();
+      }
       materializedResults = maybeResults.value();
     } else {
       // Source and argument materializations.
@@ -378,8 +383,11 @@ LogicalResult applyOneToNConversion(Operation *op,
             rewriter, castOp->getLoc(), resultTypes.front(),
             castOp.getOperands());
       }
-      if (!maybeResult.has_value() || !maybeResult.value())
+      if (!maybeResult.has_value() || !maybeResult.value()) {
+        emitError(castOp->getLoc())
+            << "failed to create " << castKind << " materialization";
         return failure();
+      }
       materializedResults = {maybeResult.value()};
     }
 
