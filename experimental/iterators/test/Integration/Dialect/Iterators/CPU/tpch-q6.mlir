@@ -1,6 +1,7 @@
 // RUN: iterators-opt %s \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -decompose-iterator-states \
+// RUN:   -decompose-tuples \
 // RUN:   -convert-func-to-llvm \
 // RUN:   -convert-scf-to-cf -convert-cf-to-llvm \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
@@ -33,10 +34,9 @@
 //    - 0.06 + 0.01 (l_discount): 7 : i8
 //    - 24 (l_quantity): 24 : i8
 
-func.func private @q6_predicate(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i1 {
-  %quantity = llvm.extractvalue %input[0] : !llvm.struct<(i8,i32,i8,i16)>
-  %discount = llvm.extractvalue %input[2] : !llvm.struct<(i8,i32,i8,i16)>
-  %shipdate = llvm.extractvalue %input[3] : !llvm.struct<(i8,i32,i8,i16)>
+func.func private @q6_predicate(%input : tuple<i8, i32, i8, i16>) -> i1 {
+  %quantity, %extendedprice, %discount, %shipdate =
+    tuple.to_elements %input : tuple<i8, i32, i8, i16>
 
   // Test lower bound on shipdate.
   %c8766 = arith.constant 8677 : i16
@@ -76,9 +76,9 @@ func.func private @q6_predicate(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i1 {
   return %result : i1
 }
 
-func.func private @compute_discounted_price(%input : !llvm.struct<(i8,i32,i8,i16)>) -> i32 {
-  %extendedprice = llvm.extractvalue %input[1] : !llvm.struct<(i8,i32,i8,i16)>
-  %discount = llvm.extractvalue %input[2] : !llvm.struct<(i8,i32,i8,i16)>
+func.func private @compute_discounted_price(%input : tuple<i8, i32, i8, i16>) -> i32 {
+  %quantity, %extendedprice, %discount, %shipdate =
+    tuple.to_elements %input : tuple<i8, i32, i8, i16>
   %discount_i32 = llvm.zext %discount : i8 to i32
   %result = arith.muli %extendedprice, %discount_i32 : i32
   return %result : i32
@@ -100,16 +100,16 @@ func.func @main() {
         [ 11 : i8, 1847703 : i32, 1 : i8, 8841 : i16 ],
         [ 37 : i8, 3952081 : i32, 9 : i8, 8809 : i16 ],
         [ 19 : i8, 3060235 : i32, 6 : i8, 8791 : i16 ]] }
-      : () -> (!iterators.stream<!llvm.struct<(i8,i32,i8,i16)>>)
+      : () -> (!iterators.stream<tuple<i8, i32, i8, i16>>)
 
   // Apply filter from WHERE clause.
   %filtered = "iterators.filter"(%lineitem) { predicateRef = @q6_predicate }
-    : (!iterators.stream<!llvm.struct<(i8,i32,i8,i16)>>)
-      -> (!iterators.stream<!llvm.struct<(i8,i32,i8,i16)>>)
+    : (!iterators.stream<tuple<i8, i32, i8, i16>>)
+      -> (!iterators.stream<tuple<i8, i32, i8, i16>>)
 
   // Project to l_extendedprice * l_discount (in 1/100 cents).
   %mapped = "iterators.map"(%filtered) { mapFuncRef = @compute_discounted_price }
-    : (!iterators.stream<!llvm.struct<(i8,i32,i8,i16)>>)
+    : (!iterators.stream<tuple<i8, i32, i8, i16>>)
       -> (!iterators.stream<i32>)
 
   // Sum up values.
