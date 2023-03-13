@@ -230,6 +230,10 @@ class Iterators_StreamOf<Type elementType>
 def Iterators_StreamOfLLVMStructOfNumerics
   : Iterators_StreamOf<Iterators_LLVMStructOfNumerics>;
 
+/// An Iterators stream of tuples of printable types.
+def Iterators_StreamOfPrintableTuples
+  : Iterators_StreamOf<Iterators_TupleOfPrintableTypes>;
+
 /// An Iterators stream of printable elements.
 def Iterators_StreamOfPrintableElements
   : Iterators_StreamOf<Iterators_PrintableType>;
