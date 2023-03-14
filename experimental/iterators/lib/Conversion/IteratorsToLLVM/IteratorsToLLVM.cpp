@@ -102,12 +102,14 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
   Type i64 = b.getI64Type();
 
   // Determine name of global.
-  llvm::SmallString<64> candidateName;
-  name.toStringRef(candidateName);
+  llvm::SmallString<64> candidateNameStorage;
+  StringRef candidateName = name.toStringRef(candidateNameStorage);
   if (makeUnique) {
     int64_t uniqueNumber = 0;
     while (module.lookupSymbol(candidateName)) {
-      (name + "." + Twine(uniqueNumber)).toStringRef(candidateName);
+      candidateNameStorage.clear();
+      candidateName =
+          (name + "." + Twine(uniqueNumber)).toStringRef(candidateNameStorage);
       uniqueNumber++;
     }
   }
