@@ -11,5 +11,6 @@ add_mlir_conversion_library(MLIRTabularToLLVM
   MLIRLLVMCommonConversion
   MLIRLLVMDialect
   MLIRPass
+  MLIRSCFTransforms
   MLIRTabular
 )
