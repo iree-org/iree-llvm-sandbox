@@ -1,14 +1,15 @@
 // RUN: iterators-opt %s \
+// RUN:   -sparse-buffer-rewrite \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -decompose-iterator-states \
 // RUN:   -decompose-tuples \
 // RUN:   -convert-tabular-to-llvm \
 // RUN:   -inline -canonicalize \
 // RUN:   -arith-bufferize \
+// RUN:   -convert-scf-to-cf \
 // RUN:   -expand-strided-metadata \
 // RUN:   -finalize-memref-to-llvm \
 // RUN:   -convert-func-to-llvm \
-// RUN:   -convert-scf-to-cf \
 // RUN:   -convert-cf-to-llvm \
 // RUN:   -reconcile-unrealized-casts \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
@@ -123,9 +124,56 @@ func.func @test_accumulate_realloc() {
   return
 }
 
+func.func private @accumulate_push_back(
+      %acc : tuple<index, !memref_i32>, %val : tuple<i32>) -> tuple<index, !memref_i32> {
+  %size, %memref = tuple.to_elements %acc : tuple<index, !memref_i32>
+  %vali = tuple.to_elements %val : tuple<i32>
+  %new_memref, %new_size = sparse_tensor.push_back %size, %memref, %vali
+   : index, memref<?xi32>, i32
+  %result = tuple.from_elements %new_size, %new_memref : tuple<index, !memref_i32>
+  return %result : tuple<index, !memref_i32>
+}
+
+// CHECK-LABEL: test_accumulate_push_back
+// CHECK-NEXT:  (11)
+// CHECK-NEXT:  (12)
+// CHECK-NEXT:  (13)
+// CHECK-NEXT:  -
+func.func @test_accumulate_push_back() {
+  iterators.print("test_accumulate_push_back")
+  %tensor = arith.constant dense<[11, 12, 13]> : tensor<3xi32>
+  %memref = bufferization.to_memref %tensor : memref<3xi32>
+  %view = "tabular.view_as_tabular"(%memref)
+    : (memref<3xi32>) -> !tabular.tabular_view<i32>
+  %stream = iterators.tabular_view_to_stream %view
+    to !iterators.stream<tuple<i32>>
+    %zero = arith.constant 0 : index
+  %one = arith.constant 1 : index
+  %alloced = memref.alloc (%one) : !memref_i32
+  %init_value = tuple.from_elements %zero, %alloced : tuple<index, !memref_i32>
+  %accumulated = iterators.accumulate(%stream, %init_value)
+    with @accumulate_push_back
+      : (!iterators.stream<tuple<i32>>)
+        -> !iterators.stream<tuple<index, !memref_i32>>
+  %result:2 = iterators.stream_to_value %accumulated :
+                  !iterators.stream<tuple<index, !memref_i32>>
+  scf.if %result#1 {
+    %result_size, %result_memref = tuple.to_elements %result#0 : tuple<index, !memref_i32>
+    %final_memref = memref.realloc %result_memref (%result_size) : !memref_i32 to !memref_i32
+    %result_view = "tabular.view_as_tabular"(%final_memref)
+      : (memref<?xi32>) -> !tabular.tabular_view<i32>
+    %result_stream = iterators.tabular_view_to_stream %result_view
+      to !iterators.stream<tuple<i32>>
+    "iterators.sink"(%result_stream) : (!iterators.stream<tuple<i32>>) -> ()
+    memref.dealloc %final_memref : !memref_i32
+  }
+  return
+}
+
 func.func @main() {
   call @test_accumulate_sum_tuple() : () -> ()
   call @test_accumulate_avg_tuple() : () -> ()
   call @test_accumulate_realloc() : () -> ()
+  call @test_accumulate_push_back() : () -> ()
   return
 }
