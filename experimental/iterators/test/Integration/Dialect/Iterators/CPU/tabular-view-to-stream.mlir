@@ -14,6 +14,7 @@
 !struct_type = !llvm.struct<(i32,i64)>
 
 func.func @single_block() {
+  iterators.print ("single_block")
   %t1 = arith.constant dense<[0, 1, 2]> : tensor<3xi32>
   %t2 = arith.constant dense<[3, 4, 5]> : tensor<3xi64>
   %m1 = bufferization.to_memref %t1 : memref<3xi32>
@@ -23,9 +24,11 @@ func.func @single_block() {
   %stream = iterators.tabular_view_to_stream %view
     to !iterators.stream<!struct_type>
   "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
-  // CHECK:      (0, 3)
-  // CHECK-NEXT: (1, 4)
-  // CHECK-NEXT: (2, 5)
+  // CHECK-LABEL: single_block
+  // CHECK-NEXT:  (0, 3)
+  // CHECK-NEXT:  (1, 4)
+  // CHECK-NEXT:  (2, 5)
+  // CHECK-NEXT:  -
   return
 }
 
@@ -37,6 +40,7 @@ func.func @query(%view : !tabular.tabular_view<i32,i64>) {
 }
 
 func.func @function_arg() {
+  iterators.print ("function_arg")
   %t1 = arith.constant dense<[9, 8, 7]> : tensor<3xi32>
   %t2 = arith.constant dense<[6, 5, 4]> : tensor<3xi64>
   %m1 = bufferization.to_memref %t1 : memref<3xi32>
@@ -44,9 +48,11 @@ func.func @function_arg() {
   %view = "tabular.view_as_tabular"(%m1, %m2)
     : (memref<3xi32>, memref<3xi64>) -> !tabular.tabular_view<i32,i64>
   func.call @query(%view) : (!tabular.tabular_view<i32,i64>) -> ()
-  // CHECK-NEXT: (9, 6)
-  // CHECK-NEXT: (8, 5)
-  // CHECK-NEXT: (7, 4)
+  // CHECK-LABEL: function_arg
+  // CHECK-NEXT:  (9, 6)
+  // CHECK-NEXT:  (8, 5)
+  // CHECK-NEXT:  (7, 4)
+  // CHECK-NEXT:  -
   return
 }
 

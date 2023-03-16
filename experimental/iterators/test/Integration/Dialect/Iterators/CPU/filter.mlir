@@ -16,14 +16,17 @@ func.func private @is_positive_struct(%struct : !i32_struct) -> i1 {
 }
 
 func.func @filter_is_positive_struct() {
+  iterators.print ("filter_is_positive_struct")
   %input = "iterators.constantstream"()
     { value = [[0: i32], [1: i32], [-1: i32], [2: i32], [-2: i32]] }
     : () -> (!iterators.stream<!i32_struct>)
   %filtered = "iterators.filter"(%input) {predicateRef = @is_positive_struct}
     : (!iterators.stream<!i32_struct>) -> (!iterators.stream<!i32_struct>)
   "iterators.sink"(%filtered) : (!iterators.stream<!i32_struct>) -> ()
-  // CHECK:      (1)
-  // CHECK-NEXT: (2)
+  // CHECK-LABEL: filter_is_positive_struct
+  // CHECK-NEXT:  (1)
+  // CHECK-NEXT:  (2)
+  // CHECK-NEXT:  -
   return
 }
 
@@ -39,6 +42,7 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
 }
 
 func.func @filter_is_positive_i32() {
+  iterators.print ("filter_is_positive_i32")
   %input = "iterators.constantstream"()
     { value = [[0: i32], [2: i32], [-2: i32], [4: i32], [-4: i32]] }
     : () -> (!iterators.stream<!i32_struct>)
@@ -47,8 +51,10 @@ func.func @filter_is_positive_i32() {
   %filtered = "iterators.filter"(%unpacked) {predicateRef = @is_positive_i32}
     : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
   "iterators.sink"(%filtered) : (!iterators.stream<i32>) -> ()
-  // CHECK:      2
-  // CHECK-NEXT: 4
+  // CHECK-LABEL: filter_is_positive_i32
+  // CHECK-NEXT:  2
+  // CHECK-NEXT:  4
+  // CHECK-NEXT:  -
   return
 }
 
