@@ -1535,6 +1535,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// }
 /// %5 = call @iterators.upstream.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
+/// iterators.print("-")
 static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
                                   ArrayRef<IteratorInfo> upstreamInfos,
                                   OpBuilder &rewriter) {
@@ -1597,6 +1598,9 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
 
   // Close input iterator. -----------------------------------------------------
   builder.create<func::CallOp>(closeFunc, stateType, consumedState);
+
+  // Print end-of-stream indicator.
+  builder.create<PrintOp>("-");
 
   return {};
 }
