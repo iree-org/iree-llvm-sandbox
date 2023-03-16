@@ -292,11 +292,13 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     Type i32 = rewriter.getI32Type();
 
     // Assemble format string in the form `(%lli, %lg, ...)`.
-    SmallString<128> format;
+    SmallString<128> format = op.getPrefix();
     SmallVector<Value> arguments = {/*formatSpec=*/Value()};
-    buildFormatStringAndArguments(op.getElement(), rewriter, loc, format,
-                                  arguments);
-    format += "\n\0"s;
+    if (op.getElement())
+      buildFormatStringAndArguments(op.getElement(), rewriter, loc, format,
+                                    arguments);
+    format += op.getSuffix();
+    format += "\0"s;
 
     // Insert format string as global.
     auto module = op->getParentOfType<ModuleOp>();

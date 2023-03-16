@@ -58,7 +58,34 @@ def Iterators_PrintTupleOp : Iterators_Base_Op<"printtuple"> {
 
 def Iterators_PrintOp : Iterators_Base_Op<"print"> {
   let summary = "Prints the given element";
-  let arguments = (ins Iterators_PrintableType:$element);
+  let arguments = (ins
+    DefaultValuedAttr<StrAttr, [{""}]>:$prefix,
+    Optional<Iterators_PrintableType>:$element,
+    DefaultValuedAttr<StrAttr, [{"\n"}]>:$suffix
+  );
+  let assemblyFormat = [{
+    custom<PrintOpArgs>($prefix, $element, $suffix, type($element)) attr-dict
+  }];
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$element), [{
+      $_state.addOperands(element);
+    }]>,
+    OpBuilder<(ins "::llvm::StringRef": $prefix, "::mlir::Value":$element), [{
+      $_state.addOperands(element);
+      $_state.addAttribute("prefix", $_builder.getStringAttr(prefix));
+    }]>,
+    OpBuilder<(ins "::mlir::Value":$element, "::llvm::StringRef": $suffix), [{
+      $_state.addOperands(element);
+      $_state.addAttribute("suffix", $_builder.getStringAttr(suffix));
+    }]>,
+    OpBuilder<(ins "::llvm::StringRef": $prefix, "::llvm::StringRef": $suffix), [{
+      $_state.addAttribute("prefix", $_builder.getStringAttr(prefix));
+      $_state.addAttribute("suffix", $_builder.getStringAttr(suffix));
+    }]>,
+    OpBuilder<(ins "::llvm::StringRef": $prefix), [{
+      $_state.addAttribute("prefix", $_builder.getStringAttr(prefix));
+    }]>
+  ];
 }
 
 //===----------------------------------------------------------------------===//
