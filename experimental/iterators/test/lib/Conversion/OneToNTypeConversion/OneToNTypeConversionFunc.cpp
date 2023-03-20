@@ -43,8 +43,7 @@ public:
                                          convertedOperands);
     newOp->setAttrs(op->getAttrs());
 
-    rewriter.replaceOp(op, SmallVector<Value>(newOp->getResults()),
-                       resultMapping);
+    rewriter.replaceOp(op, ValueRange(newOp->getResults()), resultMapping);
     return success();
   }
 };

@@ -52,8 +52,7 @@ public:
     rewriter.inlineRegionBefore(op.getElseRegion(), newOp.getElseRegion(),
                                 newOp.getElseRegion().end());
 
-    rewriter.replaceOp(op, SmallVector<Value>(newOp->getResults()),
-                       resultMapping);
+    rewriter.replaceOp(op, ValueRange(newOp->getResults()), resultMapping);
     return success();
   }
 };
@@ -95,8 +94,7 @@ public:
       rewriter.inlineRegionBefore(op.getRegion(i), dstRegion, dstRegion.end());
     }
 
-    rewriter.replaceOp(op, SmallVector<Value>(newOp->getResults()),
-                       resultMapping);
+    rewriter.replaceOp(op, ValueRange(newOp->getResults()), resultMapping);
     return success();
   }
 };
