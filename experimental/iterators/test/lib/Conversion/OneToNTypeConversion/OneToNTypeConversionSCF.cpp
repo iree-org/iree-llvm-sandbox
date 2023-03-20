@@ -25,11 +25,11 @@ class ConvertTypesInSCFIfOp : public OneToNOpConversionPattern<IfOp> {
 public:
   using OneToNOpConversionPattern<IfOp>::OneToNOpConversionPattern;
 
-  LogicalResult matchAndRewrite(
-      IfOp op, OneToNPatternRewriter &rewriter,
-      const OneToNTypeMapping & /*operandMapping*/,
-      const OneToNTypeMapping &resultMapping,
-      const SmallVector<Value> & /*convertedOperands*/) const override {
+  LogicalResult
+  matchAndRewrite(IfOp op, OneToNPatternRewriter &rewriter,
+                  const OneToNTypeMapping & /*operandMapping*/,
+                  const OneToNTypeMapping &resultMapping,
+                  ValueRange /*convertedOperands*/) const override {
     Location loc = op->getLoc();
 
     // Nothing to do if there is no non-identity conversion.
@@ -62,11 +62,10 @@ class ConvertTypesInSCFWhileOp : public OneToNOpConversionPattern<WhileOp> {
 public:
   using OneToNOpConversionPattern<WhileOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(WhileOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(WhileOp op, OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping &resultMapping,
+                                ValueRange convertedOperands) const override {
     Location loc = op->getLoc();
 
     // Nothing to do if the op doesn't have any non-identity conversions for its
@@ -106,11 +105,10 @@ class ConvertTypesInSCFYieldOp : public OneToNOpConversionPattern<YieldOp> {
 public:
   using OneToNOpConversionPattern<YieldOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(YieldOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping & /*resultMapping*/,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(YieldOp op, OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping & /*resultMapping*/,
+                                ValueRange convertedOperands) const override {
     // Nothing to do if there is no non-identity conversion.
     if (!operandMapping.hasNonIdentityConversion())
       return failure();
@@ -127,11 +125,10 @@ class ConvertTypesInSCFConditionOp
 public:
   using OneToNOpConversionPattern<ConditionOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(ConditionOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping & /*resultMapping*/,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(ConditionOp op, OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping & /*resultMapping*/,
+                                ValueRange convertedOperands) const override {
     // Nothing to do if there is no non-identity conversion.
     if (!operandMapping.hasNonIdentityConversion())
       return failure();

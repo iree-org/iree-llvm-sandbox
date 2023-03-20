@@ -26,11 +26,10 @@ class ConvertTypesInFuncCallOp : public OneToNOpConversionPattern<CallOp> {
 public:
   using OneToNOpConversionPattern<CallOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(CallOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(CallOp op, OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping &resultMapping,
+                                ValueRange convertedOperands) const override {
     Location loc = op->getLoc();
 
     // Nothing to do if the op doesn't have any non-identity conversions for its
@@ -54,11 +53,11 @@ class ConvertTypesInFuncFuncOp : public OneToNOpConversionPattern<FuncOp> {
 public:
   using OneToNOpConversionPattern<FuncOp>::OneToNOpConversionPattern;
 
-  LogicalResult matchAndRewrite(
-      FuncOp op, OneToNPatternRewriter &rewriter,
-      const OneToNTypeMapping & /*operandMapping*/,
-      const OneToNTypeMapping & /*resultMapping*/,
-      const SmallVector<Value> & /*convertedOperands*/) const override {
+  LogicalResult
+  matchAndRewrite(FuncOp op, OneToNPatternRewriter &rewriter,
+                  const OneToNTypeMapping & /*operandMapping*/,
+                  const OneToNTypeMapping & /*resultMapping*/,
+                  ValueRange /*convertedOperands*/) const override {
     auto *typeConverter = getTypeConverter<OneToNTypeConverter>();
 
     // Construct mapping for function arguments.
@@ -100,11 +99,10 @@ class ConvertTypesInFuncReturnOp : public OneToNOpConversionPattern<ReturnOp> {
 public:
   using OneToNOpConversionPattern<ReturnOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(ReturnOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping & /*resultMapping*/,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(ReturnOp op, OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping & /*resultMapping*/,
+                                ValueRange convertedOperands) const override {
     // Nothing to do if there is no non-identity conversion.
     if (!operandMapping.hasNonIdentityConversion())
       return failure();

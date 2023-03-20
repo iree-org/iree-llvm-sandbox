@@ -193,11 +193,11 @@ public:
   /// consume them, and replaces the uses of the results with the results of the
   /// casts. If the returned result values are the same as those of the original
   /// op, an in-place update is assumed and the result values are left as is.
-  virtual LogicalResult
-  matchAndRewrite(Operation *op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const = 0;
+  virtual LogicalResult matchAndRewrite(Operation *op,
+                                        OneToNPatternRewriter &rewriter,
+                                        const OneToNTypeMapping &operandMapping,
+                                        const OneToNTypeMapping &resultMapping,
+                                        ValueRange convertedOperands) const = 0;
 
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const final;
@@ -217,17 +217,16 @@ public:
   using OneToNConversionPattern::matchAndRewrite;
 
   /// Overload that derived classes have to override for their op type.
-  virtual LogicalResult
-  matchAndRewrite(SourceOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const = 0;
+  virtual LogicalResult matchAndRewrite(SourceOp op,
+                                        OneToNPatternRewriter &rewriter,
+                                        const OneToNTypeMapping &operandMapping,
+                                        const OneToNTypeMapping &resultMapping,
+                                        ValueRange convertedOperands) const = 0;
 
-  LogicalResult
-  matchAndRewrite(Operation *op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const final {
+  LogicalResult matchAndRewrite(Operation *op, OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping &resultMapping,
+                                ValueRange convertedOperands) const final {
     return matchAndRewrite(cast<SourceOp>(op), rewriter, operandMapping,
                            resultMapping, convertedOperands);
   }

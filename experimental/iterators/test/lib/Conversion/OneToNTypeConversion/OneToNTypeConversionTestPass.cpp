@@ -69,11 +69,11 @@ public:
   using OneToNOpConversionPattern<
       ::test::MakeTupleOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(::test::MakeTupleOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(::test::MakeTupleOp op,
+                                OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping &resultMapping,
+                                ValueRange convertedOperands) const override {
     // Simply replace the current op with the converted operands.
     rewriter.replaceOp(op, convertedOperands, resultMapping);
     return success();
@@ -86,11 +86,11 @@ public:
   using OneToNOpConversionPattern<
       ::test::GetTupleElementOp>::OneToNOpConversionPattern;
 
-  LogicalResult
-  matchAndRewrite(::test::GetTupleElementOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const SmallVector<Value> &convertedOperands) const override {
+  LogicalResult matchAndRewrite(::test::GetTupleElementOp op,
+                                OneToNPatternRewriter &rewriter,
+                                const OneToNTypeMapping &operandMapping,
+                                const OneToNTypeMapping &resultMapping,
+                                ValueRange convertedOperands) const override {
     // Construct mapping for tuple element types.
     auto stateType = op->getOperand(0).getType().cast<TupleType>();
     TypeRange originalElementTypes = stateType.getTypes();
