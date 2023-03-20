@@ -234,7 +234,7 @@ public:
 
 /// Main function that 1:N conversion passes should call. The patterns are
 /// expected to insert unrealized casts to maintain the types of operands and
-/// results, which is done automatically if the derive from
+/// results, which is done automatically if they derive from
 /// OneToNConversionPattern. The function replaces those that do not fold away
 /// until the end of pattern application with user-provided materializations
 /// from the type converter, so those have to be provided if conversions from
