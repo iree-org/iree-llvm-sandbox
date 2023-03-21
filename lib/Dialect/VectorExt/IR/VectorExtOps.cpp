@@ -28,7 +28,7 @@ void mlir::vector_ext::buildTerminatedBody(OpBuilder &builder, Location loc) {
 void PredicateOp::build(OpBuilder &builder, OperationState &result,
                         Value predicateMask, ValueRange indices,
                         Value incomingMask) {
-  build(builder, result, /*resultTypes=*/llvm::None, predicateMask, indices,
+  build(builder, result, /*resultTypes=*/std::nullopt, predicateMask, indices,
         incomingMask);
 }
 
@@ -100,22 +100,22 @@ ParseResult mlir::vector_ext::PredicateOp::parse(OpAsmParser &parser,
 void mlir::vector_ext::PredicateOp::print(OpAsmPrinter &p) {
   bool printBlockTerminators = false;
 
-  p << "(" << predicateMask() << ", [" << indices() << "], " << incomingMask()
-    << ") : " << predicateMask().getType();
-  if (!results().empty()) {
+  p << "(" << getPredicateMask() << ", [" << getIndices() << "], "
+    << getIncomingMask() << ") : " << getPredicateMask().getType();
+  if (!getResults().empty()) {
     p << " -> (" << getResultTypes() << ")";
     // Print yield explicitly if the op defines values.
     printBlockTerminators = true;
   }
   p << " ";
-  p.printRegion(truePredicateRegion(),
+  p.printRegion(getTruePredicateRegion(),
                 /*printEntryBlockArgs=*/true,
                 /*printBlockTerminators=*/printBlockTerminators);
 
   p.printOptionalAttrDict(getOperation()->getAttrs());
 }
 
-/// Given the region at `index`, or the parent operation if `index` is None,
+/// Given the region at `index`, or the parent operation if `index` is nullopt,
 /// return the successor regions. These are the regions that may be selected
 /// during the flow of control. `operands` is a set of optional attributes that
 /// correspond to a constant value for each operand, or null if that operand is
@@ -124,7 +124,7 @@ void PredicateOp::getSuccessorRegions(
     Optional<unsigned> index, ArrayRef<Attribute> operands,
     SmallVectorImpl<RegionSuccessor> &regions) {
   // The `truePredicate` region branch back to the parent operation.
-  if (index.hasValue()) {
+  if (index.has_value()) {
     regions.push_back(RegionSuccessor(getResults()));
     return;
   }
@@ -132,7 +132,7 @@ void PredicateOp::getSuccessorRegions(
   // The `truePredicate` (and the future `falsePredicate` region)  will always
   // be executed regardless of the condition since they are not modeling control
   // but data flow.
-  regions.push_back(RegionSuccessor(&truePredicateRegion()));
+  regions.push_back(RegionSuccessor(&getTruePredicateRegion()));
 }
 
 #define GET_OP_CLASSES

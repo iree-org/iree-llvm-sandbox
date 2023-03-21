@@ -8,7 +8,7 @@
 
 #include "Dialect/VectorExt/VectorMaskingUtils.h"
 #include "Dialect/VectorExt/VectorExtOps.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/AffineMap.h"
@@ -77,7 +77,7 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
     Optional<Value> maybeIncomingMask) {
   // TODO: Support multi-block regions.
   if (!regionToPredicate->hasOneBlock())
-    return llvm::None;
+    return std::nullopt;
 
   // Compute the range of operations that will be moved within vector.predicate
   // and the definitions within the range with users outside the range.
@@ -95,7 +95,7 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
   builder.setInsertionPointToStart(&blockToPredicate);
   Value predicateMask = createPredicateMask(builder);
   if (!predicateMask)
-    return llvm::None;
+    return std::nullopt;
 
   // Generate the vector.predicate operation and move 'opsToMove' within its
   // truePredicateRegion. We have to rewire the def-use chain for those
@@ -113,7 +113,7 @@ Optional<PredicateOp> mlir::vector_ext::predicateOp(
     en.value().replaceAllUsesWith(vecPredOp.getResult(en.index()));
 
   Operation *truePredTerminator =
-      &vecPredOp.truePredicateRegion().front().back();
+      &vecPredOp.getTruePredicateRegion().front().back();
   moveOperationsBefore(opsToMove, truePredTerminator);
 
   // The existing terminator of TruePredicateRegion doesn't yield any value.
@@ -140,9 +140,9 @@ static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
   // Actions before visiting the TruePredicateRegion: Generate the new active
   // mask (= predicate_mask & incoming_mask) influencing the region.
   if (stage.isBeforeAllRegions()) {
-    builder.setInsertionPointToStart(&predOp.truePredicateRegion().front());
+    builder.setInsertionPointToStart(&predOp.getTruePredicateRegion().front());
     Value trueMask = builder.create<arith::AndIOp>(
-        predOp.getLoc(), predOp.incomingMask(), predOp.predicateMask());
+        predOp.getLoc(), predOp.getIncomingMask(), predOp.getPredicateMask());
     activeMasks.push_back(trueMask);
     return;
   }
@@ -167,7 +167,7 @@ static void maskPredicateOp(OpBuilder &builder, PredicateOp predOp,
 
     // Inline truePredicateRegion into parent op (except its terminator).
     // TODO: Move this to builder.inlineRegionBefore?
-    auto &blocksToMove = predOp.truePredicateRegion().getBlocks();
+    auto &blocksToMove = predOp.getTruePredicateRegion().getBlocks();
     assert(blocksToMove.size() == 1 && "Expected only one block");
     assert(predOp.getResults().empty() &&
            "TODO: Support vector.predicate with results");
