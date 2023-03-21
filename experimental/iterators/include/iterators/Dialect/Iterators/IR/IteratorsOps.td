@@ -328,7 +328,12 @@ def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
                     "          .cast<LLVM::LLVMStructType>().getBody())">,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   // TODO(ingomueller): Get rid of the LLVM dependency after designing a row
-  //                    type or similar.
+  //                    type or similar. Apart from tying the lowering to LLVM,
+  //                    which probably limits the applicability of higher-level
+  //                    passes on the components of a tabular view, the
+  //                    LLVM-based design also inherits the limitations of the
+  //                    LLVM type system, such as the missing support for signed
+  //                    and unsigned integer types.
   let summary = "Extracts the tuples from a tabular view as LLVM structs";
   let description = [{
     Produces a stream of LLVM structs from a given `tabular_view` (i.e., "scans"

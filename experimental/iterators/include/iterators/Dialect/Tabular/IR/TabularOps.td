@@ -34,6 +34,10 @@ class MemRefTypeWithIdentityLayoutAndRankOf<list<Type> allowedTypes,
 
 def Tabular_ViewAsTabularOp : Tabular_Op<"view_as_tabular",
     [DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+  // TODO(ingomueller): We should consider allowing tensors as operands, or even
+  //                    make that the only possibility. This would allow to keep
+  //                    the highest level of abstraction, in particular, if we
+  //                    do not lower to LLVM directly.
   let summary = "Creates a `tabular_view` from the given memrefs";
   let description = [{
     Converts a variadic number of memrefs of rank 1 into the columns of a
@@ -69,5 +73,9 @@ def Tabular_ViewAsTabularOp : Tabular_Op<"view_as_tabular",
     }
   }];
 }
+
+// TODO(ingomueller): It may make sense to add accessors for individual columns,
+//                    i.e., an ExtractColumnOp or similar, which would return a
+//                    single column of the tabular view, possibly a tensor.
 
 #endif // TABULAR_DIALECT_TABULAR_IR_TABULAROPS
