@@ -50,12 +50,13 @@ TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
 
 Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
   if (auto viewType = type.dyn_cast<TabularViewType>()) {
-    Type dynamicSize = IntegerType::get(type.getContext(), /*width=*/64);
+    MLIRContext *context = type.getContext();
+    Type dynamicSize = IntegerType::get(context, /*width=*/64);
     SmallVector<Type> fieldTypes{dynamicSize};
     fieldTypes.reserve(viewType.getNumColumnTypes() + 1);
     llvm::transform(viewType.getColumnTypes(), std::back_inserter(fieldTypes),
-                    [](Type t) { return LLVMPointerType::get(t); });
-    return LLVMStructType::getLiteral(type.getContext(), fieldTypes);
+                    [&](Type t) { return LLVMPointerType::get(context); });
+    return LLVMStructType::getLiteral(context, fieldTypes);
   }
   return std::nullopt;
 }
@@ -66,17 +67,15 @@ Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
 /// Possible result:
 ///
 /// %1 = builtin.unrealized_conversion_cast %0 :
-///        memref<3xi32> to !llvm.struct<(ptr<i32>, ptr<i32>, i64,
+///        memref<3xi32> to !llvm.struct<(ptr, ptr, i64,
 ///                                       array<1 x i64>, array<1 x i64>)>
-/// %2 = llvm.mlir.undef : !llvm.struct<(i64, ptr<i32>)>
+/// %2 = llvm.mlir.undef : !llvm.struct<(i64, ptr)>
 /// %3 = llvm.extractvalue %1[1] :
-///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
-///                      array<1 x i64>, array<1 x i64>)>
+///        !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
 /// %4 = llvm.extractvalue %1[3, 0] :
-///        !llvm.struct<(ptr<i32>, ptr<i32>, i64,
-///                      array<1 x i64>, array<1 x i64>)>
-/// %5 = llvm.insertvalue %3, %2[1] : !llvm.struct<(i64, ptr<i32>)>
-/// %6 = llvm.insertvalue %4, %5[0] : !llvm.struct<(i64, ptr<i32>)>
+///        !llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>
+/// %5 = llvm.insertvalue %3, %2[1] : !llvm.struct<(i64, ptr)>
+/// %6 = llvm.insertvalue %4, %5[0] : !llvm.struct<(i64, ptr)>
 struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
   ViewAsTabularOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                           PatternBenefit benefit = 1)

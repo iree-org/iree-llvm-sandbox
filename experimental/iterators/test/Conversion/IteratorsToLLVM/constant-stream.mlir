@@ -36,10 +36,9 @@
 // CHECK-NEXT:      %[[V4:.*]] = arith.constant 1 : i32
 // CHECK-NEXT:      %[[V5:.*]] = arith.addi %[[V0]], %[[V4]] : i32
 // CHECK-NEXT:      %[[V6:.*]] = iterators.insertvalue %[[V5]] into %[[arg0]][0] : !iterators.state<i32>
-// CHECK-NEXT:      %[[V7:.*]] = llvm.mlir.addressof @iterators.constant_stream_data{{.*}} : !llvm.ptr<array<4 x struct<(i32)>>>
-// CHECK-NEXT:      %[[V8:.*]] = arith.constant 0 : i32
-// CHECK-NEXT:      %[[V9:.*]] = llvm.getelementptr %[[V7]][%[[V8]], %[[V0]]] : (!llvm.ptr<array<4 x struct<(i32)>>>, i32, i32) -> !llvm.ptr<struct<(i32)>>
-// CHECK-NEXT:      %[[Va:.*]] = llvm.load %[[V9]] : !llvm.ptr<struct<(i32)>>
+// CHECK-NEXT:      %[[V7:.*]] = llvm.mlir.addressof @iterators.constant_stream_data{{.*}} : !llvm.ptr
+// CHECK-NEXT:      %[[V9:.*]] = llvm.getelementptr %[[V7]][%[[V0]], 0] : (!llvm.ptr, i32) -> !llvm.ptr, !llvm.struct<(i32)>
+// CHECK-NEXT:      %[[Va:.*]] = llvm.load %[[V9]] : !llvm.ptr -> !llvm.struct<(i32)>
 // CHECK-NEXT:      scf.yield %[[V6]], %[[Va]] : !iterators.state<i32>, !llvm.struct<(i32)>
 // CHECK-NEXT:    } else {
 // CHECK-NEXT:      %[[Vb:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
