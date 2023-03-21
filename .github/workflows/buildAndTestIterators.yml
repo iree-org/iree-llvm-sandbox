@@ -21,20 +21,28 @@ jobs:
         echo "ITERATORS_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators" | tee -a $GITHUB_ENV
         echo "ITERATORS_MAIN_BINARY_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators/build" | tee -a $GITHUB_ENV
 
-    - name: Set up Python
-      uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
-      with:
-        python-version: 3.9
-
     - name: Checkout project
       uses: actions/checkout@v3
       with:
         path: sandbox
         submodules: recursive
 
+    - name: Set up Python
+      uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
+      with:
+        python-version: '3.10'
+        cache: pipenv
+
+    - name: Install pipenv
+      run: pip install --user pipenv
+
     - name: Install Python depends
       run: |
-        python -m pip install -r ${ITERATORS_MAIN_SRC_DIR}/requirements.txt
+        cd ${ITERATORS_MAIN_SRC_DIR}
+        pipenv install --dev
+        pipenv run pip freeze
+        echo "PIPENV_PIPFILE=${ITERATORS_MAIN_SRC_DIR}/Pipfile" | tee -a $GITHUB_ENV
+        pipenv run which python | xargs dirname | tee -a $GITHUB_PATH
 
     - name: Install Ninja
       uses: llvm/actions/install-ninja@6a57890d0e3f9f35dfc72e7e48bc5e1e527cdd6c # Jan 17
