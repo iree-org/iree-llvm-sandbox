@@ -64,7 +64,8 @@ def Iterators_PrintOp : Iterators_Base_Op<"print"> {
     DefaultValuedAttr<StrAttr, [{"\n"}]>:$suffix
   );
   let assemblyFormat = [{
-    custom<PrintOpArgs>($prefix, $element, $suffix, type($element)) attr-dict
+    `(` custom<PrintOpArgs>($prefix, $element, $suffix) `)`
+      attr-dict (`:` type($element)^)?
   }];
   let builders = [
     OpBuilder<(ins "::mlir::Value":$element), [{

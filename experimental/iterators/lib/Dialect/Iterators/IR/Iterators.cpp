@@ -14,6 +14,7 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -64,67 +65,59 @@ void IteratorsDialect::initialize() {
 static ParseResult
 parsePrintOpArgs(OpAsmParser &parser, StringAttr &prefixAttr,
                  Optional<OpAsmParser::UnresolvedOperand> &elementOperand,
-                 StringAttr &suffixAttr, Type &elementType) {
-  if (failed(parser.parseLParen()))
+                 StringAttr &suffixAttr) {
+
+  int64_t idx = 0;
+  auto argParser = [&]() -> ParseResult {
+    auto incrementIdx = llvm::make_scope_exit([&]() { idx++; });
+
+    if (idx > 2)
+      return parser.emitError(parser.getNameLoc()) << "has too many arguments";
+
+    // Attempt parsing a string attribute.
+    {
+      StringAttr stringAttr;
+      OptionalParseResult res = parser.parseOptionalAttribute(stringAttr);
+      if (res.has_value()) {
+        if (failed(res.value()))
+          return failure();
+
+        // We have a valid attribte. Determine if it is prefix or suffix.
+        if (idx == 0)
+          prefixAttr = stringAttr;
+        else
+          suffixAttr = stringAttr;
+
+        return success();
+      }
+    }
+
+    // If parsing a string attributed failed, we can try an operand instead.
+    if (idx > 1 || elementOperand.has_value())
+      return parser.emitError(parser.getNameLoc()) << "has unexpected argument";
+
+    {
+      OpAsmParser::UnresolvedOperand operand;
+      auto res = parser.parseOptionalOperand(operand);
+      if (res.has_value()) {
+        if (failed(res.value()))
+          return failure();
+        elementOperand = operand;
+      }
+      return success();
+    }
+  };
+
+  // Parse mixed list of string attributes and operands.
+  if (parser.parseCommaSeparatedList(argParser))
     return failure();
-
-  bool expectOtherArgument = false;
-
-  // Try to parse prefix attribute.
-  OptionalParseResult prefixParseResult =
-      parser.parseOptionalAttribute(prefixAttr);
-  if (prefixParseResult.has_value()) {
-    if (failed(prefixParseResult.value()))
-      return failure();
-
-    // If there is a prefix and a comma, we expect to parse another argument.
-    if (succeeded(parser.parseOptionalComma()))
-      expectOtherArgument = true;
-  }
-
-  // Try to parse an operand.
-  OpAsmParser::UnresolvedOperand element;
-  OptionalParseResult operandParseResult = parser.parseOptionalOperand(element);
-  if (operandParseResult.has_value()) {
-    if (failed(operandParseResult.value()))
-      return failure();
-    elementOperand = element;
-    expectOtherArgument = false;
-
-    // If there is an operand and a comma, we expect another argument.
-    if (succeeded(parser.parseOptionalComma()))
-      expectOtherArgument = true;
-  }
-
-  // Try to parse a suffix.
-  OptionalParseResult suffixParseResult =
-      parser.parseOptionalAttribute(suffixAttr);
-  if (suffixParseResult.has_value()) {
-    if (failed(suffixParseResult.value()))
-      return failure();
-  } else if (expectOtherArgument) {
-    // We expected another argument but didn't find one.
-    return parser.emitError(parser.getNameLoc()) << "expected another argument";
-    return failure();
-  }
-
-  if (failed(parser.parseRParen()))
-    return failure();
-
-  // Parse operand type if we had an operand.
-  if (elementOperand.has_value()) {
-    if (failed(parser.parseColonType(elementType)))
-      return failure();
-  }
 
   return success();
 }
 
 static void printPrintOpArgs(OpAsmPrinter &printer, Operation *op,
                              StringAttr prefix, Value element,
-                             StringAttr suffix, Type type) {
-  printer.getStream() << "(";
-
+                             StringAttr suffix) {
   // Detect if the two string attributes are ambigous. This may happen if the
   // prefix has the default value and is therefor omitted but the suffix is
   // printed, and there is no element in the middle to disambiguate. In this
@@ -141,13 +134,11 @@ static void printPrintOpArgs(OpAsmPrinter &printer, Operation *op,
   }
 
   // Print element.
-  bool needType = false;
   if (element) {
     if (needComma)
       printer.getStream() << ", ";
     printer.printOperand(element);
     needComma = true;
-    needType = true;
   }
 
   // Print suffix.
@@ -155,14 +146,6 @@ static void printPrintOpArgs(OpAsmPrinter &printer, Operation *op,
     if (needComma)
       printer.getStream() << ", ";
     printer.printAttributeWithoutType(suffix);
-  }
-
-  printer.getStream() << ")";
-
-  // Print type if we printed an element.
-  if (needType && type) {
-    printer.getStream() << " : ";
-    printer.printType(type);
   }
 }
 
