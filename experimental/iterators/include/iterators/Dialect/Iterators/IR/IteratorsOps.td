@@ -40,8 +40,8 @@ def Iterators_ConstantTupleOp : Iterators_Base_Op<"constanttuple",
     [MatchingFieldCountsConstraint,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Creates a tuple from the given values";
-  let arguments = (ins Iterators_NumericArrayAttr:$values);
-  let results = (outs Iterators_TupleOfNumerics:$tuple);
+  let arguments = (ins Iterators_PrintableNumericArrayAttr:$values);
+  let results = (outs Iterators_TupleOfPrintableTypes:$tuple);
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
     void $cppClass::getAsmResultNames(
@@ -53,12 +53,12 @@ def Iterators_ConstantTupleOp : Iterators_Base_Op<"constanttuple",
 
 def Iterators_PrintTupleOp : Iterators_Base_Op<"printtuple"> {
   let summary = "Prints the elements of a tuple";
-  let arguments = (ins Iterators_TupleOfNumerics:$tuple);
+  let arguments = (ins Iterators_NestedTupleOfPrintableTypes:$tuple);
 }
 
 def Iterators_PrintOp : Iterators_Base_Op<"print"> {
   let summary = "Prints the given element";
-  let arguments = (ins Iterators_LLVMStructOfNumerics:$element);
+  let arguments = (ins Iterators_PrintableType:$element);
 }
 
 //===----------------------------------------------------------------------===//
@@ -103,7 +103,7 @@ def Iterators_ConstantStreamOp : Iterators_Op<"constantstream",
             () -> (!iterators.stream<!llvm.struct<(i32)>>)
     ```
   }];
-  let arguments = (ins Iterators_HomogeneouslyTypedNumericArrayArrayAttr:$value);
+  let arguments = (ins Iterators_HomogeneouslyTypedLLVMNumericArrayArrayAttr:$value);
   let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
@@ -361,7 +361,7 @@ def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
 /// It is not marked with Iterators_IteratorOpInterface.
 def Iterators_SinkOp : Iterators_Base_Op<"sink"> {
   let summary = "Consume tuples from an iterator";
-  let arguments = (ins Iterators_StreamOfLLVMStructOfNumerics:$input);
+  let arguments = (ins Iterators_StreamOfPrintableElements:$input);
 }
 
 def Iterators_StreamToValueOp : Iterators_Base_Op<"stream_to_value",

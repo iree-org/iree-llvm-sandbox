@@ -58,24 +58,16 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
   return %i : i32
 }
 
-func.func private @pack_i32(%input : i32) -> !i32_struct {
-  %undef = llvm.mlir.undef : !i32_struct
-  %result =  llvm.insertvalue %input, %undef[0] : !i32_struct
-  return %result : !i32_struct
-}
-
 func.func @map_unpack_pack() {
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
   %unpacked = "iterators.map"(%input) {mapFuncRef = @unpack_i32}
     : (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
-  %repacked = "iterators.map"(%unpacked) {mapFuncRef = @pack_i32}
-    : (!iterators.stream<i32>) -> (!iterators.stream<!i32_struct>)
-  "iterators.sink"(%repacked) : (!iterators.stream<!i32_struct>) -> ()
-  // CHECK:      (0)
-  // CHECK-NEXT: (1)
-  // CHECK-NEXT: (2)
+  "iterators.sink"(%unpacked) : (!iterators.stream<i32>) -> ()
+  // CHECK:      0
+  // CHECK-NEXT: 1
+  // CHECK-NEXT: 2
   return
 }
 
