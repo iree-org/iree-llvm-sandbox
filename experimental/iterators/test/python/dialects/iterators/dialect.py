@@ -54,7 +54,7 @@ def testConvertIteratorsToLlvm():
       ''')
   pm = PassManager.parse('builtin.module(convert-iterators-to-llvm)')
   # Just check that there are no errors...
-  pm.run(mod)
+  pm.run(mod.operation)
   print(mod)
 
 
@@ -86,7 +86,7 @@ def testEndToEndStandalone():
                          'convert-func-to-llvm,'
                          'convert-scf-to-cf,'
                          'convert-cf-to-llvm)')
-  pm.run(mod)
+  pm.run(mod.operation)
   engine = ExecutionEngine(mod)
   # CHECK: (6)
   engine.invoke('main')
@@ -115,7 +115,7 @@ def testEndToEndWithInput():
                          'reconcile-unrealized-casts,'
                          'convert-scf-to-cf,'
                          'convert-cf-to-llvm)')
-  pm.run(mod)
+  pm.run(mod.operation)
 
   # Set up test data. Note that pandas data frames are have are columnar, i.e.,
   # consist of one memory allocation per column.

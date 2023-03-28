@@ -13,12 +13,11 @@ func.func @main() {
   // CHECK-NEXT:      scf.condition(%[[V4]]#1) %[[V4]]#0, %[[V4]]#2 : [[rootStateType]], !llvm.struct<(i32)>
   // CHECK-NEXT:    } do {
   // CHECK-NEXT:    ^[[bb0:.*]](%[[arg1:.*]]: [[rootStateType]], %[[arg2:.*]]: !llvm.struct<(i32)>):
-  // CHECK-DAG:       %[[V4:.*]] = llvm.mlir.addressof @iterators.frmt_spec{{(\.[0-9]+)?}} : !llvm.ptr<array<8 x i8>>
-  // CHECK-DAG:       %[[V5:.*]] = llvm.mlir.constant(0 : i64) : i64
-  // CHECK-DAG:       %[[V6:.*]] = llvm.getelementptr %[[V4]][%[[V5]], %[[V5]]] : (!llvm.ptr<array<8 x i8>>, i64, i64) -> !llvm.ptr<i8>
+  // CHECK-DAG:       %[[V4:.*]] = llvm.mlir.addressof @iterators.frmt_spec{{(\.[0-9]+)?}} : !llvm.ptr
+  // CHECK-DAG:       %[[V6:.*]] = llvm.getelementptr %[[V4]][0] : (!llvm.ptr) -> !llvm.ptr, i8
   // CHECK-DAG:       %[[V7:.*]] = llvm.extractvalue %[[arg2:.*]][0] : !llvm.struct<(i32)>
   // CHECK-DAG:       %[[V9:.*]] = arith.extui %[[V7]] : i32 to i64
-  // CHECK-NEXT:      %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[V9]]) : (!llvm.ptr<i8>, i64) -> i32
+  // CHECK-NEXT:      %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[V9]]) : (!llvm.ptr, i64) -> i32
   // CHECK-NEXT:      scf.yield %[[arg1]] : [[rootStateType]]
   // CHECK-NEXT:    }
   // CHECK-NEXT:    %[[V3:.*]] = call @[[rootIteratorName]].close.{{[0-9]+}}(%[[V2]]#0) : ([[rootStateType]]) -> [[rootStateType]]

@@ -69,10 +69,9 @@ private:
 /// module if necessary.
 static FlatSymbolRefAttr lookupOrInsertPrintf(OpBuilder &builder,
                                               ModuleOp module) {
-  MLIRContext *context = builder.getContext();
   Location loc = module->getLoc();
   ImplicitLocOpBuilder b(loc, builder);
-  Type i8 = builder.getI8Type();
+  MLIRContext *context = builder.getContext();
   Type i32 = builder.getI32Type();
 
   if (module.lookupSymbol<LLVMFuncOp>("printf"))
@@ -80,9 +79,9 @@ static FlatSymbolRefAttr lookupOrInsertPrintf(OpBuilder &builder,
 
   // Create a function declaration for printf, the signature is:
   //   * `i32 (i8*, ...)`
-  LLVMPointerType charPointerType = LLVMPointerType::get(i8);
+  LLVMPointerType opaquePtrType = LLVMPointerType::get(context);
   LLVMFunctionType printfFunctionType =
-      LLVMFunctionType::get(i32, charPointerType,
+      LLVMFunctionType::get(i32, opaquePtrType,
                             /*isVarArg=*/true);
 
   // Insert the printf function into the body of the parent module.
@@ -99,8 +98,9 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
                                      bool makeUnique) {
   Location loc = module->getLoc();
   ImplicitLocOpBuilder b(loc, builder);
+  MLIRContext *context = builder.getContext();
   Type i8 = b.getI8Type();
-  Type i64 = b.getI64Type();
+  Type opaquePtrType = LLVMPointerType::get(context);
 
   // Determine name of global.
   llvm::SmallString<64> candidateNameStorage;
@@ -129,11 +129,9 @@ static Value getOrCreateGlobalString(OpBuilder &builder, Twine name,
   }
 
   // Get the pointer to the first character in the global string.
-  Value globalPtr = b.create<AddressOfOp>(global);
-  Attribute zeroAttr = builder.getI64IntegerAttr(0);
-  Value zero = b.create<LLVM::ConstantOp>(i64, zeroAttr);
-  return b.create<GEPOp>(loc, LLVMPointerType::get(i8), globalPtr,
-                         ArrayRef<Value>({zero, zero}));
+  Value globalPtr = b.create<AddressOfOp>(opaquePtrType, global.getName());
+  return b.create<GEPOp>(loc, opaquePtrType, i8, globalPtr,
+                         ArrayRef<GEPArg>{0});
 }
 
 struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
@@ -419,13 +417,11 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 ///   %c1_i32 = arith.constant 1 : i32
 ///   %3 = arith.addi %0, %c1_i32 : i32
 ///   %4 = iterators.insertvalue %3 into %arg0[0] : !iterators.state<i32>
-///   %5 = llvm.mlir.addressof @iterators.constant_stream_data.0 :
-///            !llvm.ptr<array<4 x !element_type>>
-///   %c0_i32 = arith.constant 0 : i32
-///   %6 = llvm.getelementptr %5[%c0_i32, %0] :
+///   %5 = llvm.mlir.addressof @iterators.constant_stream_data.0 : !llvm.ptr
+///   %6 = llvm.getelementptr %5[%0, 0] :
 ///            (!llvm.ptr<array<4 x !element_type>>, i32, i32)
-///                -> !llvm.ptr<!element_type>
-///   %7 = llvm.load %6 : !llvm.ptr<!element_type>
+///                -> !llvm.ptr, !element_type
+///   %7 = llvm.load %6 : !llvm.ptr -> !element_type
 ///   scf.yield %4, %7 : !iterators.state<i32>, !element_type
 /// } else {
 ///   %3 = llvm.mlir.undef : !element_type
@@ -436,7 +432,9 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   Location loc = op->getLoc();
   ImplicitLocOpBuilder b(loc, builder);
+  MLIRContext *context = builder.getContext();
   Type i32 = b.getI32Type();
+  Type opaquePtrType = LLVMPointerType::get(context);
 
   // Extract current index.
   Value currentIndex = b.create<iterators::ExtractValueOp>(
@@ -464,12 +462,11 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
 
         // Load element from global data at current index.
         GlobalOp globalArray = buildGlobalData(op, b, elementType);
-        Value globalPtr = b.create<AddressOfOp>(globalArray);
-        Value zero = b.create<arith::ConstantIntOp>(/*value=*/0,
-                                                    /*width=*/32);
-        Value gep = b.create<GEPOp>(LLVMPointerType::get(elementType),
-                                    globalPtr, ValueRange{zero, currentIndex});
-        Value nextElement = b.create<LoadOp>(gep);
+        Value globalPtr =
+            b.create<AddressOfOp>(opaquePtrType, globalArray.getName());
+        Value gep = b.create<GEPOp>(opaquePtrType, elementType, globalPtr,
+                                    ArrayRef<GEPArg>{currentIndex, 0});
+        Value nextElement = b.create<LoadOp>(elementType, gep);
 
         b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
       },
@@ -1099,8 +1096,8 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 ///            !iterators.state<i64, !tabular_view_type>
 ///   %7 = llvm.mlir.undef : !element_type
 ///   %8 = llvm.extractvalue %1[1] : !tabular_view_type
-///   %9 = llvm.getelementptr %8[%0] : (!llvm.ptr<i32>, i64) -> !llvm.ptr<i32>
-///   %10 = llvm.load %9 : !llvm.ptr<i32>
+///   %9 = llvm.getelementptr %8[%0] : (!llvm.ptr, i64) -> !llvm.ptr, i32
+///   %10 = llvm.load %9 : !llvm.ptr -> i32
 ///   %11 = llvm.insertvalue %10, %7[0] : !element_type
 ///   scf.yield %6, %11 :
 ///       !iterators.state<i64, !tabular_view_type>, !element_type
@@ -1114,7 +1111,9 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
   Location loc = op->getLoc();
   ImplicitLocOpBuilder b(loc, builder);
+  MLIRContext *context = builder.getContext();
   Type i64 = b.getI64Type();
+  Type opaquePtrType = LLVMPointerType::get(context);
 
   auto elementStructType = elementType.cast<LLVMStructType>();
 
@@ -1153,18 +1152,16 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
         Value nextElement = b.create<UndefOp>(elementType);
         for (auto [fieldIndex, fieldType] :
              llvm::enumerate(elementStructType.getBody())) {
-          Type columnPointerType = LLVMPointerType::get(fieldType);
-
           // Extract column pointer.
           Value columnPtr = b.create<LLVM::ExtractValueOp>(
-              columnPointerType, structOfInputBuffers, fieldIndex + 1);
+              opaquePtrType, structOfInputBuffers, fieldIndex + 1);
 
           // Get element pointer.
-          Value gep = b.create<GEPOp>(columnPointerType, columnPtr,
+          Value gep = b.create<GEPOp>(opaquePtrType, fieldType, columnPtr,
                                       ValueRange{currentIndex});
 
           // Load.
-          Value fieldValue = b.create<LoadOp>(gep);
+          Value fieldValue = b.create<LoadOp>(fieldType, gep);
 
           // Insert into next element struct.
           nextElement = b.create<LLVM::InsertValueOp>(nextElement, fieldValue,
