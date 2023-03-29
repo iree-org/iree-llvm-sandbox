@@ -8,6 +8,27 @@ func.func @print_empty_tuple(%tuple : tuple<>) -> () {
 }
 
 func.func @main() {
+  %i32 = arith.constant 42
+
+  // CHECK:      constant
+  iterators.print("constant")
+
+  // CHECK-NEXT: 42
+  iterators.print(%i32) : i64
+
+  // CHECK-EMPTY:
+  iterators.print("")
+
+  // CHECK-EMPTY:
+  iterators.print()
+
+  // CHECK-NEXT: constant42
+  iterators.print("constant" nonl)
+  iterators.print("" nonl)
+  iterators.print(nonl)
+  iterators.print(%i32 nonl) : i64
+  iterators.print()
+
   %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
   "iterators.printtuple"(%empty_tuple) : (tuple<>) -> ()
   // CHECK:      ()

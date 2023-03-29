@@ -21,6 +21,9 @@ func.func @main() {
   // CHECK-NEXT:      scf.yield %[[arg1]] : [[rootStateType]]
   // CHECK-NEXT:    }
   // CHECK-NEXT:    %[[V3:.*]] = call @[[rootIteratorName]].close.{{[0-9]+}}(%[[V2]]#0) : ([[rootStateType]]) -> [[rootStateType]]
+  // CHECK-DAG:     %[[Va:.*]] = llvm.mlir.addressof @iterators.frmt_spec.0 : !llvm.ptr
+  // CHECK-DAG:     %[[Vc:.*]] = llvm.getelementptr %[[Va]][0] : (!llvm.ptr) -> !llvm.ptr, i8
+  // CHECK-NEXT:    %[[Vd:.*]] = llvm.call @printf(%[[Vc]]) : (!llvm.ptr) -> i32
   return
   // CHECK-NEXT:   return
 }

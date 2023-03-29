@@ -17,13 +17,16 @@ func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_st
 }
 
 func.func @reduce_sum_struct() {
+  iterators.print ("reduce_sum_struct")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
   %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
     : (!iterators.stream<!i32_struct>) -> (!iterators.stream<!i32_struct>)
   "iterators.sink"(%reduced) : (!iterators.stream<!i32_struct>) -> ()
-  // CHECK:      (6)
+  // CHECK-LABEL: reduce_sum_struct
+  // CHECK-NEXT:  (6)
+  // CHECK-NEXT:  -
   return
 }
 
@@ -38,6 +41,7 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
 }
 
 func.func @reduce_sum_i32() {
+  iterators.print ("reduce_sum_i32")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [10 : i32], [20 : i32], [30 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -46,7 +50,9 @@ func.func @reduce_sum_i32() {
   %reduced = "iterators.reduce"(%unpacked) {reduceFuncRef = @sum_i32}
     : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
   "iterators.sink"(%reduced) : (!iterators.stream<i32>) -> ()
-  // CHECK:      60
+  // CHECK-LABEL: reduce_sum_i32
+  // CHECK-NEXT:  60
+  // CHECK-NEXT:  -
   return
 }
 
@@ -67,6 +73,7 @@ func.func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32
 }
 
 func.func @reduce_arg_max() {
+  iterators.print ("reduce_arg_max")
   %input = "iterators.constantstream"()
       { value = [[0 : i32,  0.   : f32],
                  [1 : i32, 13.37 : f32],  // <-- max value
@@ -75,7 +82,9 @@ func.func @reduce_arg_max() {
   %reduce = "iterators.reduce"(%input) {reduceFuncRef = @arg_max}
     : (!iterators.stream<!i32f32_struct>) -> (!iterators.stream<!i32f32_struct>)
   "iterators.sink"(%reduce) : (!iterators.stream<!i32f32_struct>) -> ()
-  // CHECK:      (1, 13.37)
+  // CHECK-LABEL: reduce_arg_max
+  // CHECK-NEXT:  (1, 13.37)
+  // CHECK-NEXT:  -
   return
 }
 

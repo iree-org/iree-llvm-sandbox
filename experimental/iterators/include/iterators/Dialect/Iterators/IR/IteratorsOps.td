@@ -56,9 +56,28 @@ def Iterators_PrintTupleOp : Iterators_Base_Op<"printtuple"> {
   let arguments = (ins Iterators_NestedTupleOfPrintableTypes:$tuple);
 }
 
-def Iterators_PrintOp : Iterators_Base_Op<"print"> {
-  let summary = "Prints the given element";
-  let arguments = (ins Iterators_PrintableType:$element);
+def Iterators_PrintOp : Iterators_Base_Op<"print", [
+    PredOpTrait<"only one of 'constant' and 'value' may be set",
+      CPred<[{($constant.empty() || !llvm::cast<PrintOp>($_op).getValue())}]>>
+    ]> {
+  let summary = "Prints the given value or string";
+  let arguments = (ins
+    Optional<Iterators_PrintableType>:$value,
+    DefaultValuedAttr<StrAttr, [{""}]>:$constant,
+    UnitAttr:$nonl
+  );
+  let assemblyFormat = [{
+    `(` ($constant^):($value)? (`nonl` $nonl^)? `)`
+      attr-dict (`:` type($value)^)?
+  }];
+  let builders = [
+    OpBuilder<(ins "::mlir::Value":$value), [{
+      $_state.addOperands(value);
+    }]>,
+    OpBuilder<(ins "::llvm::StringRef": $constant), [{
+      $_state.addAttribute("constant", $_builder.getStringAttr(constant));
+    }]>
+  ];
 }
 
 //===----------------------------------------------------------------------===//

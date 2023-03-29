@@ -291,12 +291,21 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     Location loc = op->getLoc();
     Type i32 = rewriter.getI32Type();
 
-    // Assemble format string in the form `(%lli, %lg, ...)`.
-    SmallString<128> format;
+    // Assemble format string and arguments for the SSA value.
+    SmallString<128> format; // op.getPrefix();
     SmallVector<Value> arguments = {/*formatSpec=*/Value()};
-    buildFormatStringAndArguments(op.getElement(), rewriter, loc, format,
-                                  arguments);
-    format += "\n\0"s;
+    if (op.getValue())
+      buildFormatStringAndArguments(op.getValue(), rewriter, loc, format,
+                                    arguments);
+
+    // Append constant attribute. If it is not set, this has no effect.
+    format += op.getConstant();
+
+    // Append new line character unless `nonl` is set.
+    if (!op.getNonl())
+      format += "\n"s;
+
+    format += "\0"s;
 
     // Insert format string as global.
     auto module = op->getParentOfType<ModuleOp>();
@@ -1533,6 +1542,7 @@ static Value convert(IteratorOpInterface op, ValueRange operands,
 /// }
 /// %5 = call @iterators.upstream.close.1(%4#0) :
 ///          (!input_state_type) -> !input_state_type
+/// iterators.print("-")
 static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
                                   ArrayRef<IteratorInfo> upstreamInfos,
                                   OpBuilder &rewriter) {
@@ -1595,6 +1605,9 @@ static SmallVector<Value> convert(SinkOp op, SinkOpAdaptor adaptor,
 
   // Close input iterator. -----------------------------------------------------
   builder.create<func::CallOp>(closeFunc, stateType, consumedState);
+
+  // Print end-of-stream indicator.
+  builder.create<PrintOp>("-");
 
   return {};
 }

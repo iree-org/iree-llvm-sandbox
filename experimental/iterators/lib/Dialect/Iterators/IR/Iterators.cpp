@@ -14,6 +14,7 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
