@@ -56,35 +56,26 @@ def Iterators_PrintTupleOp : Iterators_Base_Op<"printtuple"> {
   let arguments = (ins Iterators_NestedTupleOfPrintableTypes:$tuple);
 }
 
-def Iterators_PrintOp : Iterators_Base_Op<"print"> {
-  let summary = "Prints the given element";
+def Iterators_PrintOp : Iterators_Base_Op<"print", [
+    PredOpTrait<"only one of 'constant' and 'value' may be set",
+      CPred<[{($constant.empty() || !llvm::cast<PrintOp>($_op).getValue())}]>>
+    ]> {
+  let summary = "Prints the given value or string";
   let arguments = (ins
-    DefaultValuedAttr<StrAttr, [{""}]>:$prefix,
-    Optional<Iterators_PrintableType>:$element,
-    DefaultValuedAttr<StrAttr, [{"\n"}]>:$suffix
+    Optional<Iterators_PrintableType>:$value,
+    DefaultValuedAttr<StrAttr, [{""}]>:$constant,
+    UnitAttr:$nonl
   );
   let assemblyFormat = [{
-    `(` custom<PrintOpArgs>($prefix, $element, $suffix) `)`
-      attr-dict (`:` type($element)^)?
+    `(` ($constant^):($value)? (`nonl` $nonl^)? `)`
+      attr-dict (`:` type($value)^)?
   }];
   let builders = [
-    OpBuilder<(ins "::mlir::Value":$element), [{
-      $_state.addOperands(element);
+    OpBuilder<(ins "::mlir::Value":$value), [{
+      $_state.addOperands(value);
     }]>,
-    OpBuilder<(ins "::llvm::StringRef": $prefix, "::mlir::Value":$element), [{
-      $_state.addOperands(element);
-      $_state.addAttribute("prefix", $_builder.getStringAttr(prefix));
-    }]>,
-    OpBuilder<(ins "::mlir::Value":$element, "::llvm::StringRef": $suffix), [{
-      $_state.addOperands(element);
-      $_state.addAttribute("suffix", $_builder.getStringAttr(suffix));
-    }]>,
-    OpBuilder<(ins "::llvm::StringRef": $prefix, "::llvm::StringRef": $suffix), [{
-      $_state.addAttribute("prefix", $_builder.getStringAttr(prefix));
-      $_state.addAttribute("suffix", $_builder.getStringAttr(suffix));
-    }]>,
-    OpBuilder<(ins "::llvm::StringRef": $prefix), [{
-      $_state.addAttribute("prefix", $_builder.getStringAttr(prefix));
+    OpBuilder<(ins "::llvm::StringRef": $constant), [{
+      $_state.addAttribute("constant", $_builder.getStringAttr(constant));
     }]>
   ];
 }

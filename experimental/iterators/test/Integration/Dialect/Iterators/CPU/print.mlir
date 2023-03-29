@@ -10,43 +10,24 @@ func.func @print_empty_tuple(%tuple : tuple<>) -> () {
 func.func @main() {
   %i32 = arith.constant 42
 
-  iterators.print ("prefix", %i32, "suffix\0A") : i64
-  // CHECK:      prefix42suffix
+  // CHECK:      constant
+  iterators.print("constant")
 
-  iterators.print ("", %i32, "suffix\0A") : i64
-  // CHECK-NEXT: 42suffix
+  // CHECK-NEXT: 42
+  iterators.print(%i32) : i64
 
-  iterators.print (%i32, "suffix\0A") : i64
-  // CHECK-NEXT: 42suffix
-
-  iterators.print ("prefix", "suffix\0A")
-  // CHECK-NEXT: prefixsuffix
-
-  iterators.print ("prefix", %i32, "\0A") : i64
-  // CHECK-NEXT: prefix42
-
-  iterators.print ("prefix", %i32) : i64
-  // CHECK-NEXT: prefix42
-
-  iterators.print ("prefix", "\0A")
-  // CHECK-NEXT: prefix
-
-  iterators.print ("prefix")
-  // CHECK-NEXT: prefix
-
-  iterators.print ("", "suffix\0A")
-  // CHECK-NEXT: suffix
-
-  iterators.print ("prefix", "")
-  iterators.print ("\0A", "suffix\0A")
-  // CHECK-NEXT: prefix
-  // CHECK-NEXT: suffix
-
-  iterators.print ("")
   // CHECK-EMPTY:
+  iterators.print("")
 
-  iterators.print ()
   // CHECK-EMPTY:
+  iterators.print()
+
+  // CHECK-NEXT: constant42
+  iterators.print("constant" nonl)
+  iterators.print("" nonl)
+  iterators.print(nonl)
+  iterators.print(%i32 nonl) : i64
+  iterators.print()
 
   %empty_tuple = "iterators.constanttuple"() { values = [] } : () -> tuple<>
   "iterators.printtuple"(%empty_tuple) : (tuple<>) -> ()

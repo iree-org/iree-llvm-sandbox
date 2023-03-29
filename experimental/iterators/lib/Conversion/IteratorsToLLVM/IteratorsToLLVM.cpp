@@ -291,13 +291,20 @@ struct PrintOpLowering : public OpConversionPattern<PrintOp> {
     Location loc = op->getLoc();
     Type i32 = rewriter.getI32Type();
 
-    // Assemble format string in the form `(%lli, %lg, ...)`.
-    SmallString<128> format = op.getPrefix();
+    // Assemble format string and arguments for the SSA value.
+    SmallString<128> format; // op.getPrefix();
     SmallVector<Value> arguments = {/*formatSpec=*/Value()};
-    if (op.getElement())
-      buildFormatStringAndArguments(op.getElement(), rewriter, loc, format,
+    if (op.getValue())
+      buildFormatStringAndArguments(op.getValue(), rewriter, loc, format,
                                     arguments);
-    format += op.getSuffix();
+
+    // Append constant attribute. If it is not set, this has no effect.
+    format += op.getConstant();
+
+    // Append new line character unless `nonl` is set.
+    if (!op.getNonl())
+      format += "\n"s;
+
     format += "\0"s;
 
     // Insert format string as global.
