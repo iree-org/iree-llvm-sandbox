@@ -53,12 +53,11 @@ public:
   using OneToNOpConversionPattern<CreateStateOp>::OneToNOpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(CreateStateOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping & /*operandMapping*/,
-                  const OneToNTypeMapping &resultMapping,
-                  const ValueRange convertedOperands) const override {
+  matchAndRewrite(CreateStateOp op, OpAdaptor adaptor,
+                  OneToNPatternRewriter &rewriter) const override {
     // Simply replace the current op with the converted operands.
-    rewriter.replaceOp(op, convertedOperands, resultMapping);
+    rewriter.replaceOp(op, adaptor.getFlatOperands(),
+                       adaptor.getResultMapping());
     return success();
   }
 };
@@ -68,10 +67,8 @@ public:
   using OneToNOpConversionPattern<InsertValueOp>::OneToNOpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(InsertValueOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const ValueRange convertedOperands) const override {
+  matchAndRewrite(InsertValueOp op, OpAdaptor adaptor,
+                  OneToNPatternRewriter &rewriter) const override {
     // Construct conversion mapping for field types.
     auto stateType = op.getState().getType().cast<StateType>();
     TypeRange originalFieldTypes = stateType.getFieldTypes();
@@ -81,10 +78,8 @@ public:
       return failure();
 
     // Extract converted operands.
-    ValueRange convertedState =
-        operandMapping.getConvertedValues(convertedOperands, 0);
-    ValueRange convertedValue =
-        operandMapping.getConvertedValues(convertedOperands, 1);
+    ValueRange convertedState = adaptor.getState();
+    ValueRange convertedValue = adaptor.getValue();
 
     // Compose new state fields from unchanged and inserted ones.
     size_t index = op.getIndex().getZExtValue();
@@ -100,7 +95,7 @@ public:
     }
 
     // Replace original op with new state fields.
-    rewriter.replaceOp(op, updatedState, resultMapping);
+    rewriter.replaceOp(op, updatedState, adaptor.getResultMapping());
     return success();
   }
 };
@@ -111,10 +106,8 @@ public:
   using OneToNOpConversionPattern<ExtractValueOp>::OneToNOpConversionPattern;
 
   LogicalResult
-  matchAndRewrite(ExtractValueOp op, OneToNPatternRewriter &rewriter,
-                  const OneToNTypeMapping &operandMapping,
-                  const OneToNTypeMapping &resultMapping,
-                  const ValueRange convertedOperands) const override {
+  matchAndRewrite(ExtractValueOp op, OpAdaptor adaptor,
+                  OneToNPatternRewriter &rewriter) const override {
     // Construct conversion mapping for field types.
     auto stateType = op.getState().getType().cast<StateType>();
     TypeRange originalFieldTypes = stateType.getFieldTypes();
@@ -124,8 +117,7 @@ public:
       return failure();
 
     // Extract converted operands.
-    ValueRange convertedState =
-        operandMapping.getConvertedValues(convertedOperands, 0);
+    ValueRange convertedState = adaptor.getState();
 
     // Return extracted value.
     size_t index = op.getIndex().getZExtValue();
@@ -133,7 +125,7 @@ public:
         fieldMapping.getConvertedValues(convertedState, index);
 
     // Replace original op with extracted field value.
-    rewriter.replaceOp(op, extractedValue, resultMapping);
+    rewriter.replaceOp(op, extractedValue, adaptor.getResultMapping());
     return success();
   }
 };
