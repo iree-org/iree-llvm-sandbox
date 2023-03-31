@@ -364,11 +364,14 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 
   // Find unique global name.
   auto module = op->getParentOfType<ModuleOp>();
-  llvm::SmallString<64> candidateName;
+  llvm::SmallString<64> candidateNameStorage;
+  StringRef candidateName;
   int64_t uniqueNumber = 0;
   while (true) {
-    (Twine("iterators.constant_stream_data.") + Twine(uniqueNumber))
-        .toStringRef(candidateName);
+    candidateNameStorage.clear();
+    candidateName =
+        (Twine("iterators.constant_stream_data.") + Twine(uniqueNumber))
+            .toStringRef(candidateNameStorage);
     if (!module.lookupSymbol(candidateName)) {
       break;
     }

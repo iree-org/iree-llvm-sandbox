@@ -11,10 +11,13 @@ namespace iterators {
 NameAssigner::NameAssigner(ModuleOp module) : module(module) { assert(module); }
 
 StringAttr NameAssigner::assignName(StringRef prefix) {
-  llvm::SmallString<64> candidateName;
+  llvm::SmallString<64> candidateNameStorage;
+  StringRef candidateName;
   decltype(names)::iterator existingName;
   while (true) {
-    (prefix + Twine(".") + Twine(uniqueNumber)).toStringRef(candidateName);
+    candidateNameStorage.clear();
+    candidateName = (prefix + Twine(".") + Twine(uniqueNumber))
+                        .toStringRef(candidateNameStorage);
     existingName = names.find(candidateName);
     if (!module.lookupSymbol(candidateName) && existingName == names.end()) {
       break;
