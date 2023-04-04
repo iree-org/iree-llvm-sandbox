@@ -1,7 +1,9 @@
 # RUN: %PYTHON %s | FileCheck %s
 
+import argparse
 import ctypes
 import io
+import logging
 import os
 import sys
 import time
@@ -18,6 +20,32 @@ from mlir_iterators.dialects import tuple as tup
 from mlir_iterators.passmanager import PassManager
 from mlir_iterators.execution_engine import ExecutionEngine
 from mlir_iterators.ir import Context, Module
+
+# Set up logging.
+LOGLEVELS = {
+    logging.getLevelName(l): l
+    for l in (logging.CRITICAL, logging.ERROR, logging.WARNING, logging.INFO,
+              logging.DEBUG)
+}
+
+# Parse command line arguments for interactive testing/debugging.
+parser = argparse.ArgumentParser(
+    description='Integration tests for iterators related to Apache Arrow.')
+parser.add_argument('--log-level',
+                    type=LOGLEVELS.__getitem__,
+                    default=logging.ERROR,
+                    help='Set the log level by name')
+parser.add_argument('--enable-ir-printing',
+                    action='store_true',
+                    help='Enable printing IR after every pass')
+args = parser.parse_args()
+
+logging.getLogger().setLevel(args.log_level)
+
+
+def format_code(code: str) -> str:
+  return '\n'.join(
+      (f'{i:>4}:  {l}' for i, l in enumerate(str(code).splitlines())))
 
 
 def run(f):
@@ -87,7 +115,12 @@ def to_mlir_type(t: pa.DataType) -> str:
 
 # Compiles the given code and wraps it into an execution engine.
 def build_and_create_engine(code: str) -> ExecutionEngine:
-  mod = Module.parse(ARROW_STRUCT_DEFINITIONS_MLIR + code)
+  # Assemble, log, and parse input IR.
+  code = ARROW_STRUCT_DEFINITIONS_MLIR + code
+  logging.info("Input IR:\n\n%s\n", format_code(code))
+  mod = Module.parse(code)
+
+  # Assemble and log pass pipeline.
   pm = PassManager.parse('builtin.module('
                          'convert-iterators-to-llvm,'
                          'convert-tabular-to-llvm,'
@@ -102,7 +135,17 @@ def build_and_create_engine(code: str) -> ExecutionEngine:
                          'reconcile-unrealized-casts,'
                          'convert-scf-to-cf,'
                          'convert-cf-to-llvm)')
+  logging.info("Pass pipeline:\n\n%s\n", pm)
+
+  # Enable printing of intermediate IR if requested.
+  if args.enable_ir_printing:
+    mod.context.enable_multithreading(False)
+    pm.enable_ir_printing()
+
+  # Run pipeline.
   pm.run(mod.operation)
+
+  # Create and return engine.
   runtime_lib = os.environ['ITERATORS_RUNTIME_LIBRARY_PATH']
   engine = ExecutionEngine(mod, shared_libs=[runtime_lib])
   return engine
