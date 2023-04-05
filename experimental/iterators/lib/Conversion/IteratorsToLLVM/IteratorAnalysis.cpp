@@ -113,6 +113,21 @@ StateType StateTypeComputer::operator()(
   return StateType::get(context, {indexType, viewType});
 }
 
+/// The state of TensorToStreamOp consists of a single number that corresponds
+/// to the index of the next tensor slice returned by the iterator and the input
+/// tensor. Pseudocode:
+///
+/// template <typename TensorType>
+/// struct { size_t currentIndex; TensorType view; }
+template <>
+StateType StateTypeComputer::operator()(
+    TensorToStreamOp op, llvm::SmallVector<StateType> /*upstreamStateTypes*/) {
+  MLIRContext *context = op->getContext();
+  Type indexType = IndexType::get(context);
+  Type tensorType = op.getInput().getType();
+  return StateType::get(context, {indexType, tensorType});
+}
+
 /// The state of ValueToStreamOp consists a Boolean indicating whether it has
 /// already returned its value (which is initialized to false and set to true in
 /// the first call to next) and the value it converts to a stream.
@@ -173,6 +188,7 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             MapOp,
             ReduceOp,
             TabularViewToStreamOp,
+            TensorToStreamOp,
             ValueToStreamOp
             // clang-format on
             >([&](auto op) {

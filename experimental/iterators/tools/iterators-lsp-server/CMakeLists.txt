@@ -15,11 +15,15 @@ list(APPEND conversion_libs
   MLIRTabularToLLVM
   MLIRStatesToLLVM
   )
+set(iterators_transform_libs
+  MLIRIteratorsTransforms
+  )
 
 target_link_libraries(iterators-lsp-server
   PRIVATE
   ${dialect_libs}
   ${conversion_libs}
+  ${iterators_transform_libs}
   MLIRLspServerLib
   MLIRSupport
   MLIRIR

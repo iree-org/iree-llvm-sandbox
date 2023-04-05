@@ -15,10 +15,12 @@ list(APPEND conversion_libs
   MLIRTabularToLLVM
   MLIRStatesToLLVM
   )
+set(iterators_transform_libs
+  MLIRIteratorsTransforms
+  )
 
 target_link_libraries(iterators-opt
   PRIVATE
-
   ${dialect_libs}
   ${conversion_libs}
   MLIRAffineAnalysis
