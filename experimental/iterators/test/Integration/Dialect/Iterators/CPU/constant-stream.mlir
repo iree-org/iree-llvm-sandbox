@@ -1,6 +1,6 @@
 // RUN: iterators-opt %s \
 // RUN:   -convert-iterators-to-llvm \
-// RUN:   -decompose-iterator-states -canonicalize \
+// RUN:   -decompose-iterator-states \
 // RUN:   -convert-func-to-llvm \
 // RUN:   -convert-scf-to-cf -convert-cf-to-llvm \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \

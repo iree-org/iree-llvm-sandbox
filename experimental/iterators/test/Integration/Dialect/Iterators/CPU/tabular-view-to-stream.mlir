@@ -1,7 +1,7 @@
 // RUN: iterators-opt %s \
 // RUN:   -convert-tabular-to-llvm \
 // RUN:   -convert-iterators-to-llvm \
-// RUN:   -decompose-iterator-states -canonicalize \
+// RUN:   -decompose-iterator-states \
 // RUN:   -arith-bufferize -cse \
 // RUN:   -expand-strided-metadata \
 // RUN:   -finalize-memref-to-llvm \
