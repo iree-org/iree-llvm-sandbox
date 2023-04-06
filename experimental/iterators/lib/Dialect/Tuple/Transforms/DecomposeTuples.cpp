@@ -84,9 +84,14 @@ void iterators::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
       >(typeConverter, patterns.getContext());
 }
 
-/// Creates IR that builds FromElementsOps to assemble a value of the given,
-/// portentially recursive tuple type from the given range of inputs. This can
-/// be used as argument and source materializations for tuple decomposition.
+/// Creates IR that builds `FromElementsOp`s to assemble a value of the given,
+/// portentially recursive tuple type from the given range of inputs. This is
+/// meant to be used as argument and source materializations for tuple
+/// decomposition.
+///
+/// The implementation of this function is recursive, which should be avoided in
+/// the LLVM code base. However, the recursion is bounded by the nesting depth
+/// of the iterator state types, which should make this an acceptable exception.
 static std::optional<Value> buildFromElementsOp(OpBuilder &builder,
                                                 TypeConverter &typeConverter,
                                                 Type type, ValueRange inputs,
@@ -129,8 +134,12 @@ static std::optional<Value> buildFromElementsOp(OpBuilder &builder,
 }
 
 /// Creates IR that extracts the elements of the given input tuple recursively
-/// using ToElementOps. This can be used as target conversion for tuple
-/// decomposition.
+/// using `ToElementOp`s. This is meant ti be used as target conversion for
+/// tuple decomposition.
+///
+/// The implementation of this function is recursive, which should be avoided in
+/// the LLVM code base. However, the recursion is bounded by the nesting depth
+/// of the iterator state types, which should make this an acceptable exception.
 static std::optional<SmallVector<Value>>
 buildToElementsOp(OpBuilder &builder, TypeConverter &typeConverter,
                   TypeRange resultTypes, Value input, Location loc) {
