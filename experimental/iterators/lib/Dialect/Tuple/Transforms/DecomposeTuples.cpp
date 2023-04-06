@@ -28,6 +28,8 @@ using namespace mlir::tuple;
 
 using InputMapping = OneToNTypeMapping::InputMapping;
 
+namespace {
+
 class DecomposeTuplesTypeConverter : public OneToNTypeConverter {
 public:
   DecomposeTuplesTypeConverter() {
@@ -69,6 +71,8 @@ public:
     return success();
   }
 };
+
+} // namespace
 
 void iterators::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
                                                 RewritePatternSet &patterns) {
@@ -127,7 +131,7 @@ static std::optional<Value> buildFromElementsOp(OpBuilder &builder,
 /// Creates IR that extracts the elements of the given input tuple recursively
 /// using ToElementOps. This can be used as target conversion for tuple
 /// decomposition.
-std::optional<SmallVector<Value>>
+static std::optional<SmallVector<Value>>
 buildToElementsOp(OpBuilder &builder, TypeConverter &typeConverter,
                   TypeRange resultTypes, Value input, Location loc) {
   auto tupleType = input.getType().dyn_cast<TupleType>();
@@ -165,6 +169,8 @@ buildToElementsOp(OpBuilder &builder, TypeConverter &typeConverter,
   return results;
 }
 
+namespace {
+
 struct DecomposeTuplesPass : public DecomposeTuplesBase<DecomposeTuplesPass> {
   void runOnOperation() override {
     ModuleOp module = getOperation();
@@ -199,6 +205,8 @@ struct DecomposeTuplesPass : public DecomposeTuplesBase<DecomposeTuplesPass> {
       return signalPassFailure();
   };
 };
+
+} // namespace
 
 std::unique_ptr<Pass> mlir::createDecomposeTuplesPass() {
   return std::make_unique<DecomposeTuplesPass>();
