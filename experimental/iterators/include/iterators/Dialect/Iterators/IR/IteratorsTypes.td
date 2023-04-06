@@ -181,18 +181,24 @@ def Iterators_HomogeneouslyTypedLLVMNumericArrayArrayAttr
           "and where the inner arrays consist of numeric values">
       ]>;
 
-/// Any printable type.
-def Iterators_PrintableType : AnyTypeOf<[
+/// Printable type that can occur as a (nested) element type of printable tuples.
+def Iterators_PrintableElementType : AnyTypeOf<[
     Iterators_PrintableNumericType,
     Iterators_NestedLLVMStructOfNumerics
   ]>;
 
 /// A tuple consisting only of printable types.
-def Iterators_TupleOfPrintableTypes : TupleOf<[Iterators_PrintableType]>;
+def Iterators_TupleOfPrintableTypes : TupleOf<[Iterators_PrintableElementType]>;
 
 /// A potentially nested tuple consisting only of printable types.
 def Iterators_NestedTupleOfPrintableTypes
-  : NestedTupleOf<[Iterators_PrintableType]>;
+  : NestedTupleOf<[Iterators_PrintableElementType]>;
+
+/// Any printable type.
+def Iterators_PrintableType : AnyTypeOf<[
+    Iterators_PrintableElementType,
+    Iterators_NestedTupleOfPrintableTypes
+  ]>;
 
 //===----------------------------------------------------------------------===//
 // Streams (i.e., the data types passed between iterators).

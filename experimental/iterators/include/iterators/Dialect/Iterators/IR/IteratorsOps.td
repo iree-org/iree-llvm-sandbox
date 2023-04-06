@@ -51,11 +51,6 @@ def Iterators_ConstantTupleOp : Iterators_Base_Op<"constanttuple",
   }];
 }
 
-def Iterators_PrintTupleOp : Iterators_Base_Op<"printtuple"> {
-  let summary = "Prints the elements of a tuple";
-  let arguments = (ins Iterators_NestedTupleOfPrintableTypes:$tuple);
-}
-
 def Iterators_PrintOp : Iterators_Base_Op<"print", [
     PredOpTrait<"only one of 'constant' and 'value' may be set",
       CPred<[{($constant.empty() || !llvm::cast<PrintOp>($_op).getValue())}]>>
