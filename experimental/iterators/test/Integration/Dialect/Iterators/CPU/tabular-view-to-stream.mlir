@@ -2,6 +2,7 @@
 // RUN:   -convert-tabular-to-llvm \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -decompose-iterator-states \
+// RUN:   -decompose-tuples \
 // RUN:   -arith-bufferize -cse \
 // RUN:   -expand-strided-metadata \
 // RUN:   -finalize-memref-to-llvm \
@@ -10,8 +11,6 @@
 // RUN:   -convert-scf-to-cf -convert-cf-to-llvm \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
-
-!struct_type = !llvm.struct<(i32,i64)>
 
 func.func @single_block() {
   iterators.print("single_block")
@@ -22,8 +21,8 @@ func.func @single_block() {
   %view = "tabular.view_as_tabular"(%m1, %m2)
     : (memref<3xi32>, memref<3xi64>) -> !tabular.tabular_view<i32,i64>
   %stream = iterators.tabular_view_to_stream %view
-    to !iterators.stream<!struct_type>
-  "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
+    to !iterators.stream<tuple<i32, i64>>
+  "iterators.sink"(%stream) : (!iterators.stream<tuple<i32, i64>>) -> ()
   // CHECK-LABEL: single_block
   // CHECK-NEXT:  (0, 3)
   // CHECK-NEXT:  (1, 4)
@@ -34,8 +33,8 @@ func.func @single_block() {
 
 func.func @query(%view : !tabular.tabular_view<i32,i64>) {
   %stream = iterators.tabular_view_to_stream %view
-    to !iterators.stream<!struct_type>
-  "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
+    to !iterators.stream<tuple<i32, i64>>
+  "iterators.sink"(%stream) : (!iterators.stream<tuple<i32, i64>>) -> ()
   return
 }
 

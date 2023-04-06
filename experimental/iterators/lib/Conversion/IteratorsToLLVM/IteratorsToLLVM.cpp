@@ -1087,22 +1087,22 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
 /// %2 = llvm.extractvalue %1[0] : !tabular_view_type
 /// %3 = arith.cmpi slt, %0, %2 : i64
 /// %4:2 = scf.if %3 -> (!iterators.state<i64, !tabular_view_type>,
-///                      !element_type) {
+///                      tuple<i32>) {
 ///   %c1_i64 = arith.constant 1 : i64
 ///   %5 = arith.addi %0, %c1_i64 : i64
-///   %6 = iterators.insertvalue %5 into %arg0[0] :
+///   %state = iterators.insertvalue %5 into %arg0[0] :
 ///            !iterators.state<i64, !tabular_view_type>
-///   %7 = llvm.mlir.undef : !element_type
-///   %8 = llvm.extractvalue %1[1] : !tabular_view_type
-///   %9 = llvm.getelementptr %8[%0] : (!llvm.ptr, i64) -> !llvm.ptr, i32
-///   %10 = llvm.load %9 : !llvm.ptr -> i32
-///   %11 = llvm.insertvalue %10, %7[0] : !element_type
-///   scf.yield %6, %11 :
-///       !iterators.state<i64, !tabular_view_type>, !element_type
+///   %6 = llvm.extractvalue %1[1] : !tabular_view_type
+///   %7 = llvm.getelementptr %6[%0] : (!llvm.ptr, i64) -> !llvm.ptr, i32
+///   %8 = llvm.load %7 : !llvm.ptr -> i32
+///   %tuple = tuple.from_elements %8 : tuple<i32>
+///   scf.yield %state, %tuple :
+///       !iterators.state<i64, !tabular_view_type>, tuple<i32>
 /// } else {
-///   %5 = llvm.mlir.undef : !element_type
-///   scf.yield %arg0, %5 :
-///       !iterators.state<i64, !tabular_view_type>, !element_type
+///   %5 = llvm.mlir.undef : i32
+///   %tuple = tuple.from_elements %5 : tuple<i32>
+///   scf.yield %arg0, %tuple :
+///       !iterators.state<i64, !tabular_view_type>, tuple<i32>
 /// }
 static llvm::SmallVector<Value, 4>
 buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
@@ -1113,7 +1113,7 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
   Type i64 = b.getI64Type();
   Type opaquePtrType = LLVMPointerType::get(context);
 
-  auto elementStructType = elementType.cast<LLVMStructType>();
+  auto tupleType = elementType.cast<TupleType>();
 
   // Extract current index.
   Value currentIndex =
@@ -1145,34 +1145,38 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
         Value updatedState = b.create<iterators::InsertValueOp>(
             initialState, b.getIndexAttr(0), updatedCurrentIndex);
 
-        // Assemble field values from values at current index of column
-        // buffers.
-        Value nextElement = b.create<UndefOp>(elementType);
-        for (auto [fieldIndex, fieldType] :
-             llvm::enumerate(elementStructType.getBody())) {
+        // Assemble tuple element values values from values at current index of
+        // column buffers.
+        SmallVector<Value> columnElements;
+        for (auto [idx, columnElementType] :
+             llvm::enumerate(tupleType.getTypes())) {
           // Extract column pointer.
           Value columnPtr = b.create<LLVM::ExtractValueOp>(
-              opaquePtrType, structOfInputBuffers, fieldIndex + 1);
+              opaquePtrType, structOfInputBuffers, idx + 1);
 
-          // Get element pointer.
-          Value gep = b.create<GEPOp>(opaquePtrType, fieldType, columnPtr,
-                                      ValueRange{currentIndex});
-
-          // Load.
-          Value fieldValue = b.create<LoadOp>(fieldType, gep);
-
-          // Insert into next element struct.
-          nextElement = b.create<LLVM::InsertValueOp>(nextElement, fieldValue,
-                                                      fieldIndex);
+          // Get element pointer and load.
+          Value gep = b.create<GEPOp>(opaquePtrType, columnElementType,
+                                      columnPtr, currentIndex);
+          Value fieldValue = b.create<LoadOp>(columnElementType, gep);
+          columnElements.push_back(fieldValue);
         }
 
+        // Assemble tuple and yield
+        auto nextElement =
+            b.create<tuple::FromElementsOp>(elementType, columnElements);
         b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
       },
       /*elseBuilder=*/
       [&](OpBuilder &builder, Location loc) {
-        // Don't modify state; return undef element.
+        // Don't modify state; return tuple with undef elements.
         ImplicitLocOpBuilder b(loc, builder);
-        Value nextElement = b.create<UndefOp>(elementType);
+        SmallVector<Value> elementValues;
+        for (auto [idx, elementType] : llvm::enumerate(tupleType.getTypes())) {
+          auto element = b.create<UndefOp>(elementType);
+          elementValues.push_back(element);
+        }
+        auto nextElement =
+            b.create<tuple::FromElementsOp>(elementType, elementValues);
         b.create<scf::YieldOp>(ValueRange{initialState, nextElement});
       });
 

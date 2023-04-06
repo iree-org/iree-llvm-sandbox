@@ -14,6 +14,7 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
   MLIRPass
   MLIRSCFDialect
   MLIRTabularToLLVM
+  MLIRTupleDialect
   MLIRTransforms
   MLIRTupleDialect
 )

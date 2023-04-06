@@ -97,18 +97,18 @@ def testEndToEndStandalone():
 def testEndToEndWithInput():
   # Set up module that reads data from the outside.
   mod = Module.parse('''
-      !struct_type = !llvm.struct<(i32,i64)>
-      func.func @main(%input: !tabular.tabular_view<i32,i64>)
+      func.func @main(%input: !tabular.tabular_view<i32, i64>)
           attributes { llvm.emit_c_interface } {
         %stream = iterators.tabular_view_to_stream %input
-          to !iterators.stream<!struct_type>
-        "iterators.sink"(%stream) : (!iterators.stream<!struct_type>) -> ()
+          to !iterators.stream<tuple<i32, i64>>
+        "iterators.sink"(%stream) : (!iterators.stream<tuple<i32, i64>>) -> ()
         return
       }
       ''')
   pm = PassManager.parse('builtin.module('
                          'convert-iterators-to-llvm,'
                          'decompose-iterator-states,'
+                         'decompose-tuples,'
                          'expand-strided-metadata,'
                          'finalize-memref-to-llvm,'
                          'convert-func-to-llvm,'

@@ -333,33 +333,28 @@ def Iterators_ReduceOp : Iterators_Op<"reduce",
   }];
 }
 
-def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream",
-    [TypesMatchWith<"element type of input stream must match result type",
-                    "result", "input",
-                    "TabularViewType::get("
-                    "    $_self.getContext(),"
-                    "    $_self.cast<StreamType>().getElementType()"
-                    "          .cast<LLVM::LLVMStructType>().getBody())">,
-     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
-  // TODO(ingomueller): Get rid of the LLVM dependency after designing a row
-  //                    type or similar.
-  let summary = "Extracts the tuples from a tabular view as LLVM structs";
+def Iterators_TabularViewToStreamOp : Iterators_Op<"tabular_view_to_stream", [
+    TypesMatchWith<"element type of input stream must match result type",
+                   "result", "input",
+                   "TabularViewType::get("
+                   "    $_self.getContext(),"
+                   "    $_self.cast<StreamType>().getElementType()"
+                   "          .cast<TupleType>().getTypes())">,
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+  let summary = "Extracts the tuples from a tabular view one at a time";
   let description = [{
-    Produces a stream of LLVM structs from a given `tabular_view` (i.e., "scans"
-    the given `tabular_view`). Each LLVM struct represents one row, and the op
+    Produces a stream of built-in tuples from a given `tabular_view` (i.e.,
+    "scans" the given `tabular_view`). Each tuple represents one row, and the op
     produces all rows in ascending order.
-
-    The current dependency on LLVM is not elegant and only a temporary solution
-    before we get a more high-level `row` type or similar.
 
     Example:
     ```mlir
     %fromtabview = iterators.tabular_view_to_stream %view
-                       to !iterators.stream<!llvm.struct<(!t1, ..., !tn)>>
+                       to !iterators.stream<tuple!t1, ..., !tn>>
     ```
   }];
   let arguments = (ins Tabular_TabularView:$input);
-  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let results = (outs Iterators_StreamOfPrintableTuples:$result);
   let assemblyFormat = "$input attr-dict `to` type($result)";
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
