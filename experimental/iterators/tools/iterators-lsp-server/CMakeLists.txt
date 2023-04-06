@@ -18,6 +18,7 @@ list(APPEND conversion_libs
   )
 set(iterators_transform_libs
   MLIRIteratorsTransforms
+  MLIRTupleTransforms
   )
 
 target_link_libraries(iterators-lsp-server

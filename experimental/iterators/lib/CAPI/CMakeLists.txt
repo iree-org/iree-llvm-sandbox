@@ -9,6 +9,7 @@ add_mlir_public_c_api_library(IteratorsCAPI
     MLIRTabular
     MLIRTabularToLLVM
     MLIRTupleDialect
+    MLIRTupleTransforms
     MLIRPass
     MLIRStatesToLLVM
 )

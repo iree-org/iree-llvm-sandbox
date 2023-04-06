@@ -21,6 +21,8 @@ extern "C" {
 
 #include "iterators/Dialect/Iterators/Transforms/Passes.capi.h.inc" // IWYU pragma: export
 
+#include "iterators/Dialect/Tuple/Transforms/Passes.capi.h.inc" // IWYU pragma: export
+
 #ifdef __cplusplus
 }
 #endif
