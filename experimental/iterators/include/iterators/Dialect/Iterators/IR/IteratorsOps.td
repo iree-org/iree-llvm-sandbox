@@ -79,46 +79,38 @@ def Iterators_PrintOp : Iterators_Base_Op<"print", [
 // High-level iterators
 //===----------------------------------------------------------------------===//
 
-/// Verifies that the element types of nested arrays in the $value array
-/// correspond to the types of the LLVM-struct element type of the $result
-/// Stream.
-def Iterators_ValueMatchesElementTypePred
-  : CPred<[{$value.dyn_cast<ArrayAttr>().size() == 0 ||
-            $result.getType().dyn_cast<StreamType>().getElementType() ==
-              ::mlir::LLVM::LLVMStructType::getLiteral(
-                $result.getType().getContext(),
-                ::llvm::SmallVector<Type>(
-                  ::llvm::map_range(
-                    $value.dyn_cast<::mlir::ArrayAttr>().begin()->dyn_cast<::mlir::ArrayAttr>(),
-                    [](Attribute attr) { return attr.cast<TypedAttr>().getType(); }
-                  )
-                )
-              )}]>;
-def Iterators_ValueMatchesElementType
-  : PredOpTrait<"value type matches return type",
-                Iterators_ValueMatchesElementTypePred>;
-
-def Iterators_ConstantStreamOp : Iterators_Op<"constantstream",
-    [Iterators_ValueMatchesElementType,
-     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+def Iterators_ConstantStreamOp : Iterators_Op<"constantstream", [
+    PredOpTrait<"element type of return type must be tuple with matching types",
+      CPred<[{
+        $value.cast<::mlir::ArrayAttr>().size () == 0 ||
+        TupleType::get(
+          $value.getContext(),
+          ::llvm::SmallVector<Type>(
+            ::llvm::map_range(
+              $value.cast<::mlir::ArrayAttr>().begin()->cast<::mlir::ArrayAttr>(),
+              [](Attribute attr) { return attr.cast<TypedAttr>().getType(); }
+            ))) ==
+          $result.getType().cast<StreamType>().getElementType()}]>>,
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
   let summary = "Produce a statically defined stream of elements";
   let description = [{
-    Produces a stream of LLVM structs given in the array of arrays attribute
-    (each inner array being returned as a literal LLVM struct with the values
-    and types of the elements of that array). The inner arrays all have to have
-    matching types, i.e., the element at position i has to be the same for all
-    inner arrays, and the element type of the return Stream has to be the
-    corresponding literal LLVM struct. An empty array is allowed (in which case
-    the return Stream does not need to match anything).
+    Produces a stream of tuples given in the array of arrays attribute (each
+    inner array being returned as a built-in tuple with the values and types of
+    the elements of that array). The inner arrays all have to have matching
+    types, i.e., the element at position i has to be the same for all inner
+    arrays, and the element type of the return Stream has to be the
+    corresponding tuple tpye. An empty array is allowed (in which case the
+    return Stream does not need to match anything).
 
     Example:
     ```mlir
     %constantstream = "iterators.constantstream"() { value = [[42 : i32]] } :
-            () -> (!iterators.stream<!llvm.struct<(i32)>>)
+            () -> (!iterators.stream<tuple<i32>>)
     ```
   }];
+  // TODO(ingomueller): Devise a lowering that allows to return non-LLVM types.
   let arguments = (ins Iterators_HomogeneouslyTypedLLVMNumericArrayArrayAttr:$value);
-  let results = (outs Iterators_StreamOfLLVMStructOfNumerics:$result);
+  let results = (outs Iterators_StreamOfPrintableTuples:$result);
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
     void $cppClass::getAsmResultNames(

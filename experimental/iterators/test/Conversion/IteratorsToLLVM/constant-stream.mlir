@@ -1,8 +1,6 @@
 // RUN: iterators-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
-!element_type = !llvm.struct<(i32)>
-
 // CHECK-LABEL: func private @iterators.constantstream.close.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> !iterators.state<i32>
 // CHECK-NEXT:    return %[[arg0:.*]] : !iterators.state<i32>
 // CHECK-NEXT:  }
@@ -28,7 +26,7 @@
 // CHECK-NEXT:     llvm.return %[[V16]] : !llvm.array<4 x struct<(i32)>>
 // CHECK-NEXT:   }
 
-// CHECK-LABEL: func private @iterators.constantstream.next.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+// CHECK-LABEL: func private @iterators.constantstream.next.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> (!iterators.state<i32>, i1, tuple<i32>)
 // CHECK-NEXT:    %[[V0:.*]] = iterators.extractvalue %[[arg0:.*]][0] : !iterators.state<i32>
 // CHECK-NEXT:    %[[V1:.*]] = arith.constant 4 : i32
 // CHECK-NEXT:    %[[V2:.*]] = arith.cmpi slt, %[[V0]], %[[V1]] : i32
@@ -44,7 +42,9 @@
 // CHECK-NEXT:      %[[Vb:.*]] = llvm.mlir.undef : !llvm.struct<(i32)>
 // CHECK-NEXT:      scf.yield %[[arg0]], %[[Vb]] : !iterators.state<i32>, !llvm.struct<(i32)>
 // CHECK-NEXT:    }
-// CHECK-NEXT:    return %[[V3]]#0, %[[V2]], %[[V3]]#1 : !iterators.state<i32>, i1, !llvm.struct<(i32)>
+// CHECK-NEXT:    %[[Vc:.*]] = llvm.extractvalue %[[V3]]#1[0] : !llvm.struct<(i32)>
+// CHECK-NEXT:    %[[Vd:.*]] = tuple.from_elements %[[Vc]] : tuple<i32>
+// CHECK-NEXT:    return %[[V3]]#0, %[[V2]], %[[Vd]] : !iterators.state<i32>, i1, tuple<i32>
 // CHECK-NEXT:  }
 
 // CHECK-LABEL: func private @iterators.constantstream.open.{{[0-9]+}}(%{{.*}}: !iterators.state<i32>) -> !iterators.state<i32>
@@ -57,7 +57,7 @@ func.func @main() {
   // CHECK-LABEL: func.func @main()
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
-      : () -> (!iterators.stream<!element_type>)
+      : () -> (!iterators.stream<tuple<i32>>)
   // CHECK-NEXT:   %[[V0:.*]] = arith.constant 0 : i32
   // CHECK-NEXT:   %[[V1:.*]] = iterators.createstate(%[[V0]]) : !iterators.state<i32>
   return

@@ -411,20 +411,22 @@ static GlobalOp buildGlobalData(ConstantStreamOp op, OpBuilder &builder,
 /// %0 = iterators.extractvalue %arg0[0] : !iterators.state<i32>
 /// %c4_i32 = arith.constant 4 : i32
 /// %1 = arith.cmpi slt, %0, %c4_i32 : i32
-/// %2:2 = scf.if %1 -> (!iterators.state<i32>, !element_type) {
+/// %2:2 = scf.if %1 -> (!iterators.state<i32>, !struct_type) {
 ///   %c1_i32 = arith.constant 1 : i32
 ///   %3 = arith.addi %0, %c1_i32 : i32
 ///   %4 = iterators.insertvalue %3 into %arg0[0] : !iterators.state<i32>
 ///   %5 = llvm.mlir.addressof @iterators.constant_stream_data.0 : !llvm.ptr
 ///   %6 = llvm.getelementptr %5[%0, 0] :
-///            (!llvm.ptr<array<4 x !element_type>>, i32, i32)
-///                -> !llvm.ptr, !element_type
-///   %7 = llvm.load %6 : !llvm.ptr -> !element_type
-///   scf.yield %4, %7 : !iterators.state<i32>, !element_type
+///            (!llvm.ptr<array<4 x !struct_type>>, i32, i32)
+///                -> !llvm.ptr, !struct_type
+///   %7 = llvm.load %6 : !llvm.ptr -> !struct_type
+///   scf.yield %4, %7 : !iterators.state<i32>, !struct_type
 /// } else {
-///   %3 = llvm.mlir.undef : !element_type
-///   scf.yield %arg0, %3 : !iterators.state<i32>, !element_type
+///   %4 = llvm.mlir.undef : !struct_type
+///   scf.yield %arg0, %3 : !iterators.state<i32>, !struct_type
 /// }
+/// %3 = llvm.extractvalue %2#1[0] : !llvm.struct<(i32)>
+/// %tuple = tuple.from_elements %3 : tuple<i32>
 static llvm::SmallVector<Value, 4>
 buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
               ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
@@ -433,6 +435,8 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
   MLIRContext *context = builder.getContext();
   Type i32 = b.getI32Type();
   Type opaquePtrType = LLVMPointerType::get(context);
+  auto tupleType = elementType.cast<TupleType>();
+  auto structType = LLVMStructType::getLiteral(context, tupleType.getTypes());
 
   // Extract current index.
   Value currentIndex = b.create<iterators::ExtractValueOp>(
@@ -459,26 +463,34 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
             initialState, b.getIndexAttr(0), updatedCurrentIndex);
 
         // Load element from global data at current index.
-        GlobalOp globalArray = buildGlobalData(op, b, elementType);
+        GlobalOp globalArray = buildGlobalData(op, b, structType);
         Value globalPtr =
             b.create<AddressOfOp>(opaquePtrType, globalArray.getName());
-        Value gep = b.create<GEPOp>(opaquePtrType, elementType, globalPtr,
+        Value gep = b.create<GEPOp>(opaquePtrType, structType, globalPtr,
                                     ArrayRef<GEPArg>{currentIndex, 0});
-        Value nextElement = b.create<LoadOp>(elementType, gep);
+        Value nextStruct = b.create<LoadOp>(structType, gep);
 
-        b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
+        b.create<scf::YieldOp>(ValueRange{updatedState, nextStruct});
       },
       /*elseBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
 
         // Don't modify state; return undef element.
-        Value nextElement = b.create<UndefOp>(elementType);
-        b.create<scf::YieldOp>(ValueRange{initialState, nextElement});
+        Value nextStruct = b.create<UndefOp>(structType);
+        b.create<scf::YieldOp>(ValueRange{initialState, nextStruct});
       });
 
+  // Convert LLVM struct to tuple.
+  Value nextStruct = ifOp.getResult(1);
+  SmallVector<Value> elements;
+  for (auto [i, fieldType] : llvm::enumerate(structType.getBody())) {
+    auto element = b.create<LLVM::ExtractValueOp>(fieldType, nextStruct, i);
+    elements.push_back(element);
+  }
+  Value nextElement = b.create<tuple::FromElementsOp>(elementType, elements);
+
   Value finalState = ifOp->getResult(0);
-  Value nextElement = ifOp.getResult(1);
   return {finalState, hasNext, nextElement};
 }
 
@@ -784,8 +796,22 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
       [&](OpBuilder &builder, Location loc) {
         // Return undefined value.
         ImplicitLocOpBuilder b(loc, builder);
-        Value undef = b.create<LLVM::UndefOp>(elementType);
-        b.create<scf::YieldOp>(undef);
+        // TODO(ingomueller): Find a more extensible design.
+        Value defaultElement;
+        if (auto tupleType = elementType.dyn_cast<TupleType>()) {
+          // Special case for tuples: hope that field types are undef'able.
+          SmallVector<Value> fieldValues;
+          for (Type fieldType : tupleType.getTypes()) {
+            auto fieldValue = b.create<LLVM::UndefOp>(fieldType);
+            fieldValues.push_back(fieldValue);
+          }
+          defaultElement =
+              b.create<tuple::FromElementsOp>(tupleType, fieldValues);
+        } else {
+          // Default case: hope that type is undef'able.
+          defaultElement = b.create<LLVM::UndefOp>(elementType);
+        }
+        b.create<scf::YieldOp>(defaultElement);
       });
   Value mappedElement = ifOp.getResult(0);
 

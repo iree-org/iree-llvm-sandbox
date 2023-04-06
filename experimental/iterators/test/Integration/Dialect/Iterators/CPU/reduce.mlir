@@ -1,30 +1,29 @@
 // RUN: iterators-opt %s \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -decompose-iterator-states \
+// RUN:   -decompose-tuples \
 // RUN:   -convert-func-to-llvm \
 // RUN:   -convert-scf-to-cf -convert-cf-to-llvm \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
 // RUN: | FileCheck %s
 
-!i32_struct = !llvm.struct<(i32)>
-
-func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_struct {
-  %lhsi = llvm.extractvalue %lhs[0] : !i32_struct
-  %rhsi = llvm.extractvalue %rhs[0] : !i32_struct
+func.func private @sum_tuple(%lhs : tuple<i32>, %rhs : tuple<i32>) -> tuple<i32> {
+  %lhsi = tuple.to_elements %lhs : tuple<i32>
+  %rhsi = tuple.to_elements %rhs : tuple<i32>
   %i = arith.addi %lhsi, %rhsi : i32
-  %result = llvm.insertvalue %i, %lhs[0] : !i32_struct
-  return %result : !i32_struct
+  %result = tuple.from_elements %i : tuple<i32>
+  return %result : tuple<i32>
 }
 
-func.func @reduce_sum_struct() {
-  iterators.print("reduce_sum_struct")
+func.func @reduce_sum_tuple() {
+  iterators.print("reduce_sum_tuple")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
-      : () -> (!iterators.stream<!i32_struct>)
-  %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
-    : (!iterators.stream<!i32_struct>) -> (!iterators.stream<!i32_struct>)
-  "iterators.sink"(%reduced) : (!iterators.stream<!i32_struct>) -> ()
-  // CHECK-LABEL: reduce_sum_struct
+      : () -> (!iterators.stream<tuple<i32>>)
+  %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum_tuple}
+    : (!iterators.stream<tuple<i32>>) -> (!iterators.stream<tuple<i32>>)
+  "iterators.sink"(%reduced) : (!iterators.stream<tuple<i32>>) -> ()
+  // CHECK-LABEL: reduce_sum_tuple
   // CHECK-NEXT:  (6)
   // CHECK-NEXT:  -
   return
@@ -35,8 +34,8 @@ func.func private @sum_i32(%lhs : i32, %rhs : i32) -> i32 {
   return %result : i32
 }
 
-func.func private @unpack_i32(%input : !i32_struct) -> i32 {
-  %i = llvm.extractvalue %input[0] : !i32_struct
+func.func private @unpack_i32(%input : tuple<i32>) -> i32 {
+  %i = tuple.to_elements %input : tuple<i32>
   return %i : i32
 }
 
@@ -44,9 +43,9 @@ func.func @reduce_sum_i32() {
   iterators.print("reduce_sum_i32")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [10 : i32], [20 : i32], [30 : i32]] }
-      : () -> (!iterators.stream<!i32_struct>)
+      : () -> (!iterators.stream<tuple<i32>>)
   %unpacked = "iterators.map"(%input) {mapFuncRef = @unpack_i32}
-    : (!iterators.stream<!i32_struct>) -> (!iterators.stream<i32>)
+    : (!iterators.stream<tuple<i32>>) -> (!iterators.stream<i32>)
   %reduced = "iterators.reduce"(%unpacked) {reduceFuncRef = @sum_i32}
     : (!iterators.stream<i32>) -> (!iterators.stream<i32>)
   "iterators.sink"(%reduced) : (!iterators.stream<i32>) -> ()
@@ -56,20 +55,18 @@ func.func @reduce_sum_i32() {
   return
 }
 
-!i32f32_struct = !llvm.struct<(i32, f32)>
-
-// Return input where second struct field is larger. Return lhs on equality or
+// Return input where second tuple element is larger. Return lhs on equality or
 // unordered.
-func.func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32f32_struct {
-  %lhsf = llvm.extractvalue %lhs[1] : !i32f32_struct
-  %rhsf = llvm.extractvalue %rhs[1] : !i32f32_struct
+func.func private @arg_max(%lhs : tuple<i32, f32>, %rhs : tuple<i32, f32>) -> tuple<i32, f32> {
+  %lhsi, %lhsf = tuple.to_elements %lhs : tuple<i32, f32>
+  %rhsi, %rhsf = tuple.to_elements %rhs : tuple<i32, f32>
   %cmp = arith.cmpf "uge", %lhsf, %rhsf : f32
-  %result = scf.if %cmp -> !i32f32_struct {
-    scf.yield %lhs : !i32f32_struct
+  %result = scf.if %cmp -> tuple<i32, f32> {
+    scf.yield %lhs : tuple<i32, f32>
   } else {
-    scf.yield %rhs : !i32f32_struct
+    scf.yield %rhs : tuple<i32, f32>
   }
-  return %result : !i32f32_struct
+  return %result : tuple<i32, f32>
 }
 
 func.func @reduce_arg_max() {
@@ -78,10 +75,10 @@ func.func @reduce_arg_max() {
       { value = [[0 : i32,  0.   : f32],
                  [1 : i32, 13.37 : f32],  // <-- max value
                  [2 : i32,  4.2  : f32]] }
-      : () -> (!iterators.stream<!i32f32_struct>)
+      : () -> (!iterators.stream<tuple<i32, f32>>)
   %reduce = "iterators.reduce"(%input) {reduceFuncRef = @arg_max}
-    : (!iterators.stream<!i32f32_struct>) -> (!iterators.stream<!i32f32_struct>)
-  "iterators.sink"(%reduce) : (!iterators.stream<!i32f32_struct>) -> ()
+    : (!iterators.stream<tuple<i32, f32>>) -> (!iterators.stream<tuple<i32, f32>>)
+  "iterators.sink"(%reduce) : (!iterators.stream<tuple<i32, f32>>) -> ()
   // CHECK-LABEL: reduce_arg_max
   // CHECK-NEXT:  (1, 13.37)
   // CHECK-NEXT:  -
@@ -89,7 +86,7 @@ func.func @reduce_arg_max() {
 }
 
 func.func @main() {
-  call @reduce_sum_struct() : () -> ()
+  call @reduce_sum_tuple() : () -> ()
   call @reduce_sum_i32() : () -> ()
   call @reduce_arg_max() : () -> ()
   return
