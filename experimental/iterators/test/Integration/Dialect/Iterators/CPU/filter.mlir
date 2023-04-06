@@ -16,7 +16,7 @@ func.func private @is_positive_struct(%struct : !i32_struct) -> i1 {
 }
 
 func.func @filter_is_positive_struct() {
-  iterators.print ("filter_is_positive_struct")
+  iterators.print("filter_is_positive_struct")
   %input = "iterators.constantstream"()
     { value = [[0: i32], [1: i32], [-1: i32], [2: i32], [-2: i32]] }
     : () -> (!iterators.stream<!i32_struct>)
@@ -42,7 +42,7 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
 }
 
 func.func @filter_is_positive_i32() {
-  iterators.print ("filter_is_positive_i32")
+  iterators.print("filter_is_positive_i32")
   %input = "iterators.constantstream"()
     { value = [[0: i32], [2: i32], [-2: i32], [4: i32], [-4: i32]] }
     : () -> (!iterators.stream<!i32_struct>)
