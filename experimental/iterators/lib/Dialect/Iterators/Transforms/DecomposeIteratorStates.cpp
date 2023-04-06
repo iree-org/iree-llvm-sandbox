@@ -27,6 +27,8 @@ namespace mlir {
 using namespace mlir;
 using namespace mlir::iterators;
 
+namespace {
+
 class DecomposeStatesTypeConverter : public OneToNTypeConverter {
 public:
   DecomposeStatesTypeConverter() {
@@ -130,6 +132,8 @@ public:
   }
 };
 
+} // namespace
+
 void iterators::populateDecomposeIteratorStatesPatterns(
     TypeConverter &typeConverter, RewritePatternSet &patterns) {
   patterns.add<
@@ -199,7 +203,7 @@ static std::optional<Value> buildCreateStateOp(OpBuilder &builder,
 /// however, is a problem with the overall design of the current lowering and
 /// not specific to state decomposition. If/when that is fixed, the problem here
 /// will either go away comletely or be fixed as a consequence.
-std::optional<SmallVector<Value>>
+static std::optional<SmallVector<Value>>
 buildExtractValueOps(OpBuilder &builder, TypeConverter &typeConverter,
                      TypeRange resultTypes, Value input, Location loc) {
   auto stateType = input.getType().dyn_cast<StateType>();
@@ -232,6 +236,9 @@ buildExtractValueOps(OpBuilder &builder, TypeConverter &typeConverter,
 
   return extractedValues;
 }
+
+namespace {
+
 struct DecomposeIteratorStatesPass
     : public DecomposeIteratorStatesBase<DecomposeIteratorStatesPass> {
   void runOnOperation() override {
@@ -262,6 +269,8 @@ struct DecomposeIteratorStatesPass
       return signalPassFailure();
   };
 };
+
+} // namespace
 
 std::unique_ptr<Pass> mlir::createDecomposeIteratorStatesPass() {
   return std::make_unique<DecomposeIteratorStatesPass>();
