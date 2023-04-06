@@ -141,6 +141,19 @@ void iterators::populateDecomposeIteratorStatesPatterns(
       >(typeConverter, patterns.getContext());
 }
 
+/// Creates IR that builds `CreateStateOp`s to assemble an iterator state of the
+/// given, portentially recursive state type from the given range of value. This
+/// is meant to be used as argument and source materializations for iterator
+/// state decomposition.
+///
+/// The implementation of this function is recursive, which should be avoided in
+/// the LLVM code base. On the one side, the recursion is bounded by the nesting
+/// depth of the iterator state types, which might make this an acceptable
+/// exception. On the other side, the nesting depth of the states currently
+/// depends on the length of SSA use-def chains, which may be large. That,
+/// however, is a problem with the overall design of the current lowering and
+/// not specific to state decomposition. If/when that is fixed, the problem here
+/// will either go away comletely or be fixed as a consequence.
 static std::optional<Value> buildCreateStateOp(OpBuilder &builder,
                                                TypeConverter &typeConverter,
                                                Type type, ValueRange inputs,
@@ -174,6 +187,18 @@ static std::optional<Value> buildCreateStateOp(OpBuilder &builder,
   return createStateOp->getResult(0);
 }
 
+/// Creates IR that builds `ExtractValueOp`s to extract the (potentially nested)
+/// constituent values from the given iterator state. This is meant to be used
+/// as target materializations for iterator state decomposition.
+///
+/// The implementation of this function is recursive, which should be avoided in
+/// the LLVM code base. On the one side, the recursion is bounded by the nesting
+/// depth of the iterator state types, which might make this an acceptable
+/// exception. On the other side, the nesting depth of the states currently
+/// depends on the length of SSA use-def chains, which may be large. That,
+/// however, is a problem with the overall design of the current lowering and
+/// not specific to state decomposition. If/when that is fixed, the problem here
+/// will either go away comletely or be fixed as a consequence.
 std::optional<SmallVector<Value>>
 buildExtractValueOps(OpBuilder &builder, TypeConverter &typeConverter,
                      TypeRange resultTypes, Value input, Location loc) {
