@@ -1325,6 +1325,172 @@ static Value buildStateCreation(ValueToStreamOp op,
 }
 
 //===----------------------------------------------------------------------===//
+// ZipOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that opens all upstream iterators. Possible output (for one input
+/// stream):
+///
+/// %upstream_state = iterators.extractvalue %initialState[0] :
+///                       !iterators.state<!upstream_state_type>
+/// %updated_upstream_state =
+///     call @iterators.upstream.open.0(%upstream_state) :
+///         (upstream_state_type) -> upstream_state_type
+/// %state = iterators.insertvalue %updated_upstream_state
+///              into %initialState[0] : !iterators.state<upstream_state_type>
+static Value buildOpenBody(ZipOp op, OpBuilder &builder, Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Open each upstream.
+  Value updatedState = initialState;
+  for (auto [index, upstreamInfo] : llvm::enumerate(upstreamInfos)) {
+    Type upstreamStateType = upstreamInfo.stateType;
+
+    // Extract upstream state.
+    Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+        upstreamStateType, updatedState, b.getIndexAttr(index));
+
+    // Call Open on upstream.
+    SymbolRefAttr openFunc = upstreamInfo.openFunc;
+    auto openCallOp = b.create<func::CallOp>(openFunc, upstreamStateType,
+                                             initialUpstreamState);
+
+    // Update state.
+    Value updatedUpstreamState = openCallOp->getResult(0);
+    updatedState = b.create<iterators::InsertValueOp>(
+        updatedState, b.getIndexAttr(index), updatedUpstreamState);
+  }
+
+  return updatedState;
+}
+
+/// Builds IR that calls next on all upstream iterators and assembles an output
+/// element from the resulting elements. Pseudo-code:
+///
+/// nextElement = tuple()
+/// for each upstream in upstreams:
+///   if nextUpstreamElement = upstream->Next():
+///     nextElement.append(nextUpstreamElement)
+///   else:
+///   return {}
+/// return nextElement
+///
+/// Possible output (for one input stream):
+///
+/// %1 = iterators.extractvalue %initialState[0] :
+///          !iterators.state<!upstream_state_type>
+/// %2:3 = call @iterators.map.next.0(%1) :
+///            (!upstream_state_type) -> (!upstream_state_type, i1, i32)
+/// %3 = arith.andi %true, %2#1 : i1
+/// %state = iterators.insertvalue %2#0 into %initialState[0] :
+///              !iterators.state<!upstream_state_type>
+/// %tuple = tuple.from_elements %2#2 : tuple<i32>
+/// return %state, %3, %4 :
+///     !iterators.state<!!upstream_state_type>, i1, tuple<i32>
+static llvm::SmallVector<Value, 4>
+buildNextBody(ZipOp op, OpBuilder &builder, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type i1 = b.getI1Type();
+
+  // Call next on each upstream.
+  Value updatedState = initialState;
+  Value hasNext = b.create<arith::ConstantIntOp>(/*value=*/1, /*width=*/1);
+  SmallVector<Value> upstreamElements;
+  for (auto [index, upstreamInfo] : llvm::enumerate(upstreamInfos)) {
+    Type upstreamStateType = upstreamInfo.stateType;
+    auto inputStreamType = op->getOperand(index).getType().cast<StreamType>();
+    Type inputElementType = inputStreamType.getElementType();
+
+    // Extract upstream state.
+    Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+        upstreamStateType, updatedState, b.getIndexAttr(index));
+
+    // Call next on upstream.
+    SmallVector<Type> nextResultTypes = {upstreamStateType, i1,
+                                         inputElementType};
+    SymbolRefAttr nextFunc = upstreamInfo.nextFunc;
+    auto nextCall =
+        b.create<func::CallOp>(nextFunc, nextResultTypes, initialUpstreamState);
+    Value upstreamHasNext = nextCall->getResult(1);
+    Value upstreamElement = nextCall->getResult(2);
+
+    // Combine hasNext value of the call with previous ones.
+    hasNext = b.create<arith::AndIOp>(hasNext, upstreamHasNext);
+
+    // Remember upstream element.
+    upstreamElements.push_back(upstreamElement);
+
+    // Update state.
+    Value updatedUpstreamState = nextCall->getResult(0);
+    updatedState = b.create<iterators::InsertValueOp>(
+        updatedState, b.getIndexAttr(index), updatedUpstreamState);
+  }
+
+  // Assemble tuple from upstream elements;
+  auto tupleType = elementType.cast<TupleType>();
+  Value nextElement =
+      b.create<tuple::FromElementsOp>(tupleType, upstreamElements);
+
+  return {updatedState, hasNext, nextElement};
+}
+
+/// Builds IR that closes all upstream iterators. Possible output (for one input
+/// stream):
+///
+/// %upstream_state = iterators.extractvalue %initialState[0] :
+///                       !iterators.state<!upstream_state_type>
+/// %updated_upstream_state =
+///     call @iterators.upstream.close.0(%upstream_state) :
+///         (upstream_state_type) -> upstream_state_type
+/// %state = iterators.insertvalue %updated_upstream_state
+///              into %initialState[0] : !iterators.state<upstream_state_type>
+static Value buildCloseBody(ZipOp op, OpBuilder &builder, Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
+
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Close each upstream.
+  Value updatedState = initialState;
+  for (auto [index, upstreamInfo] : llvm::enumerate(upstreamInfos)) {
+    Type upstreamStateType = upstreamInfo.stateType;
+
+    // Extract upstream state.
+    Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
+        upstreamStateType, updatedState, b.getIndexAttr(index));
+
+    // Call close on upstream.
+    SymbolRefAttr closeFunc = upstreamInfo.closeFunc;
+    auto closeCallOp = b.create<func::CallOp>(closeFunc, upstreamStateType,
+                                              initialUpstreamState);
+
+    // Update state.
+    Value updatedUpstreamState = closeCallOp->getResult(0);
+    updatedState = b.create<iterators::InsertValueOp>(
+        updatedState, b.getIndexAttr(index), updatedUpstreamState);
+  }
+
+  return updatedState;
+}
+
+/// Builds IR that initializes the iterator state with the upstream iterators
+/// states. Possible output (for one input stream):
+///
+/// %state = iterators.createstate(%upstream_state) :
+///              !iterators.state<!!upstream_state_type>
+static Value buildStateCreation(ZipOp op, ZipOp::Adaptor adaptor,
+                                OpBuilder &builder, StateType stateType) {
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  ValueRange upstreamStates = adaptor.getInputs();
+  return b.create<CreateStateOp>(stateType, upstreamStates);
+}
+
+//===----------------------------------------------------------------------===//
 // Helpers for creating Open/Next/Close functions and state creation.
 //===----------------------------------------------------------------------===//
 
@@ -1382,7 +1548,8 @@ static Value buildOpenBody(Operation *op, OpBuilder &builder,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
-          ValueToStreamOp
+          ValueToStreamOp,
+          ZipOp
           // clang-format on
           >([&](auto op) {
         return buildOpenBody(op, builder, initialState, upstreamInfos);
@@ -1401,7 +1568,8 @@ buildNextBody(Operation *op, OpBuilder &builder, Value initialState,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
-          ValueToStreamOp
+          ValueToStreamOp,
+          ZipOp
           // clang-format on
           >([&](auto op) {
         return buildNextBody(op, builder, initialState, upstreamInfos,
@@ -1421,7 +1589,8 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
-          ValueToStreamOp
+          ValueToStreamOp,
+          ZipOp
           // clang-format on
           >([&](auto op) {
         return buildCloseBody(op, builder, initialState, upstreamInfos);
@@ -1439,7 +1608,8 @@ static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
-          ValueToStreamOp
+          ValueToStreamOp,
+          ZipOp
           // clang-format on
           >([&](auto op) {
         using OpAdaptor = typename decltype(op)::Adaptor;

@@ -419,6 +419,53 @@ def Iterators_ValueToStreamOp : Iterators_Op<"value_to_stream",
   }];
 }
 
+class NonemptyVariadic<Type type> : Variadic<type> { let minSize = 1; }
+
+def Iterators_ZipOp : Iterators_Op<"zip",
+    [AllMatch<[[{::llvm::ArrayRef(::llvm::SmallVector<Type>(
+                    ::llvm::map_range($inputs.getTypes(),
+                      [](Type t) { return t.cast<StreamType>().getElementType(); }
+                    )))}],
+               [{$result.getType().cast<StreamType>().getElementType()
+                    .cast<::mlir::TupleType>().getTypes()}]],
+              "result stream must consist of tuples whose element types match "
+              "the element types of the input streams">,
+     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+  let summary = "Zips several streams into a stream of tuples.";
+  // TODO(ingomueller): Add attributes to this op or add other ops that allow to
+  //                    zip up until the longest input (by providing fill
+  //                    values), plus another one for equal lengths (which can
+  //                    assume that all inputs have the same length and thus
+  //                    use a cheaper termination test).
+  let description = [{
+    Reads one or more streams in lock step and produces a stream of tuples where
+    each struct constists of the elements of all input streams at the same
+    position of the streams. If the input streams do not have the same length,
+    then result stream is only as long as the shortest of the inputs and the
+    remainder of the other input streams is not consumed.
+
+    Example:
+    ```mlir
+    %zipped = iterators.zip %input1, %input2) :
+                   (!iterators.stream<i32>, !iterators.stream<i64>)
+                     -> (!iterators.stream<tuple<i32, i64>>)
+    ```
+  }];
+  let arguments = (ins
+      NonemptyVariadic<Iterators_Stream>:$inputs
+    );
+  let results = (outs Iterators_StreamOf<AnyTuple>:$result);
+  let assemblyFormat =
+    "$inputs attr-dict `:` functional-type($inputs, $result)";
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    void $cppClass::getAsmResultNames(
+        llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
+      setNameFn(getResult(), "zipped");
+    }
+  }];
+}
+
 //===----------------------------------------------------------------------===//
 // Ops related to Iterator bodies.
 //===----------------------------------------------------------------------===//
