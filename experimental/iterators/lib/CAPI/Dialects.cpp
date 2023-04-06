@@ -10,6 +10,7 @@
 
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
+#include "iterators/Dialect/Tuple/IR/Tuple.h"
 #include "mlir-c/IR.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
@@ -22,6 +23,7 @@
 
 using namespace mlir;
 using namespace mlir::iterators;
+using namespace mlir::tuple;
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Iterators, iterators, IteratorsDialect)
 
@@ -68,3 +70,9 @@ MlirType mlirTabularViewTypeGetColumnType(MlirType type, intptr_t pos) {
 MlirType mlirTabularViewTypeGetRowType(MlirType type) {
   return wrap(unwrap(type).cast<TabularViewType>().getRowType());
 }
+
+//===----------------------------------------------------------------------===//
+// Tuple dialect and attributes
+//===----------------------------------------------------------------------===//
+
+MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Tuple, tuple, TupleDialect)

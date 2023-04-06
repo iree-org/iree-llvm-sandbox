@@ -29,6 +29,15 @@ declare_mlir_dialect_python_bindings(
   DIALECT_NAME tabular
 )
 
+declare_mlir_dialect_python_bindings(
+  ADD_TO_PARENT IteratorsPythonSources.Dialects
+  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_iterators"
+  TD_FILE dialects/TupleOps.td
+  SOURCES
+  dialects/tuple.py
+  DIALECT_NAME tuple
+)
+
 declare_mlir_python_extension(IteratorsPythonSources.DialectExtension
   MODULE_NAME _iteratorsDialects
   ADD_TO_PARENT IteratorsPythonSources

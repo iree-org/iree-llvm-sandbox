@@ -12,6 +12,7 @@
 #include <initializer_list>
 
 #include "iterators-c/Dialects.h"
+#include "mlir-c/BuiltinAttributes.h"
 #include "mlir-c/IR.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
@@ -96,4 +97,24 @@ PYBIND11_MODULE(_iteratorsDialects, mainModule) {
       .def("get_column_type", mlirTabularViewTypeGetColumnType, py::arg("pos"))
       .def("get_num_column_types", mlirTabularViewTypeGetNumColumnTypes)
       .def("get_row_type", mlirTabularViewTypeGetRowType);
+
+  //===--------------------------------------------------------------------===//
+  // Tuple dialect.
+  //===--------------------------------------------------------------------===//
+  auto tupleModule = mainModule.def_submodule("tuple");
+
+  //
+  // Dialect
+  //
+
+  tupleModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__tuple__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
 }
