@@ -10,14 +10,14 @@ func.func @test_non_empty() {
   // CHECK-LABEL: test_non_empty
   // CHECK-NEXT:  42
   // CHECK-NEXT:  -
-  iterators.print ("test_non_empty")
+  iterators.print("test_non_empty")
   %value = arith.constant 42 : i32
   %stream = iterators.value_to_stream %value : !iterators.stream<i32>
   %result:2 = iterators.stream_to_value %stream : !iterators.stream<i32>
   scf.if %result#1 {
     "iterators.print"(%result) : (i32) -> ()
   }
-  iterators.print ("-")
+  iterators.print("-")
   return
 }
 
@@ -29,7 +29,7 @@ func.func private @return_false(%arg : i32) -> i1 {
 func.func @test_empty() {
   // CHECK-LABEL: test_empty
   // CHECK-NEXT:  -
-  iterators.print ("test_empty")
+  iterators.print("test_empty")
   %value = arith.constant 1337 : i32
   %stream = iterators.value_to_stream %value : !iterators.stream<i32>
   %filtered = "iterators.filter"(%stream) {predicateRef = @return_false} :
@@ -38,7 +38,7 @@ func.func @test_empty() {
   scf.if %result#1 {
     "iterators.print"(%result) : (i32) -> ()
   }
-  iterators.print ("-")
+  iterators.print("-")
   return
 }
 

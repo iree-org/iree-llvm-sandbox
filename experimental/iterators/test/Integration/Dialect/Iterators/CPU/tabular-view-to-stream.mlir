@@ -14,7 +14,7 @@
 !struct_type = !llvm.struct<(i32,i64)>
 
 func.func @single_block() {
-  iterators.print ("single_block")
+  iterators.print("single_block")
   %t1 = arith.constant dense<[0, 1, 2]> : tensor<3xi32>
   %t2 = arith.constant dense<[3, 4, 5]> : tensor<3xi64>
   %m1 = bufferization.to_memref %t1 : memref<3xi32>
@@ -40,7 +40,7 @@ func.func @query(%view : !tabular.tabular_view<i32,i64>) {
 }
 
 func.func @function_arg() {
-  iterators.print ("function_arg")
+  iterators.print("function_arg")
   %t1 = arith.constant dense<[9, 8, 7]> : tensor<3xi32>
   %t2 = arith.constant dense<[6, 5, 4]> : tensor<3xi64>
   %m1 = bufferization.to_memref %t1 : memref<3xi32>

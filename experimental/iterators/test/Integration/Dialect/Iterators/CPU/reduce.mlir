@@ -17,7 +17,7 @@ func.func private @sum_struct(%lhs : !i32_struct, %rhs : !i32_struct) -> !i32_st
 }
 
 func.func @reduce_sum_struct() {
-  iterators.print ("reduce_sum_struct")
+  iterators.print("reduce_sum_struct")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -41,7 +41,7 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
 }
 
 func.func @reduce_sum_i32() {
-  iterators.print ("reduce_sum_i32")
+  iterators.print("reduce_sum_i32")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [10 : i32], [20 : i32], [30 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -73,7 +73,7 @@ func.func private @arg_max(%lhs : !i32f32_struct, %rhs : !i32f32_struct) -> !i32
 }
 
 func.func @reduce_arg_max() {
-  iterators.print ("reduce_arg_max")
+  iterators.print("reduce_arg_max")
   %input = "iterators.constantstream"()
       { value = [[0 : i32,  0.   : f32],
                  [1 : i32, 13.37 : f32],  // <-- max value

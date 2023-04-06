@@ -16,7 +16,7 @@ func.func private @double_struct(%struct : !i32_struct) -> !i32_struct {
 }
 
 func.func @map_double_struct() {
-  iterators.print ("map_double_struct")
+  iterators.print("map_double_struct")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32], [3 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -44,7 +44,7 @@ func.func private @add_field(%input : !i32_struct) -> !i32f32_struct {
 }
 
 func.func @map_add_field() {
-  iterators.print ("map_add_field")
+  iterators.print("map_add_field")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)
@@ -65,7 +65,7 @@ func.func private @unpack_i32(%input : !i32_struct) -> i32 {
 }
 
 func.func @map_unpack_pack() {
-  iterators.print ("map_unpack_pack")
+  iterators.print("map_unpack_pack")
   %input = "iterators.constantstream"()
       { value = [[0 : i32], [1 : i32], [2 : i32]] }
       : () -> (!iterators.stream<!i32_struct>)

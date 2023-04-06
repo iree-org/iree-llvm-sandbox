@@ -20,7 +20,7 @@ func.func @query1() {
   // CHECK-LABEL: query1
   // CHECK-NEXT:  (6)
   // CHECK-NEXT:  -
-  iterators.print ("query1")
+  iterators.print("query1")
   %input = "iterators.constantstream"() { value = [[6 : i32]] }
       : () -> (!iterators.stream<!element_type>)
   %reduce1 = "iterators.reduce"(%input) {reduceFuncRef = @sum_struct}
@@ -33,7 +33,7 @@ func.func @query1() {
 }
 
 func.func @query2() {
-  iterators.print ("query2")
+  iterators.print("query2")
   // CHECK-LABEL: query2
   // CHECK-NEXT:  (6)
   // CHECK-NEXT:  -
