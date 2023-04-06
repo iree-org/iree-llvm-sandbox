@@ -19,4 +19,5 @@ PYBIND11_MODULE(_mlirIteratorsPasses, m) {
 
   // Register all Iterators passes on load.
   mlirRegisterIteratorsConversionPasses();
+  mlirRegisterIteratorsPasses();
 }

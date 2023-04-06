@@ -230,7 +230,8 @@ class IteratorsMethod(Method):
         emit_benchmarking_function('main_bench', main_func)
       pm = PassManager.parse(  # (Comment for better formatting.)
           'convert-iterators-to-llvm,'
-          'convert-states-to-llvm,'
+          'decompose-iterator-states,'
+          'canonicalize,'
           'expand-strided-metadata,'
           'finalize-memref-to-llvm,'
           'convert-scf-to-cf,'

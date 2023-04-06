@@ -16,6 +16,7 @@
 
 #include "iterators/Conversion/Passes.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "iterators/Dialect/Iterators/Transforms/Passes.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/InitAllDialects.h"
@@ -37,6 +38,7 @@ static void registerIteratorDialects(DialectRegistry &registry) {
 int main(int argc, char **argv) {
   registerAllPasses();
   registerIteratorsConversionPasses();
+  registerIteratorsPasses();
 
   DialectRegistry registry;
   registerAllDialects(registry);
