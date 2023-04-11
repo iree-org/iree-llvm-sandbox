@@ -160,15 +160,51 @@
                 %loopRhsState = %updatedRhsState, %loopRhsHasValue = %rhsHasValue, %loopRhsValue = %rhsValue)
           : (!iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>)
           -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>) {
-        scf.condition
+        // If both sides still have a value (i.e., they have not reached the end of their stream) but the current values are different, we need to continue the main loop to find a matching pair.
+        %bothSidesHaveValue = arith.andi %loopLhsHasValue, %loopRhsHasValue : i1
+        %lhsi = llvm.extractvalue %loopLhsValue[0] : !llvm.struct<(i32)>
+        %rhsi = llvm.extractvalue %loopRhsValue[0] : !llvm.struct<(i32)>
+        %valuesNotEqual = arith.cmpi "ne", %lhsi, %rhsi : i32
+        %continue = arith.andi %bothSidesHaveValue, %valuesNotEqual : i1
+        scf.condition (%continue)
+            %loopLhsState, %loopLhsHasValue, %loopLhsValue, %loopRhsState, %loopRhsHasValue, %loopRhsValue
+              : !iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>
       } do {
+      ^bb(%loopLhsState: !iterators.state<i32>, %loopLhsHasValue: i1, %loopLhsValue: !llvm.struct<(i32)>,
+          %loopRhsState: !iterators.state<i32>, %loopRhsHasValue: i1, %loopRhsValue: !llvm.struct<(i32)>):
+        %lhsi = llvm.extractvalue %loopLhsValue[0] : !llvm.struct<(i32)>
+        %rhsi = llvm.extractvalue %loopRhsValue[0] : !llvm.struct<(i32)>
+        %isLhsSmaller = arith.cmpi "slt", %lhsi, %rhsi : i32
+        %branchedLhsState, %branchedLhsHasValue, %branchedLhsValue, %branchedRhsState, %branchedRhsHasValue, %branchedRhsValue =
+          scf.if %isLhsSmaller -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>) {
+            // If the LHS value was smaller, we need to advance the LHS input.
+            %nextLhsState, %nextLhsHasValue, %nextLhsValue = func.call @iterators.constantstream.next.0(%loopLhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+            scf.yield %nextLhsState, %nextLhsHasValue, %nextLhsValue, %loopRhsState, %loopRhsHasValue, %loopRhsValue : !iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>
+          } else {
+            // If the RHS value was smaller, we need to advance the RHS input.
+            %nextRhsState, %nextRhsHasValue, %nextRhsValue = func.call @iterators.constantstream.next.0(%loopRhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+            scf.yield %loopLhsState, %loopLhsHasValue, %loopLhsValue, %nextRhsState, %nextRhsHasValue, %nextRhsValue : !iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>
+          }
 
+        scf.yield %branchedLhsState, %branchedLhsHasValue, %branchedLhsValue, %branchedRhsState, %branchedRhsHasValue, %branchedRhsValue
+              : !iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>
       }
 
+    // Update state. Set lhsHasvalue and rhsHasValue to false because emitting a result consumes them.
+    %false = arith.constant false
+    %updatedState = iterators.createstate(%finalLhsState, %finalRhsState,
+                                          %finalLhsValue, %false,
+                                          %finalRhsValue, %false) : !state_type
 
-    %0 = llvm.mlir.undef : !llvm.struct<(i32, i32)>
-    %1 = arith.constant false
-    return %arg0, %1, %0 : !state_type, i1, !llvm.struct<(i32, i32)>
+    // Concatenate the two structs. (This is working on undefined structs if one of the two streams has finished, i.e., if %bothSidesHaveValue is false.)
+    %bothSidesHaveValue = arith.andi %finalLhsHasValue, %finalRhsHasValue : i1
+    %lhsi = llvm.extractvalue %finalLhsValue[0] : !llvm.struct<(i32)>
+    %rhsi = llvm.extractvalue %finalRhsValue[0] : !llvm.struct<(i32)>
+    %structu = llvm.mlir.undef : !llvm.struct<(i32, i32)>
+    %struct0 = llvm.insertvalue %lhsi, %structu[0] : !llvm.struct<(i32, i32)>
+    %struct1 = llvm.insertvalue %rhsi, %struct0[1] : !llvm.struct<(i32, i32)>
+
+    return %updatedState, %bothSidesHaveValue, %struct1 : !state_type, i1, !llvm.struct<(i32, i32)>
   }
   func.func private @iterators.constantstream.open.2(%arg0: !state_type) -> !state_type {
     %lhs_state = iterators.extractvalue %arg0[0] : !state_type
