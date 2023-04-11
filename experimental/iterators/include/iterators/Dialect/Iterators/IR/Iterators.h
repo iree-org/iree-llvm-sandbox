@@ -19,9 +19,16 @@
 #include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
 
 namespace mlir {
+namespace LLVM {
+class LLVMPointerType;
+} // namespace LLVM
+} // namespace mlir
+
+namespace mlir {
 namespace iterators {
 #include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.h.inc"
 #include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.h.inc"
+
 } // namespace iterators
 } // namespace mlir
 

@@ -2,7 +2,9 @@
 -r third_party/llvm-project/mlir/python/requirements.txt
 
 # Testing.
+cffi
 lit
+pyarrow
 
 # Plotting.
 pandas

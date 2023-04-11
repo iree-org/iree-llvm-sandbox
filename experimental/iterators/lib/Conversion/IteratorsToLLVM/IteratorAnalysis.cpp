@@ -1,13 +1,16 @@
 #include "IteratorAnalysis.h"
 
+#include "iterators/Dialect/Iterators/IR/ArrowUtils.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Utils/NameAssigner.h"
+#include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
 using namespace mlir::iterators;
+using namespace mlir::LLVM;
 
 using SymbolTriple = std::tuple<SymbolRefAttr, SymbolRefAttr, SymbolRefAttr>;
 
@@ -75,6 +78,26 @@ StateTypeComputer::operator()(FilterOp op,
                               llvm::SmallVector<StateType> upstreamStateTypes) {
   MLIRContext *context = op->getContext();
   return StateType::get(context, {upstreamStateTypes[0]});
+}
+
+/// The state of FromArrowArrayStreamOp consists of the pointers to the
+/// ArrowArrayStream struct it reads, to an ArrowSchema struct describing the
+/// stream, and to an ArrowArray struct that owns the memory of the last element
+/// the iterator has returned. Pseudocode:
+///
+/// struct { struct ArrowArrayStream *stream; struct ArrowSchema *schema; };
+template <>
+StateType StateTypeComputer::operator()(
+    FromArrowArrayStreamOp op,
+    llvm::SmallVector<StateType> /*upstreamStateTypes*/) {
+  MLIRContext *context = op->getContext();
+  Type arrayStream = getArrowArrayStreamType(context);
+  Type arrayStreamPtr = LLVMPointerType::get(arrayStream);
+  Type schema = getArrowSchemaType(context);
+  Type schemaPtr = LLVMPointerType::get(schema);
+  Type array = getArrowArrayType(context);
+  Type arrayPtr = LLVMPointerType::get(array);
+  return StateType::get(context, {arrayStreamPtr, schemaPtr, arrayPtr});
 }
 
 /// The state of MapOp only consists of the state of its upstream iterator,
@@ -182,6 +205,7 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             // clang-format off
             ConstantStreamOp,
             FilterOp,
+            FromArrowArrayStreamOp,
             MapOp,
             ReduceOp,
             TabularViewToStreamOp,

@@ -9,11 +9,14 @@
 #include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 
 #include "../PassDetail.h"
+#include "ArrowUtils.h"
 #include "IteratorAnalysis.h"
 #include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
+#include "iterators/Dialect/Iterators/IR/ArrowUtils.h"
 #include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "iterators/Dialect/Tuple/IR/Tuple.h"
+#include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
@@ -698,6 +701,302 @@ static Value buildStateCreation(FilterOp op, FilterOp::Adaptor adaptor,
   ImplicitLocOpBuilder b(loc, builder);
   Value upstreamState = adaptor.getInput();
   return b.create<CreateStateOp>(stateType, upstreamState);
+}
+
+//===----------------------------------------------------------------------===//
+// FromArrowArrayStreamOp.
+//===----------------------------------------------------------------------===//
+
+/// Builds IR that retrieves the schema from the input input stream in order to
+/// allow cached access during the next calls. Possible output:
+///
+/// %0 = iterators.extractvalue %arg0[0] : !state_type
+/// %1 = iterators.extractvalue %arg0[1] : !state_type
+/// llvm.call @mlirIteratorsArrowArrayStreamGetSchema(%0, %1) :
+///     (!llvm.ptr<!stream_type>, !llvm.ptr<!schema_type>) -> ()
+static Value buildOpenBody(FromArrowArrayStreamOp op, OpBuilder &builder,
+                           Value initialState,
+                           ArrayRef<IteratorInfo> upstreamInfos) {
+  MLIRContext *context = op.getContext();
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Extract stream and schema pointers from state.
+  Type arrowArrayStream = getArrowArrayStreamType(context);
+  Type arrowArrayStreamPtr = LLVMPointerType::get(arrowArrayStream);
+  Type arrowSchema = getArrowSchemaType(context);
+  Type arrowSchemaPtr = LLVMPointerType::get(arrowSchema);
+
+  Value streamPtr = b.create<iterators::ExtractValueOp>(
+      arrowArrayStreamPtr, initialState, b.getIndexAttr(0));
+  Value schemaPtr = b.create<iterators::ExtractValueOp>(
+      arrowSchemaPtr, initialState, b.getIndexAttr(1));
+
+  // Call runtime function to load schema.
+  ModuleOp module = op->getParentOfType<ModuleOp>();
+  LLVMFuncOp getSchemaFunc = lookupOrInsertArrowArrayStreamGetSchema(module);
+  b.create<LLVM::CallOp>(getSchemaFunc, ValueRange{streamPtr, schemaPtr});
+
+  // Return initial state. (We only modified the pointees.)
+  return initialState;
+}
+
+/// Builds IR that calls the get_next function of the Arrow array stream and
+/// returns the obtained record batch wrapped in a tabular view. Pseudo-code
+///
+/// if (array = arrow_stream->get_next(arrow_stream)):
+///    return convert_to_tabular_view(array)
+/// return {}
+///
+/// Possible output:
+///
+/// %0 = iterators.extractvalue %arg0[0] : !state_type
+/// %1 = iterators.extractvalue %arg0[1] : !state_type
+/// %2 = iterators.extractvalue %arg0[2] : !state_type
+/// llvm.call @mlirIteratorsArrowArrayRelease(%2) :
+///     (!llvm.ptr<!array_type>) -> ()
+/// %3 = llvm.call @mlirIteratorsArrowArrayStreamGetNext(%0, %2) :
+///          (!llvm.ptr<!stream_type>, !llvm.ptr<!array_type>) -> i1
+/// %c0_i64 = arith.constant 0 : i64
+/// %4 = scf.if %3 -> (i64) {
+///   %6 = llvm.call @mlirIteratorsArrowArrayGetSize(%2) :
+///             (!llvm.ptr<!array_type>) -> i64
+///   scf.yield %6 : i64
+/// } else {
+///   scf.yield %c0_i64 : i64
+/// }
+/// %5:2 = scf.if %3 -> (!llvm.ptr<i32>, i64) {
+///   %c2_i64 = arith.constant 2 : i64
+///   %6 = llvm.call @mlirIteratorsArrowArrayGetInt32Column(%2, %1, %c2_i64) :
+///             (!llvm.ptr<!array_type>, !llvm.ptr<!schema_type>, i64) ->
+///                 !llvm.ptr<i32>
+///   scf.yield %6, %4 : !llvm.ptr<i32>, i64
+/// } else {
+///   %6 = llvm.mlir.null : !llvm.ptr<i32>
+///   scf.yield %6, %c0_i64 : !llvm.ptr<i32>, i64
+/// }
+/// %6 = llvm.mlir.undef : !memref_descr_type
+/// %7 = llvm.insertvalue %5#0, %6[0] : !memref_descr_type
+/// %8 = llvm.insertvalue %5#0, %7[1] : !memref_descr_type
+/// %9 = llvm.insertvalue %c0_i64, %8[2] : !memref_descr_type
+/// %10 = llvm.insertvalue %5#1, %9[3, 0] : !memref_descr_type
+/// %11 = llvm.insertvalue %5#1, %10[4, 0] : !memref_descr_type
+/// %12 = builtin.unrealized_conversion_cast %11 :
+///           !memref_descr_type to memref<?xi32>
+/// %tabularview = tabular.view_as_tabular %12 : (memref<?xi32>) ->
+///                    !tabular.tabular_view<i32>
+static llvm::SmallVector<Value, 4>
+buildNextBody(FromArrowArrayStreamOp op, OpBuilder &builder, Value initialState,
+              ArrayRef<IteratorInfo> upstreamInfos, Type elementType) {
+  MLIRContext *context = op->getContext();
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+  Type opaquePtrType = LLVMPointerType::get(context);
+
+  // Extract stream, schema, and block pointers from state.
+  Type arrowArrayStream = getArrowArrayStreamType(context);
+  Type arrowArrayStreamPtr = LLVMPointerType::get(arrowArrayStream);
+  Type arrowSchema = getArrowSchemaType(context);
+  Type arrowSchemaPtr = LLVMPointerType::get(arrowSchema);
+  Type arrowArray = getArrowArrayType(context);
+  Type arrowArrayPtr = LLVMPointerType::get(arrowArray);
+
+  Value streamPtr = b.create<iterators::ExtractValueOp>(
+      arrowArrayStreamPtr, initialState, b.getIndexAttr(0));
+  Value schemaPtr = b.create<iterators::ExtractValueOp>(
+      arrowSchemaPtr, initialState, b.getIndexAttr(1));
+  Value arrayPtr = b.create<iterators::ExtractValueOp>(
+      arrowArrayPtr, initialState, b.getIndexAttr(2));
+
+  // Get type-unspecific LLVM functions.
+  ModuleOp module = op->getParentOfType<ModuleOp>();
+  LLVMFuncOp releaseArrayFunc = lookupOrInsertArrowArrayRelease(module);
+  LLVMFuncOp getNextFunc = lookupOrInsertArrowArrayStreamGetNext(module);
+  LLVMFuncOp getArraySizeFunc = lookupOrInsertArrowArrayGetSize(module);
+
+  // Release Arrow array from previous call to next.
+  b.create<LLVM::CallOp>(releaseArrayFunc, arrayPtr);
+
+  // Call getNext on Arrow stream.
+  auto getNextResult =
+      b.create<LLVM::CallOp>(getNextFunc, ValueRange{streamPtr, arrayPtr});
+  Value hasNextElement = getNextResult.getResult();
+
+  // Call getSize on current array if we got one; use 0 otherwise.
+  Value zero = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/64);
+  auto ifOp = b.create<scf::IfOp>(
+      /*condition=*/hasNextElement, /*ifBuilder*/
+      [&](OpBuilder &builder, Location loc) {
+        ImplicitLocOpBuilder b(loc, builder);
+        /*elseBuilder*/
+        auto callOp = b.create<LLVM::CallOp>(getArraySizeFunc, arrayPtr);
+        Value arraySize = callOp.getResult();
+        b.create<scf::YieldOp>(arraySize);
+      },
+      [&](OpBuilder &builder, Location loc) {
+        // Apply map function.
+        ImplicitLocOpBuilder b(loc, builder);
+        b.create<scf::YieldOp>(zero);
+      });
+  Value arraySize = ifOp->getResult(0);
+
+  // Extract column pointers from Arrow array.
+  auto tabularViewType = elementType.cast<TabularViewType>();
+  SmallVector<Value> memrefs;
+  LLVMTypeConverter typeConverter(context);
+  for (auto [idx, t] : llvm::enumerate(tabularViewType.getColumnTypes())) {
+    auto memrefType = MemRefType::get({ShapedType::kDynamic}, t);
+
+    // Get column pointer from the array if we got one; nullptr otherwise.
+    auto ifOp = b.create<scf::IfOp>(
+        /*condition=*/hasNextElement, /*ifBuilder*/
+        [&, idx = idx, t = t](OpBuilder &builder, Location loc) {
+          ImplicitLocOpBuilder b(loc, builder);
+
+          // Call type-specific getColumn on current array.
+          auto idxValue =
+              b.create<arith::ConstantIntOp>(/*value=*/idx, /*width=*/64);
+          LLVMFuncOp getColumnFunc =
+              lookupOrInsertArrowArrayGetColumn(module, t);
+          auto callOp = b.create<LLVM::CallOp>(
+              getColumnFunc, ValueRange{arrayPtr, schemaPtr, idxValue});
+          Value columnPtr = callOp->getResult(0);
+          columnPtr = b.create<BitcastOp>(opaquePtrType, columnPtr);
+
+          b.create<scf::YieldOp>(ValueRange{columnPtr, arraySize});
+        },
+        /*elseBuilder*/
+        [&](OpBuilder &builder, Location loc) {
+          ImplicitLocOpBuilder b(loc, builder);
+
+          // Use nullptr instead.
+          Value columnPtr = b.create<NullOp>(opaquePtrType);
+          b.create<scf::YieldOp>(ValueRange{columnPtr, zero});
+        });
+
+    Value columnPtr = ifOp.getResult(0);
+    Value size = ifOp->getResult(1);
+
+    // Assemble a memref descriptor and cast it to memref.
+    auto memrefValues = {/*allocated pointer=*/columnPtr,
+                         /*aligned pointer=*/columnPtr,
+                         /*offset=*/zero, /*sizes=*/size,
+                         /*shapes=*/size};
+    auto memrefDescriptor =
+        MemRefDescriptor::pack(b, loc, typeConverter, memrefType, memrefValues);
+    auto castOp =
+        b.create<UnrealizedConversionCastOp>(memrefType, memrefDescriptor);
+
+    memrefs.push_back(castOp.getResult(0));
+  }
+
+  // Create a tabular view from the memrefs.
+  Value tab = b.create<ViewAsTabularOp>(elementType, memrefs);
+
+  return {initialState, hasNextElement, tab};
+}
+
+/// Builds IR that frees up all resources, namely, release the stream, the
+/// schema, and the current array. Possible output:
+///
+/// %0 = iterators.extractvalue %arg0[0] : !state_type
+/// %1 = iterators.extractvalue %arg0[1] : !state_type
+/// %2 = iterators.extractvalue %arg0[2] : !state_type
+/// llvm.call @mlirIteratorsArrowArrayStreamRelease(%0) :
+///     (!llvm.ptr<!stream_type>) -> ()
+/// llvm.call @mlirIteratorsArrowSchemaRelease(%1) :
+///     (!llvm.ptr<!schema_type>) -> ()
+/// llvm.call @mlirIteratorsArrowArrayRelease(%2) :
+///     (!llvm.ptr<!array_type>) -> ()
+static Value buildCloseBody(FromArrowArrayStreamOp op, OpBuilder &builder,
+                            Value initialState,
+                            ArrayRef<IteratorInfo> upstreamInfos) {
+  MLIRContext *context = op.getContext();
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Extract stream and schema pointers from state.
+  Type arrayStreamType = getArrowArrayStreamType(context);
+  Type arrayStreamPtrType = LLVMPointerType::get(arrayStreamType);
+  Type schemaType = getArrowSchemaType(context);
+  Type schemaPtrType = LLVMPointerType::get(schemaType);
+  Type arrayType = getArrowArrayType(context);
+  Type arrayPtrType = LLVMPointerType::get(arrayType);
+
+  Value streamPtr = b.create<iterators::ExtractValueOp>(
+      arrayStreamPtrType, initialState, b.getIndexAttr(0));
+  Value schemaPtr = b.create<iterators::ExtractValueOp>(
+      schemaPtrType, initialState, b.getIndexAttr(1));
+  Value arrayPtr = b.create<iterators::ExtractValueOp>(
+      arrayPtrType, initialState, b.getIndexAttr(2));
+
+  // Call runtime functions to release structs.
+  ModuleOp module = op->getParentOfType<ModuleOp>();
+  LLVMFuncOp releaseStreamFunc = lookupOrInsertArrowArrayStreamRelease(module);
+  LLVMFuncOp releaseSchemaFunc = lookupOrInsertArrowSchemaRelease(module);
+  LLVMFuncOp releaseArrayFunc = lookupOrInsertArrowArrayRelease(module);
+  b.create<LLVM::CallOp>(releaseStreamFunc, streamPtr);
+  b.create<LLVM::CallOp>(releaseSchemaFunc, schemaPtr);
+  b.create<LLVM::CallOp>(releaseArrayFunc, arrayPtr);
+
+  // Return initial state. (We only modified the pointees.)
+  return initialState;
+}
+
+/// Builds IR that allocates data for the schema and the current array on the
+/// stack and stores pointers to them in the state. Possible output:
+///
+/// %c1_i64 = arith.constant 1 : i64
+/// %0 = llvm.alloca %c1_i64 x !llvm.!array_type : (i64) ->
+///          !llvm.ptr<!array_type>
+/// %1 = llvm.alloca %c1_i64 x !llvm.!schema_type : (i64) ->
+///          !llvm.ptr<!schema_type>
+/// %c0_i8 = arith.constant 0 : i8
+/// %false = arith.constant false
+/// %c80_i64 = arith.constant 80 : i64
+/// %c72_i64 = arith.constant 72 : i64
+/// "llvm.intr.memset"(%0, %c0_i8, %c80_i64, %false) :
+///     (!llvm.ptr<!array_type>, i8, i64, i1) -> ()
+/// "llvm.intr.memset"(%1, %c0_i8, %c72_i64, %false) :
+///     (!llvm.ptr<!schema_type>, i8, i64, i1) -> ()
+/// %state = iterators.createstate(%arg0, %1, %0) : !state_type
+static Value buildStateCreation(FromArrowArrayStreamOp op,
+                                FromArrowArrayStreamOp::Adaptor adaptor,
+                                OpBuilder &builder, StateType stateType) {
+  MLIRContext *context = op.getContext();
+  Location loc = op.getLoc();
+  ImplicitLocOpBuilder b(loc, builder);
+
+  // Allocate memory for schema and array on the stack.
+  Value one = b.create<arith::ConstantIntOp>(/*value=*/1, /*width=*/64);
+  LLVMStructType arrayType = getArrowArrayType(context);
+  LLVMStructType schemaType = getArrowSchemaType(context);
+  Type arrayPtrType = LLVMPointerType::get(arrayType);
+  Type schemaPtrType = LLVMPointerType::get(schemaType);
+  Value arrayPtr = b.create<AllocaOp>(arrayPtrType, one);
+  Value schemaPtr = b.create<AllocaOp>(schemaPtrType, one);
+
+  // Initialize it with zeros.
+  Value zero = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/8);
+  Value constFalse = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/1);
+  uint32_t arrayTypeSize = mlir::DataLayout::closest(op).getTypeSize(arrayType);
+  uint32_t schemaTypeSize =
+      mlir::DataLayout::closest(op).getTypeSize(schemaType);
+  Value arrayTypeSizeVal =
+      b.create<arith::ConstantIntOp>(/*value=*/arrayTypeSize,
+                                     /*width=*/64);
+  Value schemaTypeSizeVal =
+      b.create<arith::ConstantIntOp>(/*value=*/schemaTypeSize,
+                                     /*width=*/64);
+  b.create<MemsetOp>(arrayPtr, zero, arrayTypeSizeVal,
+                     /*isVolatile=*/constFalse);
+  b.create<MemsetOp>(schemaPtr, zero, schemaTypeSizeVal,
+                     /*isVolatile=*/constFalse);
+
+  // Create the state.
+  Value streamPtr = adaptor.getArrowStream();
+  return b.create<CreateStateOp>(stateType,
+                                 ValueRange{streamPtr, schemaPtr, arrayPtr});
 }
 
 //===----------------------------------------------------------------------===//
@@ -1545,6 +1844,7 @@ static Value buildOpenBody(Operation *op, OpBuilder &builder,
           // clang-format off
           ConstantStreamOp,
           FilterOp,
+          FromArrowArrayStreamOp,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
@@ -1565,6 +1865,7 @@ buildNextBody(Operation *op, OpBuilder &builder, Value initialState,
           // clang-format off
           ConstantStreamOp,
           FilterOp,
+          FromArrowArrayStreamOp,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
@@ -1586,6 +1887,7 @@ static Value buildCloseBody(Operation *op, OpBuilder &builder,
           // clang-format off
           ConstantStreamOp,
           FilterOp,
+          FromArrowArrayStreamOp,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,
@@ -1605,6 +1907,7 @@ static Value buildStateCreation(IteratorOpInterface op, OpBuilder &builder,
           // clang-format off
           ConstantStreamOp,
           FilterOp,
+          FromArrowArrayStreamOp,
           MapOp,
           ReduceOp,
           TabularViewToStreamOp,

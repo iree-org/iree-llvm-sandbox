@@ -56,6 +56,10 @@ tools = [
     ToolSubst('%mlir_lib_dir', config.mlir_lib_dir),
 ]
 
+# Add the full path of the Iterators runtime lib to the environment.
+config.environment[
+    'ITERATORS_RUNTIME_LIBRARY_PATH'] = config.iterators_runtime_lib_path
+
 # Pass through LLVM_SYMBOLIZER_PATH from environment
 if "LLVM_SYMBOLIZER_PATH" in os.environ:
   config.environment["LLVM_SYMBOLIZER_PATH"] = \
