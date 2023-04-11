@@ -1,3 +1,11 @@
+// RUN: iterators-opt %s \
+// RUN:   -convert-iterators-to-llvm \
+// RUN:   -decompose-iterator-states \
+// RUN:   -convert-scf-to-cf \
+// RUN:   -convert-func-to-llvm \
+// RUN: | mlir-cpu-runner -e main -entry-point-result=void \
+// RUN: | FileCheck %s
+
   llvm.mlir.global internal constant @iterators.frmt_spec.0("-\0A\00") {addr_space = 0 : i32}
   llvm.func @printf(!llvm.ptr, ...) -> i32
   llvm.mlir.global internal constant @iterators.frmt_spec("(%llu, %llu)\0A\00") {addr_space = 0 : i32}
@@ -7,19 +15,19 @@
   llvm.mlir.global internal constant @iterators.constant_stream_data.1() {addr_space = 0 : i32} : !llvm.array<4 x struct<(i32)>> {
     %0 = llvm.mlir.undef : !llvm.array<4 x struct<(i32)>>
     %1 = llvm.mlir.undef : !llvm.struct<(i32)>
-    %2 = llvm.mlir.constant(2 : i32) : i32
+    %2 = llvm.mlir.constant(0 : i32) : i32
     %3 = llvm.insertvalue %2, %1[0] : !llvm.struct<(i32)>
     %4 = llvm.insertvalue %3, %0[0] : !llvm.array<4 x struct<(i32)>>
     %5 = llvm.mlir.undef : !llvm.struct<(i32)>
-    %6 = llvm.mlir.constant(4 : i32) : i32
+    %6 = llvm.mlir.constant(2 : i32) : i32
     %7 = llvm.insertvalue %6, %5[0] : !llvm.struct<(i32)>
     %8 = llvm.insertvalue %7, %4[1] : !llvm.array<4 x struct<(i32)>>
     %9 = llvm.mlir.undef : !llvm.struct<(i32)>
-    %10 = llvm.mlir.constant(6 : i32) : i32
+    %10 = llvm.mlir.constant(4 : i32) : i32
     %11 = llvm.insertvalue %10, %9[0] : !llvm.struct<(i32)>
     %12 = llvm.insertvalue %11, %8[2] : !llvm.array<4 x struct<(i32)>>
     %13 = llvm.mlir.undef : !llvm.struct<(i32)>
-    %14 = llvm.mlir.constant(8 : i32) : i32
+    %14 = llvm.mlir.constant(6 : i32) : i32
     %15 = llvm.insertvalue %14, %13[0] : !llvm.struct<(i32)>
     %16 = llvm.insertvalue %15, %12[3] : !llvm.array<4 x struct<(i32)>>
     llvm.return %16 : !llvm.array<4 x struct<(i32)>>
@@ -70,7 +78,7 @@
     %16 = llvm.insertvalue %15, %12[3] : !llvm.array<4 x struct<(i32)>>
     llvm.return %16 : !llvm.array<4 x struct<(i32)>>
   }
-  func.func private @iterators.constantstream.next.0(%arg0: !iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>) {
+  func.func private @iterators.constantstream.next.0.lhs(%arg0: !iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>) {
     %0 = iterators.extractvalue %arg0[0] : !iterators.state<i32>
     %c4_i32 = arith.constant 4 : i32
     %1 = arith.cmpi slt, %0, %c4_i32 : i32
@@ -79,6 +87,24 @@
       %3 = arith.addi %0, %c1_i32 : i32
       %state = iterators.insertvalue %3 into %arg0[0] : !iterators.state<i32>
       %4 = llvm.mlir.addressof @iterators.constant_stream_data.0 : !llvm.ptr
+      %5 = llvm.getelementptr %4[%0, 0] : (!llvm.ptr, i32) -> !llvm.ptr, !llvm.struct<(i32)>
+      %6 = llvm.load %5 : !llvm.ptr -> !llvm.struct<(i32)>
+      scf.yield %state, %6 : !iterators.state<i32>, !llvm.struct<(i32)>
+    } else {
+      %3 = llvm.mlir.undef : !llvm.struct<(i32)>
+      scf.yield %arg0, %3 : !iterators.state<i32>, !llvm.struct<(i32)>
+    }
+    return %2#0, %1, %2#1 : !iterators.state<i32>, i1, !llvm.struct<(i32)>
+  }
+  func.func private @iterators.constantstream.next.0.rhs(%arg0: !iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>) {
+    %0 = iterators.extractvalue %arg0[0] : !iterators.state<i32>
+    %c4_i32 = arith.constant 4 : i32
+    %1 = arith.cmpi slt, %0, %c4_i32 : i32
+    %2:2 = scf.if %1 -> (!iterators.state<i32>, !llvm.struct<(i32)>) {
+      %c1_i32 = arith.constant 1 : i32
+      %3 = arith.addi %0, %c1_i32 : i32
+      %state = iterators.insertvalue %3 into %arg0[0] : !iterators.state<i32>
+      %4 = llvm.mlir.addressof @iterators.constant_stream_data.1 : !llvm.ptr
       %5 = llvm.getelementptr %4[%0, 0] : (!llvm.ptr, i32) -> !llvm.ptr, !llvm.struct<(i32)>
       %6 = llvm.load %5 : !llvm.ptr -> !llvm.struct<(i32)>
       scf.yield %state, %6 : !iterators.state<i32>, !llvm.struct<(i32)>
@@ -143,14 +169,14 @@
       %initialLhsValue = iterators.extractvalue %arg0[2] : !state_type
       scf.yield %initialLhsState, %initialLhsHasValue, %initialLhsValue : !iterators.state<i32>, i1, !llvm.struct<(i32)>
     } else {
-      %nextResult:3 = func.call @iterators.constantstream.next.0(%initialLhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+      %nextResult:3 = func.call @iterators.constantstream.next.0.lhs(%initialLhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
       scf.yield %nextResult#0, %nextResult#1, %nextResult#2 : !iterators.state<i32>, i1, !llvm.struct<(i32)>
     }
     %updatedRhsState, %rhsHasValue, %rhsValue = scf.if %initialRhsHasValue -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>) {
       %initialRhsValue = iterators.extractvalue %arg0[2] : !state_type
       scf.yield %initialRhsState, %initialRhsHasValue, %initialRhsValue : !iterators.state<i32>, i1, !llvm.struct<(i32)>
     } else {
-      %nextResult:3 = func.call @iterators.constantstream.next.0(%initialRhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+      %nextResult:3 = func.call @iterators.constantstream.next.0.rhs(%initialRhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
       scf.yield %nextResult#0, %nextResult#1, %nextResult#2 : !iterators.state<i32>, i1, !llvm.struct<(i32)>
     }
 
@@ -178,11 +204,11 @@
         %branchedLhsState, %branchedLhsHasValue, %branchedLhsValue, %branchedRhsState, %branchedRhsHasValue, %branchedRhsValue =
           scf.if %isLhsSmaller -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>) {
             // If the LHS value was smaller, we need to advance the LHS input.
-            %nextLhsState, %nextLhsHasValue, %nextLhsValue = func.call @iterators.constantstream.next.0(%loopLhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+            %nextLhsState, %nextLhsHasValue, %nextLhsValue = func.call @iterators.constantstream.next.0.lhs(%loopLhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
             scf.yield %nextLhsState, %nextLhsHasValue, %nextLhsValue, %loopRhsState, %loopRhsHasValue, %loopRhsValue : !iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>
           } else {
             // If the RHS value was smaller, we need to advance the RHS input.
-            %nextRhsState, %nextRhsHasValue, %nextRhsValue = func.call @iterators.constantstream.next.0(%loopRhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
+            %nextRhsState, %nextRhsHasValue, %nextRhsValue = func.call @iterators.constantstream.next.0.rhs(%loopRhsState) : (!iterators.state<i32>) -> (!iterators.state<i32>, i1, !llvm.struct<(i32)>)
             scf.yield %loopLhsState, %loopLhsHasValue, %loopLhsValue, %nextRhsState, %nextRhsHasValue, %nextRhsValue : !iterators.state<i32>, i1, !llvm.struct<(i32)>, !iterators.state<i32>, i1, !llvm.struct<(i32)>
           }
 
@@ -218,7 +244,13 @@
     %state_3 = iterators.insertvalue %false into %state_2[5] : !state_type
     return %state_3 : !state_type
   }
+
+  // CHECK-LABEL: while-op
+  // CHECK-NEXT:  (0, 0)
+  // CHECK-NEXT:  (2, 2)
+  // CHECK-NEXT:  -
   func.func @main() {
+    iterators.print("while-op")
     %c0_i32 = arith.constant 0 : i32
     %state = iterators.createstate(%c0_i32) : !iterators.state<i32>
     %state_1 = iterators.createstate(%c0_i32) : !iterators.state<i32>
