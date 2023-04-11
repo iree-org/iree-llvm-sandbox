@@ -258,6 +258,28 @@ def Iterators_MapOp : Iterators_Op<"map",
   }];
 }
 
+def Iterators_MergeJoinOp : Iterators_Op<"mergejoin", // XXX: add type constraint
+    [DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+  let summary = "Join two sorted streams of tuples on their first element.";
+  let description = [{
+  }];
+  let arguments = (ins
+    Iterators_StreamOf<AnyTuple>:$lhs,
+    Iterators_StreamOf<AnyTuple>:$rhs
+  );
+  let results = (outs Iterators_StreamOf<AnyTuple>:$result);
+  let assemblyFormat = [{
+    $lhs `and` $rhs attr-dict `:` functional-type(operands, results)
+  }];
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    void $cppClass::getAsmResultNames(
+        llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
+      setNameFn(getResult(), "joined");
+    }
+  }];
+}
+
 def Iterators_ReduceOp : Iterators_Op<"reduce",
     [DeclareOpInterfaceMethods<SymbolUserOpInterface>,
      DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
