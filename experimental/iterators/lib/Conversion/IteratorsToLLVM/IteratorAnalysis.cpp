@@ -57,6 +57,23 @@ private:
   TypeConverter typeConverter;
 };
 
+/// The state of AccumulateOp consists of the state of its upstream iterator,
+/// i.e., the state of the iterator that produces its input stream, the initial
+/// value of the accumulator, and a Boolean indicating whether the iterator has
+/// returned a result already (which is initialized to false and set to true in
+/// the first call to next in order to ensure that only a single result is
+/// returned).
+template <>
+StateType
+StateTypeComputer::operator()(AccumulateOp op,
+                              llvm::SmallVector<StateType> upstreamStateTypes) {
+  MLIRContext *context = op->getContext();
+  Type hasReturned = IntegerType::get(context, /*width=*/1);
+  Type initValType = op.getInitVal().getType();
+  return StateType::get(context,
+                        {upstreamStateTypes[0], initValType, hasReturned});
+}
+
 /// The state of ConstantStreamOp consists of a single number that corresponds
 /// to the index of the next struct returned by the iterator.
 template <>
@@ -180,6 +197,7 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
         // TODO: Verify that operands do not come from bbArgs.
         .Case<
             // clang-format off
+            AccumulateOp,
             ConstantStreamOp,
             FilterOp,
             MapOp,
