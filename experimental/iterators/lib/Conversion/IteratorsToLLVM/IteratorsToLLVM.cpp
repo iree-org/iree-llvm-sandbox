@@ -612,7 +612,7 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
         // If we got an element, apply predicate.
         auto ifOp = b.create<scf::IfOp>(
             /*condition=*/hasNext,
-            /*ifBuilder=*/
+            /*thenBuilder=*/
             [&](OpBuilder &builder, Location loc) {
               ImplicitLocOpBuilder b(loc, builder);
 
@@ -783,7 +783,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
   // If we got an element, apply map function.
   auto ifOp = b.create<scf::IfOp>(
       /*condition=*/hasNext,
-      /*ifBuilder=*/
+      /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         // Apply map function.
         ImplicitLocOpBuilder b(loc, builder);
@@ -1186,7 +1186,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
   Value firstHasNext = firstNextCall->getResult(1);
   auto ifOp = b.create<scf::IfOp>(
       /*condition=*/firstHasNext,
-      /*ifBuilder=*/
+      /*thenBuilder=*/
       [&](OpBuilder &builder, Location loc) {
         ImplicitLocOpBuilder b(loc, builder);
 
