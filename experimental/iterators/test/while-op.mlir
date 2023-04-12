@@ -126,7 +126,7 @@
       !llvm.struct<(i32)>, i1, // lhs value, hasValue
       !llvm.struct<(i32)>, i1  // rhs value, hasValue
     >
-  func.func private @iterators.constantstream.close.2(%arg0: !state_type) -> !state_type {
+  func.func private @iterators.mergejoin.close.2(%arg0: !state_type) -> !state_type {
     %lhs_state = iterators.extractvalue %arg0[0] : !state_type
     %rhs_state = iterators.extractvalue %arg0[1] : !state_type
     %0 = call @iterators.constantstream.close.0(%lhs_state) : (!iterators.state<i32>) -> !iterators.state<i32>
@@ -135,7 +135,7 @@
     %state_1 = iterators.insertvalue %1 into %state_0[0] : !state_type
     return %state_1 : !state_type
   }
-  func.func private @iterators.constantstream.next.2(%arg0: !state_type) -> (!state_type, i1, !llvm.struct<(i32, i32)>) {
+  func.func private @iterators.mergejoin.next.2(%arg0: !state_type) -> (!state_type, i1, !llvm.struct<(i32, i32)>) {
     // Pseudocode:
     //   value = undef
     //   hasValue = false
@@ -217,6 +217,7 @@
       }
 
     // Update state. Set lhsHasvalue and rhsHasValue to false because emitting a result consumes them.
+    // XXX: Alternatively, we could call next on both sides here.
     %false = arith.constant false
     %updatedState = iterators.createstate(%finalLhsState, %finalRhsState,
                                           %finalLhsValue, %false,
@@ -232,7 +233,7 @@
 
     return %updatedState, %bothSidesHaveValue, %struct1 : !state_type, i1, !llvm.struct<(i32, i32)>
   }
-  func.func private @iterators.constantstream.open.2(%arg0: !state_type) -> !state_type {
+  func.func private @iterators.mergejoin.open.2(%arg0: !state_type) -> !state_type {
     %lhs_state = iterators.extractvalue %arg0[0] : !state_type
     %rhs_state = iterators.extractvalue %arg0[1] : !state_type
     %0 = call @iterators.constantstream.open.0(%lhs_state) : (!iterators.state<i32>) -> !iterators.state<i32>
@@ -257,9 +258,9 @@
     %undef = llvm.mlir.undef : !llvm.struct<(i32)>
     %false = arith.constant false
     %state_3 = iterators.createstate(%state, %state_1, %undef, %false, %undef, %false) : !state_type
-    %0 = call @iterators.constantstream.open.2(%state_3) : (!state_type) -> !state_type
+    %0 = call @iterators.mergejoin.open.2(%state_3) : (!state_type) -> !state_type
     %1:2 = scf.while (%arg0 = %0) : (!state_type) -> (!state_type, !llvm.struct<(i32, i32)>) {
-      %6:3 = func.call @iterators.constantstream.next.2(%arg0) : (!state_type) -> (!state_type, i1, !llvm.struct<(i32, i32)>)
+      %6:3 = func.call @iterators.mergejoin.next.2(%arg0) : (!state_type) -> (!state_type, i1, !llvm.struct<(i32, i32)>)
       scf.condition(%6#1) %6#0, %6#2 : !state_type, !llvm.struct<(i32, i32)>
     } do {
     ^bb0(%arg0: !state_type, %arg1: !llvm.struct<(i32, i32)>):
@@ -272,7 +273,7 @@
       %12 = llvm.call @printf(%11, %7, %9) : (!llvm.ptr, i64, i64) -> i32
       scf.yield %arg0 : !state_type
     }
-    %2 = call @iterators.constantstream.close.2(%1#0) : (!state_type) -> !state_type
+    %2 = call @iterators.mergejoin.close.2(%1#0) : (!state_type) -> !state_type
     %3 = llvm.mlir.addressof @iterators.frmt_spec.0 : !llvm.ptr
     %4 = llvm.getelementptr %3[0] : (!llvm.ptr) -> !llvm.ptr, i8
     %5 = llvm.call @printf(%4) : (!llvm.ptr) -> i32
