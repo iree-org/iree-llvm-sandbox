@@ -16,6 +16,14 @@ likely to be minimal, as it instead prioritizes easy experimentation.
 Licensed under the Apache license with LLVM Exceptions. See [LICENSE](LICENSE)
 for more information.
 
+## Subprojects
+
+The repository currently houses the following projects:
+
+* The [Iterators](README-Iterators.md) dialect: database-style iterators for
+  expressing computations on streams of data.
+* The [Tuple](include/iterators/Dialect/Tuple/): ops for manipulation of built-in tuples (used by the Iterators dialect).
+
 ## Build Instructions
 
 This project builds as part of the LLVM External Projects facility (see
