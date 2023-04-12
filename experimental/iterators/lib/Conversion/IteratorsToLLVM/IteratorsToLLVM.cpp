@@ -1681,7 +1681,6 @@ buildNextBody(ZipOp op, OpBuilder &builder, Value initialState,
 ///              into %initialState[0] : !iterators.state<upstream_state_type>
 static Value buildCloseBody(ZipOp op, OpBuilder &builder, Value initialState,
                             ArrayRef<IteratorInfo> upstreamInfos) {
-
   Location loc = op.getLoc();
   ImplicitLocOpBuilder b(loc, builder);
 
