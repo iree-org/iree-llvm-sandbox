@@ -263,10 +263,7 @@ def Iterators_MergeJoinOp : Iterators_Op<"mergejoin", // XXX: add type constrain
   let summary = "Join two sorted streams of tuples on their first element.";
   let description = [{
   }];
-  let arguments = (ins
-    Iterators_StreamOf<AnyTuple>:$lhs,
-    Iterators_StreamOf<AnyTuple>:$rhs
-  );
+  let arguments = (ins Iterators_Stream:$lhs, Iterators_Stream:$rhs);
   let results = (outs Iterators_StreamOf<AnyTuple>:$result);
   let assemblyFormat = [{
     $lhs `and` $rhs attr-dict `:` functional-type(operands, results)
