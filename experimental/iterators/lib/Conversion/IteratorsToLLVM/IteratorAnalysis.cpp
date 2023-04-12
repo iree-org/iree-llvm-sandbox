@@ -87,6 +87,26 @@ StateTypeComputer::operator()(MapOp op,
   return StateType::get(context, {upstreamStateTypes[0]});
 }
 
+/// The state of MergeJoinOp consists of (1) the states of the two upstream ops,
+/// (2) the last element successfully consumed from each of the two upstream
+/// ops if any, and (3) two Booleans indicating whether these elements exist,
+/// respectively.
+template <>
+StateType
+StateTypeComputer::operator()(MergeJoinOp op,
+                              llvm::SmallVector<StateType> upstreamStateTypes) {
+  MLIRContext *context = op->getContext();
+  StateType lhsStateType = upstreamStateTypes[0];
+  StateType rhsStateType = upstreamStateTypes[1];
+  auto lhsStreamType = op.getLhs().getType().cast<StreamType>();
+  auto rhsStreamType = op.getRhs().getType().cast<StreamType>();
+  Type lhsElementType = lhsStreamType.getElementType();
+  Type rhsElementType = rhsStreamType.getElementType();
+  Type i1 = IntegerType::get(context, /*width=*/1);
+  return StateType::get(context, {lhsStateType, i1, lhsElementType,
+                                  rhsStateType, i1, rhsElementType});
+}
+
 /// The state of ReduceOp only consists of the state of its upstream iterator,
 /// i.e., the state of the iterator that produces its input stream.
 template <>
@@ -183,6 +203,7 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
             ConstantStreamOp,
             FilterOp,
             MapOp,
+            MergeJoinOp,
             ReduceOp,
             TabularViewToStreamOp,
             ValueToStreamOp,
