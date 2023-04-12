@@ -258,15 +258,25 @@ def Iterators_MapOp : Iterators_Op<"map",
   }];
 }
 
-def Iterators_MergeJoinOp : Iterators_Op<"mergejoin", // XXX: add type constraint
-    [DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>]> {
+def Iterators_MergeJoinOp : Iterators_Op<"mergejoin", [
+    PredOpTrait<"the element type of the result stream must be a tuple of the "
+                "two respective element types of the two input streams",
+      CPred<[{
+        $result.getType().cast<StreamType>().getElementType() ==
+        TupleType::get(
+          $result.getContext(),
+          TypeRange{$lhs.getType().cast<StreamType>().getElementType(),
+                    $rhs.getType().cast<StreamType>().getElementType()})}]>>,
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>
+    ]> {
   let summary = "Join two sorted streams of tuples on their first element.";
   let description = [{
   }];
   let arguments = (ins Iterators_Stream:$lhs, Iterators_Stream:$rhs);
   let results = (outs Iterators_StreamOf<AnyTuple>:$result);
   let assemblyFormat = [{
-    $lhs `and` $rhs attr-dict `:` functional-type(operands, results)
+    $lhs `and` $rhs attr-dict `:` type($result)
+    custom<JoinTypes>(type($lhs), type($rhs), ref(type($result)))
   }];
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.

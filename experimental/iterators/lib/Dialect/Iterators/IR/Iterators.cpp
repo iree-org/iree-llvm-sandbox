@@ -62,6 +62,36 @@ void IteratorsDialect::initialize() {
 // Iterators operations
 //===----------------------------------------------------------------------===//
 
+static ParseResult parseJoinTypes(AsmParser &parser, Type &lhsType,
+                                  Type &rhsType, Type resultType) {
+  if (!resultType.isa<StreamType>()) {
+    return parser.emitError(parser.getNameLoc())
+           << "expected result to be a StreamType";
+  }
+
+  auto elementType = resultType.cast<StreamType>().getElementType();
+  if (!elementType.isa<TupleType>()) {
+    return parser.emitError(parser.getNameLoc())
+           << "expected result to be a stream of TupleType";
+  }
+
+  auto tupleType = elementType.cast<TupleType>();
+  if (tupleType.size() != 2) {
+    return parser.emitError(parser.getNameLoc())
+           << "expected result to be a stream of TupleType with two fields";
+  }
+
+  MLIRContext *context = resultType.getContext();
+  lhsType = StreamType::get(context, tupleType.getTypes()[0]);
+  rhsType = StreamType::get(context, tupleType.getTypes()[1]);
+
+  return success();
+}
+
+static void printJoinTypes(AsmPrinter & /*printer*/, Operation * /*op*/,
+                           Type /*lhsType*/, Type /*rhsType*/,
+                           Type /*resultType*/) {}
+
 static ParseResult parseInsertValueType(AsmParser & /*parser*/, Type &valueType,
                                         Type stateType, IntegerAttr indexAttr) {
   int64_t index = indexAttr.getValue().getSExtValue();
