@@ -35,7 +35,7 @@ jobs:
 
     - name: Define build dir
       run: |
-        echo "DATABASE_ITERATORS_STANDALONE_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators/examples/database-iterators-standalone/build" >> $GITHUB_ENV
+        echo "DATABASE_ITERATORS_STANDALONE_BUILD_DIR=${GITHUB_WORKSPACE}/sandbox/examples/database-iterators-standalone/build" >> $GITHUB_ENV
 
     - name: Setup CMake
       run: |

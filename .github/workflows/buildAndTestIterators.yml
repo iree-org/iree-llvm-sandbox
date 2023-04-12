@@ -18,8 +18,8 @@ jobs:
     steps:
     - name: Compute Iterators base path
       run: |
-        echo "ITERATORS_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators" | tee -a $GITHUB_ENV
-        echo "ITERATORS_MAIN_BINARY_DIR=${GITHUB_WORKSPACE}/sandbox/experimental/iterators/build" | tee -a $GITHUB_ENV
+        echo "ITERATORS_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox" | tee -a $GITHUB_ENV
+        echo "ITERATORS_MAIN_BINARY_DIR=${GITHUB_WORKSPACE}/sandbox/build" | tee -a $GITHUB_ENV
 
     - name: Set up Python
       uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
@@ -82,12 +82,12 @@ jobs:
 
     - name: Run benchmarks
       run: |
-        ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
-        ${GITHUB_WORKSPACE}/sandbox/experimental/iterators/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
+        ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
+        ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
 
     - name: Archive benchmark plots
       uses: actions/upload-artifact@v3
       with:
         name: iterators-benchmark-plots
         path: |
-          sandbox/experimental/iterators/benchmarks/**/*.pdf
+          sandbox/benchmarks/**/*.pdf
