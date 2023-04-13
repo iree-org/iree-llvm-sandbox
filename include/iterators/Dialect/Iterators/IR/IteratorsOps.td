@@ -79,6 +79,63 @@ def Iterators_PrintOp : Iterators_Base_Op<"print", [
 // High-level iterators
 //===----------------------------------------------------------------------===//
 
+def Iterators_AccumulateOp : Iterators_Op<"accumulate", [
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>,
+    DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+  let summary = "Accumulate the elements of a stream into one element";
+  let description = [{
+    Accumulate the elements of the input stream into a single element, i.e.,
+    compute their generalized sum. This is similar to
+    [`std::accumulate`](https://en.cppreference.com/w/cpp/algorithm/accumulate)
+    in C++ and
+    [`functools.reduce`](https://docs.python.org/3/library/functools.html#functools.reduce)
+    with *initializer* in Python. The accumulator is initialized with thevalue
+    provided value (which must be of the same type as the elements of the result
+    stream); the logic of the accumulation is given by the provided accumulate
+    function.
+
+    Pseudo-code:
+    ```
+    accumulator = initVal
+    while (next = upstream->next()):
+      accumulator = @accumulateFuncRef(accumulator, next->value())
+    return accumulator
+
+    Example:
+    ```mlir
+    %input = ...
+    %zero_tuple = ...
+    %0 = iterators.accumulate(%input, %zero_tuple) with @sum
+          : (!iterators.stream<i64>) -> !iterators.stream<tuple<i64>>
+    ```
+  }];
+  let arguments = (ins
+      Iterators_Stream:$input,
+      AnyType:$initVal,
+      FlatSymbolRefAttr:$accumulateFuncRef
+    );
+  let results = (outs Iterators_Stream:$result);
+  let assemblyFormat = [{
+    `(` $input `,` $initVal `)` `with` $accumulateFuncRef attr-dict `:`
+      `(` qualified(type($input)) `)` `->` qualified(type($result))
+       custom<AccumulateInitValType>(type($initVal), ref(type($result)))
+  }];
+  let extraClassDeclaration = [{
+    /// Return the accumulate function op that the accumulateFuncRef refers to.
+    func::FuncOp getAccumulateFunc() {
+      return SymbolTable::lookupNearestSymbolFrom<func::FuncOp>(
+          *this, getAccumulateFuncRefAttr());
+    }
+  }];
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    void $cppClass::getAsmResultNames(
+        llvm::function_ref<void(mlir::Value, llvm::StringRef)> setNameFn) {
+      setNameFn(getResult(), "accumulated");
+    }
+  }];
+}
+
 def Iterators_ConstantStreamOp : Iterators_Op<"constantstream", [
     PredOpTrait<"element type of return type must be tuple with matching types",
       CPred<[{
