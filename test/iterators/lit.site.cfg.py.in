@@ -11,4 +11,4 @@ import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@ITERATORS_MAIN_SRC_DIR@/test/lit.cfg.py")
+lit_config.load_config(config, "@ITERATORS_MAIN_SRC_DIR@/test/iterators/lit.cfg.py")
