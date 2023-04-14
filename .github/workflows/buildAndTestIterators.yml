@@ -56,6 +56,7 @@ jobs:
           -DBUILD_SHARED_LIBS=ON \
           -DLLVM_INCLUDE_UTILS=ON \
           -DLLVM_INSTALL_UTILS=ON \
+          -DLLVM_LIT_ARGS=-v \
           -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
           -DMLIR_ENABLE_PYTHON_BENCHMARKS=ON \
           -DPython3_EXECUTABLE=$(which python) \
