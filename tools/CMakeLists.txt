@@ -1,3 +1,5 @@
+add_subdirectory(indexing-opt)
+
 add_custom_target(iterators-tools)
 add_dependencies(iterators-all iterators-tools)
 
