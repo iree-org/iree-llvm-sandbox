@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s -convert-tabular-to-llvm \
+// RUN: structured-opt %s -convert-tabular-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 // CHECK-LABEL: func.func @func_call_return(

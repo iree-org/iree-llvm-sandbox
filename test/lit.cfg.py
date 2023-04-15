@@ -9,7 +9,7 @@ from lit.llvm.subst import ToolSubst
 # Configuration file for the 'lit' test runner.
 
 # name: The name of this test suite.
-config.name = 'Iterators'
+config.name = 'Structured'
 
 config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
 
@@ -20,7 +20,7 @@ config.suffixes = ['.mlir', '.py']
 config.test_source_root = os.path.dirname(__file__)
 
 # test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.path.join(config.iterators_build_root, 'test')
+config.test_exec_root = os.path.join(config.structured_build_root, 'test')
 
 config.substitutions.append(('%PATH%', config.environment['PATH']))
 config.substitutions.append(('%shlibext', config.llvm_shlib_ext))
@@ -49,10 +49,10 @@ config.excludes = [
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 
-config.iterators_tools_dir = os.path.join(config.iterators_build_root, 'bin')
-tool_dirs = [config.iterators_tools_dir, config.llvm_tools_dir]
+config.structured_tools_dir = os.path.join(config.structured_build_root, 'bin')
+tool_dirs = [config.structured_tools_dir, config.llvm_tools_dir]
 tools = [
-    'iterators-opt',
+    'structured-opt',
     ToolSubst('%mlir_lib_dir', config.mlir_lib_dir),
 ]
 
@@ -63,7 +63,7 @@ if "LLVM_SYMBOLIZER_PATH" in os.environ:
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
-iterators_python_path = os.path.join(config.iterators_build_root,
+structured_python_path = os.path.join(config.structured_build_root,
                                      'python_packages')
-llvm_config.with_environment('PYTHONPATH', [iterators_python_path],
+llvm_config.with_environment('PYTHONPATH', [structured_python_path],
                              append_path=True)

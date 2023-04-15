@@ -1,4 +1,4 @@
-#include "iterators/Utils/NameAssigner.h"
+#include "structured/Utils/NameAssigner.h"
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Twine.h"
@@ -6,7 +6,7 @@
 #include <assert.h>
 
 namespace mlir {
-namespace iterators {
+namespace structured {
 
 NameAssigner::NameAssigner(ModuleOp module) : module(module) { assert(module); }
 
@@ -29,5 +29,5 @@ StringAttr NameAssigner::assignName(StringRef prefix) {
   return attr;
 }
 
-} // namespace iterators
+} // namespace structured
 } // namespace mlir

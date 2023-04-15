@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s \
+// RUN: structured-opt %s \
 // RUN: | FileCheck %s
 
 func.func @main(%stream_i32 : !iterators.stream<i32>,

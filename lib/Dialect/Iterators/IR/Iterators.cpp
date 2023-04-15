@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
 
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -18,13 +18,13 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
-using namespace mlir::iterators;
+using namespace mlir::structured;
 
 //===----------------------------------------------------------------------===//
 // Iterators dialect
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Iterators/IR/IteratorsOpsDialect.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsOpsDialect.cpp.inc"
 
 namespace {
 /// This class defines the interface for handling inlining for iterators
@@ -42,11 +42,11 @@ struct IteratorsInlinerInterface : public DialectInlinerInterface {
 void IteratorsDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
-#include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
       >();
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
       >();
   addInterfaces<IteratorsInlinerInterface>();
 }
@@ -55,8 +55,8 @@ void IteratorsDialect::initialize() {
 // Iterators interfaces
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Iterators/IR/IteratorsOpInterfaces.cpp.inc"
-#include "iterators/Dialect/Iterators/IR/IteratorsTypeInterfaces.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsOpInterfaces.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsTypeInterfaces.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // Iterators operations
@@ -75,7 +75,7 @@ static void printInsertValueType(AsmPrinter & /*printer*/, Operation * /*op*/,
                                  IntegerAttr /*indexAttr*/) {}
 
 #define GET_OP_CLASSES
-#include "iterators/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
 
 LogicalResult ExtractValueOp::inferReturnTypes(
     MLIRContext * /*context*/, Optional<Location> location, ValueRange operands,
@@ -94,4 +94,4 @@ LogicalResult ExtractValueOp::inferReturnTypes(
 //===----------------------------------------------------------------------===//
 
 #define GET_TYPEDEF_CLASSES
-#include "iterators/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"
+#include "structured/Dialect/Iterators/IR/IteratorsOpsTypes.cpp.inc"

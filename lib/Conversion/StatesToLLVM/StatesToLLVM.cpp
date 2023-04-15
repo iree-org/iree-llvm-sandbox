@@ -6,10 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Conversion/StatesToLLVM/StatesToLLVM.h"
+#include "structured/Conversion/StatesToLLVM/StatesToLLVM.h"
 
 #include "../PassDetail.h"
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -23,7 +23,7 @@ class MLIRContext;
 
 using namespace mlir;
 using namespace mlir::func;
-using namespace mlir::iterators;
+using namespace mlir::structured;
 using namespace mlir::LLVM;
 
 namespace {
@@ -84,13 +84,13 @@ struct CreateStateOpLowering : public OpConversionPattern<CreateStateOp> {
 };
 
 struct ExtractValueOpLowering
-    : public OpConversionPattern<iterators::ExtractValueOp> {
+    : public OpConversionPattern<structured::ExtractValueOp> {
   ExtractValueOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                          PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
-  matchAndRewrite(iterators::ExtractValueOp op, OpAdaptor adaptor,
+  matchAndRewrite(structured::ExtractValueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
@@ -102,13 +102,13 @@ struct ExtractValueOpLowering
 };
 
 struct InsertValueOpLowering
-    : public OpConversionPattern<iterators::InsertValueOp> {
+    : public OpConversionPattern<structured::InsertValueOp> {
   InsertValueOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
-  matchAndRewrite(iterators::InsertValueOp op, OpAdaptor adaptor,
+  matchAndRewrite(structured::InsertValueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Value updatedState = rewriter.create<LLVM::InsertValueOp>(
@@ -119,7 +119,7 @@ struct InsertValueOpLowering
   }
 };
 
-void mlir::iterators::populateStatesToLLVMConversionPatterns(
+void mlir::structured::populateStatesToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off

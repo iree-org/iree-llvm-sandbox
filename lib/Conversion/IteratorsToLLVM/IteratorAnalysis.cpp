@@ -1,13 +1,13 @@
 #include "IteratorAnalysis.h"
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Utils/NameAssigner.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Utils/NameAssigner.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
-using namespace mlir::iterators;
+using namespace mlir::structured;
 
 using SymbolTriple = std::tuple<SymbolRefAttr, SymbolRefAttr, SymbolRefAttr>;
 
@@ -141,7 +141,7 @@ StateTypeComputer::operator()(ZipOp op,
 /// Build IteratorInfo, assigning new unique names as needed. Takes the
 /// `StateType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
-mlir::iterators::IteratorInfo::IteratorInfo(IteratorOpInterface op,
+mlir::structured::IteratorInfo::IteratorInfo(IteratorOpInterface op,
                                             NameAssigner &nameAssigner,
                                             StateType t) {
   std::tie(openFunc, nextFunc, closeFunc) =
@@ -149,14 +149,14 @@ mlir::iterators::IteratorInfo::IteratorInfo(IteratorOpInterface op,
   stateType = t;
 }
 
-IteratorInfo mlir::iterators::IteratorAnalysis::getExpectedIteratorInfo(
+IteratorInfo mlir::structured::IteratorAnalysis::getExpectedIteratorInfo(
     IteratorOpInterface op) const {
   auto it = opMap.find(op);
   assert(it != opMap.end() && "analysis does not contain this op");
   return it->getSecond();
 }
 
-void mlir::iterators::IteratorAnalysis::setIteratorInfo(
+void mlir::structured::IteratorAnalysis::setIteratorInfo(
     IteratorOpInterface op, const IteratorInfo &info) {
   assert(info.stateType && "state type must be computed");
   auto inserted = opMap.insert({op, info});
@@ -169,7 +169,7 @@ static OpTy getSelfOrParentOfType(Operation *op) {
   return maybe ? maybe : op->getParentOfType<OpTy>();
 }
 
-mlir::iterators::IteratorAnalysis::IteratorAnalysis(
+mlir::structured::IteratorAnalysis::IteratorAnalysis(
     Operation *rootOp, TypeConverter &typeConverter)
     : rootOp(rootOp), nameAssigner(getSelfOrParentOfType<ModuleOp>(rootOp)) {
   /// This needs to be built in use-def order so that all uses are visited

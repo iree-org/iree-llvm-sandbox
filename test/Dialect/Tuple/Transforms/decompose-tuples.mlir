@@ -1,7 +1,7 @@
-// RUN: iterators-opt %s -decompose-tuples \
+// RUN: structured-opt %s -decompose-tuples \
 // RUN: | FileCheck --enable-var-scope %s
 
-// RUN: iterators-opt %s -decompose-tuples="convert-scf-ops=false" \
+// RUN: structured-opt %s -decompose-tuples="convert-scf-ops=false" \
 // RUN: | FileCheck --enable-var-scope --check-prefix=CHECK-NO-SCF %s
 
 !nested_tuple = tuple<tuple<>, i32, tuple<i64>>

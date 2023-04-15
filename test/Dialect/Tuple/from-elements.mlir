@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s | iterators-opt | FileCheck %s
+// RUN: structured-opt %s | structured-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @from_elements_i32(
 // CHECK-SAME:                               %[[ARG0:.*]]: i32) -> tuple<i32> {

@@ -1,6 +1,6 @@
-// RUN: iterators-opt %s | FileCheck %s
+// RUN: structured-opt %s | FileCheck %s
 
-// RUN: iterators-opt %s | iterators-opt | FileCheck %s
+// RUN: structured-opt %s | structured-opt | FileCheck %s
 
 // CHECK-LABEL: func.func @main(
 // CHECK-SAME:                  %[[ARG0:.*]]: i64) {

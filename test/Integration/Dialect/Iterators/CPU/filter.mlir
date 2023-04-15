@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s \
+// RUN: structured-opt %s \
 // RUN:   -convert-iterators-to-llvm \
 // RUN:   -decompose-iterator-states \
 // RUN:   -decompose-tuples \

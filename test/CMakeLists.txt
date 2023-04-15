@@ -12,25 +12,25 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
   )
 
-set(ITERATORS_TEST_DEPENDS
+set(STRUCTURED_TEST_DEPENDS
   count
   FileCheck
-  iterators-opt
+  structured-opt
   mlir-cpu-runner
   mlir_c_runner_utils
   mlir_runner_utils
   not
   )
-list(APPEND ITERATORS_TEST_DEPENDS IteratorsPythonModules)
+list(APPEND STRUCTURED_TEST_DEPENDS StructuredPythonModules)
 
-add_lit_testsuite(check-iterators "Running the Iterators regression tests"
+add_lit_testsuite(check-structured "Running the Structured regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
-  DEPENDS ${ITERATORS_TEST_DEPENDS}
+  DEPENDS ${STRUCTURED_TEST_DEPENDS}
   )
-set_target_properties(check-iterators PROPERTIES FOLDER "Tests")
+set_target_properties(check-structured PROPERTIES FOLDER "Tests")
 
-add_lit_testsuites(Iterators ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${ITERATORS_TEST_DEPENDS})
+add_lit_testsuites(Structured ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${STRUCTURED_TEST_DEPENDS})
 
-add_custom_target(check-iterators-dependencies)
-add_dependencies(check-iterators-dependencies ${ITERATORS_TEST_DEPENDS})
-add_dependencies(iterators-all check-iterators-dependencies)
+add_custom_target(check-structured-dependencies)
+add_dependencies(check-structured-dependencies ${STRUCTURED_TEST_DEPENDS})
+add_dependencies(structured-all check-structured-dependencies)

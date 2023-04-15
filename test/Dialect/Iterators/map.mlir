@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s \
+// RUN: structured-opt %s \
 // RUN: | FileCheck %s
 
 func.func private @unpack_i32(%input : tuple<i32>) -> i32 {

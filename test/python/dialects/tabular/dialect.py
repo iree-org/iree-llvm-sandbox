@@ -1,7 +1,7 @@
 # RUN: %PYTHON %s | FileCheck %s
 
-from mlir_iterators.dialects import tabular as tab
-from mlir_iterators.ir import Context, IntegerType
+from mlir_structured.dialects import tabular as tab
+from mlir_structured.ir import Context, IntegerType
 
 
 def run(f):

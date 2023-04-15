@@ -1,4 +1,4 @@
-add_mlir_public_c_api_library(IteratorsCAPI
+add_mlir_public_c_api_library(StructuredCAPI
     Dialects.cpp
     Passes.cpp
     Transforms.cpp

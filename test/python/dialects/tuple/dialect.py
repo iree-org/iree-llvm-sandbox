@@ -1,7 +1,7 @@
 # RUN: %PYTHON %s | FileCheck %s
 
-from mlir_iterators.dialects import tuple as tup
-from mlir_iterators.ir import (
+from mlir_structured.dialects import tuple as tup
+from mlir_structured.ir import (
     Context,
     Location,
     Module,

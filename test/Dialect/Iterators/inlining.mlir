@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s -inline | FileCheck %s
+// RUN: structured-opt %s -inline | FileCheck %s
 
 // CHECK-LABEL: func.func @test_inline() -> i32 {
 // CHECK-NEXT: %[[V0:.*]] = arith.constant 0 : i32

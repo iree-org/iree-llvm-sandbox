@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s -decompose-iterator-states \
+// RUN: structured-opt %s -decompose-iterator-states \
 // RUN: | FileCheck --enable-var-scope %s
 
 // CHECK-LABEL: func.func @testCreateInsertExtractFlat() -> (i32, i32) {

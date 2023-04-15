@@ -3,7 +3,7 @@ add_mlir_conversion_library(MLIRIteratorsToLLVM
   IteratorAnalysis.cpp
 
   DEPENDS
-  MLIRIteratorsConversionIncGen
+  MLIRStructuredConversionIncGen
 
   LINK_LIBS PUBLIC
   IteratorsUtils

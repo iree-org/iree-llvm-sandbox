@@ -1,5 +1,5 @@
-add_custom_target(iterators-tools)
-add_dependencies(iterators-all iterators-tools)
+add_custom_target(structured-tools)
+add_dependencies(structured-all structured-tools)
 
-add_subdirectory(iterators-lsp-server)
-add_subdirectory(iterators-opt)
+add_subdirectory(structured-lsp-server)
+add_subdirectory(structured-opt)

@@ -6,11 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators-c/Dialects.h"
+#include "structured-c/Dialects.h"
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
-#include "iterators/Dialect/Tuple/IR/Tuple.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "mlir-c/IR.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
@@ -22,8 +22,7 @@
 //===----------------------------------------------------------------------===//
 
 using namespace mlir;
-using namespace mlir::iterators;
-using namespace mlir::tuple;
+using namespace mlir::structured;
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Iterators, iterators, IteratorsDialect)
 
