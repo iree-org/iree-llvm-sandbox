@@ -7,6 +7,7 @@ add_llvm_executable(structured-opt
 add_dependencies(structured-tools structured-opt)
 
 list(APPEND dialect_libs
+  MLIRIndexing
   MLIRIterators
   MLIRTabular
   MLIRTupleDialect
