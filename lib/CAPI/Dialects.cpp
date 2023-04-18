@@ -12,19 +12,48 @@
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
 #include "mlir/IR/Types.h"
+#include "structured/Dialect/Indexing/IR/Indexing.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "llvm/ADT/StringRef.h"
+#include <mlir-c/BuiltinTypes.h>
+#include <mlir/CAPI/Support.h>
+
+using namespace mlir;
+using namespace mlir::indexing;
+using namespace mlir::iterators;
+using namespace mlir::tabular;
+using namespace mlir::tuple;
+
+//===----------------------------------------------------------------------===//
+// Indexing dialect and attributes
+//===----------------------------------------------------------------------===//
+
+MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Indexing, indexing, IndexingDialect)
+
+bool mlirTypeIsAIndexingCustom(MlirType type) {
+  return unwrap(type).isa<CustomType>();
+}
+
+MlirType mlirIndexingCustomTypeGet(MlirContext ctx, MlirStringRef str) {
+  return wrap(CustomType::get(unwrap(ctx), unwrap(str)));
+}
+
+bool mlirIsATensorValue(MlirValue value) {
+  return mlirTypeIsATensor(mlirValueGetType(value));
+}
+
+bool mlirIsAnArithValue(MlirValue value) {
+  MlirType type = mlirValueGetType(value);
+  return mlirTypeIsABF16(type) || mlirTypeIsAComplex(type) ||
+         mlirTypeIsAF16(type) || mlirTypeIsAF32(type) || mlirTypeIsAF64(type) ||
+         mlirTypeIsAInteger(type) || mlirTypeIsAIndex(type);
+}
 
 //===----------------------------------------------------------------------===//
 // Iterators dialect and types
 //===----------------------------------------------------------------------===//
-
-using namespace mlir;
-using namespace mlir::iterators;
-using namespace mlir::tabular;
-using namespace mlir::tuple;
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Iterators, iterators, IteratorsDialect)
 
