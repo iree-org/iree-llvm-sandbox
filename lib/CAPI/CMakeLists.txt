@@ -3,6 +3,7 @@ add_mlir_public_c_api_library(StructuredCAPI
     Passes.cpp
     Transforms.cpp
   LINK_LIBS PUBLIC
+    MLIRIndexing
     MLIRIterators
     MLIRIteratorsToLLVM
     MLIRIteratorsTransforms

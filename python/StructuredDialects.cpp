@@ -8,16 +8,18 @@
 
 #include <pybind11/pybind11.h>
 
-#include <array>
-#include <initializer_list>
+#include <string>
 
-#include "mlir-c/BuiltinAttributes.h"
 #include "mlir-c/IR.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "structured-c/Dialects.h"
 
 namespace py = pybind11;
 using namespace mlir::python::adaptors;
+
+static MlirStringRef toMlirStringRef(const std::string &s) {
+  return mlirStringRefCreate(s.data(), s.size());
+}
 
 PYBIND11_MODULE(_structuredDialects, mainModule) {
   //===--------------------------------------------------------------------===//
@@ -117,4 +119,42 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
         }
       },
       py::arg("context") = py::none(), py::arg("load") = true);
+
+  //===--------------------------------------------------------------------===//
+  // Indexing dialect.
+  //===--------------------------------------------------------------------===//
+  auto indexingModule = mainModule.def_submodule("indexing");
+
+  //
+  // Dialect
+  //
+
+  indexingModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__indexing__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //
+  // Types
+  //
+
+  (void)mlir_value_subclass(indexingModule, "TensorValue", [](MlirValue value) {
+    return mlirIsATensorValue(value);
+  });
+  mlir_type_subclass(indexingModule, "CustomType",
+                     [](MlirType) { return true; })
+      .def_classmethod(
+          "get",
+          [](const py::object &cls, const std::string &value,
+             MlirContext context) {
+            return cls(
+                mlirIndexingCustomTypeGet(context, toMlirStringRef(value)));
+          },
+          py::arg("cls"), py::arg("value"), py::arg("context") = py::none());
 }

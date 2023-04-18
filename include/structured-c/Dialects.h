@@ -17,6 +17,19 @@ extern "C" {
 #endif
 
 //===----------------------------------------------------------------------===//
+// Indexing dialect and types
+//===----------------------------------------------------------------------===//
+
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Indexing, indexing);
+
+MLIR_CAPI_EXPORTED bool mlirTypeIsAIndexingCustom(MlirType type);
+
+MLIR_CAPI_EXPORTED MlirType mlirIndexingCustomTypeGet(MlirContext ctx,
+                                                      MlirStringRef str);
+
+MLIR_CAPI_EXPORTED bool mlirIsATensorValue(MlirValue value);
+
+//===----------------------------------------------------------------------===//
 // Iterators dialect and types
 //===----------------------------------------------------------------------===//
 
