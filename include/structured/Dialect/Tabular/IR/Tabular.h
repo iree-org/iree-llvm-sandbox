@@ -18,10 +18,10 @@
 #include "structured/Dialect/Tabular/IR/TabularOpsDialect.h.inc"
 
 namespace mlir {
-namespace structured {
+namespace tabular {
 #include "structured/Dialect/Tabular/IR/TabularOpInterfaces.h.inc"
 #include "structured/Dialect/Tabular/IR/TabularTypeInterfaces.h.inc"
-} // namespace structured
+} // namespace tabular
 } // namespace mlir
 
 #define GET_TYPEDEF_CLASSES

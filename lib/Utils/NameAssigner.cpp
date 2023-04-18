@@ -6,7 +6,7 @@
 #include <assert.h>
 
 namespace mlir {
-namespace structured {
+namespace iterators {
 
 NameAssigner::NameAssigner(ModuleOp module) : module(module) { assert(module); }
 
@@ -29,5 +29,5 @@ StringAttr NameAssigner::assignName(StringRef prefix) {
   return attr;
 }
 
-} // namespace structured
+} // namespace iterators
 } // namespace mlir

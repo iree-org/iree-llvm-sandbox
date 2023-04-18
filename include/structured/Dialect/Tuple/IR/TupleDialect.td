@@ -17,7 +17,7 @@ include "mlir/IR/OpBase.td"
 
 def Tuple_Dialect : Dialect {
   let name = "tuple";
-  let cppNamespace = "::mlir::structured";
+  let cppNamespace = "::mlir::tuple";
   let summary = "Dialect for generic manipulation of built-in tuples.";
   let description = [{
     This dialect contains ops that allow creating tuples as well as accessing

@@ -17,7 +17,7 @@ include "mlir/IR/OpBase.td"
 
 def Iterators_Dialect : Dialect {
   let name = "iterators";
-  let cppNamespace = "::mlir::structured";
+  let cppNamespace = "::mlir::iterators";
   let summary = "Dialect implementing database-style iterators.";
   let description = [{
     This dialect is designed to express computations on streams of data with the

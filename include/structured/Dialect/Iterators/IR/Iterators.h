@@ -19,10 +19,10 @@
 #include "structured/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
 
 namespace mlir {
-namespace structured {
+namespace iterators {
 #include "structured/Dialect/Iterators/IR/IteratorsOpInterfaces.h.inc"
 #include "structured/Dialect/Iterators/IR/IteratorsTypeInterfaces.h.inc"
-} // namespace structured
+} // namespace iterators
 } // namespace mlir
 
 #define GET_TYPEDEF_CLASSES

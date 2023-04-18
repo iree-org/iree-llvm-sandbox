@@ -17,7 +17,7 @@ class ModuleOp;
 class Operation;
 class TypeConverter;
 
-namespace structured {
+namespace iterators {
 
 class IteratorOpInterface;
 
@@ -80,7 +80,7 @@ private:
   OperationMap opMap;
 };
 
-} // namespace structured
+} // namespace iterators
 } // namespace mlir
 
 #endif // LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H

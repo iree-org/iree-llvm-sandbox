@@ -17,7 +17,7 @@ include "mlir/IR/OpBase.td"
 
 def Tabular_Dialect : Dialect {
   let name = "tabular";
-  let cppNamespace = "::mlir::structured";
+  let cppNamespace = "::mlir::tabular";
   let summary = "Dialect for dealing with tabular data.";
   let description = [{
     This dialect models data types and ops related to tabular data, i.e.,

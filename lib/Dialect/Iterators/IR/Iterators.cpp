@@ -18,7 +18,8 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
-using namespace mlir::structured;
+using namespace mlir::iterators;
+using namespace mlir::tabular;
 
 //===----------------------------------------------------------------------===//
 // Iterators dialect

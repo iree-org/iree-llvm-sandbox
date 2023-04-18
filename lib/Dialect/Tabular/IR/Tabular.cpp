@@ -14,7 +14,7 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
-using namespace mlir::structured;
+using namespace mlir::tabular;
 
 //===----------------------------------------------------------------------===//
 // Tabular dialect

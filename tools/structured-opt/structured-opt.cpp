@@ -32,9 +32,9 @@ using namespace mlir;
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
       // clang-format off
-      mlir::structured::IteratorsDialect,
-      mlir::structured::TabularDialect,
-      mlir::structured::TupleDialect
+      mlir::iterators::IteratorsDialect,
+      mlir::tabular::TabularDialect,
+      mlir::tuple::TupleDialect
       // clang-format on
       >();
 }

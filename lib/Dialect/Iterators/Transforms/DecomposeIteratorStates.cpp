@@ -23,9 +23,8 @@ namespace mlir {
 #include "structured/Dialect/Iterators/Transforms/Passes.h.inc"
 } // namespace mlir
 
-// using namespace structured;
 using namespace mlir;
-using namespace mlir::structured;
+using namespace mlir::iterators;
 
 namespace {
 
@@ -134,7 +133,7 @@ public:
 
 } // namespace
 
-void structured::populateDecomposeIteratorStatesPatterns(
+void iterators::populateDecomposeIteratorStatesPatterns(
     TypeConverter &typeConverter, RewritePatternSet &patterns) {
   patterns.add<
       // clang-format off

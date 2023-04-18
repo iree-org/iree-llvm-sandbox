@@ -25,8 +25,8 @@ class MLIRContext;
 
 using namespace mlir;
 using namespace mlir::func;
-using namespace mlir::structured;
 using namespace mlir::LLVM;
+using namespace mlir::tabular;
 
 namespace {
 struct ConvertTabularToLLVMPass
@@ -121,7 +121,7 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
   }
 };
 
-void mlir::structured::populateTabularToLLVMConversionPatterns(
+void mlir::tabular::populateTabularToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<ViewAsTabularOpLowering>(typeConverter, patterns.getContext());
 }

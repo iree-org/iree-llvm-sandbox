@@ -13,7 +13,7 @@
 #include "mlir/Transforms/InliningUtils.h"
 
 using namespace mlir;
-using namespace mlir::structured;
+using namespace mlir::tuple;
 
 //===----------------------------------------------------------------------===//
 // Tuple dialect.

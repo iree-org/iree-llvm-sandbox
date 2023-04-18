@@ -22,7 +22,9 @@
 //===----------------------------------------------------------------------===//
 
 using namespace mlir;
-using namespace mlir::structured;
+using namespace mlir::iterators;
+using namespace mlir::tabular;
+using namespace mlir::tuple;
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Iterators, iterators, IteratorsDialect)
 

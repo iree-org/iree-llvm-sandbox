@@ -23,7 +23,7 @@ namespace mlir {
 } // namespace mlir
 
 using namespace mlir;
-using namespace mlir::structured;
+using namespace mlir::tuple;
 
 using InputMapping = OneToNTypeMapping::InputMapping;
 
@@ -73,8 +73,8 @@ public:
 
 } // namespace
 
-void structured::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
-                                                 RewritePatternSet &patterns) {
+void tuple::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
+                                            RewritePatternSet &patterns) {
   patterns.add<
       // clang-format off
       DecomposeFromElementsOp,

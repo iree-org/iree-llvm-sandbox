@@ -18,14 +18,14 @@ class OperationPass;
 class RewritePatternSet;
 class TypeConverter;
 
-namespace structured {
+namespace iterators {
 
 /// Populate the given list with patterns that convert from Iterator states to
 /// LLVM.
 void populateStatesToLLVMConversionPatterns(RewritePatternSet &patterns,
                                             TypeConverter &typeConverter);
 
-} // namespace structured
+} // namespace iterators
 
 /// Create a pass to convert operations on Iterator states to the LLVM dialect.
 std::unique_ptr<OperationPass<ModuleOp>> createConvertStatesToLLVMPass();

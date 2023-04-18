@@ -23,7 +23,7 @@ class MLIRContext;
 
 using namespace mlir;
 using namespace mlir::func;
-using namespace mlir::structured;
+using namespace mlir::iterators;
 using namespace mlir::LLVM;
 
 namespace {
@@ -84,13 +84,13 @@ struct CreateStateOpLowering : public OpConversionPattern<CreateStateOp> {
 };
 
 struct ExtractValueOpLowering
-    : public OpConversionPattern<structured::ExtractValueOp> {
+    : public OpConversionPattern<iterators::ExtractValueOp> {
   ExtractValueOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                          PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
-  matchAndRewrite(structured::ExtractValueOp op, OpAdaptor adaptor,
+  matchAndRewrite(iterators::ExtractValueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Type resultType = getTypeConverter()->convertType(op.getResult().getType());
@@ -102,13 +102,13 @@ struct ExtractValueOpLowering
 };
 
 struct InsertValueOpLowering
-    : public OpConversionPattern<structured::InsertValueOp> {
+    : public OpConversionPattern<iterators::InsertValueOp> {
   InsertValueOpLowering(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
-  matchAndRewrite(structured::InsertValueOp op, OpAdaptor adaptor,
+  matchAndRewrite(iterators::InsertValueOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Value updatedState = rewriter.create<LLVM::InsertValueOp>(
@@ -119,7 +119,7 @@ struct InsertValueOpLowering
   }
 };
 
-void mlir::structured::populateStatesToLLVMConversionPatterns(
+void mlir::iterators::populateStatesToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
