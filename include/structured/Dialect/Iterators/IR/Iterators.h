@@ -9,12 +9,12 @@
 #ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 #define ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
 
-#include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
 
 #include "structured/Dialect/Iterators/IR/IteratorsOpsDialect.h.inc"
 

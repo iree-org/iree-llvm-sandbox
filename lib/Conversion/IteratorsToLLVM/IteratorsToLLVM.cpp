@@ -10,10 +10,6 @@
 
 #include "../PassDetail.h"
 #include "IteratorAnalysis.h"
-#include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
-#include "structured/Dialect/Iterators/IR/Iterators.h"
-#include "structured/Dialect/Tabular/IR/Tabular.h"
-#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
@@ -25,6 +21,10 @@
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir {
@@ -488,7 +488,8 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
     auto element = b.create<LLVM::ExtractValueOp>(fieldType, nextStruct, i);
     elements.push_back(element);
   }
-  Value nextElement = b.create<structured::FromElementsOp>(elementType, elements);
+  Value nextElement =
+      b.create<structured::FromElementsOp>(elementType, elements);
 
   Value finalState = ifOp->getResult(0);
   return {finalState, hasNext, nextElement};
@@ -683,7 +684,7 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
   Value updatedUpstreamState = closeCallOp->getResult(0);
   return b
       .create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
-                                        updatedUpstreamState)
+                                         updatedUpstreamState)
       .getResult();
 }
 
@@ -848,7 +849,7 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
   return b.create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
-                                            updatedUpstreamState);
+                                             updatedUpstreamState);
 }
 
 /// Builds IR that initializes the iterator state with the state of the upstream
@@ -1057,7 +1058,7 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
   Value updatedUpstreamState = closeCallOp->getResult(0);
   return b
       .create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
-                                        updatedUpstreamState)
+                                         updatedUpstreamState)
       .getResult();
 }
 
@@ -1094,7 +1095,7 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
   Attribute zeroAttr = b.getI64IntegerAttr(0);
   Value zeroValue = b.create<arith::ConstantOp>(i64, zeroAttr);
   return b.create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
-                                            zeroValue);
+                                             zeroValue);
 }
 
 /// Builds IR that assembles an element from the values in the buffers at the
@@ -1142,8 +1143,8 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
   auto tupleType = elementType.cast<TupleType>();
 
   // Extract current index.
-  Value currentIndex =
-      b.create<structured::ExtractValueOp>(i64, initialState, b.getIndexAttr(0));
+  Value currentIndex = b.create<structured::ExtractValueOp>(i64, initialState,
+                                                            b.getIndexAttr(0));
 
   // Extract input column buffers.
   auto stateType = initialState.getType().cast<StateType>();

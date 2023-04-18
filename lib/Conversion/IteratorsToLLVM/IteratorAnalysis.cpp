@@ -1,9 +1,9 @@
 #include "IteratorAnalysis.h"
 
-#include "structured/Dialect/Iterators/IR/Iterators.h"
-#include "structured/Utils/NameAssigner.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Utils/NameAssigner.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -142,8 +142,8 @@ StateTypeComputer::operator()(ZipOp op,
 /// `StateType` as a parameter, to ensure proper build order (all uses are
 /// visited before any def).
 mlir::structured::IteratorInfo::IteratorInfo(IteratorOpInterface op,
-                                            NameAssigner &nameAssigner,
-                                            StateType t) {
+                                             NameAssigner &nameAssigner,
+                                             StateType t) {
   std::tie(openFunc, nextFunc, closeFunc) =
       assignFunctionNames(op, nameAssigner);
   stateType = t;

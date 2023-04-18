@@ -9,11 +9,11 @@
 #ifndef LIB_CONVERSION_PASSDETAIL_H
 #define LIB_CONVERSION_PASSDETAIL_H
 
-#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Pass/Pass.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
 
 namespace mlir {
 

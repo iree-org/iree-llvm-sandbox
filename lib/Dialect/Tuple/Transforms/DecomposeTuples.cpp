@@ -9,12 +9,12 @@
 
 #include "structured/Dialect/Tuple/Transforms/DecomposeTuples.h"
 
-#include "structured/Dialect/Tuple/IR/Tuple.h"
-#include "structured/Dialect/Tuple/Transforms/Passes.h"
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/OneToNTypeConversion.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
+#include "structured/Dialect/Tuple/Transforms/Passes.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
@@ -74,7 +74,7 @@ public:
 } // namespace
 
 void structured::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
-                                                RewritePatternSet &patterns) {
+                                                 RewritePatternSet &patterns) {
   patterns.add<
       // clang-format off
       DecomposeFromElementsOp,

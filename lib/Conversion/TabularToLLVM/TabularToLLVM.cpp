@@ -9,7 +9,6 @@
 #include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
 
 #include "../PassDetail.h"
-#include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -18,6 +17,7 @@
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
 
 namespace mlir {
 class MLIRContext;

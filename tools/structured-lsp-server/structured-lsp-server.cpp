@@ -14,17 +14,17 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/DialectRegistry.h"
+#include "mlir/InitAllDialects.h"
+#include "mlir/InitAllPasses.h"
+#include "mlir/Support/LogicalResult.h"
+#include "mlir/Tools/mlir-lsp-server/MlirLspServerMain.h"
 #include "structured/Conversion/Passes.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
-#include "mlir/IR/DialectRegistry.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
-#include "mlir/Support/LogicalResult.h"
-#include "mlir/Tools/mlir-lsp-server/MlirLspServerMain.h"
 
 using namespace mlir;
 
