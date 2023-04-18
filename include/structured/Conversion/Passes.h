@@ -9,10 +9,10 @@
 #ifndef STRUCTURED_CONVERSION_PASSES_H
 #define STRUCTURED_CONVERSION_PASSES_H
 
+#include "mlir/Pass/Pass.h"
 #include "structured/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 #include "structured/Conversion/StatesToLLVM/StatesToLLVM.h"
 #include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
-#include "mlir/Pass/Pass.h"
 
 namespace mlir {
 

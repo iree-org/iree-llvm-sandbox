@@ -15,7 +15,7 @@
 namespace mlir {
 
 class ModuleOp;
-namespace structured {
+namespace iterators {
 
 /// Pre-assigns unique symbol names in the given module. Uniqueness is
 /// guaranteed among all symbols already existing in the module and those pre-
@@ -38,7 +38,7 @@ private:
   uint64_t uniqueNumber = 0;
 };
 
-} // namespace structured
+} // namespace iterators
 } // namespace mlir
 
 #endif // ITERATORS_UTILS_NAMEASSIGNER_H

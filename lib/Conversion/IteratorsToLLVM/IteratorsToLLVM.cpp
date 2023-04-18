@@ -10,10 +10,6 @@
 
 #include "../PassDetail.h"
 #include "IteratorAnalysis.h"
-#include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
-#include "structured/Dialect/Iterators/IR/Iterators.h"
-#include "structured/Dialect/Tabular/IR/Tabular.h"
-#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
@@ -25,6 +21,10 @@
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir {
@@ -32,12 +32,12 @@ class MLIRContext;
 } // namespace mlir
 
 using namespace mlir;
-using namespace mlir::structured;
-using namespace mlir::LLVM;
 using namespace mlir::func;
-using namespace ::structured;
+using namespace mlir::iterators;
+using namespace mlir::LLVM;
+using namespace mlir::tabular;
 using namespace std::string_literals;
-using IteratorInfo = mlir::structured::IteratorInfo;
+using IteratorInfo = mlir::iterators::IteratorInfo;
 
 namespace {
 struct ConvertIteratorsToLLVMPass
@@ -145,7 +145,7 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
 
     // Assemble tuple from elements.
     Type tupleType = op.getTuple().getType();
-    Value tuple = b.create<structured::FromElementsOp>(tupleType, elements);
+    Value tuple = b.create<tuple::FromElementsOp>(tupleType, elements);
     rewriter.replaceOp(op, tuple);
 
     return success();
@@ -236,7 +236,7 @@ static void buildFormatStringAndArguments(TupleType type, Value value,
                                           SmallVectorImpl<Value> &arguments) {
   format.append("(");
   auto elements =
-      rewriter.create<structured::ToElementsOp>(loc, type.getTypes(), value);
+      rewriter.create<tuple::ToElementsOp>(loc, type.getTypes(), value);
   for (auto [idx, element] : llvm::enumerate(elements->getResults())) {
     buildFormatStringAndArguments(element, rewriter, loc, format, arguments);
     if (idx < type.getTypes().size() - 1)
@@ -326,7 +326,7 @@ static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
   Type i32 = b.getI32Type();
   Attribute zeroAttr = b.getI32IntegerAttr(0);
   Value zeroValue = b.create<arith::ConstantOp>(i32, zeroAttr);
-  Value updatedState = b.create<structured::InsertValueOp>(
+  Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), zeroValue);
 
   return updatedState;
@@ -439,7 +439,7 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
   auto structType = LLVMStructType::getLiteral(context, tupleType.getTypes());
 
   // Extract current index.
-  Value currentIndex = b.create<structured::ExtractValueOp>(
+  Value currentIndex = b.create<iterators::ExtractValueOp>(
       loc, i32, initialState, b.getIndexAttr(0));
 
   // Test if we have reached the end of the range.
@@ -459,7 +459,7 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
                                                    /*width=*/32);
         ArithBuilder ab(b, b.getLoc());
         Value updatedCurrentIndex = ab.add(currentIndex, one);
-        Value updatedState = b.create<structured::InsertValueOp>(
+        Value updatedState = b.create<iterators::InsertValueOp>(
             initialState, b.getIndexAttr(0), updatedCurrentIndex);
 
         // Load element from global data at current index.
@@ -488,7 +488,7 @@ buildNextBody(ConstantStreamOp op, OpBuilder &builder, Value initialState,
     auto element = b.create<LLVM::ExtractValueOp>(fieldType, nextStruct, i);
     elements.push_back(element);
   }
-  Value nextElement = b.create<structured::FromElementsOp>(elementType, elements);
+  Value nextElement = b.create<tuple::FromElementsOp>(elementType, elements);
 
   Value finalState = ifOp->getResult(0);
   return {finalState, hasNext, nextElement};
@@ -535,7 +535,7 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Open on upstream.
@@ -545,7 +545,7 @@ static Value buildOpenBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = b.create<structured::InsertValueOp>(
+  Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), updatedUpstreamState);
 
   return updatedState;
@@ -590,7 +590,7 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Main while loop.
@@ -649,7 +649,7 @@ buildNextBody(FilterOp op, OpBuilder &builder, Value initialState,
 
   // Update state.
   Value finalUpstreamState = whileOp->getResult(0);
-  Value finalState = b.create<structured::InsertValueOp>(
+  Value finalState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), finalUpstreamState);
   Value hasNext = whileOp->getResult(1);
   Value nextElement = whileOp->getResult(2);
@@ -671,7 +671,7 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Close on upstream.
@@ -682,7 +682,7 @@ static Value buildCloseBody(FilterOp op, OpBuilder &builder, Value initialState,
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
   return b
-      .create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
+      .create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
                                         updatedUpstreamState)
       .getResult();
 }
@@ -718,7 +718,7 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Open on upstream.
@@ -728,7 +728,7 @@ static Value buildOpenBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = b.create<structured::InsertValueOp>(
+  Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), updatedUpstreamState);
 
   return updatedState;
@@ -764,7 +764,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Extract input element type.
@@ -806,7 +806,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
             fieldValues.push_back(fieldValue);
           }
           defaultElement =
-              b.create<structured::FromElementsOp>(tupleType, fieldValues);
+              b.create<tuple::FromElementsOp>(tupleType, fieldValues);
         } else {
           // Default case: hope that type is undef'able.
           defaultElement = b.create<LLVM::UndefOp>(elementType);
@@ -817,7 +817,7 @@ buildNextBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Update state.
   Value finalUpstreamState = nextCall.getResult(0);
-  Value finalState = b.create<structured::InsertValueOp>(
+  Value finalState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), finalUpstreamState);
 
   return {finalState, hasNext, mappedElement};
@@ -837,7 +837,7 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Close on upstream.
@@ -847,8 +847,8 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
-  return b.create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
-                                            updatedUpstreamState);
+  return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
+                                             updatedUpstreamState);
 }
 
 /// Builds IR that initializes the iterator state with the state of the upstream
@@ -882,7 +882,7 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Open on upstream.
@@ -892,7 +892,7 @@ static Value buildOpenBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Update upstream state.
   Value updatedUpstreamState = openCallOp->getResult(0);
-  Value updatedState = b.create<structured::InsertValueOp>(
+  Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), updatedUpstreamState);
 
   return updatedState;
@@ -941,7 +941,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Extract upstream state.
   Type upstreamStateType = upstreamInfos[0].stateType;
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Get first result from upstream.
@@ -1023,7 +1023,7 @@ buildNextBody(ReduceOp op, OpBuilder &builder, Value initialState,
 
   // Update state.
   Value finalUpstreamState = ifOp->getResult(0);
-  Value finalState = b.create<structured::InsertValueOp>(
+  Value finalState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), finalUpstreamState);
   Value hasNext = ifOp->getResult(1);
   Value nextElement = ifOp->getResult(2);
@@ -1045,7 +1045,7 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
   Type upstreamStateType = upstreamInfos[0].stateType;
 
   // Extract upstream state.
-  Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+  Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
       upstreamStateType, initialState, b.getIndexAttr(0));
 
   // Call Close on upstream.
@@ -1056,7 +1056,7 @@ static Value buildCloseBody(ReduceOp op, OpBuilder &builder, Value initialState,
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
   return b
-      .create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
+      .create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
                                         updatedUpstreamState)
       .getResult();
 }
@@ -1093,7 +1093,7 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
   Type i64 = b.getI64Type();
   Attribute zeroAttr = b.getI64IntegerAttr(0);
   Value zeroValue = b.create<arith::ConstantOp>(i64, zeroAttr);
-  return b.create<structured::InsertValueOp>(initialState, b.getIndexAttr(0),
+  return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
                                             zeroValue);
 }
 
@@ -1143,12 +1143,12 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
 
   // Extract current index.
   Value currentIndex =
-      b.create<structured::ExtractValueOp>(i64, initialState, b.getIndexAttr(0));
+      b.create<iterators::ExtractValueOp>(i64, initialState, b.getIndexAttr(0));
 
   // Extract input column buffers.
   auto stateType = initialState.getType().cast<StateType>();
   Type structOfInputBuffersType = stateType.getFieldTypes()[1];
-  Value structOfInputBuffers = b.create<structured::ExtractValueOp>(
+  Value structOfInputBuffers = b.create<iterators::ExtractValueOp>(
       structOfInputBuffersType, initialState, b.getIndexAttr(1));
 
   // Test if we have reached the end of the range.
@@ -1168,7 +1168,7 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
                                                    /*width=*/64);
         ArithBuilder ab(b, b.getLoc());
         Value updatedCurrentIndex = ab.add(currentIndex, one);
-        Value updatedState = b.create<structured::InsertValueOp>(
+        Value updatedState = b.create<iterators::InsertValueOp>(
             initialState, b.getIndexAttr(0), updatedCurrentIndex);
 
         // Assemble tuple element values values from values at current index of
@@ -1189,7 +1189,7 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
 
         // Assemble tuple and yield
         auto nextElement =
-            b.create<structured::FromElementsOp>(elementType, columnElements);
+            b.create<tuple::FromElementsOp>(elementType, columnElements);
         b.create<scf::YieldOp>(ValueRange{updatedState, nextElement});
       },
       /*elseBuilder=*/
@@ -1202,7 +1202,7 @@ buildNextBody(TabularViewToStreamOp op, OpBuilder &builder, Value initialState,
           elementValues.push_back(element);
         }
         auto nextElement =
-            b.create<structured::FromElementsOp>(elementType, elementValues);
+            b.create<tuple::FromElementsOp>(elementType, elementValues);
         b.create<scf::YieldOp>(ValueRange{initialState, nextElement});
       });
 
@@ -1253,7 +1253,7 @@ static Value buildOpenBody(ValueToStreamOp op, OpBuilder &builder,
 
   // Reset hasReturned to false.
   Value constFalse = b.create<arith::ConstantIntOp>(/*value=*/0, /*width=*/1);
-  Value updatedState = b.create<structured::InsertValueOp>(
+  Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), constFalse);
 
   return updatedState;
@@ -1282,7 +1282,7 @@ buildNextBody(ValueToStreamOp op, OpBuilder &builder, Value initialState,
   // Check if the iterator has returned an element already (since it should
   // return one only in the first call to next).
   Value hasReturned =
-      b.create<structured::ExtractValueOp>(i1, initialState, b.getIndexAttr(0));
+      b.create<iterators::ExtractValueOp>(i1, initialState, b.getIndexAttr(0));
 
   // Compute hasNext: we have an element iff we have not returned before, i.e.,
   // iff "not hasReturend". We simulate "not" with "xor true".
@@ -1290,11 +1290,11 @@ buildNextBody(ValueToStreamOp op, OpBuilder &builder, Value initialState,
   Value hasNext = b.create<arith::XOrIOp>(constTrue, hasReturned);
 
   // Extract value as next element.
-  Value nextElement = b.create<structured::ExtractValueOp>(
+  Value nextElement = b.create<iterators::ExtractValueOp>(
       elementType, initialState, b.getIndexAttr(1));
 
   // Update state.
-  Value finalState = b.create<structured::InsertValueOp>(
+  Value finalState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), constTrue);
 
   return {finalState, hasNext, nextElement};
@@ -1349,7 +1349,7 @@ static Value buildOpenBody(ZipOp op, OpBuilder &builder, Value initialState,
     Type upstreamStateType = upstreamInfo.stateType;
 
     // Extract upstream state.
-    Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+    Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
         upstreamStateType, updatedState, b.getIndexAttr(index));
 
     // Call Open on upstream.
@@ -1359,7 +1359,7 @@ static Value buildOpenBody(ZipOp op, OpBuilder &builder, Value initialState,
 
     // Update state.
     Value updatedUpstreamState = openCallOp->getResult(0);
-    updatedState = b.create<structured::InsertValueOp>(
+    updatedState = b.create<iterators::InsertValueOp>(
         updatedState, b.getIndexAttr(index), updatedUpstreamState);
   }
 
@@ -1406,7 +1406,7 @@ buildNextBody(ZipOp op, OpBuilder &builder, Value initialState,
     Type inputElementType = inputStreamType.getElementType();
 
     // Extract upstream state.
-    Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+    Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
         upstreamStateType, updatedState, b.getIndexAttr(index));
 
     // Call next on upstream.
@@ -1426,14 +1426,14 @@ buildNextBody(ZipOp op, OpBuilder &builder, Value initialState,
 
     // Update state.
     Value updatedUpstreamState = nextCall->getResult(0);
-    updatedState = b.create<structured::InsertValueOp>(
+    updatedState = b.create<iterators::InsertValueOp>(
         updatedState, b.getIndexAttr(index), updatedUpstreamState);
   }
 
   // Assemble tuple from upstream elements;
   auto tupleType = elementType.cast<TupleType>();
   Value nextElement =
-      b.create<structured::FromElementsOp>(tupleType, upstreamElements);
+      b.create<tuple::FromElementsOp>(tupleType, upstreamElements);
 
   return {updatedState, hasNext, nextElement};
 }
@@ -1460,7 +1460,7 @@ static Value buildCloseBody(ZipOp op, OpBuilder &builder, Value initialState,
     Type upstreamStateType = upstreamInfo.stateType;
 
     // Extract upstream state.
-    Value initialUpstreamState = b.create<structured::ExtractValueOp>(
+    Value initialUpstreamState = b.create<iterators::ExtractValueOp>(
         upstreamStateType, updatedState, b.getIndexAttr(index));
 
     // Call close on upstream.
@@ -1470,7 +1470,7 @@ static Value buildCloseBody(ZipOp op, OpBuilder &builder, Value initialState,
 
     // Update state.
     Value updatedUpstreamState = closeCallOp->getResult(0);
-    updatedState = b.create<structured::InsertValueOp>(
+    updatedState = b.create<iterators::InsertValueOp>(
         updatedState, b.getIndexAttr(index), updatedUpstreamState);
   }
 
@@ -2044,7 +2044,7 @@ static void convertIteratorOps(ModuleOp module, TypeConverter &typeConverter) {
     rewriter.eraseOp(*it);
 }
 
-void mlir::structured::populateIteratorsToLLVMConversionPatterns(
+void mlir::iterators::populateIteratorsToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
@@ -2064,9 +2064,9 @@ void ConvertIteratorsToLLVMPass::runOnOperation() {
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
   target.addLegalDialect<arith::ArithDialect, LLVMDialect, scf::SCFDialect,
-                         structured::TupleDialect>();
-  target.addLegalOp<ModuleOp, CreateStateOp, structured::ExtractValueOp,
-                    structured::InsertValueOp>();
+                         tuple::TupleDialect>();
+  target.addLegalOp<ModuleOp, CreateStateOp, iterators::ExtractValueOp,
+                    iterators::InsertValueOp>();
   RewritePatternSet patterns(&getContext());
 
   populateIteratorsToLLVMConversionPatterns(patterns, typeConverter);

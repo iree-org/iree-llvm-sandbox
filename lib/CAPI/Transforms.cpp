@@ -7,10 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 // #include "structured-c/Passes.h"
-#include "structured/Dialect/Iterators/Transforms/Passes.h"
-#include "structured/Dialect/Tuple/Transforms/Passes.h"
 #include "mlir/CAPI/Pass.h"
 #include "mlir/Pass/Pass.h"
+#include "structured/Dialect/Iterators/Transforms/Passes.h"
+#include "structured/Dialect/Tuple/Transforms/Passes.h"
 
 using namespace mlir;
 

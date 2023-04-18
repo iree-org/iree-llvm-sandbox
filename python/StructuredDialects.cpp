@@ -11,10 +11,10 @@
 #include <array>
 #include <initializer_list>
 
-#include "structured-c/Dialects.h"
 #include "mlir-c/BuiltinAttributes.h"
 #include "mlir-c/IR.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
+#include "structured-c/Dialects.h"
 
 namespace py = pybind11;
 using namespace mlir::python::adaptors;

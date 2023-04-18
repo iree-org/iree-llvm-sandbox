@@ -19,7 +19,7 @@ template <typename T>
 class OperationPass;
 class RewritePatternSet;
 
-namespace structured {
+namespace tabular {
 
 /// Maps types from the Tabular dialect to corresponding types in LLVM.
 class TabularTypeConverter : public TypeConverter {
@@ -38,7 +38,7 @@ private:
 void populateTabularToLLVMConversionPatterns(RewritePatternSet &patterns,
                                              TypeConverter &typeConverter);
 
-} // namespace structured
+} // namespace tabular
 
 /// Create a pass to convert Tabular operations to the LLVM dialect.
 std::unique_ptr<OperationPass<ModuleOp>> createConvertTabularToLLVMPass();

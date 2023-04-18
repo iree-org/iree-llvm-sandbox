@@ -55,7 +55,7 @@ def ConvertIteratorsToLLVM : Pass<"convert-iterators-to-llvm", "ModuleOp"> {
     "func::FuncDialect",
     "LLVM::LLVMDialect",
     "scf::SCFDialect",
-    "structured::TupleDialect"
+    "tuple::TupleDialect"
   ];
 }
 

@@ -15,12 +15,12 @@ class TypeConverter;
 } // namespace mlir
 
 namespace mlir {
-namespace structured {
+namespace iterators {
 
 void populateDecomposeIteratorStatesPatterns(TypeConverter &typeConverter,
                                              RewritePatternSet &patterns);
 
-} // namespace structured
+} // namespace iterators
 } // namespace mlir
 
 #endif // ITERATORS_DIALECT_ITERATORS_TRANSFORMS_DECOMPOSEITERATORSTATES_H

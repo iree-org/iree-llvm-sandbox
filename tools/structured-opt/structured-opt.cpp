@@ -1,4 +1,5 @@
-//===- structured-opt.cpp - Optimizer Driver for Iterators -----------------===//
+//===- structured-opt.cpp - Optimizer Driver for Iterators
+//-----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,16 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mlir/IR/Dialect.h"
+#include "mlir/InitAllDialects.h"
+#include "mlir/InitAllPasses.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "structured/Conversion/Passes.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
-#include "mlir/IR/Dialect.h"
-#include "mlir/InitAllDialects.h"
-#include "mlir/InitAllPasses.h"
-#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
@@ -31,9 +32,9 @@ using namespace mlir;
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
       // clang-format off
-      mlir::structured::IteratorsDialect,
-      mlir::structured::TabularDialect,
-      mlir::structured::TupleDialect
+      mlir::iterators::IteratorsDialect,
+      mlir::tabular::TabularDialect,
+      mlir::tuple::TupleDialect
       // clang-format on
       >();
 }

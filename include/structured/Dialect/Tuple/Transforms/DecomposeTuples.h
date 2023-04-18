@@ -15,12 +15,12 @@ class TypeConverter;
 } // namespace mlir
 
 namespace mlir {
-namespace structured {
+namespace tuple {
 
 void populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
                                      RewritePatternSet &patterns);
 
-} // namespace structured
+} // namespace tuple
 } // namespace mlir
 
 #endif // ITERATORS_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
