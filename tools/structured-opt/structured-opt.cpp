@@ -1,5 +1,4 @@
-//===- structured-opt.cpp - Optimizer Driver for Iterators
-//-----------------===//
+//===- structured-opt.cpp - Optimizer Driver for Structured -----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,6 +16,7 @@
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "structured/Conversion/Passes.h"
+#include "structured/Dialect/Indexing/IR/Indexing.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
@@ -32,6 +32,7 @@ using namespace mlir;
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
       // clang-format off
+      mlir::indexing::IndexingDialect,
       mlir::iterators::IteratorsDialect,
       mlir::tabular::TabularDialect,
       mlir::tuple::TupleDialect
