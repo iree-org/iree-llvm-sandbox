@@ -7,23 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Tuple/Transforms/DecomposeTuples.h"
+#include "structured/Dialect/Tuple/Transforms/DecomposeTuples.h"
 
-#include "iterators/Dialect/Tuple/IR/Tuple.h"
-#include "iterators/Dialect/Tuple/Transforms/Passes.h"
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/OneToNTypeConversion.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
+#include "structured/Dialect/Tuple/Transforms/Passes.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 #define GEN_PASS_CLASSES
-#include "iterators/Dialect/Tuple/Transforms/Passes.h.inc"
+#include "structured/Dialect/Tuple/Transforms/Passes.h.inc"
 } // namespace mlir
 
 using namespace mlir;
-using namespace mlir::iterators;
 using namespace mlir::tuple;
 
 using InputMapping = OneToNTypeMapping::InputMapping;
@@ -74,8 +73,8 @@ public:
 
 } // namespace
 
-void iterators::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
-                                                RewritePatternSet &patterns) {
+void tuple::populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
+                                            RewritePatternSet &patterns) {
   patterns.add<
       // clang-format off
       DecomposeFromElementsOp,

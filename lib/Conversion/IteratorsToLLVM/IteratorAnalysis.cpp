@@ -1,9 +1,9 @@
 #include "IteratorAnalysis.h"
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Utils/NameAssigner.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Utils/NameAssigner.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;

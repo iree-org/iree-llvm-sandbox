@@ -22,7 +22,7 @@ The repository currently houses the following projects:
 
 * The [Iterators](README-Iterators.md) dialect: database-style iterators for
   expressing computations on streams of data.
-* The [Tuple](include/iterators/Dialect/Tuple/): ops for manipulation of built-in tuples (used by the Iterators dialect).
+* The [Tuple](include/structured/Dialect/Tuple/): ops for manipulation of built-in tuples (used by the Iterators dialect).
 
 ## Build Instructions
 
@@ -92,8 +92,8 @@ cmake \
   -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
   -DMLIR_ENABLE_PYTHON_BENCHMARKS=ON \
   -DPython3_EXECUTABLE=$(which python) \
-  -DLLVM_EXTERNAL_PROJECTS=iterators \
-  -DLLVM_EXTERNAL_ITERATORS_SOURCE_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR} \
+  -DLLVM_EXTERNAL_PROJECTS=structured \
+  -DLLVM_EXTERNAL_STRUCTURED_SOURCE_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR} \
   -DLLVM_ENABLE_LLD=ON \
   -DLLVM_CCACHE_BUILD=ON \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
@@ -109,10 +109,10 @@ To build, run:
 cd ${IREE_LLVM_SANDBOX_BUILD_DIR} && ninja
 ```
 
-## Using iterators-opt
+## Using structured-opt
 
 ```bash
-"${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/iterators-opt --help
+"${IREE_LLVM_SANDBOX_BUILD_DIR}"/bin/structured-opt --help
 ```
 
 ## Running tests

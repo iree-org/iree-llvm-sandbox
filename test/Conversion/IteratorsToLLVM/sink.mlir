@@ -1,4 +1,4 @@
-// RUN: iterators-opt %s -convert-iterators-to-llvm \
+// RUN: structured-opt %s -convert-iterators-to-llvm \
 // RUN: | FileCheck --enable-var-scope %s
 
 func.func @main() {

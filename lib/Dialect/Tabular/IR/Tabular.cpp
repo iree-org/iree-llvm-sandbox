@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
 
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -14,22 +14,22 @@
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
-using namespace mlir::iterators;
+using namespace mlir::tabular;
 
 //===----------------------------------------------------------------------===//
 // Tabular dialect
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Tabular/IR/TabularOpsDialect.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularOpsDialect.cpp.inc"
 
 void TabularDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
-#include "iterators/Dialect/Tabular/IR/TabularOps.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularOps.cpp.inc"
       >();
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "iterators/Dialect/Tabular/IR/TabularOpsTypes.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularOpsTypes.cpp.inc"
       >();
 }
 
@@ -37,15 +37,15 @@ void TabularDialect::initialize() {
 // Tabular interfaces
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Tabular/IR/TabularOpInterfaces.cpp.inc"
-#include "iterators/Dialect/Tabular/IR/TabularTypeInterfaces.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularOpInterfaces.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularTypeInterfaces.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // Tabular operations
 //===----------------------------------------------------------------------===//
 
 #define GET_OP_CLASSES
-#include "iterators/Dialect/Tabular/IR/TabularOps.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularOps.cpp.inc"
 
 LogicalResult ViewAsTabularOp::verify() {
   auto viewType = getView().getType().cast<TabularViewType>();
@@ -94,4 +94,4 @@ LogicalResult ViewAsTabularOp::verify() {
 //===----------------------------------------------------------------------===//
 
 #define GET_TYPEDEF_CLASSES
-#include "iterators/Dialect/Tabular/IR/TabularOpsTypes.cpp.inc"
+#include "structured/Dialect/Tabular/IR/TabularOpsTypes.cpp.inc"

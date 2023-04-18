@@ -6,10 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
+#include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
 
 #include "../PassDetail.h"
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
 #include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -18,6 +17,7 @@
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
 
 namespace mlir {
 class MLIRContext;
@@ -25,8 +25,8 @@ class MLIRContext;
 
 using namespace mlir;
 using namespace mlir::func;
-using namespace mlir::iterators;
 using namespace mlir::LLVM;
+using namespace mlir::tabular;
 
 namespace {
 struct ConvertTabularToLLVMPass
@@ -121,7 +121,7 @@ struct ViewAsTabularOpLowering : public OpConversionPattern<ViewAsTabularOp> {
   }
 };
 
-void mlir::iterators::populateTabularToLLVMConversionPatterns(
+void mlir::tabular::populateTabularToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<ViewAsTabularOpLowering>(typeConverter, patterns.getContext());
 }

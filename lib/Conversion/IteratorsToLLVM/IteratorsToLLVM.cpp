@@ -6,14 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
+#include "structured/Conversion/IteratorsToLLVM/IteratorsToLLVM.h"
 
 #include "../PassDetail.h"
 #include "IteratorAnalysis.h"
-#include "iterators/Conversion/TabularToLLVM/TabularToLLVM.h"
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Dialect/Tabular/IR/Tabular.h"
-#include "iterators/Dialect/Tuple/IR/Tuple.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
@@ -25,6 +21,10 @@
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Conversion/TabularToLLVM/TabularToLLVM.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Tabular/IR/Tabular.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 namespace mlir {
@@ -32,10 +32,10 @@ class MLIRContext;
 } // namespace mlir
 
 using namespace mlir;
+using namespace mlir::func;
 using namespace mlir::iterators;
 using namespace mlir::LLVM;
-using namespace mlir::func;
-using namespace ::iterators;
+using namespace mlir::tabular;
 using namespace std::string_literals;
 using IteratorInfo = mlir::iterators::IteratorInfo;
 

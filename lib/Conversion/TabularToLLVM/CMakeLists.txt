@@ -2,7 +2,7 @@ add_mlir_conversion_library(MLIRTabularToLLVM
   TabularToLLVM.cpp
 
   DEPENDS
-  MLIRIteratorsConversionIncGen
+  MLIRStructuredConversionIncGen
 
   LINK_LIBS PUBLIC
   IteratorsUtils

@@ -6,16 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Conversion/StatesToLLVM/StatesToLLVM.h"
+#include "structured/Conversion/StatesToLLVM/StatesToLLVM.h"
 
 #include "../PassDetail.h"
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
 
 namespace mlir {
 class MLIRContext;

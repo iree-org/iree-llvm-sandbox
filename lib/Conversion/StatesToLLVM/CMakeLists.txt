@@ -2,7 +2,7 @@ add_mlir_conversion_library(MLIRStatesToLLVM
   StatesToLLVM.cpp
 
   DEPENDS
-  MLIRIteratorsConversionIncGen
+  MLIRStructuredConversionIncGen
 
   LINK_LIBS PUBLIC
   IteratorsUtils

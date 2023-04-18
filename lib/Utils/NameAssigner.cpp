@@ -1,4 +1,4 @@
-#include "iterators/Utils/NameAssigner.h"
+#include "structured/Utils/NameAssigner.h"
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Twine.h"

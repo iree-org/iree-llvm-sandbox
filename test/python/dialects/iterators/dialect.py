@@ -5,13 +5,13 @@ import ctypes
 import pandas as pd
 import numpy as np
 
-from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
-from mlir_iterators.dialects import iterators as it
-from mlir_iterators.dialects import tabular as tab
-from mlir_iterators.dialects import tuple as tup
-from mlir_iterators.passmanager import PassManager
-from mlir_iterators.execution_engine import ExecutionEngine
-from mlir_iterators.ir import Context, Module, IntegerType
+from mlir_structured.runtime.pandas_to_iterators import to_tabular_view_descriptor
+from mlir_structured.dialects import iterators as it
+from mlir_structured.dialects import tabular as tab
+from mlir_structured.dialects import tuple as tup
+from mlir_structured.passmanager import PassManager
+from mlir_structured.execution_engine import ExecutionEngine
+from mlir_structured.ir import Context, Module, IntegerType
 
 
 def run(f):

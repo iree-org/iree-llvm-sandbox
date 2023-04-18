@@ -6,10 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Iterators/Transforms/DecomposeIteratorStates.h"
+#include "structured/Dialect/Iterators/Transforms/DecomposeIteratorStates.h"
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Dialect/Iterators/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -17,13 +15,14 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/OneToNTypeConversion.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Iterators/Transforms/Passes.h"
 
 namespace mlir {
 #define GEN_PASS_CLASSES
-#include "iterators/Dialect/Iterators/Transforms/Passes.h.inc"
+#include "structured/Dialect/Iterators/Transforms/Passes.h.inc"
 } // namespace mlir
 
-// using namespace iterators;
 using namespace mlir;
 using namespace mlir::iterators;
 

@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Tuple/IR/Tuple.h"
+#include "structured/Dialect/Tuple/IR/Tuple.h"
 
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/Support/LogicalResult.h"
@@ -19,7 +19,7 @@ using namespace mlir::tuple;
 // Tuple dialect.
 //===----------------------------------------------------------------------===//
 
-#include "iterators/Dialect/Tuple/IR/TupleOpsDialect.cpp.inc"
+#include "structured/Dialect/Tuple/IR/TupleOpsDialect.cpp.inc"
 
 namespace {
 /// This class defines the interface for handling inlining for tuple dialect
@@ -37,11 +37,11 @@ struct TupleInlinerInterface : public DialectInlinerInterface {
 void TupleDialect::initialize() {
 #define GET_OP_LIST
   addOperations<
-#include "iterators/Dialect/Tuple/IR/TupleOps.cpp.inc"
+#include "structured/Dialect/Tuple/IR/TupleOps.cpp.inc"
       >();
   addTypes<
 #define GET_TYPEDEF_LIST
-#include "iterators/Dialect/Tuple/IR/TupleOpsTypes.cpp.inc"
+#include "structured/Dialect/Tuple/IR/TupleOpsTypes.cpp.inc"
       >();
   addInterfaces<TupleInlinerInterface>();
 }
@@ -63,11 +63,11 @@ static void printTupleElementTypes(AsmPrinter &printer, Operation *op,
                                    TypeRange elementsTypes, Type tupleType) {}
 
 #define GET_OP_CLASSES
-#include "iterators/Dialect/Tuple/IR/TupleOps.cpp.inc"
+#include "structured/Dialect/Tuple/IR/TupleOps.cpp.inc"
 
 //===----------------------------------------------------------------------===//
 // Tuple types.
 //===----------------------------------------------------------------------===//
 
 #define GET_TYPEDEF_CLASSES
-#include "iterators/Dialect/Tuple/IR/TupleOpsTypes.cpp.inc"
+#include "structured/Dialect/Tuple/IR/TupleOpsTypes.cpp.inc"

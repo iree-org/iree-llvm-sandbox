@@ -11,11 +11,11 @@ import time
 import numpy as np
 import pandas as pd
 
-from mlir_iterators.dialects import iterators as it
-from mlir_iterators.dialects import tabular as tab
-from mlir_iterators.dialects import arith, func, memref, scf
-from mlir_iterators.execution_engine import ExecutionEngine
-from mlir_iterators.ir import (
+from mlir_structured.dialects import iterators as it
+from mlir_structured.dialects import tabular as tab
+from mlir_structured.dialects import arith, func, memref, scf
+from mlir_structured.execution_engine import ExecutionEngine
+from mlir_structured.ir import (
     Context,  # (Comment preserves formatting.)
     DictAttr,
     IndexType,
@@ -27,9 +27,9 @@ from mlir_iterators.ir import (
     SymbolTable,
     UnitAttr,
 )
-from mlir_iterators.passmanager import PassManager
-from mlir_iterators.runtime.np_to_memref import get_ranked_memref_descriptor
-from mlir_iterators.runtime.pandas_to_iterators import to_tabular_view_descriptor
+from mlir_structured.passmanager import PassManager
+from mlir_structured.runtime.np_to_memref import get_ranked_memref_descriptor
+from mlir_structured.runtime.pandas_to_iterators import to_tabular_view_descriptor
 
 _MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
 _MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
@@ -38,7 +38,7 @@ _MLIR_C_RUNNER_UTILS_LIB_DEFAULT = "libmlir_c_runner_utils.so"
 
 
 # Copied from mlir.sandbox.compilation. That package uses the vanilla `mlir`
-# package instead of `mlir_iterators` as the rest of this file, so they are
+# package instead of `mlir_structured` as the rest of this file, so they are
 # incompatible.
 def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
   """Produces the benchmarking function.
@@ -81,7 +81,7 @@ def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
 
 
 # Copied from mlir.sandbox.utils. That package uses the vanilla `mlir` package
-# instead of `mlir_iterators` as the rest of this file, so they are
+# instead of `mlir_structured` as the rest of this file, so they are
 # incompatible.
 def realign(allocated_unaligned: np.ndarray, byte_alignment: int = 64):
   shape = allocated_unaligned.shape

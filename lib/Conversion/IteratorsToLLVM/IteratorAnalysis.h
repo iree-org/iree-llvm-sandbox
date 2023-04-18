@@ -9,9 +9,9 @@
 #ifndef LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
 #define LIB_CONVERSION_ITERATORSTOLLVM_ITERATORANALYSIS_H
 
-#include "iterators/Dialect/Iterators/IR/Iterators.h"
-#include "iterators/Utils/NameAssigner.h"
 #include "mlir/IR/BuiltinAttributes.h"
+#include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Utils/NameAssigner.h"
 namespace mlir {
 class ModuleOp;
 class Operation;
