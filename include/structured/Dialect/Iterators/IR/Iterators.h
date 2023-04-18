@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
-#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
+#ifndef STRUCTURED_DIALECT_ITERATORS_IR_ITERATORS_H
+#define STRUCTURED_DIALECT_ITERATORS_IR_ITERATORS_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dialect.h"
@@ -31,4 +31,4 @@ namespace iterators {
 #define GET_OP_CLASSES
 #include "structured/Dialect/Iterators/IR/IteratorsOps.h.inc"
 
-#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORS_H
+#endif // STRUCTURED_DIALECT_ITERATORS_IR_ITERATORS_H

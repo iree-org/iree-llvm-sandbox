@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
-#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
+#ifndef STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSOPS
+#define STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSOPS
 
 include "structured/Dialect/Iterators/IR/IteratorsDialect.td"
 include "structured/Dialect/Iterators/IR/IteratorsTypes.td"
@@ -578,4 +578,4 @@ def Iterators_InsertValueOp : Iterators_Base_Op<"insertvalue", [
   }];
 }
 
-#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSOPS
+#endif // STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSOPS

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSDIALECT
-#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSDIALECT
+#ifndef STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSDIALECT
+#define STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSDIALECT
 
 include "mlir/IR/OpBase.td"
 
@@ -56,4 +56,4 @@ def Iterators_Dialect : Dialect {
   let useDefaultTypePrinterParser = 1;
 }
 
-#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSDIALECT
+#endif // STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSDIALECT

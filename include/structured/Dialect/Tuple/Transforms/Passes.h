@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_TUPLE_TRANSFORMS_PASSES_H
-#define ITERATORS_DIALECT_TUPLE_TRANSFORMS_PASSES_H
+#ifndef STRUCTURED_DIALECT_TUPLE_TRANSFORMS_PASSES_H
+#define STRUCTURED_DIALECT_TUPLE_TRANSFORMS_PASSES_H
 
 #include "mlir/Pass/Pass.h"
 
@@ -38,4 +38,4 @@ std::unique_ptr<Pass> createDecomposeTuplesPass();
 
 } // namespace mlir
 
-#endif // ITERATORS_DIALECT_TUPLE_TRANSFORMS_PASSES_H
+#endif // STRUCTURED_DIALECT_TUPLE_TRANSFORMS_PASSES_H

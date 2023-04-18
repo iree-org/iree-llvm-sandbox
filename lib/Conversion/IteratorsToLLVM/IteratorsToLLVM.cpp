@@ -848,7 +848,7 @@ static Value buildCloseBody(MapOp op, OpBuilder &builder, Value initialState,
   // Update upstream state.
   Value updatedUpstreamState = closeCallOp->getResult(0);
   return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
-                                             updatedUpstreamState);
+                                            updatedUpstreamState);
 }
 
 /// Builds IR that initializes the iterator state with the state of the upstream

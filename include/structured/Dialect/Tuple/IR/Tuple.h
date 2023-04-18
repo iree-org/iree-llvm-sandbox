@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_TUPLE_IR_TUPLE_H
-#define ITERATORS_DIALECT_TUPLE_IR_TUPLE_H
+#ifndef STRUCTURED_DIALECT_TUPLE_IR_TUPLE_H
+#define STRUCTURED_DIALECT_TUPLE_IR_TUPLE_H
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpImplementation.h"
@@ -20,4 +20,4 @@
 #define GET_OP_CLASSES
 #include "structured/Dialect/Tuple/IR/TupleOps.h.inc"
 
-#endif // ITERATORS_DIALECT_TUPLE_IR_TUPLE_H
+#endif // STRUCTURED_DIALECT_TUPLE_IR_TUPLE_H

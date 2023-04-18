@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSINTERFACES
-#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSINTERFACES
+#ifndef STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSINTERFACES
+#define STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSINTERFACES
 
 include "mlir/IR/OpBase.td"
 
@@ -15,4 +15,4 @@ def Iterators_IteratorOpInterface : OpInterface<"IteratorOpInterface"> {
   let description = [{Iterators op interface.}];
 }
 
-#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSINTERFACES
+#endif // STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSINTERFACES

@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_TABULAR_IR_TABULAR_H
-#define ITERATORS_DIALECT_TABULAR_IR_TABULAR_H
+#ifndef STRUCTURED_DIALECT_TABULAR_IR_TABULAR_H
+#define STRUCTURED_DIALECT_TABULAR_IR_TABULAR_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dialect.h"
@@ -30,4 +30,4 @@ namespace tabular {
 #define GET_OP_CLASSES
 #include "structured/Dialect/Tabular/IR/TabularOps.h.inc"
 
-#endif // ITERATORS_DIALECT_TABULAR_IR_TABULAR_H
+#endif // STRUCTURED_DIALECT_TABULAR_IR_TABULAR_H

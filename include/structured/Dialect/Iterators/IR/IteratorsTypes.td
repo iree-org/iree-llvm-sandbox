@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
-#define ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
+#ifndef STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSTYPES
+#define STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSTYPES
 
 include "structured/Dialect/Iterators/IR/IteratorsDialect.td"
 include "structured/Dialect/Iterators/IR/IteratorsInterfaces.td"
@@ -283,4 +283,4 @@ def Iterators_State : Iterators_Type<"State", "state"> {
   }];
 }
 
-#endif // ITERATORS_DIALECT_ITERATORS_IR_ITERATORSTYPES
+#endif // STRUCTURED_DIALECT_ITERATORS_IR_ITERATORSTYPES

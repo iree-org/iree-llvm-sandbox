@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef ITERATORS_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
-#define ITERATORS_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
+#ifndef STRUCTURED_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
+#define STRUCTURED_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
 
 namespace mlir {
 class RewritePatternSet;
@@ -23,4 +23,4 @@ void populateDecomposeTuplesPatterns(TypeConverter &typeConverter,
 } // namespace tuple
 } // namespace mlir
 
-#endif // ITERATORS_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
+#endif // STRUCTURED_DIALECT_TUPLE_TRANSFORMS_DECOMPOSETUPLES_H
