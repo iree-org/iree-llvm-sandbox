@@ -45,6 +45,7 @@ declare_mlir_python_extension(StructuredPythonSources.DialectExtension
   StructuredDialects.cpp
   EMBED_CAPI_LINK_LIBS
   StructuredCAPI
+  TritonCAPI
 )
 
 declare_mlir_python_extension(StructuredPythonSources.PassesExtension
@@ -62,6 +63,8 @@ declare_mlir_python_sources(StructuredPythonSources.ExecutionEngine
   SOURCES_GLOB
     runtime/*.py
 )
+
+add_subdirectory(triton)
 
 # ###############################################################################
 # Common CAPI
@@ -96,3 +99,4 @@ add_mlir_python_modules(StructuredPythonModules
 )
 
 add_dependencies(structured-all StructuredPythonModules)
+

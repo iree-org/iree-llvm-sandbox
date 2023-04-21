@@ -15,6 +15,7 @@
 #include "mlir-c/IR.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "structured-c/Dialects.h"
+#include "structured-c/TritonDialects.h"
 
 namespace py = pybind11;
 using namespace mlir::python::adaptors;
@@ -111,6 +112,26 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
       "register_dialect",
       [](MlirContext context, bool doLoad) {
         MlirDialectHandle handle = mlirGetDialectHandle__tuple__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //===--------------------------------------------------------------------===//
+  // Triton dialect.
+  //===--------------------------------------------------------------------===//
+  auto tritonModule = mainModule.def_submodule("triton");
+
+  //
+  // Dialect
+  //
+
+  tritonModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__triton__();
         mlirDialectHandleRegisterDialect(handle, context);
         if (doLoad) {
           mlirDialectHandleLoadDialect(handle, context);

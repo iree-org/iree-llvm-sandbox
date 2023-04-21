@@ -51,6 +51,24 @@ include(AddLLVM)
 include(AddMLIR)
 
 ################################################################################
+# Add Triton as an external project
+################################################################################
+
+list(APPEND LLVM_EXTERNAL_PROJECTS triton)
+list(REMOVE_DUPLICATES LLVM_EXTERNAL_PROJECTS)
+set(LLVM_EXTERNAL_TRITON_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/triton CACHE STRING "" FORCE)
+set(LLVM_EXTERNAL_PROJECTS ${LLVM_EXTERNAL_PROJECTS} CACHE STRING "" FORCE)
+message("-- Applying the patch ${CMAKE_CURRENT_SOURCE_DIR}/triton.patch")
+execute_process(COMMAND
+        git apply --verbose --allow-empty ${CMAKE_CURRENT_SOURCE_DIR}/triton.patch
+        WORKING_DIRECTORY ${LLVM_EXTERNAL_TRITON_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_APPLY
+        RESULT_VARIABLE GIT_APPLY
+        ERROR_VARIABLE GIT_APPLY)
+message(WARNING "GIT_APPLY ${GIT_APPLY}")
+add_subdirectory(${LLVM_EXTERNAL_TRITON_SOURCE_DIR})
+
+################################################################################
 # Subdirs to recurse into
 ################################################################################
 add_custom_target(structured-all)

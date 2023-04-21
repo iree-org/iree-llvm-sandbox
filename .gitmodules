@@ -1,3 +1,6 @@
 [submodule "experimental/iterators/third_party/llvm-project"]
 	path = third_party/llvm-project
 	url = https://github.com/llvm/llvm-project.git
+[submodule "third_party/triton"]
+	path = third_party/triton
+	url = git@github.com:openai/triton.git
