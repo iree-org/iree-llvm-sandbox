@@ -14,4 +14,6 @@ add_mlir_public_c_api_library(StructuredCAPI
     MLIRTupleTransforms
     MLIRPass
     MLIRStatesToLLVM
+    TritonGPUIR
+    TritonIR
 )
