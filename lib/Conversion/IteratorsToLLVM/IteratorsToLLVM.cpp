@@ -138,8 +138,9 @@ struct ConstantTupleLowering : public OpConversionPattern<ConstantTupleOp> {
     // Create values as constants.
     SmallVector<Value> elements;
     for (auto [idx, field] : llvm::enumerate(op.getValues())) {
-      Type fieldType = field.cast<TypedAttr>().getType();
-      auto element = b.create<arith::ConstantOp>(fieldType, field);
+      TypedAttr fieldAttr = field.cast<TypedAttr>();
+      auto element =
+          b.create<arith::ConstantOp>(fieldAttr.getType(), fieldAttr);
       elements.push_back(element);
     }
 
@@ -325,7 +326,8 @@ static Value buildOpenBody(ConstantStreamOp op, OpBuilder &builder,
   // Insert constant zero into state.
   Type i32 = b.getI32Type();
   Attribute zeroAttr = b.getI32IntegerAttr(0);
-  Value zeroValue = b.create<arith::ConstantOp>(i32, zeroAttr);
+  Value zeroValue =
+      b.create<arith::ConstantOp>(i32, zeroAttr.cast<TypedAttr>());
   Value updatedState = b.create<iterators::InsertValueOp>(
       initialState, b.getIndexAttr(0), zeroValue);
 
@@ -1092,7 +1094,8 @@ static Value buildOpenBody(TabularViewToStreamOp op, OpBuilder &builder,
   // Insert constant zero into state.
   Type i64 = b.getI64Type();
   Attribute zeroAttr = b.getI64IntegerAttr(0);
-  Value zeroValue = b.create<arith::ConstantOp>(i64, zeroAttr);
+  Value zeroValue =
+      b.create<arith::ConstantOp>(i64, zeroAttr.cast<TypedAttr>());
   return b.create<iterators::InsertValueOp>(initialState, b.getIndexAttr(0),
                                             zeroValue);
 }
@@ -1866,7 +1869,8 @@ convertIteratorOp(Operation *op, ValueRange operands, OpBuilder &builder,
   // Look up IteratorInfo for this op.
   IteratorInfo opInfo;
   if (isa<IteratorOpInterface>(op))
-    opInfo = iteratorAnalysis.getExpectedIteratorInfo(op);
+    opInfo = iteratorAnalysis.getExpectedIteratorInfo(
+        llvm::cast<IteratorOpInterface>(op));
 
   // Look up IteratorInfo for all the upstream iterators (i.e., all the defs).
   SmallVector<IteratorInfo> upstreamInfos;
