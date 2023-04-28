@@ -196,7 +196,9 @@ mlir::iterators::IteratorAnalysis::IteratorAnalysis(
                             Operation *def = operand.getDefiningOp();
                             if (!def || !llvm::isa<IteratorOpInterface>(def))
                               return StateType();
-                            return getExpectedIteratorInfo(def).stateType;
+                            return getExpectedIteratorInfo(
+                                       llvm::cast<IteratorOpInterface>(def))
+                                .stateType;
                           });
           StateType stateType = stateTypeComputer(op, upstreamStateTypes);
           setIteratorInfo(op, IteratorInfo(op, nameAssigner, stateType));

@@ -1,4 +1,5 @@
-//===- structured-opt.cpp - Optimizer Driver for Structured -----------------===//
+//===- structured-opt.cpp - Optimizer Driver for Structured
+//-----------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -51,7 +52,6 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registerIteratorDialects(registry);
 
-  return failed(MlirOptMain(argc, argv, "MLIR modular optimizer driver\n",
-                            registry,
-                            /*preloadDialectsInContext=*/true));
+  return failed(
+      MlirOptMain(argc, argv, "MLIR modular optimizer driver\n", registry));
 }
