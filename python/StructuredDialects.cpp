@@ -140,10 +140,6 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
   // Types
   //
 
-  (void)mlir_value_subclass(indexingModule, "TensorValue", [](MlirValue value) {
-    return mlirIsATensorValue(value);
-  });
-
   mlir_type_subclass(indexingModule, "IndexTensorType",
                      [](MlirType type) {
                        return mlirTypeIsATensor(type) &&
@@ -161,4 +157,6 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
           py::arg("cls"), py::arg("value"), py::arg("context") = py::none());
 
   (void)mlir_value_subclass(indexingModule, "ScalarValue", mlirIsAScalarValue);
+  (void)mlir_value_subclass(indexingModule, "TensorValue", mlirIsATensorValue);
+
 }
