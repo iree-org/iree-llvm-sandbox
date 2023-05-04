@@ -37,4 +37,32 @@ def Indexing_GatherOp : Indexing_Op<"gather", [
   }];
 }
 
+def Indexing_ConcatenateOp : Indexing_Op<"concatenate",
+    [Pure, SameOperandsAndResultElementType,
+     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "Concatenate operation";
+  let description = [{
+    Concatenates a variadic number of tensors in `inputs` along `dimension`
+    dimension in the same order as the given arguments and produces a `result`
+    tensor.
+
+    Example:
+    ```mlir
+    %result = indexing.concatenate %input0, %input1, dim = 0
+        : (tensor<3x2xi64>, tensor<1x2xi64>) -> tensor<4x2xi64>
+    ```
+  }];
+
+  let arguments = (ins
+    Variadic<AnyRankedTensor>:$inputs,
+    I64Attr:$dimension
+  );
+
+  let results = (outs AnyRankedTensor);
+
+  let assemblyFormat = [{
+     `(` $inputs `)` `{` `dim` `=` $dimension `}` attr-dict `:` functional-type(operands, results)
+  }];
+}
+
 #endif // STRUCTURED_DIALECT_INDEXING_IR_INDEXINGOPS

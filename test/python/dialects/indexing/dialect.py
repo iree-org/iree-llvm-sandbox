@@ -112,3 +112,24 @@ def testTensorValue():
   # CHECK:   }
   # CHECK: }
   print(module)
+
+
+# CHECK-LABEL: TEST: testConcatOp
+@run
+def testConcatOp():
+  i32 = IntegerType.get_signless(32)
+  with mlir_mod_ctx() as module:
+
+    @func.FuncOp.from_py_func()
+    def test_concat_op():
+      ten = idx.Tensor.empty((10, 10), i32)
+      # CHECK: Tensor(%[[TEN:.*]], tensor<10x10xi32>)
+      print(ten)
+
+      concat_ten_first_dim = idx.ConcatenateOp((ten, ten), 0).result
+      # CHECK: %{{.*}} = "indexing.concatenate"(%[[TEN]], %[[TEN]]) {dimension = 0 : i64} : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<20x10xi32>
+      print(concat_ten_first_dim.owner)
+
+      concat_ten_second_dim = idx.ConcatenateOp((ten, ten), 1).result
+      # CHECK: %{{.*}} = "indexing.concatenate"(%[[TEN]], %[[TEN]]) {dimension = 1 : i64} : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x20xi32>
+      print(concat_ten_second_dim.owner)

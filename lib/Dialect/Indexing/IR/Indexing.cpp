@@ -13,7 +13,6 @@
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/InliningUtils.h"
-#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 using namespace mlir;
@@ -58,6 +57,25 @@ LogicalResult mlir::indexing::GatherOp::inferReturnTypes(
       operands[1].getType().cast<RankedTensorType>(), gather_dims,
       /*rankReduced=*/true);
   inferredReturnTypes.assign({expectedResultType});
+  return success();
+}
+
+LogicalResult mlir::indexing::ConcatenateOp::inferReturnTypes(
+    MLIRContext *context, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<Type> &inferredReturnTypes) {
+
+  auto dimension = attributes.get("dimension").cast<IntegerAttr>().getInt();
+  auto sourceType = operands[0].getType().cast<RankedTensorType>();
+  SmallVector<int64_t> resultShape(sourceType.getShape());
+  std::for_each(
+      operands.begin() + 1, operands.end(),
+      [&resultShape, dimension](const Value &v) {
+        resultShape[dimension] +=
+            v.getType().cast<RankedTensorType>().getShape()[dimension];
+      });
+  inferredReturnTypes.assign(
+      {RankedTensorType::Builder(sourceType).setShape(resultShape)});
   return success();
 }
 
