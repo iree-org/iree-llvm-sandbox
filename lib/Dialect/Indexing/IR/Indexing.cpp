@@ -49,13 +49,13 @@ LogicalResult mlir::indexing::GatherOp::inferReturnTypes(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
 
-  ArrayRef<int64_t> coordinates =
-      attributes.get("coordinates").cast<mlir::DenseI64ArrayAttr>();
+  ArrayRef<int64_t> gather_dims =
+      attributes.get("gather_dims").cast<mlir::DenseI64ArrayAttr>();
   RankedTensorType expectedResultType = mlir::tensor::GatherOp::inferResultType(
       // source
       operands[0].getType().cast<RankedTensorType>(),
       // indices
-      operands[1].getType().cast<RankedTensorType>(), coordinates,
+      operands[1].getType().cast<RankedTensorType>(), gather_dims,
       /*rankReduced=*/true);
   inferredReturnTypes.assign({expectedResultType});
   return success();

@@ -18,10 +18,6 @@ include "mlir/Dialect/Tensor/IR/TensorBase.td"
 class Indexing_Op<string mnemonic, list<Trait> traits = []> :
         Op<Indexing_Dialect, mnemonic, traits>;
 
-//===----------------------------------------------------------------------===//
-// Debugging/testing utilities
-//===----------------------------------------------------------------------===//
-
 def Indexing_GatherOp : Indexing_Op<"gather", [
     Pure,
     DeclareOpInterfaceMethods<InferTypeOpInterface>
@@ -31,13 +27,14 @@ def Indexing_GatherOp : Indexing_Op<"gather", [
 
   let arguments = (ins AnyRankedTensor:$source,
                        RankedTensorOf<[AnySignlessIntegerOrIndex]>:$indices,
-                       DenseI64ArrayAttr:$coordinates);
+                       DenseI64ArrayAttr:$gather_dims,
+                       UnitAttr:$unique);
   let results = (outs AnyRankedTensor:$result);
 
   let assemblyFormat = [{
-    $source `[` $indices `]` `coordinates` `=` $coordinates attr-dict `:` functional-type(operands, results)
+    $source `[` $indices `]` `gather_dims` `(` $gather_dims `)` (`unique` $unique^)? attr-dict
+        `:` functional-type(operands, results)
   }];
 }
-
 
 #endif // STRUCTURED_DIALECT_INDEXING_IR_INDEXINGOPS
