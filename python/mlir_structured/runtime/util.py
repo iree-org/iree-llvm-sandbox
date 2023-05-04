@@ -24,3 +24,5 @@ def mlir_mod_ctx(src: Optional[str] = None,
       module = Module.create()
     with InsertionPoint(module.body):
       yield module
+
+
