@@ -219,6 +219,10 @@ class ArithValue(metaclass=ArithValueMeta):
     super().__init__(val)
 
   @lru_cache(maxsize=1)
+  def fold(self) -> bool:
+    return self._fold
+
+  @lru_cache(maxsize=1)
   def is_constant(self) -> bool:
     return isinstance(self.owner.opview, arith.ConstantOp)
 
@@ -253,7 +257,7 @@ class ArithValue(metaclass=ArithValueMeta):
     if self.type != other.type:
       raise ValueError(f"{self=} {other=} must have the same type.")
 
-    if self.is_constant() and other.is_constant() and self._fold:
+    if self.is_constant() and other.is_constant() and self.fold():
       # if both operands are constants (results of an arith.constant op)
       # then both have a literal value (i.e. Python value).
       lhs, rhs = self.literal_value, other.literal_value
