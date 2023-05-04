@@ -70,15 +70,15 @@ def testTensorValue():
       # CHECK: Tensor(%[[TEN:.*]], tensor<10x10xi32>)
       print(ten)
 
-      twenty = ten + ten
+      sum_ten = ten + ten
       # CHECK: %[[ADD:.*]] = "arith.addi"(%[[TEN]], %[[TEN]]) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x10xi32>
-      print(twenty.owner)
+      print(sum_ten.owner)
 
-      one_hundred = ten * ten
+      prod_ten = ten * ten
       # CHECK: %[[MUL:.*]] = "arith.muli"(%[[TEN]], %[[TEN]]) : (tensor<10x10xi32>, tensor<10x10xi32>) -> tensor<10x10xi32>
-      print(one_hundred.owner)
+      print(prod_ten.owner)
 
-      return one_hundred
+      return prod_ten
 
   # CHECK: module {
   # CHECK:   func.func @test_tensor_value() -> tensor<10x10xi32> {
