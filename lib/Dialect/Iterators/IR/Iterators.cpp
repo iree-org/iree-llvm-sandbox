@@ -79,8 +79,8 @@ static void printInsertValueType(AsmPrinter & /*printer*/, Operation * /*op*/,
 #include "structured/Dialect/Iterators/IR/IteratorsOps.cpp.inc"
 
 LogicalResult ExtractValueOp::inferReturnTypes(
-    MLIRContext * /*context*/, Optional<Location> location, ValueRange operands,
-    DictionaryAttr attributes, RegionRange regions,
+    MLIRContext *context, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
   auto stateType = operands[0].getType().cast<StateType>();
   auto indexAttr = attributes.getAs<IntegerAttr>("index");
