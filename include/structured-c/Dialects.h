@@ -29,7 +29,7 @@ MLIR_CAPI_EXPORTED MlirType mlirIndexingCustomTypeGet(MlirContext ctx,
 
 MLIR_CAPI_EXPORTED bool mlirIsATensorValue(MlirValue value);
 
-MLIR_CAPI_EXPORTED bool mlirIsAnArithValue(MlirValue value);
+MLIR_CAPI_EXPORTED bool mlirIsAScalarValue(MlirValue value);
 
 //===----------------------------------------------------------------------===//
 // Iterators dialect and types

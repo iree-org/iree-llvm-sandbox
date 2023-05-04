@@ -8,17 +8,16 @@
 
 #include "structured-c/Dialects.h"
 
+#include "mlir-c/BuiltinTypes.h"
 #include "mlir-c/IR.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Registration.h"
+#include "mlir/CAPI/Support.h"
 #include "mlir/IR/Types.h"
 #include "structured/Dialect/Indexing/IR/Indexing.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
-#include "llvm/ADT/StringRef.h"
-#include <mlir-c/BuiltinTypes.h>
-#include <mlir/CAPI/Support.h>
 
 using namespace mlir;
 using namespace mlir::indexing;
@@ -44,7 +43,11 @@ bool mlirIsATensorValue(MlirValue value) {
   return mlirTypeIsATensor(mlirValueGetType(value));
 }
 
-bool mlirIsAnArithValue(MlirValue value) {
+// Collects together checking for all conventional floats, integers,
+// and index types. Roughly corresponds to the union of
+// _is_floating_point_type, _is_integer_type, and _is_index_type in
+// mlir/dialects/linalg/opdsl/lang/emitter.py.
+bool mlirIsAScalarValue(MlirValue value) {
   MlirType type = mlirValueGetType(value);
   return mlirTypeIsABF16(type) || mlirTypeIsAComplex(type) ||
          mlirTypeIsAF16(type) || mlirTypeIsAF32(type) || mlirTypeIsAF64(type) ||

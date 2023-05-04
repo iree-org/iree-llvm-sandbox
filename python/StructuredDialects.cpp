@@ -6,34 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <mlir-c/BuiltinAttributes.h>
-#include <pybind11/pybind11.h>
-
-#include <string>
-
+#include "mlir-c/BuiltinAttributes.h"
+#include "mlir-c/BuiltinTypes.h"
 #include "mlir-c/IR.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "structured-c/Dialects.h"
-#include <mlir-c/BuiltinTypes.h>
+
 #include <vector>
 
 namespace py = pybind11;
 using namespace mlir::python::adaptors;
-
-static MlirStringRef toMlirStringRef(const std::string &s) {
-  return mlirStringRefCreate(s.data(), s.size());
-}
-
-namespace {
-// TODO(max): this is plucked from PybindUtils.cpp upstream - refactor upstream
-pybind11::error_already_set SetPyError(PyObject *excClass,
-                                       const llvm::Twine &message) {
-  auto messageStr = message.str();
-  PyErr_SetString(excClass, messageStr.c_str());
-  return pybind11::error_already_set();
-}
-
-} // namespace
 
 PYBIND11_MODULE(_structuredDialects, mainModule) {
   //===--------------------------------------------------------------------===//
@@ -178,7 +160,5 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
           },
           py::arg("cls"), py::arg("value"), py::arg("context") = py::none());
 
-  (void)mlir_value_subclass(indexingModule, "ArithValue", [](MlirValue value) {
-    return mlirIsAnArithValue(value);
-  });
+  (void)mlir_value_subclass(indexingModule, "ScalarValue", mlirIsAScalarValue);
 }

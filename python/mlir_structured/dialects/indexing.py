@@ -7,7 +7,6 @@ import re
 from typing import Union, Tuple
 
 from . import arith as arith_dialect
-from . import linalg
 from . import tensor as tensor_dialect
 # noinspection PyUnresolvedReferences
 from ._indexing_ops_gen import *
@@ -22,8 +21,15 @@ res_val_reg = re.compile(r"(%\w+) =")
 
 _body_builder = _BodyBuilder({}, {}, {})
 
+# The classes in this file implement syntactic sugar for creating MLIR corresponding to arithmetic operations
+# on `tensor`s (MLIR Value whose type is `tensor<...>`) and `scalar`s (`f*` floats, `i*` integers, and `index`).
+#
+# The implementation uses the Python operator overloading mechanism to overload various "dunder" methods (`__add__`, `__mul__`, etc.)
+# to dispatch to the corresponding MLIR builders (`arith.AddFOp`, `arith.MulFOp`, etc.) through their Python bindings.
+# The classes also provide some convenience factory methods and properties for accessing metadata (data type, shape, etc.).
 
-class Scalar(ArithValue):
+
+class Scalar(ScalarValue):
 
   def __str__(self):
     s = res_val_reg.findall(super().__str__())
@@ -100,7 +106,7 @@ class Tensor(TensorValue):
       return cls(getattr(arith_dialect, f"{op}FOp")(lhs, rhs).result)
     if _is_integer_type(lhs.element_type) or _is_index_type(lhs.element_type):
       return cls(getattr(arith_dialect, f"{op}IOp")(lhs, rhs).result)
-    raise NotImplementedError("Unsupported 'add' operands: {lhs}, {rhs}")
+    raise NotImplementedError(f"Unsupported '{op}' operands: {lhs}, {rhs}")
 
   def __add__(self: "Tensor", rhs: "Tensor") -> "Tensor":
     return self.__binary_op("Add", self, rhs)
