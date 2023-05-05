@@ -17,10 +17,6 @@
 
 #include "structured/Dialect/Indexing/IR/IndexingOpsDialect.h.inc"
 
-namespace mlir {
-namespace indexing {} // namespace indexing
-} // namespace mlir
-
 #define GET_TYPEDEF_CLASSES
 
 #include "structured/Dialect/Indexing/IR/IndexingOpsTypes.h.inc"

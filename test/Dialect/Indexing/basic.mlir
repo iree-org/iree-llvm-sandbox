@@ -7,6 +7,7 @@
 // CHECK:     %0 = tensor.empty() : tensor<10x10xi32>
 // CHECK:     %1 = tensor.empty() : tensor<1x2x2xi32>
 // CHECK:     %2 = indexing.gather %0[%1] gather_dims([0, 1]) : (tensor<10x10xi32>, tensor<1x2x2xi32>) -> tensor<1x2xi32>
+// CHECK:     %3 = indexing.concatenate(%2, %2) {dim = 0} : (tensor<1x2xi32>, tensor<1x2xi32>) -> tensor<2x2xi32>
 // CHECK:     return
 // CHECK:   }
 // CHECK: }
@@ -16,6 +17,7 @@ module {
     %0 = tensor.empty() : tensor<10x10xi32>
     %1 = tensor.empty() : tensor<1x2x2xi32>
     %2 = indexing.gather %0[%1] gather_dims([0, 1]) : (tensor<10x10xi32>, tensor<1x2x2xi32>) -> tensor<1x2xi32>
+    %3 = indexing.concatenate (%2, %2) {dim = 0} : (tensor<1x2xi32>, tensor<1x2xi32>) -> tensor<2x2xi32>
     return
   }
 }
