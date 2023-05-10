@@ -1,13 +1,18 @@
 import contextlib
 from typing import Optional
 
-from mlir_structured.ir import Context, Module, InsertionPoint, Location
+from mlir_structured.ir import (
+    Context,
+    Module,
+    InsertionPoint,
+    Location,
+)
 
 
 @contextlib.contextmanager
 def mlir_mod_ctx(src: Optional[str] = None,
-                 context: Context = None,
-                 location: Location = None):
+                 context: Optional[Context] = None,
+                 location: Optional[Location] = None):
   if context is None:
     context = Context()
   if location is None:
