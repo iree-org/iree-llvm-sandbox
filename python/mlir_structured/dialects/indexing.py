@@ -275,7 +275,7 @@ class ArithValue(metaclass=ArithValueMeta):
         op = getattr(arith, f"{op}IOp")
       else:
         raise NotImplementedError(f"Unsupported '{op}' operands: {lhs}, {rhs}")
-    return self.__class__(op(lhs, rhs))
+    return self.__class__(op(lhs, rhs), dtype=self.dtype)
 
   # partialmethod differs from partial in that it also binds the object instance
   # to the first arg (i.e., self)
@@ -500,8 +500,43 @@ def _is_scalar(e: Any) -> bool:
   return isinstance(e, Scalar) or isinstance(e, (int, float, bool))
 
 
-def _canonicalize_tuple_index(idx, rank: int):
-  """Helper to remove Ellipsis and replace with implicit trailing slice(None)s.
+def _is_index_tensor(x):
+  """Returns True if x is a Tensor with index dtype, False otherwise."""
+  return (isinstance(x, Value) and Tensor.isinstance(x) and
+          IndexType.isinstance(x.dtype))
+
+
+def _is_int_arraylike(x):
+  """Returns True if x is array-like with integer dtype, False otherwise.
+
+  Positive (i.e., return True) examples are e.g., [[0], [1]], [[0, 1]],
+  [[[0, 1]], [[0, 1]]].
+  """
+  return (isinstance(x, int) and not isinstance(x, bool) or
+          isinstance(x, (list, tuple)) and all(_is_int_arraylike(e) for e in x))
+
+
+def _is_advanced_int_indexer(idx):
+  """Returns True if idx is array-like or slice or Ellipsis or Tensor with index
+  dtype, False otherwise.
+
+  Positive (i.e., return True) examples are e.g., [[0], [1]], [[0, 1]],
+  [[[0, 1]], [[0, 1]]], [1, 1, 1, :], [1, :, :, 1], [1, :, :, ...],
+  [idx, :, :, :], [:, idx, :, :], [:, :, idx, :].
+
+  """
+  assert isinstance(idx, tuple)
+  if all(e is None or e is Ellipsis or isinstance(e, slice) or
+         _is_scalar(e) and _has_index_type(e) for e in idx):
+    return False
+  return all(e is None or e is Ellipsis or isinstance(e, slice) or
+             _is_int_arraylike(e) or _is_index_tensor(e) for e in idx)
+
+
+def _canonicalize_tuple_index(idx: Tuple[Any], rank: int):
+  """Helper to
+  1. remove Ellipsis and replace with implicit trailing slice(None)s.
+  2. cast Python lists of lists or numpy arrays to index Tensors
 
   Args:
     rank: Rank of tensor.
@@ -510,6 +545,15 @@ def _canonicalize_tuple_index(idx, rank: int):
   Returns:
     Tuple of index objects with no ellipses.
   """
+
+  if _is_advanced_int_indexer(idx):
+    idx = list(idx)
+    for idx_i, idx_e in enumerate(idx):
+      if idx_e is not None and not isinstance(idx_e,
+                                              slice) and idx_e != Ellipsis:
+        idx[idx_i] = _as_index_tensor(idx_e)
+    idx = tuple(idx)
+
   len_without_none = 0
   for e in idx:
     if e is None or e is Ellipsis:
