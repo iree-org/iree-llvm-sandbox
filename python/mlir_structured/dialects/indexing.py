@@ -147,9 +147,9 @@ class ArithValueMeta(type(Value)):
         only one positional arg is supported (so constructing something like a
         tuple type from element objects isn't supported).
       **kwargs: Keyword arguments to the class constructor. Note, currently,
-        we only look for `dtype` (an `ir.Type`) and `index` (a `bool`) and
-        `fold`, which determines whether binary operations on constant
-        instances will be folded (i.e., evaluated at runtime).
+        we only look for `dtype` (an `ir.Type`)  and `fold`, which determines
+        whether binary operations on constant instances will be
+        folded (i.e., evaluated at runtime).
 
     Returns:
       A fully constructed and initialized instance of the class.
@@ -169,20 +169,17 @@ class ArithValueMeta(type(Value)):
       dtype = kwargs.get("dtype")
       if dtype is not None and not isinstance(dtype, Type):
         raise ValueError(f"{dtype=} is expected to be an ir.Type.")
-      index = kwargs.get("index")
-      if index is not None and not isinstance(index, bool):
-        raise ValueError(f"{index=} is expected to be a bool.")
       fold = kwargs.get("fold")
       if fold is not None and not isinstance(fold, bool):
         raise ValueError(f"{fold=} is expected to be a bool.")
 
       # If we're wrapping a numpy array (effectively a tensor literal),
-      # then we want to make sure no one else has access to that memory.from
-      # Otherwise the array will get funneled down to DenseElementsAttr.get,
+      # then we want to make sure no one else has access to that memory.
+      # Otherwise, the array will get funneled down to DenseElementsAttr.get,
       # which by default (through the Python buffer protocol) does not copy;
       # see mlir/lib/Bindings/Python/IRAttributes.cpp#L556
       arg_copy = deepcopy(arg)
-      val = constant(arg, dtype, index).result
+      val = constant(arg, dtype).result
     else:
       raise NotImplementedError(
           f"{cls.__name__} doesn't support wrapping {arg}.")
@@ -455,7 +452,7 @@ def _as_index_tensor(val) -> Tensor:
   Returns:
     Tensor with index element type.
   """
-  return Tensor(np.array(val), index=True)
+  return Tensor(np.array(val), dtype=IndexType.get())
 
 
 def _expand_dims(y, axis: int) -> Tensor:

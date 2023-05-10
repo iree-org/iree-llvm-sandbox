@@ -3,6 +3,7 @@ from random import random
 
 import numpy as np
 
+from mlir_structured._mlir_libs._mlir.ir import IndexType
 from mlir_structured.dialects import arith, indexing
 from mlir_structured.dialects.indexing import Scalar, Tensor, IndexTensorType
 from mlir_structured.ir import Context, IntegerType, F64Type
@@ -23,6 +24,7 @@ def run(f):
 def testScalarValue():
   f64 = F64Type.get()
   i32 = IntegerType.get_signless(32)
+  index = IndexType.get()
   with mlir_mod_ctx() as module:
     zero_f64 = Scalar(arith.ConstantOp(f64, 0.0).result)
     # CHECK: Scalar(%{{.*}}, f64, 0.0)
@@ -64,7 +66,7 @@ def testScalarValue():
     # CHECK: 0
     print(zero_i32.literal_value)
 
-    zero_index = Scalar(0, index=True)
+    zero_index = Scalar(0, dtype=index)
     # CHECK: Scalar(%{{.*}}, index, 0)
     print(zero_index)
     # CHECK: True
