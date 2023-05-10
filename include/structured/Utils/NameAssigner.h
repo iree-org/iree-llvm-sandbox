@@ -1,4 +1,4 @@
-//===-- NameAssigner.h - Assigner of unique names --------------*- C++ -*-===//
+//===-- NameAssigner.h - Assigner of unique names ---------------*- C++ -*-===//
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.

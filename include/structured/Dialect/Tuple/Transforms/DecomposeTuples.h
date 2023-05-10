@@ -1,4 +1,4 @@
-//===- DecomposeTuples.h - Pass Utilities -----------------------*- C++ -*-===//
+//===-- DecomposeTuples.h - Pass Utilities ----------------------*- C++ -*-===//
 //
 // Licensed under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
