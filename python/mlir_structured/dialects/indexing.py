@@ -147,9 +147,9 @@ class ArithValueMeta(type(Value)):
         only one positional arg is supported (so constructing something like a
         tuple type from element objects isn't supported).
       **kwargs: Keyword arguments to the class constructor. Note, currently,
-        we only look for `dtype` (an `ir.Type`) and `index` (a `bool`) and
-        `fold`, which determines whether binary operations on constant
-        instances will be folded (i.e., evaluated at runtime).
+        we only look for `dtype` (an `ir.Type`)  and `fold`, which determines
+        whether binary operations on constant instances will be
+        folded (i.e., evaluated at runtime).
 
     Returns:
       A fully constructed and initialized instance of the class.
@@ -169,20 +169,17 @@ class ArithValueMeta(type(Value)):
       dtype = kwargs.get("dtype")
       if dtype is not None and not isinstance(dtype, Type):
         raise ValueError(f"{dtype=} is expected to be an ir.Type.")
-      index = kwargs.get("index")
-      if index is not None and not isinstance(index, bool):
-        raise ValueError(f"{index=} is expected to be a bool.")
       fold = kwargs.get("fold")
       if fold is not None and not isinstance(fold, bool):
         raise ValueError(f"{fold=} is expected to be a bool.")
 
       # If we're wrapping a numpy array (effectively a tensor literal),
-      # then we want to make sure no one else has access to that memory.from
-      # Otherwise the array will get funneled down to DenseElementsAttr.get,
+      # then we want to make sure no one else has access to that memory.
+      # Otherwise, the array will get funneled down to DenseElementsAttr.get,
       # which by default (through the Python buffer protocol) does not copy;
       # see mlir/lib/Bindings/Python/IRAttributes.cpp#L556
       arg_copy = deepcopy(arg)
-      val = constant(arg, dtype, index).result
+      val = constant(arg, dtype).result
     else:
       raise NotImplementedError(
           f"{cls.__name__} doesn't support wrapping {arg}.")
@@ -455,7 +452,7 @@ def _as_index_tensor(val) -> Tensor:
   Returns:
     Tensor with index element type.
   """
-  return Tensor(np.array(val), index=True)
+  return Tensor(np.array(val), dtype=IndexType.get())
 
 
 def _expand_dims(y, axis: int) -> Tensor:
@@ -537,6 +534,37 @@ def _canonicalize_tuple_index(idx, rank: int):
   return idx
 
 
+def _is_index_tensor(x):
+  return (isinstance(x, Value) and Tensor.isinstance(x) and
+          IndexType.isinstance(x.dtype))
+
+
+def _diff(idx_advanced_axes):
+  if len(idx_advanced_axes) == 1:
+    return []
+  else:
+    return [
+        idx_advanced_axes[i + 1] - idx_advanced_axes[i]
+        for i in range(0,
+                       len(idx_advanced_axes) - 1, 2)
+    ]
+
+
+def _is_int_arraylike(x):
+  """Returns True if x is array-like with integer dtype, False otherwise."""
+  return (isinstance(x, int) and not isinstance(x, bool) or
+          isinstance(x, (list, tuple)) and all(_is_int_arraylike(e) for e in x))
+
+
+def _is_advanced_int_indexer(idx):
+  assert isinstance(idx, tuple)
+  if all(e is None or e is Ellipsis or isinstance(e, slice) or
+         _is_scalar(e) and _has_index_type(e) for e in idx):
+    return False
+  return all(e is None or e is Ellipsis or isinstance(e, slice) or
+             _is_int_arraylike(e) or _is_index_tensor(e) for e in idx)
+
+
 def _indices_to_indexer(idx: Sequence[Any],
                         in_shape: Sequence[int]) -> _Indexer:
   """Processes sequence of index objects and constructs _Indexer with
@@ -557,6 +585,27 @@ def _indices_to_indexer(idx: Sequence[Any],
   collapsed_dims: Sequence[int] = []
   indices: List[Tensor] = []
   newaxis_dims: Sequence[int] = []
+
+  # Do the advanced indexing axes appear contiguously? If not, NumPy semantics
+  # move the advanced axes to the front.
+  advanced_axes_are_contiguous = False
+  advanced_indexes: Optional[Sequence[Union[Tensor, Sequence]]] = None
+
+  # The positions of the advanced indexing axes in `idx`.
+  idx_advanced_axes: Sequence[int] = []
+
+  if _is_advanced_int_indexer(idx):
+    idx_no_nones = [(i, d) for i, d in enumerate(idx) if d is not None]
+    advanced_pairs = []
+    for idx_i, idx_e in idx_no_nones:
+      if _is_int_arraylike(idx_e):
+        idx_e = _as_index_tensor(idx_e)
+      if _is_index_tensor(idx_e):
+        advanced_pairs.append((idx_e, idx_i))
+
+    advanced_indexes, idx_advanced_axes = zip(*advanced_pairs)
+    advanced_axes_are_contiguous = bool(
+        all([d == 1 for d in _diff(idx_advanced_axes)]))
 
   for idx_i, idx_e in enumerate(idx):
     if _is_scalar(idx_e) and _has_index_type(idx_e):
