@@ -20,6 +20,7 @@ def Indexing_Dialect
   let name = "indexing";
   let cppNamespace = "::mlir::indexing";
   let useDefaultTypePrinterParser = 1;
+  let hasConstantMaterializer = 1;
 }
 
 #endif // STRUCTURED_DIALECT_INDEXING_IR_INDEXINGDIALECT

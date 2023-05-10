@@ -8,12 +8,20 @@
 
 #include "structured/Dialect/Indexing/IR/Indexing.h"
 
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Support/LogicalResult.h"
+#include "mlir/Support/MathExtras.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "indexing-dialect"
+
+#include <numeric>
 
 using namespace mlir;
 using namespace mlir::indexing;
@@ -35,6 +43,15 @@ void IndexingDialect::initialize() {
       >();
 }
 
+Operation *IndexingDialect::materializeConstant(OpBuilder &builder,
+                                                Attribute value, Type type,
+                                                Location loc) {
+  auto op = arith::ConstantOp::materialize(builder, value, type, loc);
+  if (!op)
+    emitError(loc, "Couldn't materialize constant array.");
+  return op;
+}
+
 //===----------------------------------------------------------------------===//
 // Indexing operations
 //===----------------------------------------------------------------------===//
@@ -43,7 +60,11 @@ void IndexingDialect::initialize() {
 
 #include "structured/Dialect/Indexing/IR/IndexingOps.cpp.inc"
 
-LogicalResult mlir::indexing::GatherOp::inferReturnTypes(
+//===----------------------------------------------------------------------===//
+// GatherOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult GatherOp::inferReturnTypes(
     MLIRContext *context, std::optional<Location> location, ValueRange operands,
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
@@ -60,7 +81,11 @@ LogicalResult mlir::indexing::GatherOp::inferReturnTypes(
   return success();
 }
 
-LogicalResult mlir::indexing::ConcatenateOp::inferReturnTypes(
+//===----------------------------------------------------------------------===//
+// ConcatenateOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult ConcatenateOp::inferReturnTypes(
     MLIRContext *context, std::optional<Location> location, ValueRange operands,
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
@@ -77,6 +102,173 @@ LogicalResult mlir::indexing::ConcatenateOp::inferReturnTypes(
   inferredReturnTypes.assign(
       {RankedTensorType::Builder(sourceType).setShape(resultShape)});
   return success();
+}
+
+//===----------------------------------------------------------------------===//
+// ARangeOp
+//===----------------------------------------------------------------------===//
+
+// numpy semantics
+int64_t getARangeLen(int64_t start, int64_t stop, int64_t step) {
+  auto len = floorDiv((stop - start), step) + 1;
+  if ((stop - start) % step == 0)
+    len--;
+  return len;
+}
+
+LogicalResult ARangeOp::inferReturnTypes(
+    MLIRContext *context, std::optional<mlir::Location> location,
+    ValueRange operands, DictionaryAttr attributes, OpaqueProperties properties,
+    RegionRange regions, SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  if (!operands.empty()) {
+    inferredReturnTypes.assign({RankedTensorType::get(
+        {ShapedType::kDynamic}, IntegerType::get(context, 64))});
+  } else if (!attributes.empty() &&
+             attributes.contains(ARangeOp::getStartAttrAttrName(context)) &&
+             attributes.contains(ARangeOp::getStopAttrAttrName(context)) &&
+             attributes.contains(ARangeOp::getStepAttrAttrName(context))) {
+    auto start = attributes.get(ARangeOp::getStartAttrAttrName(context))
+                     .cast<IntegerAttr>()
+                     .getInt();
+    auto stop = attributes.get(ARangeOp::getStopAttrAttrName(context))
+                    .cast<IntegerAttr>()
+                    .getInt();
+    auto step = attributes.get(ARangeOp::getStepAttrAttrName(context))
+                    .cast<IntegerAttr>()
+                    .getInt();
+    inferredReturnTypes.assign({RankedTensorType::get(
+        {getARangeLen(start, stop, step)}, IntegerType::get(context, 64))});
+  } else {
+    return failure();
+  }
+  return success();
+}
+
+bool ARangeOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
+  if (l.size() != r.size() || l.size() != 1)
+    return false;
+  return succeeded(verifyCompatibleShape(l[0], r[0]));
+}
+
+LogicalResult ARangeOp::verify() {
+  if (getStartAttr() && getStart())
+    return emitError(
+        "Start can only be provided as either an attribute or an operand");
+  if (getStopAttr() && getStop())
+    return emitError(
+        "Stop can only be provided as either an attribute or an operand");
+  if (getStepAttr() && getStep())
+    return emitError(
+        "Step can only be provided as either an attribute or an operand");
+  if (getStartAttr() && getStartAttr().value() < 0)
+    return emitError("Start must be >= 0.");
+  if (getStopAttr() && getStopAttr().value() < 1)
+    return emitError("Stop must be > 0.");
+  if (getStepAttr() && getStepAttr().value() < 1)
+    return emitError("Step must be > 0.");
+  if (getStartAttr() and getStopAttr() and
+      getStopAttr().value() - getStartAttr().value() <= 1)
+    return emitError("Stop - Start must be > 1");
+  return success();
+}
+
+namespace {
+
+struct ARangeOpPattern : public RewritePattern {
+  ARangeOpPattern(MLIRContext *context)
+      : RewritePattern(ARangeOp::getOperationName(), 1, context) {}
+
+  void initialize() {
+    /// Signal that this pattern safely handles recursive application.
+    setHasBoundedRewriteRecursion();
+  }
+
+  LogicalResult match(Operation *op) const override {
+    if (!op->getOperands().empty() &&
+        llvm::any_of(op->getOperands(), [](Value op) {
+          arith::ConstantOp arithCst =
+              dyn_cast<arith::ConstantOp>(op.getDefiningOp());
+          return arithCst && arithCst.getValue().dyn_cast<IntegerAttr>();
+        })) {
+      return success();
+    }
+    return failure();
+  }
+
+  void rewrite(Operation *op, PatternRewriter &rewriter) const override {
+    auto arangeOp = cast<ARangeOp>(op);
+    SmallVector<NamedAttribute, 4> attributes;
+    SmallVector<Value, 3> operands;
+    SmallVector<int32_t, 3> segmentSizes{1, 1, 1};
+    SmallVector<StringAttr> attrs = {arangeOp.getStartAttrAttrName(),
+                                     arangeOp.getStopAttrAttrName(),
+                                     arangeOp.getStepAttrAttrName()};
+    SmallVector<Value> opers = {arangeOp.getStart(), arangeOp.getStop(),
+                                arangeOp.getStep()};
+    for (const auto &[index, tuple] :
+         llvm::enumerate(llvm::zip(opers, attrs))) {
+      auto val = std::get<0>(tuple);
+      auto attrName = std::get<1>(tuple);
+      if (!val) {
+        attributes.push_back({attrName, arangeOp->getAttr(attrName)});
+        segmentSizes[index] = 0;
+        continue;
+      }
+
+      auto namedAttr = arangeOp->getAttrOfType<IntegerAttr>(attrName);
+      arith::ConstantOp arithCst =
+          dyn_cast<arith::ConstantOp>(val.getDefiningOp());
+
+      if (!arithCst) {
+        operands.push_back(val);
+        continue;
+      }
+
+      if (auto cstAttr = arithCst.getValue().dyn_cast<IntegerAttr>()) {
+        if (namedAttr && namedAttr.getInt() != cstAttr.getInt())
+          arangeOp.emitError(llvm::Twine("Ambiguous value for ") +
+                             attrName.getValue());
+        attributes.push_back({attrName, cstAttr});
+        segmentSizes[index] = 0;
+        continue;
+      }
+      operands.push_back(val);
+    }
+
+    assert(operands.size() + attributes.size() == 3 &&
+           "wrong number of operands and attributes");
+    assert(operands.size() ==
+               std::reduce(segmentSizes.begin(), segmentSizes.end()) &&
+           "expected number of non-zero segments to equal number of operands.");
+
+    auto attr = rewriter.getDenseI32ArrayAttr(segmentSizes);
+    attributes.push_back({arangeOp.getOperandSegmentSizesAttrName(), attr});
+    rewriter.replaceOpWithNewOp<ARangeOp>(arangeOp, operands, attributes);
+  }
+};
+
+} // namespace
+
+void ARangeOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                           MLIRContext *context) {
+  results.add<ARangeOpPattern>(context);
+}
+
+OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
+  if (!adaptor.getStartAttr() || !adaptor.getStopAttr() ||
+      !adaptor.getStepAttr())
+    return {};
+
+  int64_t start = adaptor.getStartAttr().value(),
+          stop = adaptor.getStopAttr().value(),
+          step = adaptor.getStepAttr().value();
+  std::vector<int64_t> arange;
+  auto len = getARangeLen(start, stop, step);
+  for (int64_t i = start; i < stop; i += step) {
+    arange.push_back(i);
+  }
+  auto type = RankedTensorType::get({len}, IntegerType::get(getContext(), 64));
+  return DenseElementsAttr::get(type, ArrayRef(arange));
 }
 
 //===----------------------------------------------------------------------===//

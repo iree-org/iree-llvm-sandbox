@@ -10,13 +10,19 @@ from mlir_structured.ir import (
 
 
 @contextlib.contextmanager
-def mlir_mod_ctx(src: Optional[str] = None,
-                 context: Optional[Context] = None,
-                 location: Optional[Location] = None):
+def mlir_mod_ctx(
+    src: Optional[str] = None,
+    context: Optional[Context] = None,
+    location: Optional[Location] = None,
+):
   if context is None:
-    context = Context()
+    try:
+      context = Context.current
+    except ValueError as e:
+      assert str(e) == "No current Context"
+      context = Context()
   if location is None:
-    location = Location.unknown()
+    location = Location.unknown(context=context)
   with context, location:
     if src is not None:
       module = Module.parse(src)

@@ -17,6 +17,7 @@ declare_mlir_dialect_python_bindings(
   TD_FILE dialects/IndexingOps.td
   SOURCES
   dialects/indexing.py
+  dialects/_indexing_ops_ext.py
   DIALECT_NAME indexing
 )
 

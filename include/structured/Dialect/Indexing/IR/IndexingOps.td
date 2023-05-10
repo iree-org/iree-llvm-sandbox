@@ -65,4 +65,49 @@ def Indexing_ConcatenateOp : Indexing_Op<"concatenate",
   }];
 }
 
+def Indexing_ARangeOp : Indexing_Op<"arange", [
+    Pure,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    AttrSizedOperandSegments
+  ]> {
+  let summary = "Return evenly spaced values within a given interval.";
+  let description = [{
+    Example:
+    ```mlir
+    %range = arange(%start, %stop, %step) -> tensor<?xi64>
+    ```
+    Values are generated within the half-open interval [start, stop), with spacing between values given by step.
+  }];
+
+  let arguments = (ins Optional<I64>:$start,
+                       Optional<I64>:$stop,
+                       Optional<I64>:$step,
+                       OptionalAttr<I64Attr>:$startAttr,
+                       OptionalAttr<I64Attr>:$stopAttr,
+                       OptionalAttr<I64Attr>:$stepAttr);
+  let results = (outs 1DTensorOf<[AnyInteger, Index]>:$result);
+  // the reason for the extra double backtick in (```start
+  // is because otherwise an extraneous space is emitted in the pretty print
+  let assemblyFormat = [{
+    `(`
+        (`start` `=` $start^)? (```start` `=` $startAttr^)?
+        `,`
+        (`stop` `=` $stop^)? (`stop` `=` $stopAttr^)?
+        `,`
+        (`step` `=` $step^)? (`step` `=` $stepAttr^)?
+    `)` attr-dict `:` type($result)
+  }];
+
+  let extraClassDeclaration = [{
+    static StringAttr getStartAttrAttrName(MLIRContext *ctx) { return getStartAttrAttrName(OperationName(getOperationName(), ctx)); }
+    static StringAttr getStopAttrAttrName(MLIRContext *ctx) { return getStopAttrAttrName(OperationName(getOperationName(), ctx)); }
+    static StringAttr getStepAttrAttrName(MLIRContext *ctx) { return getStepAttrAttrName(OperationName(getOperationName(), ctx)); }
+    static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
+  }];
+
+  let hasVerifier = 1;
+  let hasCanonicalizer = 1;
+  let hasFolder = 1;
+}
+
 #endif // STRUCTURED_DIALECT_INDEXING_IR_INDEXINGOPS
