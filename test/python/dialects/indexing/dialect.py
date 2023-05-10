@@ -4,12 +4,16 @@ from random import random
 
 import numpy as np
 
-from mlir_structured._mlir_libs._mlir.ir import IndexType
+from mlir_structured._mlir_libs._mlir.ir import IndexType, F32Type
 from mlir_structured.dialects import arith, indexing
 from mlir_structured.dialects.indexing import Scalar, Tensor, IndexTensorType, _canonicalize_tuple_index
 from mlir_structured.ir import Context, IntegerType, F64Type
 from mlir_structured.passmanager import PassManager
 from mlir_structured.runtime.util import mlir_mod_ctx
+
+
+def get_array_on_one_line(a):
+  return np.array_str(a, max_line_width=np.inf).replace("\n", ",")
 
 
 def run(f):
@@ -227,7 +231,6 @@ def testTensorValue():
 def testConcatenateOp():
   i32 = IntegerType.get_signless(32)
   with mlir_mod_ctx() as module:
-
     ten = Tensor.empty((10, 10), i32)
     # CHECK: Tensor(%[[TEN:.*]], tensor<10x10xi32>)
     print(ten)
@@ -474,3 +477,153 @@ def testCanonicalizeTupleIndexCastListLiteral():
             str(t.type) == 'tensor<2x1xindex>' and t.is_constant() and
             np.array_equal(t.literal_value, [[0], [1]])
             for _, t in tens) and set(i for i, _ in tens) == set(tens_is)
+
+
+# CHECK-LABEL: TEST: testAdvancedIndexing
+@run
+def testAdvancedIndexing():
+  index = IndexType.get()
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((10, 10, 10, 10), f32)
+    # CHECK: Tensor(%[[TEN:.*]], tensor<10x10x10x10xf32>)
+    print(ten)
+
+    w = ten[[[0], [1]], :, :, :]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<2x1xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK{LITERAL}: [[0], [1]]
+    print(get_array_on_one_line(idx_tensor_operand.literal_value))
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0]) unique : (tensor<10x10x10x10xf32>, tensor<2x1xindex>) -> tensor<2x10x10x10xf32>
+    print(w.owner)
+
+    w = ten[[[0], [1]], [[0], [1]], :, :]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<2x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK{LITERAL}: [[0 0], [1 1]]
+    print(get_array_on_one_line(idx_tensor_operand.literal_value))
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1]) unique : (tensor<10x10x10x10xf32>, tensor<2x2xindex>) -> tensor<2x10x10xf32>
+    print(w.owner)
+
+    w = ten[[[0], [1]], :, [[0], [1]], :]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<2x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK{LITERAL}: [[0 0], [1 1]]
+    print(get_array_on_one_line(idx_tensor_operand.literal_value))
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 2]) unique : (tensor<10x10x10x10xf32>, tensor<2x2xindex>) -> tensor<2x10x10xf32>
+    print(w.owner)
+
+    # ensure that the indices aren't unique because the checks below all except non-unique
+    idx_tensor = np.random.randint(low=0, high=10, size=(5, 6, 1))
+    while len(np.unique(idx_tensor)) == idx_tensor.size:
+      idx_tensor = np.random.randint(low=0, high=10, size=(5, 6, 1))
+    idx_tensor = Tensor(idx_tensor, dtype=index)
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x1xindex> True
+    print(idx_tensor.get_name(), idx_tensor.type, idx_tensor.is_constant())
+    # CHECK: %[[IDXTEN:.*]] = arith.constant dense<{{.*}}> : tensor<5x6x1xindex>
+    print(idx_tensor.owner)
+    # CHECK: True
+    print(np.array(idx_tensor.literal_value).dtype == np.int64)
+
+    w = ten[idx_tensor, ...]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x1xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0]) : (tensor<10x10x10x10xf32>, tensor<5x6x1xindex>) -> tensor<5x6x10x10x10xf32>
+    print(w.owner)
+
+    w = ten[idx_tensor, idx_tensor, ...]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1]) : (tensor<10x10x10x10xf32>, tensor<5x6x2xindex>) -> tensor<5x6x10x10xf32>
+    print(w.owner)
+
+    w = ten[idx_tensor, :, idx_tensor]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 2]) : (tensor<10x10x10x10xf32>, tensor<5x6x2xindex>) -> tensor<5x6x10x10xf32>
+    print(w.owner)
+
+    w = ten[idx_tensor, :, idx_tensor, idx_tensor]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x3xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 2, 3]) : (tensor<10x10x10x10xf32>, tensor<5x6x3xindex>) -> tensor<5x6x10xf32>
+    print(w.owner)
+
+    idx_tensor = np.random.randint(low=0, high=10, size=(5, 6, 2))
+    while len(np.unique(idx_tensor)) == idx_tensor.size:
+      idx_tensor = np.random.randint(low=0, high=10, size=(5, 6, 2))
+    idx_tensor = Tensor(idx_tensor, dtype=index)
+    # CHECK: %[[IDXTEN:.*]] = arith.constant dense<{{.*}}> : tensor<5x6x2xindex>
+    print(idx_tensor.owner)
+
+    w = indexing.gather(ten, idx_tensor, [0, 1])
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN]] tensor<5x6x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1]) : (tensor<10x10x10x10xf32>, tensor<5x6x2xindex>) -> tensor<5x6x10x10xf32>
+    print(w.owner)
+
+    w = indexing.gather(ten, idx_tensor, [0, 2])
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN]] tensor<5x6x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 2]) : (tensor<10x10x10x10xf32>, tensor<5x6x2xindex>) -> tensor<5x6x10x10xf32>
+    print(w.owner)
+
+    w = ten[idx_tensor, ...]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1]) : (tensor<10x10x10x10xf32>, tensor<5x6x2xindex>) -> tensor<5x6x10x10xf32>
+    print(w.owner)
+
+    w = ten[:, idx_tensor, ...]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x2xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([1, 2]) : (tensor<10x10x10x10xf32>, tensor<5x6x2xindex>) -> tensor<5x6x10x10xf32>
+    print(w.owner)
+
+    ten = Tensor.empty((10, 10, 10, 10, 10), f32)
+    # CHECK: Tensor(%[[TEN:.*]], tensor<10x10x10x10x10xf32>)
+    print(ten)
+
+    w = ten[idx_tensor, :, idx_tensor, ...]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x4xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1, 3, 4]) : (tensor<10x10x10x10x10xf32>, tensor<5x6x4xindex>) -> tensor<5x6x10xf32>
+    print(w.owner)
+
+    w = ten[idx_tensor, 0:10:1, idx_tensor, ...]
+    idx_tensor_operand = Tensor(w.owner.operands[1])
+    # CHECK: %[[IDXTEN:.*]] tensor<5x6x4xindex> True
+    print(idx_tensor_operand.get_name(), idx_tensor_operand.type,
+          idx_tensor_operand.is_constant())
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1, 3, 4]) : (tensor<10x10x10x10x10xf32>, tensor<5x6x4xindex>) -> tensor<5x6x10xf32>
+    print(w.owner)
+
+    try:
+      w = ten[idx_tensor, 0:10:2, idx_tensor, ...]
+    except IndexError as e:
+      # CHECK: Partial slicing currently not supported
+      print(e)

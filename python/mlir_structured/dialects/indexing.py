@@ -469,8 +469,6 @@ def _expand_dims(y, axis: int) -> Tensor:
      View of `a` with the number of dimensions increased.
 
   """
-  if len(axis) == 0:
-    return y
   if isinstance(y, Scalar):
     assert axis == (0,), f"Expected axis to be 0 but {axis=}."
     if y.fold():
@@ -538,8 +536,8 @@ def _canonicalize_tuple_index(idx: Tuple[Any], rank: int):
   if _is_advanced_int_indexer(idx):
     idx = list(idx)
     for idx_i, idx_e in enumerate(idx):
-      if idx_e is not None and not isinstance(idx_e,
-                                              slice) and idx_e != Ellipsis:
+      if idx_e is not None and not isinstance(
+          idx_e, (slice, Tensor)) and idx_e != Ellipsis:
         idx[idx_i] = _as_index_tensor(idx_e)
     idx = tuple(idx)
 
@@ -583,40 +581,96 @@ def _indices_to_indexer(idx: Sequence[Any],
   idx = _canonicalize_tuple_index(idx, len(in_shape))
 
   in_axis = 0  # Current axis in input.
-  out_axis = 0  # Current axis in output, before collapsing. See below.
   collapsed_dims: Sequence[int] = []
   indices: List[Tensor] = []
+  indices_shape: List[int] = []
   newaxis_dims: Sequence[int] = []
 
+  # Contiguous in terms of dims that the index/slice
+  advanced_axes_are_contiguous = False
+  advanced_indexes: Optional[Sequence[Tensor]] = None
+  # The positions of the advanced indexing axes in `idx`.
+  idx_advanced_axes: Sequence[int] = []
+
+  if _is_advanced_int_indexer(idx):
+    advanced_pairs = [(i, d)
+                      for i, d in enumerate(idx)
+                      if d is not None and _is_index_tensor(d)]
+    idx_advanced_axes, advanced_indexes = zip(*advanced_pairs)
+    advanced_axes_are_contiguous = bool(
+        all([d == 1 for d in np.diff(idx_advanced_axes)]))
+
+  # nb: idx_e <-> idx_element
   for idx_i, idx_e in enumerate(idx):
+    # Handle the advanced indices here if:
+    # * the advanced indices were not contiguous, and we are the start.
+    # * we are at the position of the first advanced index.
+    if advanced_indexes is not None and (
+        advanced_axes_are_contiguous and idx_i == idx_advanced_axes[0] or
+        not advanced_axes_are_contiguous and idx_i == 0):
+      if len(set([tuple(a.shape) for a in advanced_indexes])) != 1:
+        raise IndexError("All advanced indices must have the same shape.")
+      shape = advanced_indexes[0].shape
+
+      indices.extend(advanced_indexes)
+      indices_shape += shape
+
+      # Compute the proper "extent" of index Tensor, e.g., if ten ~ 10x10x10x10x10 and idx ~ 5x6x2
+      # then ten[:, idx, ...] means dims [1, 2] are collapsed and ten[idx, :, idx] means
+      # dims [0, 1, 3, 4] are collapsed.
+      # TODO(max): maybe there's a more "declarative" way to spell this...
+      prev_idx = collapsed_dims[-1] if len(collapsed_dims) else -1
+      for idx_pos, idx_ in enumerate(idx):
+        if idx_pos in idx_advanced_axes:
+          collapsed_dims.extend(np.array(prev_idx + 1) + np.arange(shape[-1]))
+          prev_idx = collapsed_dims[-1]
+        else:
+          prev_idx += 1
+
+    if idx_i in idx_advanced_axes:
+      # skip ahead the number of coordinates, e.g., for a 5x6x2 idx tensor,
+      # skip ahead two axes
+      in_axis += idx[idx_i].shape[-1]
+      continue
+
     if _is_scalar(idx_e) and _has_index_type(idx_e):
-      # Handle basic int indexes.
+      # Handle basic Scalar indexes.
       idx_e = _expand_dims(idx_e, (0,))
       indices.append(idx_e)
       collapsed_dims.append(in_axis)
       in_axis += 1
     elif isinstance(idx_e, slice):
       # Handle slice indices
-      out_axis += 1
+      start, stop, step = idx_e.start, idx_e.stop, idx_e.step
+      if idx_e != slice(None) and (start, stop, step) != (0, in_shape[in_axis],
+                                                          1):
+        raise IndexError(f"Partial slicing currently not supported:\n{idx}")
+
       in_axis += 1
     else:
-      raise IndexError(
-          f"Indexing mode not yet supported. Open a feature request!\n{idx}")
+      raise IndexError(f"Indexing mode not yet supported:\n{idx}")
 
   collapsed_dims: Tuple[int, ...] = tuple(sorted(collapsed_dims))
 
   if len(indices) == 1:
     indices_tensor = indices[0]
   else:
+    if len(indices_shape) == 0:
+      last_dim = 0
+    else:
+      last_dim = len(indices_shape) - 1
     indices_tensor = concatenate(
         indices,
-        0,
+        last_dim,
     )
 
-  lit = indices_tensor.literal_value
-  # flatten all but last dim (i.e., idx/coord dim)
-  coords = lit.reshape(-1, lit.shape[-1])
-  unique_indices = len(np.unique(coords, axis=0)) == len(coords)
+  if indices_tensor.is_constant():
+    lit = indices_tensor.literal_value
+    # flatten all but last dim (i.e., idx/coord dim)
+    coords = lit.reshape(-1, lit.shape[-1])
+    unique_indices = len(np.unique(coords, axis=0)) == len(coords)
+  else:
+    unique_indices = advanced_indexes is None
 
   return _Indexer(
       newaxis_dims=tuple(newaxis_dims),
