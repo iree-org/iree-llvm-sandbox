@@ -6,7 +6,7 @@
 import operator
 from copy import deepcopy
 from functools import cached_property, lru_cache, partialmethod
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, NamedTuple, Sequence, Any, List
 
 import numpy as np
 
@@ -21,7 +21,9 @@ from ..ir import (
     F16Type,
     F32Type,
     F64Type,
+    FloatAttr,
     IndexType,
+    IntegerAttr,
     IntegerType,
     OpView,
     Operation,
@@ -29,6 +31,7 @@ from ..ir import (
     ShapedType,
     Type,
     Value,
+    register_attribute_builder,
 )
 
 
@@ -58,6 +61,7 @@ def infer_mlir_type(
         np.int32: IntegerType.get_signless(32),
         np.int64: IntegerType.get_signless(64),
         np.uintp: IndexType.get(),
+        np.longlong: IndexType.get(),
         np.float16: F16Type.get(),
         np.float32: F32Type.get(),
         np.float64: F64Type.get(),
@@ -223,6 +227,10 @@ class ArithValue(metaclass=ArithValueMeta):
     return isinstance(self.owner.opview, arith.ConstantOp)
 
   @lru_cache(maxsize=1)
+  def fold(self) -> bool:
+    return self.is_constant() and self._fold
+
+  @lru_cache(maxsize=1)
   def __str__(self):
     if self.is_constant():
       v = str(self.literal_value)
@@ -253,7 +261,7 @@ class ArithValue(metaclass=ArithValueMeta):
     if self.type != other.type:
       raise ValueError(f"{self=} {other=} must have the same type.")
 
-    if self.is_constant() and other.is_constant() and self._fold:
+    if self.fold() and other.fold():
       # if both operands are constants (results of an arith.constant op)
       # then both have a literal value (i.e. Python value).
       lhs, rhs = self.literal_value, other.literal_value
@@ -362,10 +370,268 @@ class Tensor(ArithValue, TensorValue):
         static_sizes.append(ShapedType.get_dynamic_size())
     return RankedTensorType.get(static_sizes, dtype)
 
-  def __getitem__(self, dims: tuple) -> Scalar:
-    dims = list(dims)
-    for i, d in enumerate(dims):
+  def __getitem__(self, idx: tuple) -> Scalar:
+    # Early bail for most trivial corner cases (ellipse or one slice(None))
+    if idx == Ellipsis or idx == slice(None):
+      return self
+    idx = list((idx,) if isinstance(idx, int) else idx)
+    for i, d in enumerate(idx):
       if isinstance(d, int):
-        dims[i] = arith.ConstantOp.create_index(d).result
+        idx[i] = Scalar(arith.ConstantOp.create_index(d))
 
-    return Scalar(tensor.ExtractOp(self, dims))
+    if all(isinstance(d, Scalar) and d.is_constant()
+           for d in idx) and len(idx) == len(self.shape):
+      return Scalar(tensor.ExtractOp(self, idx))
+    else:
+      return build_gather(self, tuple(idx))
+
+
+###################
+# advanced indexing
+###################
+
+
+class _Indexer(NamedTuple):
+  """Data that describes/captures the relationship between an indexing tensor
+  (produced from simple or advanced indices) and scatter/gather dims.
+
+  Args:
+    indices: The final index tensor.
+    collapsed_dims: The set of dimensions i in operand that have
+      shape[i] == 1. Must be a tuple of integers in ascending order.
+      These determine the gather or scatter dims.
+    newaxis_dims: axes created by `np.newaxis` or None. These must be inserted
+      for gathers and eliminated for scatters.
+    unique_indices: Describes whether indices are known to be non-overlapping.
+  """
+
+  indices: Tensor
+  collapsed_dims: Tuple[int, ...]
+  newaxis_dims: Tuple[int, ...]
+  unique_indices: Optional[bool] = None
+
+
+def _is_empty(ten: Tensor) -> bool:
+  """Check whether any of the dimensions of `ten` are degenerate (i.e., have
+  size 0).
+
+  Args:
+    ten: Tensor whose shape is under consideration.
+
+  Returns:
+    Whether any of the dimensions of `ten` are degenerate.
+  """
+  shape = ten.shape
+  if isinstance(shape,
+                (tuple, list)) and all(isinstance(s, int) for s in shape):
+    return any(s == 0 for s in shape)
+  raise NotImplementedError(shape)
+
+
+def concatenate(tens: Sequence[Tensor], dim) -> Tensor:
+  """Concatenate a sequence Tensors along dimension `dim`.
+
+  Args:
+    tens: Sequence of tensors all having the same shape, except for along
+      dimension `dim`.
+    dim: Dimension to concatenate along.
+
+  Returns:
+    Tensor that wraps a value that's either the result of index.concatenate
+    or (if all tensors are constant and foldable) the result of arith.constant.
+  """
+  if all(a.fold() for a in tens):
+    return Tensor(np.concatenate([a.literal_value for a in tens], axis=dim))
+  else:
+    return Tensor(ConcatenateOp(tens, dim))
+
+
+def _as_index_tensor(val) -> Tensor:
+  """Cast to index tensor.
+
+  Args:
+    val: Python value that an index tensor can be constructed from.
+
+  Returns:
+    Tensor with index element type.
+  """
+  return Tensor(np.array(val), index=True)
+
+
+def _expand_dims(y, axis: int) -> Tensor:
+  """Expand the shape of a tensor.
+
+  Insert a new axis that will appear at the `axis` position in the expanded
+  tensor shape.
+
+  Args:
+    y: Input tensor-like.
+    axis: Position in the expanded axes where the new axis (or axes) is placed.
+
+  Returns:
+     View of `a` with the number of dimensions increased.
+
+  """
+  if len(axis) == 0:
+    return y
+  if isinstance(y, Scalar):
+    assert axis == (0,), f"Expected axis to be 0 but {axis=}."
+    if y.fold():
+      return Tensor(np.array(y.literal_value).reshape((1,)), dtype=y.dtype)
+
+  raise NotImplementedError(y, axis)
+
+
+def _has_index_type(e: Any) -> bool:
+  """Checks whether e has MLIR index type or a Python value that can be used
+  to construct an index type.
+
+  Args:
+    e: Anything
+  """
+  return isinstance(e, int) or isinstance(e, np.ndarray) and e.dtype in {
+      np.uintp, np.longlong
+  } or isinstance(e, (Tensor, Scalar)) and IndexType.isinstance(e.dtype)
+
+
+def _is_scalar(e: Any) -> bool:
+  """Checks whether e is a Scalar or can be used to construct a Scalar.
+
+  Args:
+    e: Anything
+  """
+  return isinstance(e, Scalar) or isinstance(e, (int, float, bool))
+
+
+def _canonicalize_tuple_index(idx, rank: int):
+  """Helper to remove Ellipsis and replace with implicit trailing slice(None)s.
+
+  Args:
+    rank: Rank of tensor.
+    idx: Index object (Scalar, Tensor, slice, Ellipse, or None).
+
+  Returns:
+    Tuple of index objects with no ellipses.
+  """
+  len_without_none = 0
+  for e in idx:
+    if e is None or e is Ellipsis:
+      continue
+    else:
+      len_without_none += 1
+
+  if len_without_none > rank:
+    raise IndexError(f"Too many indices for tensor: {len_without_none} "
+                     f"non-None/Ellipsis indices for dim {rank}.")
+  ellipses = (i for i, elt in enumerate(idx) if elt is Ellipsis)
+  ellipsis_index = next(ellipses, None)
+  if ellipsis_index is not None:
+    if next(ellipses, None) is not None:
+      raise IndexError(
+          f"Multiple ellipses (...) not supported: {list(map(type, idx))}.")
+    colons = (slice(None),) * (rank - len_without_none)
+    idx = idx[:ellipsis_index] + colons + idx[ellipsis_index + 1:]
+  elif len_without_none < rank:
+    colons = (slice(None),) * (rank - len_without_none)
+    idx = tuple(idx) + colons
+  return idx
+
+
+def _indices_to_indexer(idx: Sequence[Any],
+                        in_shape: Sequence[int]) -> _Indexer:
+  """Processes sequence of index objects and constructs _Indexer with
+  corresponding indexing tensor and collapse dims (i.e., scatter/gather dims).
+
+  Args:
+    idx: Sequence (list or tuple) of slices, ellipses, Scalar, or Tensors.
+    in_shape: The shape of the tensor being indexed into.
+
+  Returns:
+    _Indexer object.
+
+  """
+  idx = _canonicalize_tuple_index(idx, len(in_shape))
+
+  in_axis = 0  # Current axis in input.
+  out_axis = 0  # Current axis in output, before collapsing. See below.
+  collapsed_dims: Sequence[int] = []
+  indices: List[Tensor] = []
+  newaxis_dims: Sequence[int] = []
+
+  for idx_i, idx_e in enumerate(idx):
+    if _is_scalar(idx_e) and _has_index_type(idx_e):
+      # Handle basic int indexes.
+      idx_e = _expand_dims(idx_e, (0,))
+      indices.append(idx_e)
+      collapsed_dims.append(in_axis)
+      in_axis += 1
+    elif isinstance(idx_e, slice):
+      # Handle slice indices
+      out_axis += 1
+      in_axis += 1
+    else:
+      raise IndexError(
+          f"Indexing mode not yet supported. Open a feature request!\n{idx}")
+
+  collapsed_dims: Tuple[int, ...] = tuple(sorted(collapsed_dims))
+
+  if len(indices) == 1:
+    indices_tensor = indices[0]
+  else:
+    indices_tensor = concatenate(
+        indices,
+        0,
+    )
+
+  lit = indices_tensor.literal_value
+  # flatten all but last dim (i.e., idx/coord dim)
+  coords = lit.reshape(-1, lit.shape[-1])
+  unique_indices = len(np.unique(coords, axis=0)) == len(coords)
+
+  return _Indexer(
+      newaxis_dims=tuple(newaxis_dims),
+      collapsed_dims=collapsed_dims,
+      indices=indices_tensor,
+      unique_indices=unique_indices,
+  )
+
+
+def gather(
+    operand: Tensor,
+    indices: Tensor,
+    gather_dims: Tuple[int, ...],
+    *,
+    unique_indices: bool = False,
+) -> Tensor:
+  return Tensor(
+      GatherOp(
+          source=operand,
+          indices=indices,
+          gather_dims=gather_dims,
+          unique=unique_indices,
+      ))
+
+
+def build_gather(
+    ten: Tensor,
+    idx,
+    unique_indices=False,
+) -> Tensor:
+  # Early bail for most trivial corner case (all full slices)
+  if all(i == slice(None) for i in idx):
+    return ten
+
+  indexer = _indices_to_indexer(idx, ten.shape)
+  out = ten
+
+  # We avoid generating a gather when indexer.indices is empty i.e., has any
+  # zero dims.
+  if _is_empty(indexer.indices):
+    return out
+
+  return gather(
+      out,
+      indexer.indices,
+      indexer.collapsed_dims,
+      unique_indices=unique_indices or indexer.unique_indices,
+  )
