@@ -15,9 +15,3 @@ add_mlir_dialect_library(MLIRIteratorsTransforms
   MLIRSCFTransforms
   MLIRTransformUtils
 )
-
-# Make headers from test pass available here.
-target_include_directories(MLIRIteratorsTransforms
-  PRIVATE
-  ${ITERATORS_MAIN_SRC_DIR}/test/lib/Conversion/OneToNTypeConversion/
-)
