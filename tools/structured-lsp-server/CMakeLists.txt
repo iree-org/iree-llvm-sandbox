@@ -6,26 +6,10 @@ add_llvm_executable(structured-lsp-server
 )
 add_dependencies(structured-tools structured-lsp-server)
 
-list(APPEND dialect_libs
-  MLIRIterators
-  MLIRTabular
-  MLIRTupleDialect
-  )
-list(APPEND conversion_libs
-  MLIRIteratorsToLLVM
-  MLIRTabularToLLVM
-  MLIRStatesToLLVM
-  )
-set(iterators_transform_libs
-  MLIRIteratorsTransforms
-  MLIRTupleTransforms
-  )
-
 target_link_libraries(structured-lsp-server
   PRIVATE
   ${dialect_libs}
   ${conversion_libs}
-  ${structured_transform_libs}
   MLIRLspServerLib
   MLIRSupport
   MLIRIR

@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTupleDialect
+add_mlir_dialect_library(MLIRTupleDialect
   Tuple.cpp
 
   LINK_LIBS PUBLIC

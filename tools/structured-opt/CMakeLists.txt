@@ -6,22 +6,6 @@ add_llvm_executable(structured-opt
   )
 add_dependencies(structured-tools structured-opt)
 
-list(APPEND dialect_libs
-  MLIRIndexing
-  MLIRIterators
-  MLIRTabular
-  MLIRTupleDialect
-  )
-list(APPEND conversion_libs
-  MLIRIteratorsToLLVM
-  MLIRTabularToLLVM
-  MLIRStatesToLLVM
-  )
-set(iterators_transform_libs
-  MLIRIteratorsTransforms
-  MLIRTupleTransforms
-  )
-
 target_link_libraries(structured-opt
   PRIVATE
   ${dialect_libs}
