@@ -1,3 +1,11 @@
+# This file is a copy of upstream's runtime/jit.py with the following set of
+# modifications:
+# 1. Application of our yapf format.
+# 2. Import of our compile function.
+# 3. Changing a few variables of the eval scope of function that eventually
+#    calls the compiler such that (1) there is no CUDA dependency and (2) our
+#    compile function is used to produce the compiled kernel.
+
 from __future__ import annotations, division
 
 import ast
@@ -11,6 +19,8 @@ from collections import defaultdict, namedtuple
 from typing import Callable, Generic, Iterable, Optional, TypeVar, Union, cast, overload
 
 import triton
+
+from .compiler import compile
 
 
 def get_cuda_stream(idx=None):
@@ -356,23 +366,27 @@ def {self.fn.__name__}({', '.join(self.arg_names)}, grid, num_warps=4, num_stage
         if callable(arg):
           raise TypeError(f"Callable constexpr at index {{i}} is not supported")
       if not self._call_hook(key, signature, device, constants, num_warps, num_stages, extern_libs, configs):
-        bin = triton.compile(self, signature=signature, device=device, constants=constants, num_warps=num_warps, num_stages=num_stages, extern_libs=extern_libs, configs=configs, debug=self.debug)
+        bin = triton_compile(self, signature=signature, device=device, constants=constants, num_warps=num_warps, num_stages=num_stages, extern_libs=extern_libs, configs=configs, debug=self.debug)
         if not warmup:
             bin.c_wrapper(grid_0, grid_1, grid_2, bin.num_warps, bin.shared, stream, bin.cu_function, triton.compiler.CompiledKernel.launch_enter_hook, triton.compiler.CompiledKernel.launch_exit_hook, bin, *args)
         self.cache[device][key] = bin
         return bin
       return None
 """
+    # Replace CUDA-related functions with dummies such that the code runs
+    # without CUDA installed. Pass in `compiler.compile` as a replacement for
+    # `triton.compile`.
     scope = {
         "version_key": version_key(),
-        "get_cuda_stream": get_cuda_stream,
+        "get_cuda_stream": lambda *args, **kwargs: None,
         "self": self,
         "_spec_of": self._spec_of,
         "_key_of": self._key_of,
         "cache": self.cache,
         "triton": triton,
-        "get_current_device": get_current_device,
-        "set_current_device": set_current_device
+        "triton_compile": compile,
+        "get_current_device": lambda *args, **kwargs: None,
+        "set_current_device": lambda *args, **kwargs: None
     }
     exec(src, scope)
     return scope[self.fn.__name__]

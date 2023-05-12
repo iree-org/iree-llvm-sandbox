@@ -1,6 +1,10 @@
 # MLIR dependencies.
 -r third_party/llvm-project/mlir/python/requirements.txt
 
+# Triton and dependencies.
+torch
+third_party/triton/python/
+
 # Testing.
 lit
 
