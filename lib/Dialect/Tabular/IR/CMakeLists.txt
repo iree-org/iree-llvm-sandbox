@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTabular
+add_mlir_dialect_library(MLIRTabular
   Tabular.cpp
 
   LINK_LIBS PUBLIC

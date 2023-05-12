@@ -1,4 +1,4 @@
-add_mlir_library(MLIRIterators
+add_mlir_dialect_library(MLIRIterators
   Iterators.cpp
 
   LINK_LIBS PUBLIC
