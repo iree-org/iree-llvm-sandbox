@@ -1,4 +1,6 @@
 add_subdirectory(Indexing)
 add_subdirectory(Iterators)
 add_subdirectory(Tabular)
+add_subdirectory(Triton)
+add_subdirectory(TritonGPU)
 add_subdirectory(Tuple)

@@ -19,7 +19,13 @@ extern "C" {
 
 #include "structured/Conversion/Passes.capi.h.inc" // IWYU pragma: export
 
+#include "structured/Conversion/TritonConversions.capi.h.inc" // IWYU pragma: export
+
 #include "structured/Dialect/Iterators/Transforms/Passes.capi.h.inc" // IWYU pragma: export
+
+#include "structured/Dialect/Triton/Transforms/Passes.capi.h.inc" // IWYU pragma: export
+
+#include "structured/Dialect/TritonGPU/Transforms/Passes.capi.h.inc" // IWYU pragma: export
 
 #include "structured/Dialect/Tuple/Transforms/Passes.capi.h.inc" // IWYU pragma: export
 
