@@ -63,9 +63,9 @@ def Iterators_PrintableNumericType : AnyTypeOf<[
 
 /// Attribute of a printable numeric type.
 def Iterators_PrintableNumericAttr
-  : Attr<SubstLeaves<"$_self",
-                     "$_self.isa<TypedAttr>() && $_self.cast<TypedAttr>().getType()",
-                     Iterators_PrintableNumericType.predicate>,
+  : Attr<And<[CPred<"$_self.isa<TypedAttr>()">,
+              SubstLeaves<"$_self", "$_self.cast<TypedAttr>().getType()",
+                          Iterators_PrintableNumericType.predicate>]>,
         "any printable numeric type">;
 
 /// Array of printable numeric attributes.
