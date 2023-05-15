@@ -19,6 +19,49 @@ using namespace mlir::python::adaptors;
 
 PYBIND11_MODULE(_structuredDialects, mainModule) {
   //===--------------------------------------------------------------------===//
+  // Indexing dialect.
+  //===--------------------------------------------------------------------===//
+  auto indexingModule = mainModule.def_submodule("indexing");
+
+  //
+  // Dialect
+  //
+
+  indexingModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__indexing__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //
+  // Types
+  //
+
+  mlir_type_subclass(indexingModule, "IndexTensorType",
+                     [](MlirType type) {
+                       return mlirTypeIsATensor(type) &&
+                              mlirTypeIsAIndex(
+                                  mlirShapedTypeGetElementType(type));
+                     })
+      .def_classmethod(
+          "get",
+          [](const py::object &cls, const std::vector<int64_t> &shape,
+             MlirContext context) {
+            return cls(mlirRankedTensorTypeGet(shape.size(), shape.data(),
+                                               mlirIndexTypeGet(context),
+                                               mlirAttributeGetNull()));
+          },
+          py::arg("cls"), py::arg("value"), py::arg("context") = py::none());
+
+  (void)mlir_value_subclass(indexingModule, "ScalarValue", mlirIsAScalarValue);
+  (void)mlir_value_subclass(indexingModule, "TensorValue", mlirIsATensorValue);
+
+  //===--------------------------------------------------------------------===//
   // Iterators dialect
   //===--------------------------------------------------------------------===//
   auto iteratorsModule = mainModule.def_submodule("iterators");
@@ -115,48 +158,4 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
         }
       },
       py::arg("context") = py::none(), py::arg("load") = true);
-
-  //===--------------------------------------------------------------------===//
-  // Indexing dialect.
-  //===--------------------------------------------------------------------===//
-  auto indexingModule = mainModule.def_submodule("indexing");
-
-  //
-  // Dialect
-  //
-
-  indexingModule.def(
-      "register_dialect",
-      [](MlirContext context, bool doLoad) {
-        MlirDialectHandle handle = mlirGetDialectHandle__indexing__();
-        mlirDialectHandleRegisterDialect(handle, context);
-        if (doLoad) {
-          mlirDialectHandleLoadDialect(handle, context);
-        }
-      },
-      py::arg("context") = py::none(), py::arg("load") = true);
-
-  //
-  // Types
-  //
-
-  mlir_type_subclass(indexingModule, "IndexTensorType",
-                     [](MlirType type) {
-                       return mlirTypeIsATensor(type) &&
-                              mlirTypeIsAIndex(
-                                  mlirShapedTypeGetElementType(type));
-                     })
-      .def_classmethod(
-          "get",
-          [](const py::object &cls, const std::vector<int64_t> &shape,
-             MlirContext context) {
-            return cls(mlirRankedTensorTypeGet(shape.size(), shape.data(),
-                                               mlirIndexTypeGet(context),
-                                               mlirAttributeGetNull()));
-          },
-          py::arg("cls"), py::arg("value"), py::arg("context") = py::none());
-
-  (void)mlir_value_subclass(indexingModule, "ScalarValue", mlirIsAScalarValue);
-  (void)mlir_value_subclass(indexingModule, "TensorValue", mlirIsATensorValue);
-
 }
