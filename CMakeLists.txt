@@ -51,6 +51,22 @@ include(AddLLVM)
 include(AddMLIR)
 
 ################################################################################
+# Set up Trion
+################################################################################
+
+set(TRITON_ROOT_DIR ${STRUCTURED_MAIN_SRC_DIR}/third_party/triton)
+set(TRITON_INCLUDE_DIR ${TRITON_ROOT_DIR}/include)
+set(TRITON_BINARY_DIR ${STRUCTURED_BINARY_DIR}/third_party/triton)
+set(TRITON_TABLEGEN_OUTPUT_DIR ${TRITON_BINARY_DIR}/include)
+
+include_directories(${TRITON_INCLUDE_DIR})
+include_directories(${TRITON_TABLEGEN_OUTPUT_DIR})
+
+add_subdirectory(third_party/triton/include)
+add_subdirectory(third_party/triton/lib)
+add_subdirectory(third_party/triton/test/lib)
+
+################################################################################
 # Subdirs to recurse into
 ################################################################################
 add_custom_target(structured-all)

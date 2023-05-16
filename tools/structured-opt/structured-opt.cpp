@@ -22,12 +22,27 @@
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
+#include "triton/Conversion/TritonGPUToLLVM/Passes.h"
+#include "triton/Conversion/TritonToTritonGPU/Passes.h"
+#include "triton/Dialect/Triton/IR/Dialect.h"
+#include "triton/Dialect/Triton/Transforms/Passes.h"
+#include "triton/Dialect/TritonGPU/IR/Dialect.h"
+#include "triton/Dialect/TritonGPU/Transforms/Passes.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
 using namespace mlir;
+
+namespace mlir {
+namespace test {
+void registerTestAliasPass();
+void registerTestAlignmentPass();
+void registerTestAllocationPass();
+void registerTestMembarPass();
+} // namespace test
+} // namespace mlir
 
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
@@ -40,16 +55,34 @@ static void registerIteratorDialects(DialectRegistry &registry) {
       >();
 }
 
+inline void registerTritonDialects(DialectRegistry &registry) {
+  registry.insert<
+      // clang-format off
+      triton::TritonDialect,
+      triton::gpu::TritonGPUDialect
+      // clang-format on
+      >();
+}
+
 int main(int argc, char **argv) {
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   registerStructuredConversionPasses();
   registerIteratorsPasses();
   registerTuplePasses();
+  registerTritonPasses();
+  registerTritonGPUPasses();
+  test::registerTestAliasPass();
+  test::registerTestAlignmentPass();
+  test::registerTestAllocationPass();
+  test::registerTestMembarPass();
+  triton::registerConvertTritonToTritonGPUPass();
+  triton::registerConvertTritonGPUToLLVMPass();
 
   DialectRegistry registry;
   registerAllDialects(registry);
   registerIteratorDialects(registry);
+  registerTritonDialects(registry);
 
   return failed(
       MlirOptMain(argc, argv, "MLIR modular optimizer driver\n", registry));

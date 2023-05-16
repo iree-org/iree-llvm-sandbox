@@ -6,10 +6,15 @@ add_llvm_executable(structured-lsp-server
 )
 add_dependencies(structured-tools structured-lsp-server)
 
+set(test_libs
+  TritonTestAnalysis
+)
+
 target_link_libraries(structured-lsp-server
   PRIVATE
   ${dialect_libs}
   ${conversion_libs}
+  ${test_libs}
   MLIRLspServerLib
   MLIRSupport
   MLIRIR
