@@ -140,6 +140,46 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
       .def("get_row_type", mlirTabularViewTypeGetRowType);
 
   //===--------------------------------------------------------------------===//
+  // Triton dialect.
+  //===--------------------------------------------------------------------===//
+  auto tritonModule = mainModule.def_submodule("triton");
+
+  //
+  // Dialect
+  //
+
+  tritonModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__triton__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //===--------------------------------------------------------------------===//
+  // Triton GPU dialect.
+  //===--------------------------------------------------------------------===//
+  auto tritonGpuModule = mainModule.def_submodule("triton_gpu");
+
+  //
+  // Dialect
+  //
+
+  tritonGpuModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__triton_gpu__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad) {
+          mlirDialectHandleLoadDialect(handle, context);
+        }
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //===--------------------------------------------------------------------===//
   // Tuple dialect.
   //===--------------------------------------------------------------------===//
   auto tupleModule = mainModule.def_submodule("tuple");
