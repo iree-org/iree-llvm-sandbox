@@ -12,6 +12,7 @@
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -76,6 +77,18 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   auto module = getOperation();
   LLVMTypeConverter typeConverter(&getContext());
 
+  // triton::PointerType: Replicate logic from
+  // TritonGPUToLLVMTypeConverter::convertTritonPointerType.
+  // TODO(ingomueller): We preserve the address space attribute here but we'll
+  //     probably ignore its value in the conversions that use these pointers,
+  //     so we'll have to revisit the whole concept of address spaces at some
+  //     point.
+  typeConverter.addConversion([&](triton::PointerType type) {
+    return LLVM::LLVMPointerType::get(
+        typeConverter.convertType(type.getPointeeType()),
+        type.getAddressSpace());
+  });
+
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
   target.addLegalDialect<LLVMDialect>();
@@ -88,6 +101,12 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   // Lower ops from func to LLVM.
   populateFuncToLLVMFuncOpConversionPattern(typeConverter, patterns);
   populateFuncToLLVMConversionPatterns(typeConverter, patterns);
+
+  // Add patterns that converts function signature and calls.
+  populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns,
+                                                                 typeConverter);
+  populateCallOpTypeConversionPattern(patterns, typeConverter);
+  populateReturnOpTypeConversionPattern(patterns, typeConverter);
 
   // Use UnrealizedConversionCast as materializations, which have to be cleaned
   // up by later passes.
