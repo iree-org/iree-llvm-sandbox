@@ -51,7 +51,7 @@ include(AddLLVM)
 include(AddMLIR)
 
 ################################################################################
-# Set up Trion
+# Set up Triton
 ################################################################################
 
 set(TRITON_ROOT_DIR ${STRUCTURED_MAIN_SRC_DIR}/third_party/triton)
