@@ -21,4 +21,9 @@ PYBIND11_MODULE(_mlirStructuredPasses, m) {
   mlirRegisterStructuredConversionPasses();
   mlirRegisterIteratorsPasses();
   mlirRegisterTuplePasses();
+
+  // Register all Triton passes on load.
+  mlirRegisterTritonConversionPasses();
+  mlirRegisterTritonPasses();
+  mlirRegisterTritonGPUPasses();
 }

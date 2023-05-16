@@ -11,14 +11,22 @@
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
+#include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Pass/Pass.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
+#include "triton/Dialect/Triton/IR/Dialect.h"
+#include "triton/Dialect/TritonGPU/IR/Dialect.h"
 
 namespace mlir {
 
 #define GEN_PASS_CLASSES
 #include "structured/Conversion/Passes.h.inc"
+
+#define GEN_PASS_CLASSES
+#include "structured/Conversion/TritonConversions.h.inc"
 
 } // namespace mlir
 

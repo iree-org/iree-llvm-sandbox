@@ -1,4 +1,4 @@
-// Check that triton dialect is available in structured-opt.
+// Check that tt dialect is available in structured-opt.
 // RUN: structured-opt %s | FileCheck %s
 
 // CHECK-LABEL: @hello_world
