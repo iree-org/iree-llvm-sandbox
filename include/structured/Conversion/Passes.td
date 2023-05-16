@@ -94,4 +94,18 @@ def ConvertTabularToLLVM : Pass<"convert-tabular-to-llvm", "ModuleOp"> {
   let dependentDialects = ["LLVM::LLVMDialect"];
 }
 
+//===----------------------------------------------------------------------===//
+// TritonToLLVM
+//===----------------------------------------------------------------------===//
+
+def ConvertTritonToLLVM : Pass<"convert-triton-to-llvm", "ModuleOp"> {
+  let summary = "Convert the operations from Triton dialect to LLVM";
+  let description = [{
+  }];
+  let constructor = "mlir::createConvertTritonToLLVMPass()";
+  let dependentDialects = [
+    "LLVM::LLVMDialect"
+  ];
+}
+
 #endif // STRUCTURED_CONVERSION_PASSES
