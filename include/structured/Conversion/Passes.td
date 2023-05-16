@@ -101,9 +101,17 @@ def ConvertTabularToLLVM : Pass<"convert-tabular-to-llvm", "ModuleOp"> {
 def ConvertTritonToLLVM : Pass<"convert-triton-to-llvm", "ModuleOp"> {
   let summary = "Convert the operations from Triton dialect to LLVM";
   let description = [{
+    Converts the operations from Triton's `tt` dialect to the LLVM dialect such
+    that they can run on a CPU.
+
+    For now, only a subset of the tt dialect is supported. The plan is to extend
+    the coverage progressively. Some of the conversions may go through upstream
+    dialects, which are then lowered to LLVM using upstream pattersn; another
+    possibility is to use a subset of Triton's pattern if they happen to work.
   }];
   let constructor = "mlir::createConvertTritonToLLVMPass()";
   let dependentDialects = [
+    "func::FuncDialect",
     "LLVM::LLVMDialect"
   ];
 }

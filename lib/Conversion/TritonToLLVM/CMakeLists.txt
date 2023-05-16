@@ -5,7 +5,11 @@ add_mlir_conversion_library(MLIRTritonToLLVM
   MLIRStructuredConversionIncGen
 
   LINK_LIBS PUBLIC
+  MLIRFuncDialect
+  MLIRFuncToLLVM
+  MLIRLLVMCommonConversion
   MLIRLLVMDialect
   MLIRPass
   MLIRTransformUtils
+  TritonIR
 )
