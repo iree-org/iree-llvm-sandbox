@@ -11,6 +11,7 @@
 #include "../PassDetail.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -18,11 +19,14 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
+#include <numeric>
+
 namespace mlir {
 class MLIRContext;
 } // namespace mlir
 
 using namespace mlir;
+using namespace mlir::arith;
 using namespace mlir::func;
 using namespace mlir::LLVM;
 using namespace triton;
@@ -87,6 +91,31 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
   }
 };
 
+struct MakeRangeOpConversion : public OpConversionPattern<triton::MakeRangeOp> {
+  MakeRangeOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                        PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::MakeRangeOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto tensorType = op.getResult().getType().cast<TensorType>();
+
+    // Create dense attribute with range values.
+    int64_t num_elements = tensorType.getShape()[0];
+    assert(num_elements == op.getEnd() - op.getStart());
+    int32_t start = op.getStart();
+    SmallVector<int32_t> values(num_elements);
+    std::iota(values.begin(), values.end(), start);
+    auto valuesAttr = DenseIntElementsAttr::get(tensorType, values);
+
+    // Replace range op with new constant tensor.
+    rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, tensorType, valuesAttr);
+
+    return success();
+  }
+};
+
 struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
   StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                     PatternBenefit benefit = 1)
@@ -120,6 +149,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       LoadOpConversion,
+      MakeRangeOpConversion,
       StoreOpConversion,
       OneToOneOpConversion<triton::CallOp, func::CallOp>,
       OneToOneOpConversion<triton::FuncOp, func::FuncOp>,
@@ -146,7 +176,7 @@ void ConvertTritonToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<LLVMDialect>();
+  target.addLegalDialect<LLVMDialect, ArithDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
 
