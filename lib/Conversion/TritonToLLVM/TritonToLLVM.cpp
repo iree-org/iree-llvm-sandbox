@@ -60,12 +60,36 @@ struct OneToOneOpConversion : public OpConversionPattern<SourceOp> {
     return success();
   }
 };
+
+struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
+  LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                   PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto ttPtrType = op.getPtr().getType().cast<triton::PointerType>();
+
+    // Only handle scalar pointers for now.
+    if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
+      // Only handle unmasked pointers for now.
+      if (op.getMask() || op.getOther())
+        return failure();
+      rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+      return success();
+    }
+
+    return failure();
+  }
+};
 } // namespace
 
 void mlir::populateTritonToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
+      LoadOpConversion,
       OneToOneOpConversion<triton::CallOp, func::CallOp>,
       OneToOneOpConversion<triton::FuncOp, func::FuncOp>,
       OneToOneOpConversion<triton::ReturnOp, func::ReturnOp>
