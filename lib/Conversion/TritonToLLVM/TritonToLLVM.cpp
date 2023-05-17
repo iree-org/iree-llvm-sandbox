@@ -83,6 +83,30 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
     return failure();
   }
 };
+
+struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
+  StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                    PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto ttPtrType = op.getPtr().getType().cast<triton::PointerType>();
+
+    // Only handle scalar pointers for now.
+    if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
+      // Only handle unmasked pointers for now.
+      if (op.getMask())
+        return failure();
+      rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                                 adaptor.getPtr());
+      return success();
+    }
+
+    return failure();
+  }
+};
 } // namespace
 
 void mlir::populateTritonToLLVMConversionPatterns(
@@ -90,6 +114,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       LoadOpConversion,
+      StoreOpConversion,
       OneToOneOpConversion<triton::CallOp, func::CallOp>,
       OneToOneOpConversion<triton::FuncOp, func::FuncOp>,
       OneToOneOpConversion<triton::ReturnOp, func::ReturnOp>
