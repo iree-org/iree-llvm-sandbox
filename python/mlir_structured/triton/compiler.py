@@ -62,7 +62,10 @@ class CompiledKernel:
       ctype_arg = ctypes.pointer(ctype_arg)
       ctype_args.append(ctype_arg)
 
-    # Create execution engine.
+    # Run kernel in manually in a grid.
+    # TODO(ingomueller): This is a *very* simplistic way to simulate the grid!
+    #     It allows us to bootstrap the compiler and invocation infrastructure
+    #     but will soon need to be replaced with some proper SPMD concept.
     for x in range(n_x):
       for y in range(n_y):
         for z in range(n_z):
