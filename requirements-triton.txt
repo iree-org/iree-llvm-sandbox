@@ -1,0 +1,5 @@
+# Install CPU-only version of Torch. This is in an extra file because the way to
+# install that version is via the --index-url option, and that option applies to
+# the whole command.
+--index-url https://download.pytorch.org/whl/cpu
+torch
