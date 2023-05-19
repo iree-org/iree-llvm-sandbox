@@ -60,12 +60,67 @@ struct OneToOneOpConversion : public OpConversionPattern<SourceOp> {
     return success();
   }
 };
+
+struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
+  LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                   PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Only handle unmasked pointers for now.
+    if (op.getMask() || op.getOther())
+      return failure();
+
+    Type ptrType = op.getPtr().getType();
+
+    // Only handle scalar pointers to numerics for now.
+    if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
+      if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
+        rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+        return success();
+      }
+    }
+
+    return failure();
+  }
+};
+
+struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
+  StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                    PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Only handle unmasked pointers for now.
+    if (op.getMask())
+      return failure();
+
+    Type ptrType = op.getPtr().getType();
+
+    // Only handle scalar pointers to numerics for now.
+    if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
+      if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
+        rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                                   adaptor.getPtr());
+        return success();
+      }
+    }
+
+    return failure();
+  }
+};
 } // namespace
 
 void mlir::populateTritonToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
+      LoadOpConversion,
+      StoreOpConversion,
       OneToOneOpConversion<triton::CallOp, func::CallOp>,
       OneToOneOpConversion<triton::FuncOp, func::FuncOp>,
       OneToOneOpConversion<triton::ReturnOp, func::ReturnOp>
