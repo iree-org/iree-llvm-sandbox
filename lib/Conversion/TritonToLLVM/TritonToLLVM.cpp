@@ -69,14 +69,15 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
   LogicalResult
   matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    // Only handle unmasked pointers for now.
+    if (op.getMask() || op.getOther())
+      return failure();
+
     Type ptrType = op.getPtr().getType();
 
     // Only handle scalar pointers to numerics for now.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
       if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
-        // Only handle unmasked pointers for now.
-        if (op.getMask() || op.getOther())
-          return failure();
         rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
         return success();
       }
@@ -94,14 +95,15 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
   LogicalResult
   matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    // Only handle unmasked pointers for now.
+    if (op.getMask())
+      return failure();
+
     Type ptrType = op.getPtr().getType();
 
     // Only handle scalar pointers to numerics for now.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
       if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
-        // Only handle unmasked pointers for now.
-        if (op.getMask())
-          return failure();
         rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
                                                    adaptor.getPtr());
         return success();
