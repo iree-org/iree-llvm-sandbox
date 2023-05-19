@@ -7,6 +7,7 @@ add_mlir_conversion_library(MLIRTritonToLLVM
   LINK_LIBS PUBLIC
   MLIRFuncDialect
   MLIRFuncToLLVM
+  MLIRFuncTransforms
   MLIRLLVMCommonConversion
   MLIRLLVMDialect
   MLIRPass
