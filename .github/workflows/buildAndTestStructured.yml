@@ -43,6 +43,9 @@ jobs:
         max-size: 6G
 
     - name: Install Python depends
+      env:
+        CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        CMAKE_C_COMPILER_LAUNCHER: ccache
       run: |
         cd ${STRUCTURED_MAIN_SRC_DIR}
         python -m pip install -v -r requirements.txt
