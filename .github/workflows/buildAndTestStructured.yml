@@ -32,12 +32,6 @@ jobs:
         path: sandbox
         submodules: recursive
 
-    - name: Install Python depends
-      run: |
-        cd ${STRUCTURED_MAIN_SRC_DIR}
-        python -m pip install -v -r requirements.txt
-        python -m pip install -v -r requirements-triton.txt
-
     - name: Install Ninja
       uses: llvm/actions/install-ninja@6a57890d0e3f9f35dfc72e7e48bc5e1e527cdd6c # Jan 17
 
@@ -47,6 +41,12 @@ jobs:
         key: ${{ runner.os }}-structured
         # LLVM needs serious cache size
         max-size: 6G
+
+    - name: Install Python depends
+      run: |
+        cd ${STRUCTURED_MAIN_SRC_DIR}
+        python -m pip install -v -r requirements.txt
+        python -m pip install -v -r requirements-triton.txt
 
     - name: Configure CMake
       run: |
