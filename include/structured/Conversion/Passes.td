@@ -113,7 +113,8 @@ def ConvertTritonToLLVM : Pass<"convert-triton-to-llvm", "ModuleOp"> {
   let dependentDialects = [
     "arith::ArithDialect",
     "func::FuncDialect",
-    "LLVM::LLVMDialect"
+    "LLVM::LLVMDialect",
+    "tensor::TensorDialect"
   ];
 }
 
