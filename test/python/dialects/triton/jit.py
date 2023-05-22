@@ -14,6 +14,22 @@ def run(f):
   return f
 
 
+# CHECK-LABEL: TEST: addptr_scalar
+@run
+def addptr_scalar():
+
+  @jit
+  def kernel(ptr):
+    x = tl.load(ptr)
+    tl.store(ptr + 1, x)
+
+  X = torch.tensor([42, 0], dtype=torch.int32)
+  kernel[(1,)](X)
+
+  # CHECK-NEXT: tensor([42, 42], dtype=torch.int32)
+  print(X)
+
+
 # CHECK-LABEL: TEST: load_store_scalar
 @run
 def load_store_scalar():

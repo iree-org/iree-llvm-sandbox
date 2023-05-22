@@ -61,6 +61,32 @@ struct OneToOneOpConversion : public OpConversionPattern<SourceOp> {
   }
 };
 
+struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
+  AddPtrOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                     PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::AddPtrOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Type ptrType = op.getPtr().getType();
+
+    // Only handle scalar pointers to numerics for now.
+    if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
+      assert(ttPtrType.getPointeeType().isa<IntegerType>() &&
+             "expected tt.ptr to point to an integer type");
+      // Replace original op with LLVM's GEP op.
+      Value basePtr = adaptor.getPtr();
+      Value offset = adaptor.getOffset();
+      rewriter.replaceOpWithNewOp<LLVM::GEPOp>(op, basePtr.getType(), basePtr,
+                                               offset);
+      return success();
+    }
+
+    return failure();
+  }
+};
+
 struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
   LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                    PatternBenefit benefit = 1)
@@ -119,6 +145,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
+      AddPtrOpConversion,
       LoadOpConversion,
       StoreOpConversion,
       OneToOneOpConversion<triton::CallOp, func::CallOp>,
