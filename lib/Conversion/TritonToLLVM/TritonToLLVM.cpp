@@ -96,6 +96,42 @@ struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
   }
 };
 
+struct ExpandDimsOpConversion
+    : public OpConversionPattern<triton::ExpandDimsOp> {
+  ExpandDimsOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                         PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::ExpandDimsOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // Compute types and shapes.
+    auto originalTensorType =
+        adaptor.getSrc().getType().cast<RankedTensorType>();
+    ArrayRef<int64_t> expandedShape =
+        op.getResult().getType().cast<ShapedType>().getShape();
+    Type elementType = originalTensorType.getElementType();
+    auto expandedTensorType = RankedTensorType::get(expandedShape, elementType);
+
+    // Create association map: expand the desired axis to [axis, axis+1] and
+    // keep the remaining ones as is/shifted.
+    int64_t originalRank = originalTensorType.getRank();
+    auto dimToExpand = std::min<int64_t>(op.getAxis(), originalRank - 1);
+    SmallVector<ReassociationExprs> reassociationMap(originalRank);
+    for (int64_t i = 0, j = 0; i < originalRank; i++, j++) {
+      reassociationMap[i].push_back(rewriter.getAffineDimExpr(j));
+      if (dimToExpand == i)
+        reassociationMap[i].push_back(rewriter.getAffineDimExpr(++j));
+    }
+
+    // Replace with expand_shape.
+    rewriter.replaceOpWithNewOp<tensor::ExpandShapeOp>(
+        op, expandedTensorType, adaptor.getSrc(), reassociationMap);
+
+    return success();
+  }
+};
+
 struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
   LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                    PatternBenefit benefit = 1)
@@ -219,6 +255,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       AddPtrOpConversion,
+      ExpandDimsOpConversion,
       LoadOpConversion,
       MakeRangeOpConversion,
       SplatOpConversion,
