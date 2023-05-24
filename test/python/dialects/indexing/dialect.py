@@ -1,11 +1,12 @@
 # RUN: %PYTHON %s | FileCheck %s
+from itertools import permutations
 from random import random
 
 import numpy as np
 
 from mlir_structured._mlir_libs._mlir.ir import IndexType
 from mlir_structured.dialects import arith, indexing
-from mlir_structured.dialects.indexing import Scalar, Tensor, IndexTensorType
+from mlir_structured.dialects.indexing import Scalar, Tensor, IndexTensorType, _canonicalize_tuple_index
 from mlir_structured.ir import Context, IntegerType, F64Type
 from mlir_structured.passmanager import PassManager
 from mlir_structured.runtime.util import mlir_mod_ctx
@@ -73,6 +74,10 @@ def testScalarValue():
     print(zero_index.is_constant())
     # CHECK: 0
     print(zero_index.literal_value)
+
+    zero_index = zero_index + zero_index
+    # CHECK: index
+    print(zero_index.type)
 
     one_f64 = Scalar(1.0)
     two_f64 = Scalar(2.0)
@@ -439,3 +444,39 @@ def testSimpleLiteralIndexing():
     print(Tensor(w.owner.operands[1]))
     # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 2]) unique : (tensor<10x10x10x10xi32>, tensor<3xindex>) -> tensor<10xi32>
     print(w.owner)
+
+
+# CHECK-LABEL: TEST: testCanonicalizeTupleIndexCastListLiteral
+# This test generates all permutations of idx and slice object, e.g.
+# ten[idx, :, :, :], ten[:, idx, :, :], ten[:, :, idx, :]
+@run
+def testCanonicalizeTupleIndexCastListLiteral():
+  with mlir_mod_ctx() as module:
+
+    for n_tens in range(1, 4):
+      uniqs = set()
+      n_slices = 4 - n_tens
+      ten_idx = [[0], [1]]
+      slice_idx = slice(None)
+      for p in permutations([str(ten_idx)] * n_tens +
+                            [str(slice_idx)] * n_slices):
+        uniqs.add(p)
+
+      for u in uniqs:
+        u = tuple(u)
+        tens_is = [i for i, t in enumerate(u) if t == str(ten_idx)]
+        slice_is = [i for i, s in enumerate(u) if s == str(slice_idx)]
+
+        tens_slices = _canonicalize_tuple_index(tuple(map(eval, u)), 4)
+        tens = [
+            (i, t) for i, t in enumerate(tens_slices) if isinstance(t, Tensor)
+        ]
+        slices = [(i, s) for i, s in enumerate(tens_slices) if s == slice(None)]
+        assert len(slices) == n_slices and all(
+            s == slice(None) for _, s in slices) and set(
+                i for i, _ in slices) == set(slice_is)
+        assert len(tens) == n_tens and all(
+            isinstance(t, Tensor) and t.owner.name == 'arith.constant' and
+            str(t.type) == 'tensor<2x1xindex>' and t.is_constant() and
+            np.array_equal(t.literal_value, [[0], [1]])
+            for _, t in tens) and set(i for i, _ in tens) == set(tens_is)
