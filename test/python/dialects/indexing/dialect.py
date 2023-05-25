@@ -627,12 +627,6 @@ def testAdvancedIndexing():
     # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1, 3, 4]) unique : (tensor<7x22x333x4444x55555xf32>, tensor<3x4x4xindex>) -> tensor<3x4x333xf32>
     print(w.owner)
 
-    try:
-      w = ten[idx_tensor, 0:333:7, idx_tensor, ...]
-    except IndexError as e:
-      # CHECK: Partial slicing currently not supported
-      print(e)
-
 
 # CHECK-LABEL: TEST: testARangeOpBasics
 @run
@@ -763,3 +757,67 @@ def testARangeOpSemantics():
         assert len(r) == (stop - start) // step
 
       assert r.shape == ara.shape
+
+
+# CHECK-LABEL: TEST: testNoneIndices
+@run
+def testNoneIndices():
+  index = IndexType.get()
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 333, 4444), f32)
+    # CHECK: Tensor(%[[TEN:.*]], tensor<7x22x333x4444xf32>)
+    print(ten)
+
+    w = ten[None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2], [3], [4]] : tensor<7x22x333x4444xf32> into tensor<1x7x22x333x4444xf32>
+    print(w.owner)
+
+    w = ten[:, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2], [3], [4]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x333x4444xf32>
+    print(w.owner)
+
+    w = ten[None, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1, 2], [3], [4], [5]] : tensor<7x22x333x4444xf32> into tensor<1x7x1x22x333x4444xf32>
+    print(w.owner)
+
+    w = ten[:, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1, 2], [3], [4]] : tensor<7x22x333x4444xf32> into tensor<7x22x1x333x4444xf32>
+    print(w.owner)
+
+    w = ten[:, :, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1], [2, 3], [4]] : tensor<7x22x333x4444xf32> into tensor<7x22x333x1x4444xf32>
+    print(w.owner)
+
+    w = ten[:, :, :, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1], [2], [3, 4]] : tensor<7x22x333x4444xf32> into tensor<7x22x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[..., None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1], [2], [3, 4]] : tensor<7x22x333x4444xf32> into tensor<7x22x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[:, None, :, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2], [3], [4, 5]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[:, None, None, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2, 3], [4], [5, 6]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x1x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[:, None, None, None, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2, 3], [4, 5], [6, 7]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x1x333x1x4444x1xf32>
+    print(w.owner)
+
+    w = ten[None, None, None, None, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1, 2], [3, 4], [5, 6], [7, 8]] : tensor<7x22x333x4444xf32> into tensor<1x7x1x22x1x333x1x4444x1xf32>
+    print(w.owner)
+
+    try:
+      w = ten[None, None, None, None, None, None]
+      print(w.owner)
+    except IndexError as e:
+      # CHECK: pop index out of range
+      print(e)
+
+  module.operation.verify()

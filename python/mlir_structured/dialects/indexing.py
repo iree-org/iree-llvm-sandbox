@@ -14,6 +14,7 @@ from . import arith, tensor
 from ._arith_ops_ext import _is_integer_like_type
 from ._indexing_ops_gen import *
 from ._ods_common import get_op_result_or_value
+from ._structured_transform_ops_ext import _get_int_int_array_attr
 from .linalg.opdsl.lang.emitter import _is_floating_point_type
 from .._mlir_libs._structuredDialects.indexing import *
 from ..ir import (
@@ -405,6 +406,8 @@ class Tensor(ArithValue, TensorValue):
     """
     if idx == Ellipsis or idx == slice(None):
       return self
+    if idx is None:
+      return _expand_dims(self, (0,))
     idx = list((idx,) if isinstance(idx, int) else idx)
     for i, d in enumerate(idx):
       if isinstance(d, int):
@@ -581,26 +584,60 @@ def _as_index_tensor(val) -> Tensor:
   return Tensor(np.array(val), dtype=IndexType.get())
 
 
-def _expand_dims(y, axis: int) -> Tensor:
+def _expand_dims(inp, newaxis_dims) -> Tensor:
   """Expand the shape of a tensor.
 
   Insert a new axis that will appear at the `axis` position in the expanded
   tensor shape.
 
   Args:
-    y: Input tensor-like.
+    inp: Input tensor-like.
     axis: Position in the expanded axes where the new axis (or axes) is placed.
 
   Returns:
      View of `a` with the number of dimensions increased.
 
   """
-  if isinstance(y, Scalar):
-    assert axis == (0,), f"Expected axis to be 0 but {axis=}."
-    if y.fold():
-      return Tensor(np.array(y.literal_value).reshape((1,)), dtype=y.dtype)
+  if len(newaxis_dims) == 0:
+    return inp
 
-  raise NotImplementedError(y, axis)
+  newaxis_dims = sorted(newaxis_dims)
+  if len(set(newaxis_dims)) != len(newaxis_dims):
+    raise ValueError(f"repeated axis in expand_dims: {newaxis_dims}")
+
+  if isinstance(inp, Scalar):
+    assert newaxis_dims == [
+        0,
+    ], f"{newaxis_dims=}"
+    if inp.is_constant():
+      return _as_index_tensor(np.array(inp.literal_value).reshape((1,)))
+    else:
+      return Tensor(
+          tensor.FromElementsOp(RankedTensorType.get((1,), inp.type), [inp]))
+  elif Tensor.isinstance(inp):
+    ndim_out = len(inp.shape) + len(newaxis_dims)
+    if not all(0 <= d < ndim_out for d in newaxis_dims):
+      raise ValueError("no negative dims allowed")
+    result_shape = list(inp.shape)
+    for i in reversed(newaxis_dims):
+      result_shape.insert(i, 1)
+
+    reassoc_list = [[i] for i in range(len(inp.shape))]
+    for i, d in enumerate(newaxis_dims):
+      reassoc_list.append([len(inp.shape) + i])
+      if d == 0:
+        d = 1
+      reassoc_list[max(d - 1, 0)].extend(reassoc_list.pop(d))
+
+    if inp.is_constant():
+      return _as_index_tensor(inp.literal_value)
+    else:
+      reassoc_list = _get_int_int_array_attr(reassoc_list)
+      return Tensor(
+          tensor.ExpandShapeOp(RankedTensorType.get(result_shape, inp.dtype),
+                               inp, reassoc_list))
+
+  raise NotImplementedError(inp, newaxis_dims)
 
 
 def _has_index_type(e: Any) -> bool:
@@ -748,6 +785,7 @@ def _indices_to_indexer(idx: Sequence[Any],
   idx = _canonicalize_tuple_index(idx, len(in_shape))
 
   in_axis = 0  # Current axis in input.
+  out_axis = 0  # Current axis in output.
   collapsed_dims: Sequence[int] = []
   indices: List[Tensor] = []
   indices_shape: List[int] = []
@@ -794,20 +832,37 @@ def _indices_to_indexer(idx: Sequence[Any],
       indices.append(idx_e)
       collapsed_dims.append(in_axis)
       in_axis += 1
+    # Handle newaxis (None)
+    elif idx_e is None:
+      newaxis_dims.append(out_axis)
+      out_axis += 1
     elif isinstance(idx_e, slice):
-      # Handle slice indices
+      # Normalize the slice to use None when possible
       start, stop, step = idx_e.start, idx_e.stop, idx_e.step
-      if idx_e != slice(None) and (start, stop, step) != (0, in_shape[in_axis],
-                                                          1):
-        raise IndexError(f"Partial slicing currently not supported:\n{idx}")
-
-      in_axis += 1
+      if step is None or step == 1:
+        step = None
+      if step is None:
+        if start is None or start == 0:
+          start = None
+        if stop is None or stop >= in_shape[in_axis]:
+          stop = None
+      # Handle slice(None) and slice(None, None, -1)
+      if (start is None and stop is None and
+          (step is None or isinstance(step, int) and step == -1)):
+        if step == -1:
+          raise IndexError(
+              f"Negative step indexing mode not yet supported:\n{idx}")
+        out_axis += 1
+        in_axis += 1
     else:
       raise IndexError(f"Indexing mode not yet supported:\n{idx}")
 
   collapsed_dims: Tuple[int, ...] = tuple(sorted(collapsed_dims))
 
-  if len(indices) == 1:
+  if len(indices) == 0:
+    # empty array
+    indices_tensor = None
+  elif len(indices) == 1:
     indices_tensor = indices[0]
   else:
     if len(indices_shape) == 0:
@@ -819,7 +874,7 @@ def _indices_to_indexer(idx: Sequence[Any],
         last_dim,
     )
 
-  if indices_tensor.is_constant():
+  if indices_tensor is not None and indices_tensor.is_constant():
     lit = indices_tensor.literal_value
     # flatten all but last dim (i.e., idx/coord dim)
     coords = lit.reshape(-1, lit.shape[-1])
@@ -849,12 +904,13 @@ def _build_gather(
 
   # We avoid generating a gather when indexer.indices is empty i.e., has any
   # zero dims.
-  if _is_empty(indexer.indices):
-    return out
+  if indexer.indices is not None and not _is_empty(indexer.indices):
+    out = gather(
+        out,
+        indexer.indices,
+        indexer.collapsed_dims,
+        unique_indices=unique_indices or indexer.unique_indices,
+    )
 
-  return gather(
-      out,
-      indexer.indices,
-      indexer.collapsed_dims,
-      unique_indices=unique_indices or indexer.unique_indices,
-  )
+  # This adds newaxis/None dimensions.
+  return _expand_dims(out, indexer.newaxis_dims)
