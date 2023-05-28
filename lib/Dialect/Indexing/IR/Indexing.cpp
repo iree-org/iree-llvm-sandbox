@@ -17,10 +17,6 @@
 #include "mlir/Support/MathExtras.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Support/Debug.h"
-#include <mlir/IR/BuiltinAttributes.h>
-
-#define DEBUG_TYPE "indexing-dialect"
 
 #include <numeric>
 
@@ -80,6 +76,12 @@ LogicalResult GatherOp::inferReturnTypes(
       /*rankReduced=*/true);
   inferredReturnTypes.assign({expectedResultType});
   return success();
+}
+
+bool GatherOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
+  if (l.size() != r.size() || l.size() != 1)
+    return false;
+  return succeeded(verifyCompatibleShape(l[0], r[0]));
 }
 
 //===----------------------------------------------------------------------===//

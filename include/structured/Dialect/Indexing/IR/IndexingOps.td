@@ -36,6 +36,9 @@ def Indexing_GatherOp : Indexing_Op<"gather", [
     $source `[` $indices `]` `gather_dims` `(` $gather_dims `)` (`unique` $unique^)? attr-dict
         `:` functional-type(operands, results)
   }];
+  let extraClassDeclaration = [{
+    static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
+  }];
 }
 
 def Indexing_ConcatenateOp : Indexing_Op<"concatenate",
@@ -79,7 +82,7 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
   let description = [{
     Example:
     ```mlir
-    %range = arange(%start, %stop, %step) -> tensor<?xi64>
+    %range = arange(%start, %stop, %step) -> tensor<?xindex>
     ```
     Values are generated within the half-open interval [start, stop), with spacing between values given by step.
   }];

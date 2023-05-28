@@ -10,11 +10,9 @@ from mlir_structured.ir import (
 
 
 @contextlib.contextmanager
-def mlir_mod_ctx(
-    src: Optional[str] = None,
-    context: Optional[Context] = None,
-    location: Optional[Location] = None,
-):
+def mlir_mod_ctx(src: Optional[str] = None,
+                 context: Optional[Context] = None,
+                 location: Optional[Location] = None):
   if context is None:
     try:
       context = Context.current
@@ -25,8 +23,8 @@ def mlir_mod_ctx(
     location = Location.unknown(context=context)
   with context, location:
     if src is not None:
-      module = Module.parse(src)
+      module = Module.parse(src, context=context)
     else:
-      module = Module.create()
+      module = Module.create(loc=location)
     with InsertionPoint(module.body):
       yield module
