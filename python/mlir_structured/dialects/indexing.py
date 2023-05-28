@@ -414,12 +414,121 @@ class Tensor(ArithValue, TensorValue):
            for d in idx) and len(idx) == len(self.shape):
       return Scalar(tensor.ExtractOp(self, idx))
     else:
-      return build_gather(self, tuple(idx))
+      return _build_gather(self, tuple(idx))
 
 
-###################
-# advanced indexing
-###################
+#######################
+# advanced indexing api
+#######################
+
+
+def concatenate(tens: Sequence[Tensor], dim) -> Tensor:
+  """Concatenate a sequence Tensors along dimension `dim`.
+
+  Args:
+    tens: Sequence of tensors all having the same shape, except for along
+      dimension `dim`.
+    dim: Dimension to concatenate along.
+
+  Returns:
+    Tensor that wraps a value that's either the result of index.concatenate
+    or (if all tensors are constant and foldable) the result of arith.constant.
+  """
+  if all(a.fold() for a in tens):
+    return Tensor(np.concatenate([a.literal_value for a in tens], axis=dim))
+  else:
+    return Tensor(ConcatenateOp(tens, dim))
+
+
+def gather(
+    operand: Tensor,
+    indices: Tensor,
+    gather_dims: Tuple[int, ...],
+    *,
+    unique_indices: bool = False,
+) -> Tensor:
+  return Tensor(
+      GatherOp(
+          source=operand,
+          indices=indices,
+          gather_dims=gather_dims,
+          unique=unique_indices,
+      ))
+
+
+def arange(start: Union[Scalar, int],
+           stop: Optional[Union[Scalar, int]] = None,
+           step: Optional[Union[Scalar, int]] = None,
+           fold=True):
+  """Return evenly spaced values within a given interval.
+
+  * ``arange(stop)``: Values are generated within the half-open interval
+    ``[0, stop)`` (in other words, the interval including `start` but
+    excluding `stop`).
+  * ``arange(start, stop)``: Values are generated within the half-open
+    interval ``[start, stop)``.
+  * ``arange(start, stop, step)`` Values are generated within the half-open
+    interval ``[start, stop)``, with spacing between values given by
+    ``step``.
+
+  Args:
+    start: Start of interval.  The interval includes this value.  The default
+            start value is 0.
+    stop: End of interval.  The interval does not include this value.
+    step: Spacing between values.  For any output `out`, this is the distance
+          between two adjacent values, ``out[i+1] - out[i]``.  The default
+          step size is 1.  If `step` is specified as a position argument,
+          `start` must also be given.
+    fold: Whether operations should be materialized as arrays immediately
+          (when possible).
+
+  Returns: Array of evenly spaced values (or handle to operation that
+           corresponds).
+  """
+  index = IndexType.get()
+  if isinstance(start, int):
+    start = Scalar(start, dtype=index)
+  if stop is None and step is None:
+    stop = start
+    start = 0
+    if stop.fold() and fold:
+      return Tensor(arange(start=start, stop=stop.literal_value, step=1),
+                    dtype=IndexType.get())
+    else:
+      return Tensor(ARangeOp(start=start, stop=stop, step=1),
+                    dtype=IndexType.get())
+  else:
+    if isinstance(stop, int):
+      stop = Scalar(stop, dtype=index)
+    if step is None and start.is_constant(
+    ) and start.literal_value == 0 and stop is not None:
+      if start.fold() and stop.fold() and fold:
+        return Tensor(np.arange(start=start.literal_value,
+                                stop=stop.literal_value,
+                                step=1),
+                      dtype=IndexType.get(),
+                      fold=True)
+      else:
+        return Tensor(ARangeOp(start=start, stop=stop, step=1),
+                      dtype=IndexType.get(),
+                      fold=start.fold() and stop.fold() and fold)
+    if isinstance(step, int):
+      step = Scalar(step, dtype=index)
+    if start.fold() and stop.fold() and step.fold() and fold:
+      return Tensor(np.arange(start=start.literal_value,
+                              stop=stop.literal_value,
+                              step=step.literal_value),
+                    dtype=IndexType.get(),
+                    fold=True)
+    else:
+      return Tensor(ARangeOp(start=start, stop=stop, step=step),
+                    dtype=IndexType.get(),
+                    fold=start.fold() and stop.fold() and step.fold() and fold)
+
+
+########################
+# advanced indexing impl
+########################
 
 
 class _Indexer(NamedTuple):
@@ -457,24 +566,6 @@ def _is_empty(ten: Tensor) -> bool:
                 (tuple, list)) and all(isinstance(s, int) for s in shape):
     return any(s == 0 for s in shape)
   raise NotImplementedError(shape)
-
-
-def concatenate(tens: Sequence[Tensor], dim) -> Tensor:
-  """Concatenate a sequence Tensors along dimension `dim`.
-
-  Args:
-    tens: Sequence of tensors all having the same shape, except for along
-      dimension `dim`.
-    dim: Dimension to concatenate along.
-
-  Returns:
-    Tensor that wraps a value that's either the result of index.concatenate
-    or (if all tensors are constant and foldable) the result of arith.constant.
-  """
-  if all(a.fold() for a in tens):
-    return Tensor(np.concatenate([a.literal_value for a in tens], axis=dim))
-  else:
-    return Tensor(ConcatenateOp(tens, dim))
 
 
 def _as_index_tensor(val) -> Tensor:
@@ -610,6 +701,36 @@ def _canonicalize_tuple_index(idx: Tuple[Any], rank: int):
   return idx
 
 
+def _compute_idx_tensor_extent(collapsed_dims, idx, idx_advanced_axes):
+  """Helper that the proper "extent" (in terms of dims spanned) of an index
+  Tensor.
+
+  For example, if ten ~ 10x10x10x10x10 and idx ~ 5x6x2 then
+  ten[:, idx, ...] means dims [1, 2] are collapsed (because each coordinate
+  tuple in idx has 2 coordinates and idx is indexing starting from the 1st dim).
+  While ten[idx, :, idx] means dims [0, 1, 3, 4] are collapsed.
+  Args:
+    collapsed_dims: Current collapsed dims (this helper is called in a loop
+      below that figures out all collapsed dims due to all indexing tensors).
+    idx: The total indexing object (for all dims).
+    idx_advanced_axes: Axes/dims in original indexing object that are advanced
+      indexers.
+  Returns: Updated collapsed dims.
+  """
+
+  prev_idx = collapsed_dims[-1] if len(collapsed_dims) else -1
+  for idx_pos, idx_e in enumerate(idx):
+    if idx_pos in idx_advanced_axes:
+      # Note it has already been verified that idx_e.shape is the same for all
+      # indexers.
+      collapsed_dims.extend(np.array(prev_idx + 1) + np.arange(idx_e.shape[-1]))
+      prev_idx = collapsed_dims[-1]
+    else:
+      prev_idx += 1
+
+  return collapsed_dims
+
+
 def _indices_to_indexer(idx: Sequence[Any],
                         in_shape: Sequence[int]) -> _Indexer:
   """Processes sequence of index objects and constructs _Indexer with
@@ -655,22 +776,10 @@ def _indices_to_indexer(idx: Sequence[Any],
         not advanced_axes_are_contiguous and idx_i == 0):
       if len(set([tuple(a.shape) for a in advanced_indexes])) != 1:
         raise IndexError("All advanced indices must have the same shape.")
-      shape = advanced_indexes[0].shape
-
       indices.extend(advanced_indexes)
-      indices_shape += shape
-
-      # Compute the proper "extent" of index Tensor, e.g., if ten ~ 10x10x10x10x10 and idx ~ 5x6x2
-      # then ten[:, idx, ...] means dims [1, 2] are collapsed and ten[idx, :, idx] means
-      # dims [0, 1, 3, 4] are collapsed.
-      # TODO(max): maybe there's a more "declarative" way to spell this...
-      prev_idx = collapsed_dims[-1] if len(collapsed_dims) else -1
-      for idx_pos, idx_ in enumerate(idx):
-        if idx_pos in idx_advanced_axes:
-          collapsed_dims.extend(np.array(prev_idx + 1) + np.arange(shape[-1]))
-          prev_idx = collapsed_dims[-1]
-        else:
-          prev_idx += 1
+      indices_shape += advanced_indexes[0].shape
+      collapsed_dims = _compute_idx_tensor_extent(collapsed_dims, idx,
+                                                  idx_advanced_axes)
 
     if idx_i in idx_advanced_axes:
       # skip ahead the number of coordinates, e.g., for a 5x6x2 idx tensor,
@@ -725,23 +834,7 @@ def _indices_to_indexer(idx: Sequence[Any],
   )
 
 
-def gather(
-    operand: Tensor,
-    indices: Tensor,
-    gather_dims: Tuple[int, ...],
-    *,
-    unique_indices: bool = False,
-) -> Tensor:
-  return Tensor(
-      GatherOp(
-          source=operand,
-          indices=indices,
-          gather_dims=gather_dims,
-          unique=unique_indices,
-      ))
-
-
-def build_gather(
+def _build_gather(
     ten: Tensor,
     idx,
     unique_indices=False,
