@@ -35,6 +35,33 @@ from ..ir import (
     register_attribute_builder,
 )
 
+NP_DTYPE_TO_MLIR_TYPE = lambda: {
+    np.int8:
+        IntegerType.get_signless(8),
+    np.int16:
+        IntegerType.get_signless(16),
+    np.int32:
+        IntegerType.get_signless(32),
+    np.int64:
+        IntegerType.get_signless(64),
+    # this is techincally wrong i guess but numpy by default casts python scalars to this
+    # so to support passing lists of ints we map this to index type
+    np.longlong:
+        IndexType.get(),
+    np.uintp:
+        IndexType.get(),
+    np.float16:
+        F16Type.get(),
+    np.float32:
+        F32Type.get(),
+    np.float64:
+        F64Type.get(),
+}
+
+MLIR_TYPE_TO_NP_DTYPE = lambda: {
+    v: k for k, v in NP_DTYPE_TO_MLIR_TYPE().items()
+}
+
 
 def infer_mlir_type(
     py_val: Union[int, float, bool, np.ndarray]
@@ -56,17 +83,7 @@ def infer_mlir_type(
   elif isinstance(py_val, float):
     return F64Type.get()
   elif isinstance(py_val, np.ndarray):
-    dtype = {
-        np.int8: IntegerType.get_signless(8),
-        np.int16: IntegerType.get_signless(16),
-        np.int32: IntegerType.get_signless(32),
-        np.int64: IntegerType.get_signless(64),
-        np.uintp: IndexType.get(),
-        np.longlong: IndexType.get(),
-        np.float16: F16Type.get(),
-        np.float32: F32Type.get(),
-        np.float64: F64Type.get(),
-    }[py_val.dtype.type]
+    dtype = NP_DTYPE_TO_MLIR_TYPE()[py_val.dtype.type]
     return RankedTensorType.get(py_val.shape, dtype)
   else:
     raise NotImplementedError(
@@ -96,6 +113,12 @@ def constant(
     type = IndexType.get()
   if type is None:
     type = infer_mlir_type(value)
+  elif RankedTensorType.isinstance(type) and isinstance(value,
+                                                        (int, float, bool)):
+    ranked_tensor_type = RankedTensorType(type)
+    value = np.ones(
+        ranked_tensor_type.shape,
+        dtype=MLIR_TYPE_TO_NP_DTYPE()[ranked_tensor_type.element_type])
   assert type is not None
 
   if isinstance(value, np.ndarray):
@@ -255,6 +278,9 @@ class ArithValue(metaclass=ArithValueMeta):
       performed then this will be a handle to an arith.constant op and
       otherwise to an arith(add|sub|mul) op.
     """
+    if not isinstance(other, self.__class__):
+      other = self.__class__(other, dtype=self.type)
+
     assert op in {"add", "sub", "mul"}
     if self.type != other.type:
       raise ValueError(f"{self=} {other=} must have the same type.")
@@ -283,6 +309,9 @@ class ArithValue(metaclass=ArithValueMeta):
   __add__ = partialmethod(__binary_op, op="add")
   __sub__ = partialmethod(__binary_op, op="sub")
   __mul__ = partialmethod(__binary_op, op="mul")
+  __radd__ = partialmethod(__binary_op, op="add")
+  __rsub__ = partialmethod(__binary_op, op="sub")
+  __rmul__ = partialmethod(__binary_op, op="mul")
 
 
 class Scalar(ArithValue, ScalarValue):

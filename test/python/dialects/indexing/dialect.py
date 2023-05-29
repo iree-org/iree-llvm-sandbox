@@ -821,3 +821,100 @@ def testNoneIndices():
       print(e)
 
   module.operation.verify()
+
+
+# CHECK-LABEL: TEST: testArithPythonValues
+@run
+def testArithPythonValues():
+  index = IndexType.get()
+  f32 = F32Type.get()
+  f64 = F64Type.get()
+  with mlir_mod_ctx() as module:
+
+    one = Scalar(1.0, dtype=f64, fold=False)
+    # CHECK: %[[VAL_0:.*]] = arith.constant 1.000000e+00 : f64
+    print(one.owner)
+
+    start = one * 100.0
+    # CHECK: %[[VAL_1:.*]] = arith.constant 1.000000e+02 : f64
+    print(start.owner.operands[1].owner)
+    # CHECK: %[[VAL_2:.*]] = arith.mulf %[[VAL_0]], %[[VAL_1]] : f64
+    print(start.owner)
+
+    start = 100.0 * one
+    # CHECK: %[[VAL_3:.*]] = arith.constant 1.000000e+02 : f64
+    print(start.owner.operands[1].owner)
+    # CHECK: %[[VAL_4:.*]] = arith.mulf %[[VAL_0]], %[[VAL_3]] : f64
+    print(start.owner)
+
+    start = one + 100.0
+    # CHECK: %[[VAL_5:.*]] = arith.constant 1.000000e+02 : f64
+    print(start.owner.operands[1].owner)
+    # CHECK: %[[VAL_6:.*]] = arith.addf %[[VAL_0]], %[[VAL_5]] : f64
+    print(start.owner)
+
+    start = 100.0 + one
+    # CHECK: %[[VAL_7:.*]] = arith.constant 1.000000e+02 : f64
+    print(start.owner.operands[1].owner)
+    # CHECK: %[[VAL_8:.*]] = arith.addf %[[VAL_0]], %[[VAL_7]] : f64
+    print(start.owner)
+
+    start = one - 100.0
+    # CHECK: %[[VAL_9:.*]] = arith.constant 1.000000e+02 : f64
+    print(start.owner.operands[1].owner)
+    # CHECK: %[[VAL_10:.*]] = arith.subf %[[VAL_0]], %[[VAL_9]] : f64
+    print(start.owner)
+
+    start = 100.0 - one
+    # CHECK: %[[VAL_11:.*]] = arith.constant 1.000000e+02 : f64
+    print(start.owner.operands[1].owner)
+    # CHECK: %[[VAL_12:.*]] = arith.subf %[[VAL_0]], %[[VAL_11]] : f64
+    print(start.owner)
+
+    ten = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]]), dtype=f64, fold=False)
+    # CHECK: %[[VAL_13:.*]] = arith.constant dense<{{\[\[}}1.000000e+00, 2.000000e+00], [3.000000e+00, 4.000000e+00]]> : tensor<2x2xf64>
+    print(ten.owner)
+
+    two_times_ten = ten * (2.0 * np.ones((2, 2)))
+    # CHECK: %[[VAL_14:.*]] = arith.constant dense<2.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_15:.*]] = arith.mulf %[[VAL_13]], %[[VAL_14]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+    two_times_ten = ten * 2.0
+    # CHECK: %[[VAL_16:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_17:.*]] = arith.mulf %[[VAL_13]], %[[VAL_16]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+    two_times_ten = 2.0 * ten
+    # CHECK: %[[VAL_18:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_19:.*]] = arith.mulf %[[VAL_13]], %[[VAL_18]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+    two_times_ten = ten + 2.0
+    # CHECK: %[[VAL_20:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_21:.*]] = arith.addf %[[VAL_13]], %[[VAL_20]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+    two_times_ten = 2.0 + ten
+    # CHECK: %[[VAL_22:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_23:.*]] = arith.addf %[[VAL_13]], %[[VAL_22]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+    two_times_ten = ten - 2.0
+    # CHECK: %[[VAL_24:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_25:.*]] = arith.subf %[[VAL_13]], %[[VAL_24]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+    two_times_ten = 2.0 - ten
+    # CHECK: %[[VAL_26:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
+    print(two_times_ten.owner.operands[1].owner)
+    # CHECK: %[[VAL_27:.*]] = arith.subf %[[VAL_13]], %[[VAL_26]] : tensor<2x2xf64>
+    print(two_times_ten.owner)
+
+  module.operation.verify()
