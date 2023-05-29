@@ -123,7 +123,7 @@ LogicalResult ARangeOp::inferReturnTypes(
     RegionRange regions, SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
   if (!operands.empty()) {
     inferredReturnTypes.assign({RankedTensorType::get(
-        {ShapedType::kDynamic}, IndexType::get(context))});
+        {ShapedType::kDynamic, 1}, IndexType::get(context))});
   } else if (!attributes.empty() &&
              attributes.contains(ARangeOp::getStartAttrAttrName(context)) &&
              attributes.contains(ARangeOp::getStopAttrAttrName(context)) &&
@@ -138,7 +138,7 @@ LogicalResult ARangeOp::inferReturnTypes(
                     .cast<IntegerAttr>()
                     .getInt();
     inferredReturnTypes.assign({RankedTensorType::get(
-        {getARangeLen(start, stop, step)}, IndexType::get(context))});
+        {getARangeLen(start, stop, step), 1}, IndexType::get(context))});
   } else {
     return failure();
   }
@@ -270,7 +270,7 @@ OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
   for (int64_t i = start; i < stop; i += step) {
     arange.push_back(i);
   }
-  auto type = RankedTensorType::get({len}, IndexType::get(getContext()));
+  auto type = RankedTensorType::get({len, 1}, IndexType::get(getContext()));
   return DenseElementsAttr::get(type, ArrayRef(arange));
 }
 

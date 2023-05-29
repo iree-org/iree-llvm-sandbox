@@ -627,12 +627,6 @@ def testAdvancedIndexing():
     # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[IDXTEN]]] gather_dims([0, 1, 3, 4]) unique : (tensor<7x22x333x4444x55555xf32>, tensor<3x4x4xindex>) -> tensor<3x4x333xf32>
     print(w.owner)
 
-    try:
-      w = ten[idx_tensor, 0:333:7, idx_tensor, ...]
-    except IndexError as e:
-      # CHECK: Partial slicing currently not supported
-      print(e)
-
 
 # CHECK-LABEL: TEST: testARangeOpBasics
 @run
@@ -652,35 +646,35 @@ def testARangeOpBasics():
     print(step.get_name())
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50x1xindex>
     print(ara.owner)
 
   module.operation.verify()
@@ -698,7 +692,7 @@ def testARangeFun():
     # CHECK: Value(%[[C2:.*]] = arith.constant 2 : index)
     print(ara.owner.operands[2])
 
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100, fold=False)
@@ -706,25 +700,25 @@ def testARangeFun():
     print(ara.owner.operands[0])
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[1])
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(100, fold=False)
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[0])
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100, 2)
-    # CHECK: %{{.*}} = arith.constant dense<[0, 2, 4, 6, 8, {{.*}}, 98]> : tensor<50xindex>
+    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [2], [4], [6], [8], {{.*}}, [98]]> : tensor<50x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100)
-    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, {{.*}}, 99]> : tensor<100xindex>
+    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
     print(ara.owner)
 
     ara = arange(100)
-    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, 5, 6, 7, {{.*}}, 99]> : tensor<100xindex>
+    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
     print(ara.owner)
 
   print(module.operation.verify())
@@ -756,10 +750,74 @@ def testARangeOpSemantics():
       step = np.random.randint(1, 100)
 
       ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-      r = np.arange(start, stop, step)
+      r = np.arange(start, stop, step)[:, np.newaxis]
 
       if len(r) != (stop - start) // step + 1:
         assert (stop - start) % step == 0
         assert len(r) == (stop - start) // step
 
       assert r.shape == ara.shape
+
+
+# CHECK-LABEL: TEST: testNoneIndices
+@run
+def testNoneIndices():
+  index = IndexType.get()
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 333, 4444), f32)
+    # CHECK: Tensor(%[[TEN:.*]], tensor<7x22x333x4444xf32>)
+    print(ten)
+
+    w = ten[None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2], [3], [4]] : tensor<7x22x333x4444xf32> into tensor<1x7x22x333x4444xf32>
+    print(w.owner)
+
+    w = ten[:, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2], [3], [4]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x333x4444xf32>
+    print(w.owner)
+
+    w = ten[None, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1, 2], [3], [4], [5]] : tensor<7x22x333x4444xf32> into tensor<1x7x1x22x333x4444xf32>
+    print(w.owner)
+
+    w = ten[:, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1, 2], [3], [4]] : tensor<7x22x333x4444xf32> into tensor<7x22x1x333x4444xf32>
+    print(w.owner)
+
+    w = ten[:, :, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1], [2, 3], [4]] : tensor<7x22x333x4444xf32> into tensor<7x22x333x1x4444xf32>
+    print(w.owner)
+
+    w = ten[:, :, :, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1], [2], [3, 4]] : tensor<7x22x333x4444xf32> into tensor<7x22x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[..., None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0], [1], [2], [3, 4]] : tensor<7x22x333x4444xf32> into tensor<7x22x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[:, None, :, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2], [3], [4, 5]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[:, None, None, :, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2, 3], [4], [5, 6]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x1x333x4444x1xf32>
+    print(w.owner)
+
+    w = ten[:, None, None, None, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1], [2, 3], [4, 5], [6, 7]] : tensor<7x22x333x4444xf32> into tensor<7x1x22x1x333x1x4444x1xf32>
+    print(w.owner)
+
+    w = ten[None, None, None, None, None]
+    # CHECK: %{{.*}} = tensor.expand_shape %[[TEN]] {{\[}}[0, 1, 2], [3, 4], [5, 6], [7, 8]] : tensor<7x22x333x4444xf32> into tensor<1x7x1x22x1x333x1x4444x1xf32>
+    print(w.owner)
+
+    try:
+      w = ten[None, None, None, None, None, None]
+      print(w.owner)
+    except IndexError as e:
+      # CHECK: pop index out of range
+      print(e)
+
+  module.operation.verify()
