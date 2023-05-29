@@ -14,6 +14,7 @@ from . import arith, tensor
 from ._arith_ops_ext import _is_integer_like_type
 from ._indexing_ops_gen import *
 from ._ods_common import get_op_result_or_value
+from ._structured_transform_ops_ext import _get_int_int_array_attr
 from .linalg.opdsl.lang.emitter import _is_floating_point_type
 from .._mlir_libs._structuredDialects.indexing import *
 from ..ir import (
@@ -22,6 +23,7 @@ from ..ir import (
     F32Type,
     F64Type,
     FloatAttr,
+    IndexType,
     IntegerAttr,
     IntegerType,
     OpView,
@@ -59,8 +61,8 @@ def infer_mlir_type(
         np.int16: IntegerType.get_signless(16),
         np.int32: IntegerType.get_signless(32),
         np.int64: IntegerType.get_signless(64),
-        np.uintp: IntegerType.get_signless(64),
-        np.longlong: IntegerType.get_signless(64),
+        np.uintp: IndexType.get(),
+        np.longlong: IndexType.get(),
         np.float16: F16Type.get(),
         np.float32: F32Type.get(),
         np.float64: F64Type.get(),
@@ -91,7 +93,7 @@ def constant(
     ir.OpView instance that corresponds to instantiated arith.constant op.
   """
   if index is not None and index:
-    type = IntegerType.get_signless(64)
+    type = IndexType.get()
   if type is None:
     type = infer_mlir_type(value)
   assert type is not None
@@ -375,7 +377,7 @@ class Tensor(ArithValue, TensorValue):
     indexing with slicing like ten[0, :, 1, :], and indexing with lists and tensors is mapped
     to IR like
         indexing.gather %[ten][...%idx_tensor...] gather_dims([0]) unique
-          : (tensor<10x10x10x10xf32>, tensor<2x1xi64>) -> tensor<2x10x10x10xf32>
+          : (tensor<10x10x10x10xf32>, tensor<2x1xindex>) -> tensor<2x10x10x10xf32>
 
     One particular case to emphasize: indexing with multiple advanced indexors (tensors or lists)
     For example, ten[ [[0], [0]] , [[1], [1]] , :, :] where the two separate advanced indexers are
@@ -385,14 +387,14 @@ class Tensor(ArithValue, TensorValue):
     The IR generated is like
 
         indexing.gather %ten[%idx_gensor] gather_dims([0, 1]) unique
-          : (tensor<10x10x10x10xf32>, tensor<2x2xi64>) -> tensor<2x10x10xf32>
+          : (tensor<10x10x10x10xf32>, tensor<2x2xindex>) -> tensor<2x10x10xf32>
 
     For non-contiguous advanced indexers (i.e., indexing objects inserted at non-contiguous positions in the
     indexing tuple), e.g., ten[ [[0], [0]] , :, [[1], [1]] , :], exactly the same things occur and the only thing
     that changes is gather_dims reflect the alternate dimensions:
 
         indexing.gather %ten[%idx_gensor] gather_dims([0, 2]) unique
-          : (tensor<10x10x10x10xf32>, tensor<2x2xi64>) -> tensor<2x10x10xf32>
+          : (tensor<10x10x10x10xf32>, tensor<2x2xindex>) -> tensor<2x10x10xf32>
 
     i.e., this is a mechanism for expressing non-contiguous gather_dims.
 
@@ -407,7 +409,7 @@ class Tensor(ArithValue, TensorValue):
     idx = list((idx,) if isinstance(idx, int) else idx)
     for i, d in enumerate(idx):
       if isinstance(d, int):
-        idx[i] = Scalar(arith.ConstantOp(IntegerType.get_signless(64), d))
+        idx[i] = Scalar(arith.ConstantOp.create_index(d))
 
     if all(isinstance(d, Scalar) and d.is_constant()
            for d in idx) and len(idx) == len(self.shape):
@@ -609,8 +611,7 @@ def _has_index_type(e: Any) -> bool:
   """
   return isinstance(e, int) or isinstance(e, np.ndarray) and e.dtype in {
       np.uintp, np.longlong
-  } or isinstance(e, (Tensor, Scalar)) and IntegerType.isinstance(
-      e.dtype) and IntegerType(e.type).width == 64
+  } or isinstance(e, (Tensor, Scalar)) and IndexType.isinstance(e.dtype)
 
 
 def _is_scalar(e: Any) -> bool:
@@ -625,7 +626,7 @@ def _is_scalar(e: Any) -> bool:
 def _is_index_tensor(x):
   """Returns True if x is a Tensor with index dtype, False otherwise."""
   return (isinstance(x, Value) and Tensor.isinstance(x) and
-          (IntegerType.isinstance(x.dtype) and IntegerType(x.dtype).width == 64))
+          (IndexType.isinstance(x.dtype) or IntegerType.isinstance(x.dtype)))
 
 
 def _is_int_arraylike(x):
