@@ -652,35 +652,35 @@ def testARangeOpBasics():
     print(step.get_name())
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50x1xindex>
     print(ara.owner)
 
   module.operation.verify()
@@ -698,7 +698,7 @@ def testARangeFun():
     # CHECK: Value(%[[C2:.*]] = arith.constant 2 : index)
     print(ara.owner.operands[2])
 
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100, fold=False)
@@ -706,25 +706,25 @@ def testARangeFun():
     print(ara.owner.operands[0])
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[1])
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(100, fold=False)
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[0])
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100, 2)
-    # CHECK: %{{.*}} = arith.constant dense<[0, 2, 4, 6, 8, {{.*}}, 98]> : tensor<50xindex>
+    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [2], [4], [6], [8], {{.*}}, [98]]> : tensor<50x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100)
-    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, {{.*}}, 99]> : tensor<100xindex>
+    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
     print(ara.owner)
 
     ara = arange(100)
-    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, 5, 6, 7, {{.*}}, 99]> : tensor<100xindex>
+    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
     print(ara.owner)
 
   print(module.operation.verify())
@@ -756,7 +756,7 @@ def testARangeOpSemantics():
       step = np.random.randint(1, 100)
 
       ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-      r = np.arange(start, stop, step)
+      r = np.arange(start, stop, step)[:, np.newaxis]
 
       if len(r) != (stop - start) // step + 1:
         assert (stop - start) % step == 0

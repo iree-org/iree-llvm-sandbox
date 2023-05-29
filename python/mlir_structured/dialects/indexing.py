@@ -492,7 +492,8 @@ def arange(start: Union[Scalar, int],
     stop = start
     start = 0
     if stop.fold() and fold:
-      return Tensor(arange(start=start, stop=stop.literal_value, step=1),
+      return Tensor(np.arange(start=start, stop=stop.literal_value,
+                              step=1)[:, np.newaxis],
                     dtype=IndexType.get())
     else:
       return Tensor(ARangeOp(start=start, stop=stop, step=1),
@@ -505,7 +506,7 @@ def arange(start: Union[Scalar, int],
       if start.fold() and stop.fold() and fold:
         return Tensor(np.arange(start=start.literal_value,
                                 stop=stop.literal_value,
-                                step=1),
+                                step=1)[:, np.newaxis],
                       dtype=IndexType.get(),
                       fold=True)
       else:
@@ -517,7 +518,7 @@ def arange(start: Union[Scalar, int],
     if start.fold() and stop.fold() and step.fold() and fold:
       return Tensor(np.arange(start=start.literal_value,
                               stop=stop.literal_value,
-                              step=step.literal_value),
+                              step=step.literal_value)[:, np.newaxis],
                     dtype=IndexType.get(),
                     fold=True)
     else:
