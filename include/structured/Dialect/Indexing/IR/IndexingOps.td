@@ -79,22 +79,22 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
     Values are generated within the half-open interval [start, stop), with spacing between values given by step.
   }];
 
-  let arguments = (ins Optional<I64>:$start,
-                       Optional<I64>:$stop,
-                       Optional<I64>:$step,
-                       OptionalAttr<I64Attr>:$startAttr,
-                       OptionalAttr<I64Attr>:$stopAttr,
-                       OptionalAttr<I64Attr>:$stepAttr);
-  let results = (outs 1DTensorOf<[AnyInteger, Index]>:$result);
+  let arguments = (ins Optional<Index>:$start,
+                       Optional<Index>:$stop,
+                       Optional<Index>:$step,
+                       OptionalAttr<IndexAttr>:$startAttr,
+                       OptionalAttr<IndexAttr>:$stopAttr,
+                       OptionalAttr<IndexAttr>:$stepAttr);
+  let results = (outs 1DTensorOf<[Index]>:$result);
   // the reason for the extra double backtick in (```start
   // is because otherwise an extraneous space is emitted in the pretty print
   let assemblyFormat = [{
     `(`
-        (`start` `=` $start^)? (```start` `=` $startAttr^)?
+        `start` `=` ($start^) : ($startAttr)?
         `,`
-        (`stop` `=` $stop^)? (`stop` `=` $stopAttr^)?
+        `stop` `=` ($stop^) : ($stopAttr)?
         `,`
-        (`step` `=` $step^)? (`step` `=` $stepAttr^)?
+        `step` `=` ($step^) : ($stepAttr)?
     `)` attr-dict `:` type($result)
   }];
 

@@ -57,20 +57,20 @@ class ARangeOp:
     if startAttr is not None:
       attributes["startAttr"] = (startAttr if
                                  (issubclass(type(startAttr), ir.Attribute) or
-                                  not ir.AttrBuilder.contains('I64Attr')) else
-                                 ir.AttrBuilder.get('I64Attr')(
+                                  not ir.AttrBuilder.contains('IndexAttr')) else
+                                 ir.AttrBuilder.get('IndexAttr')(
                                      startAttr, context=_ods_context))
     if stopAttr is not None:
       attributes["stopAttr"] = (stopAttr if
                                 (issubclass(type(stopAttr), ir.Attribute) or
-                                 not ir.AttrBuilder.contains('I64Attr')) else
-                                ir.AttrBuilder.get('I64Attr')(
+                                 not ir.AttrBuilder.contains('IndexAttr')) else
+                                ir.AttrBuilder.get('IndexAttr')(
                                     stopAttr, context=_ods_context))
     if stepAttr is not None:
       attributes["stepAttr"] = (stepAttr if
                                 (issubclass(type(stepAttr), ir.Attribute) or
-                                 not ir.AttrBuilder.contains('I64Attr')) else
-                                ir.AttrBuilder.get('I64Attr')(
+                                 not ir.AttrBuilder.contains('IndexAttr')) else
+                                ir.AttrBuilder.get('IndexAttr')(
                                     stepAttr, context=_ods_context))
     results = ir.InferTypeOpInterface(ARangeOp).inferReturnTypes(
         operands=operands,
