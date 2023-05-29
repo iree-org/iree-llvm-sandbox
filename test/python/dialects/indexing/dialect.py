@@ -4,7 +4,6 @@ from random import random
 
 import numpy as np
 
-from mlir_structured._mlir_libs._mlir.ir import IndexType, F32Type
 from mlir_structured.dialects import arith, indexing
 from mlir_structured.dialects.indexing import (Scalar, Tensor, IndexTensorType,
                                                _canonicalize_tuple_index,
@@ -638,50 +637,53 @@ def testAdvancedIndexing():
 # CHECK-LABEL: TEST: testARangeOpBasics
 @run
 def testARangeOpBasics():
+  index = IndexType.get()
   with mlir_mod_ctx() as module:
-    start = Scalar(0)
+    start = Scalar(0, dtype=index)
     # CHECK: %[[START:.*]]
     print(start.get_name())
 
-    stop = Scalar(100)
+    stop = Scalar(100, dtype=index)
     # CHECK: %[[STOP:.*]]
     print(stop.get_name())
 
-    step = Scalar(2)
+    step = Scalar(2, dtype=index)
     # CHECK: %[[STEP:.*]]
     print(step.get_name())
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50xindex>
     print(ara.owner)
+
+  module.operation.verify()
 
 
 # CHECK-LABEL: TEST: testARangeFun
@@ -689,41 +691,43 @@ def testARangeOpBasics():
 def testARangeFun():
   with mlir_mod_ctx() as module:
     ara = arange(0, 100, 2, fold=False)
-    # CHECK: Value(%[[ZERO:.*]] = "arith.constant"() <{value = 0 : index}> : () -> index)
+    # CHECK: Value(%[[C0:.*]] = arith.constant 0 : index)
     print(ara.owner.operands[0])
-    # CHECK: Value(%[[HUNDO:.*]] = "arith.constant"() <{value = 100 : index}> : () -> index)
+    # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[1])
-    # CHECK: Value(%[[TWO:.*]] = "arith.constant"() <{value = 2 : index}> : () -> index)
+    # CHECK: Value(%[[C2:.*]] = arith.constant 2 : index)
     print(ara.owner.operands[2])
 
-    # CHECK: %{{.*}} = "indexing.arange"(%[[ZERO]], %[[HUNDO]], %[[TWO]]) {operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = arange(0, 100, fold=False)
-    # CHECK: Value(%[[ZERO:.*]] = "arith.constant"() <{value = 0 : index}> : () -> index)
+    # CHECK: Value(%[[C0:.*]] = arith.constant 0 : index)
     print(ara.owner.operands[0])
-    # CHECK: Value(%[[HUNDO:.*]] = "arith.constant"() <{value = 100 : index}> : () -> index)
+    # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[1])
-    # CHECK: %{{.*}} = "indexing.arange"(%[[ZERO]], %[[HUNDO]]) {operand_segment_sizes = array<i32: 1, 1, 0>, stepAttr = 1 : i64} : (index, index) -> tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) : tensor<?xindex>
     print(ara.owner)
 
     ara = arange(100, fold=False)
-    # CHECK: Value(%[[HUNDO:.*]] = "arith.constant"() <{value = 100 : index}> : () -> index)
+    # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[0])
-    # CHECK: %{{.*}} = "indexing.arange"(%[[HUNDO]]) {operand_segment_sizes = array<i32: 0, 1, 0>, startAttr = 0 : i64, stepAttr = 1 : i64} : (index) -> tensor<?xi64>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?xindex>
     print(ara.owner)
 
     ara = arange(0, 100, 2)
-    # CHECK: %{{.*}} = "arith.constant"() <{value = dense<[0, 2, 4, 6, 8, 10, {{.*}}, 98]> : tensor<50xindex>}> : () -> tensor<50xindex>
+    # CHECK: %{{.*}} = arith.constant dense<[0, 2, 4, 6, 8, {{.*}}, 98]> : tensor<50xindex>
     print(ara.owner)
 
     ara = arange(0, 100)
-    # CHECK: %{{.*}} = "arith.constant"() <{value = dense<[0, 1, 2, 3, 4, 5, 6, 7, {{.*}}, 99]> : tensor<100xindex>}> : () -> tensor<100xindex>
+    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, {{.*}}, 99]> : tensor<100xindex>
     print(ara.owner)
 
     ara = arange(100)
-    # CHECK: %{{.*}} = "arith.constant"() <{value = dense<[0, 1, 2, 3, 4, 5, 6, 7, {{.*}}, 99]> : tensor<100xindex>}> : () -> tensor<100xindex>
+    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, 5, 6, 7, {{.*}}, 99]> : tensor<100xindex>
     print(ara.owner)
+
+  print(module.operation.verify())
 
 
 # CHECK-LABEL: TEST: testARangeOpSemantics
@@ -734,14 +738,15 @@ def testARangeFun():
 #       else (stop - start) // step
 @run
 def testARangeOpSemantics():
+  index = IndexType.get()
   with mlir_mod_ctx() as module:
-    start = Scalar(0)
+    start = Scalar(0, dtype=index)
     # CHECK: %[[START:.*]]
     print(start.get_name())
-    stop = Scalar(100)
+    stop = Scalar(100, dtype=index)
     # CHECK: %[[STOP:.*]]
     print(stop.get_name())
-    step = Scalar(2)
+    step = Scalar(2, dtype=index)
     # CHECK: %[[STEP:.*]]
     print(step.get_name())
 

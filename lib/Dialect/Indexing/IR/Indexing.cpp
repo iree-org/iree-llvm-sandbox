@@ -18,6 +18,7 @@
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include <mlir/IR/BuiltinAttributes.h>
 
 #define DEBUG_TYPE "indexing-dialect"
 
@@ -122,7 +123,7 @@ LogicalResult ARangeOp::inferReturnTypes(
     RegionRange regions, SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
   if (!operands.empty()) {
     inferredReturnTypes.assign({RankedTensorType::get(
-        {ShapedType::kDynamic}, IntegerType::get(context, 64))});
+        {ShapedType::kDynamic}, IndexType::get(context))});
   } else if (!attributes.empty() &&
              attributes.contains(ARangeOp::getStartAttrAttrName(context)) &&
              attributes.contains(ARangeOp::getStopAttrAttrName(context)) &&
@@ -137,7 +138,7 @@ LogicalResult ARangeOp::inferReturnTypes(
                     .cast<IntegerAttr>()
                     .getInt();
     inferredReturnTypes.assign({RankedTensorType::get(
-        {getARangeLen(start, stop, step)}, IntegerType::get(context, 64))});
+        {getARangeLen(start, stop, step)}, IndexType::get(context))});
   } else {
     return failure();
   }
@@ -160,14 +161,16 @@ LogicalResult ARangeOp::verify() {
   if (getStepAttr() && getStep())
     return emitError(
         "Step can only be provided as either an attribute or an operand");
-  if (getStartAttr() && getStartAttr().value() < 0)
+  if (getStartAttr() && getStartAttr().value().getSExtValue() < 0)
     return emitError("Start must be >= 0.");
-  if (getStopAttr() && getStopAttr().value() < 1)
+  if (getStopAttr() && getStopAttr().value().getSExtValue() < 1)
     return emitError("Stop must be > 0.");
-  if (getStepAttr() && getStepAttr().value() < 1)
+  if (getStepAttr() && getStepAttr().value().getSExtValue() < 1)
     return emitError("Step must be > 0.");
   if (getStartAttr() and getStopAttr() and
-      getStopAttr().value() - getStartAttr().value() <= 1)
+      getStopAttr().value().getSExtValue() -
+              getStartAttr().value().getSExtValue() <=
+          1)
     return emitError("Stop - Start must be > 1");
   return success();
 }
@@ -188,7 +191,7 @@ struct ARangeOpPattern : public RewritePattern {
         llvm::any_of(op->getOperands(), [](Value op) {
           arith::ConstantOp arithCst =
               dyn_cast<arith::ConstantOp>(op.getDefiningOp());
-          return arithCst && arithCst.getValue().dyn_cast<IntegerAttr>();
+          return arithCst && arithCst.getValue().getType().isa<IndexType>();
         })) {
       return success();
     }
@@ -259,15 +262,15 @@ OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
       !adaptor.getStepAttr())
     return {};
 
-  int64_t start = adaptor.getStartAttr().value(),
-          stop = adaptor.getStopAttr().value(),
-          step = adaptor.getStepAttr().value();
+  int64_t start = adaptor.getStartAttr().value().getSExtValue(),
+          stop = adaptor.getStopAttr().value().getSExtValue(),
+          step = adaptor.getStepAttr().value().getSExtValue();
   std::vector<int64_t> arange;
   auto len = getARangeLen(start, stop, step);
   for (int64_t i = start; i < stop; i += step) {
     arange.push_back(i);
   }
-  auto type = RankedTensorType::get({len}, IntegerType::get(getContext(), 64));
+  auto type = RankedTensorType::get({len}, IndexType::get(getContext()));
   return DenseElementsAttr::get(type, ArrayRef(arange));
 }
 
