@@ -41,6 +41,28 @@ def Indexing_GatherOp : Indexing_Op<"gather", [
   }];
 }
 
+def Indexing_ScatterOp : Indexing_Op<"scatter", [
+    Pure,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>,
+    AllTypesMatch<["dest", "result"]>
+  ]> {
+  let arguments = (ins AnyRankedTensor:$source,
+                       AnyRankedTensor:$dest,
+                       RankedTensorOf<[AnySignlessIntegerOrIndex]>:$indices,
+                       DenseI64ArrayAttr:$scatter_dims,
+                       UnitAttr:$unique);
+  let results = (outs AnyRankedTensor:$result);
+
+  let assemblyFormat = [{
+    $source `into` $dest `[` $indices `]` `scatter_dims` `(` $scatter_dims `)` (`unique` $unique^)? attr-dict
+        `:` functional-type(operands, results)
+  }];
+  let extraClassDeclaration = [{
+    static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
+  }];
+}
+
+
 def Indexing_ConcatenateOp : Indexing_Op<"concatenate",
     [Pure, SameOperandsAndResultElementType,
      DeclareOpInterfaceMethods<InferTypeOpInterface>]> {

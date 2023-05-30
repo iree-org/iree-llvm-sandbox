@@ -85,6 +85,16 @@ bool GatherOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
 }
 
 //===----------------------------------------------------------------------===//
+// ScatterOp
+//===----------------------------------------------------------------------===//
+
+bool ScatterOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
+  if (l.size() != r.size() || l.size() != 1)
+    return false;
+  return succeeded(verifyCompatibleShape(l[0], r[0]));
+}
+
+//===----------------------------------------------------------------------===//
 // ConcatenateOp
 //===----------------------------------------------------------------------===//
 

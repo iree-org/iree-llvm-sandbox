@@ -1070,3 +1070,237 @@ def testArbitrarySlicingDyn():
   # CHECK:         }
   # CHECK:       }
   print(module)
+
+
+# CHECK-LABEL: TEST: testSimpleLiteralScatter
+@run
+def testSimpleLiteralScatter():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+    w = ten[0]
+    ten[0] = w
+
+    try:
+      ten[0, 0] = w
+    except AssertionError as e:
+      # CHECK: Expected matching shape for dest slice result_shape=(1, 330, 4400) and source source.shape=(1, 22, 330, 4400)
+      print(e)
+
+    w = ten[0, 0]
+    ten[0, 0] = w
+
+    try:
+      ten[0, 0, 0] = w
+    except AssertionError as e:
+      # CHECK: Expected matching shape for dest slice result_shape=(1, 4400) and source source.shape=(1, 330, 4400)
+      print(e)
+
+    w = ten[0, 0, 0]
+    ten[0, 0, 0] = w
+
+    try:
+      ten[0, 0, 0, 0] = w
+    except AssertionError as e:
+      # CHECK: Expected matching shape for dest slice result_shape=(1,) and source source.shape=(1, 4400)
+      print(e)
+
+    w = ten[0, 0, 0, 0]
+    ten[0, 0, 0, 0] = w
+
+  module.operation.verify()
+
+  pm = PassManager.parse('builtin.module(cse)')
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant dense<0> : tensor<1x1xindex>
+  # CHECK:         %[[VAL_2:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_1]]] gather_dims([0]) unique : (tensor<7x22x330x4400xf32>, tensor<1x1xindex>) -> tensor<1x22x330x4400xf32>
+  # CHECK:         %[[VAL_3:.*]] = indexing.scatter %[[VAL_2]] into %[[VAL_0]]{{\[}}%[[VAL_1]]] scatter_dims([0]) unique : (tensor<1x22x330x4400xf32>, tensor<7x22x330x4400xf32>, tensor<1x1xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_4:.*]] = arith.constant dense<0> : tensor<1x2xindex>
+  # CHECK:         %[[VAL_5:.*]] = indexing.gather %[[VAL_3]]{{\[}}%[[VAL_4]]] gather_dims([0, 1]) unique : (tensor<7x22x330x4400xf32>, tensor<1x2xindex>) -> tensor<1x330x4400xf32>
+  # CHECK:         %[[VAL_6:.*]] = indexing.scatter %[[VAL_5]] into %[[VAL_3]]{{\[}}%[[VAL_4]]] scatter_dims([0, 1]) unique : (tensor<1x330x4400xf32>, tensor<7x22x330x4400xf32>, tensor<1x2xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_7:.*]] = arith.constant dense<0> : tensor<1x3xindex>
+  # CHECK:         %[[VAL_8:.*]] = indexing.gather %[[VAL_6]]{{\[}}%[[VAL_7]]] gather_dims([0, 1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<1x3xindex>) -> tensor<1x4400xf32>
+  # CHECK:         %[[VAL_9:.*]] = indexing.scatter %[[VAL_8]] into %[[VAL_6]]{{\[}}%[[VAL_7]]] scatter_dims([0, 1, 2]) unique : (tensor<1x4400xf32>, tensor<7x22x330x4400xf32>, tensor<1x3xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_10:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_11:.*]] = tensor.extract %[[VAL_9]]{{\[}}%[[VAL_10]], %[[VAL_10]], %[[VAL_10]], %[[VAL_10]]] : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_12:.*]] = tensor.from_elements %[[VAL_11]] : tensor<1xf32>
+  # CHECK:         %[[VAL_13:.*]] = arith.constant dense<0> : tensor<1x4xindex>
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testWholeSliceScatter
+@run
+def testWholeSliceScatter():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+    print(ten.owner)
+
+    w = ten[0]
+    try:
+      ten[:, 0, 0, 0] = w
+    except AssertionError as e:
+      # CHECK: Expected matching shape for dest slice result_shape=(1, 7) and source source.shape=(1, 22, 330, 4400)
+      print(e)
+
+    w = ten[:, 0, 0, 0]
+    ten[:, 0, 0, 0] = w
+
+    try:
+      ten[:, :, 0, 0] = w
+    except AssertionError as e:
+      # CHECK: Expected matching shape for dest slice result_shape=(1, 7, 22) and source source.shape=(1, 7)
+      print(e)
+
+    w = ten[:, :, 0, 0]
+    ten[:, :, 0, 0] = w
+
+    try:
+      ten[:, :, :, 0] = w
+    except AssertionError as e:
+      # CHECK: Expected matching shape for dest slice result_shape=(1, 7, 22, 330) and source source.shape=(1, 7, 22)
+      print(e)
+
+    w = ten[:, :, :, 0]
+    ten[:, :, :, 0] = w
+
+    try:
+      ten[:, :, :, :] = w
+    except AssertionError as e:
+      # Expected matching shape for dest slice self.shape=(7, 22, 330, 4400) and source source.shape=(1, 7, 22, 330)
+      print(e)
+
+    w = ten[:, :, :, :]
+    ten[:, :, :, :] = w
+
+  module.operation.verify()
+
+  pm = PassManager.parse('builtin.module(cse)')
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant dense<0> : tensor<1x1xindex>
+  # CHECK:         %[[VAL_2:.*]] = arith.constant dense<0> : tensor<1x3xindex>
+  # CHECK:         %[[VAL_3:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_2]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<1x3xindex>) -> tensor<1x7xf32>
+  # CHECK:         %[[VAL_4:.*]] = indexing.scatter %[[VAL_3]] into %[[VAL_0]]{{\[}}%[[VAL_2]]] scatter_dims([1, 2, 3]) unique : (tensor<1x7xf32>, tensor<7x22x330x4400xf32>, tensor<1x3xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_5:.*]] = arith.constant dense<0> : tensor<1x2xindex>
+  # CHECK:         %[[VAL_6:.*]] = indexing.gather %[[VAL_4]]{{\[}}%[[VAL_5]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<1x2xindex>) -> tensor<1x7x22xf32>
+  # CHECK:         %[[VAL_7:.*]] = indexing.scatter %[[VAL_6]] into %[[VAL_4]]{{\[}}%[[VAL_5]]] scatter_dims([2, 3]) unique : (tensor<1x7x22xf32>, tensor<7x22x330x4400xf32>, tensor<1x2xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_8:.*]] = indexing.gather %[[VAL_7]]{{\[}}%[[VAL_1]]] gather_dims([3]) unique : (tensor<7x22x330x4400xf32>, tensor<1x1xindex>) -> tensor<1x7x22x330xf32>
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testStaticSliceScatter
+@run
+def testStaticSliceScatter():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+    w = ten[:, arange(start=0, stop=22, step=2, fold=True)]
+    ten[:, arange(start=0, stop=22, step=2, fold=True)] = w
+
+    w = ten[:,
+            arange(start=0, stop=22, step=2, fold=True),
+            arange(start=0, stop=330, step=30, fold=True)]
+    ten[:,
+        arange(start=0, stop=22, step=2, fold=True),
+        arange(start=0, stop=330, step=30, fold=True)] = w
+
+    w = ten[:,
+            arange(start=0, stop=22, step=2, fold=True),
+            arange(start=0, stop=330, step=30, fold=True),
+            arange(start=0, stop=4400, step=400, fold=True)]
+    ten[:,
+        arange(start=0, stop=22, step=2, fold=True),
+        arange(start=0, stop=330, step=30, fold=True),
+        arange(start=0, stop=4400, step=400, fold=True)] = w
+
+    w = ten[:, :,
+            arange(start=100, stop=200, step=5, fold=True),
+            arange(start=1000, stop=2000, step=50, fold=True)]
+    ten[:, :,
+        arange(start=100, stop=200, step=5, fold=True),
+        arange(start=1000, stop=2000, step=50, fold=True)] = w
+
+  module.operation.verify()
+
+  pm = PassManager.parse('builtin.module(cse)')
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant dense<{{\[\[}}0], [2], [4], [6], [8], [10], [12], [14], [16], [18], [20]]> : tensor<11x1xindex>
+  # CHECK:         %[[VAL_2:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_1]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<11x1xindex>) -> tensor<11x7x330x4400xf32>
+  # CHECK:         %[[VAL_3:.*]] = indexing.scatter %[[VAL_2]] into %[[VAL_0]]{{\[}}%[[VAL_1]]] scatter_dims([1]) unique : (tensor<11x7x330x4400xf32>, tensor<7x22x330x4400xf32>, tensor<11x1xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_4:.*]] = arith.constant dense<{{\[\[}}0, 0], [2, 30], [4, 60], [6, 90], [8, 120], [10, 150], [12, 180], [14, 210], [16, 240], [18, 270], [20, 300]]> : tensor<11x2xindex>
+  # CHECK:         %[[VAL_5:.*]] = indexing.gather %[[VAL_3]]{{\[}}%[[VAL_4]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<11x2xindex>) -> tensor<11x7x4400xf32>
+  # CHECK:         %[[VAL_6:.*]] = indexing.scatter %[[VAL_5]] into %[[VAL_3]]{{\[}}%[[VAL_4]]] scatter_dims([1, 2]) unique : (tensor<11x7x4400xf32>, tensor<7x22x330x4400xf32>, tensor<11x2xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_7:.*]] = arith.constant dense<{{\[\[}}0, 0, 0], [2, 30, 400], [4, 60, 800], [6, 90, 1200], [8, 120, 1600], [10, 150, 2000], [12, 180, 2400], [14, 210, 2800], [16, 240, 3200], [18, 270, 3600], [20, 300, 4000]]> : tensor<11x3xindex>
+  # CHECK:         %[[VAL_8:.*]] = indexing.gather %[[VAL_6]]{{\[}}%[[VAL_7]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<11x3xindex>) -> tensor<11x7xf32>
+  # CHECK:         %[[VAL_9:.*]] = indexing.scatter %[[VAL_8]] into %[[VAL_6]]{{\[}}%[[VAL_7]]] scatter_dims([1, 2, 3]) unique : (tensor<11x7xf32>, tensor<7x22x330x4400xf32>, tensor<11x3xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_10:.*]] = arith.constant dense<{{\[\[}}100, 1000], [105, 1050], [110, 1100], [115, 1150], [120, 1200], [125, 1250], [130, 1300], [135, 1350], [140, 1400], [145, 1450], [150, 1500], [155, 1550], [160, 1600], [165, 1650], [170, 1700], [175, 1750], [180, 1800], [185, 1850], [190, 1900], [195, 1950]]> : tensor<20x2xindex>
+  # CHECK:         %[[VAL_11:.*]] = indexing.gather %[[VAL_9]]{{\[}}%[[VAL_10]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<20x2xindex>) -> tensor<20x7x22xf32>
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testDynSliceScatter
+@run
+def testDynSliceScatter():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+    w = ten[:, 0:22:2]
+    ten[:, 0:22:2] = w
+
+    w = ten[:, 0:22:2, 0:330:30]
+    ten[:, 0:22:2, 0:330:30] = w
+
+    w = ten[:, 0:22:2, 0:330:30, 0:4400:400]
+    ten[:, 0:22:2, 0:330:30, 0:4400:400] = w
+
+    w = ten[:, :, 100:200:5, 1000:2000:50]
+    ten[:, :, 100:200:5, 1000:2000:50] = w
+
+  module.operation.verify()
+
+  pm = PassManager.parse('builtin.module(cse)')
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 22 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 2 : index
+  # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) : tensor<?x1xindex>
+  # CHECK:         %[[VAL_5:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_4]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x330x4400xf32>
+  # CHECK:         %[[VAL_6:.*]] = indexing.scatter %[[VAL_5]] into %[[VAL_0]]{{\[}}%[[VAL_4]]] scatter_dims([1]) unique : (tensor<?x7x330x4400xf32>, tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_7:.*]] = arith.constant 330 : index
+  # CHECK:         %[[VAL_8:.*]] = arith.constant 30 : index
+  # CHECK:         %[[VAL_9:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_7]], step = %[[VAL_8]]) : tensor<?x1xindex>
+  # CHECK:         %[[VAL_10:.*]] = indexing.concatenate(%[[VAL_4]], %[[VAL_9]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x2xindex>
+  # CHECK:         %[[VAL_11:.*]] = indexing.gather %[[VAL_6]]{{\[}}%[[VAL_10]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x2xindex>) -> tensor<?x7x4400xf32>
+  # CHECK:         %[[VAL_12:.*]] = indexing.scatter %[[VAL_11]] into %[[VAL_6]]{{\[}}%[[VAL_10]]] scatter_dims([1, 2]) unique : (tensor<?x7x4400xf32>, tensor<7x22x330x4400xf32>, tensor<?x2xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_13:.*]] = arith.constant 4400 : index
+  # CHECK:         %[[VAL_14:.*]] = arith.constant 400 : index
+  # CHECK:         %[[VAL_15:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_13]], step = %[[VAL_14]]) : tensor<?x1xindex>
+  # CHECK:         %[[VAL_16:.*]] = indexing.concatenate(%[[VAL_4]], %[[VAL_9]], %[[VAL_15]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x3xindex>
+  # CHECK:         %[[VAL_17:.*]] = indexing.gather %[[VAL_12]]{{\[}}%[[VAL_16]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x3xindex>) -> tensor<?x7xf32>
+  # CHECK:         %[[VAL_18:.*]] = indexing.scatter %[[VAL_17]] into %[[VAL_12]]{{\[}}%[[VAL_16]]] scatter_dims([1, 2, 3]) unique : (tensor<?x7xf32>, tensor<7x22x330x4400xf32>, tensor<?x3xindex>) -> tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_19:.*]] = arith.constant 100 : index
+  # CHECK:         %[[VAL_20:.*]] = arith.constant 200 : index
+  # CHECK:         %[[VAL_21:.*]] = arith.constant 5 : index
+  # CHECK:         %[[VAL_22:.*]] = indexing.arange(start = %[[VAL_19]], stop = %[[VAL_20]], step = %[[VAL_21]]) : tensor<?x1xindex>
+  # CHECK:         %[[VAL_23:.*]] = arith.constant 1000 : index
+  # CHECK:         %[[VAL_24:.*]] = arith.constant 2000 : index
+  # CHECK:         %[[VAL_25:.*]] = arith.constant 50 : index
+  # CHECK:         %[[VAL_26:.*]] = indexing.arange(start = %[[VAL_23]], stop = %[[VAL_24]], step = %[[VAL_25]]) : tensor<?x1xindex>
+  # CHECK:         %[[VAL_27:.*]] = indexing.concatenate(%[[VAL_22]], %[[VAL_26]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x2xindex>
+  # CHECK:         %[[VAL_28:.*]] = indexing.gather %[[VAL_18]]{{\[}}%[[VAL_27]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x2xindex>) -> tensor<?x7x22xf32>
+  # CHECK:       }
+  print(module)

@@ -102,3 +102,17 @@ class ARangeOp:
                                     loc=loc,
                                     ip=ip)
     ir.OpView.__init__(self, arange_op)
+
+
+def get_gather_result_shape(source, indices, gather_dims):
+  from ._indexing_ops_gen import GatherOp
+
+  attributes = {
+      "gather_dims":
+          ir.AttrBuilder.get('DenseI64ArrayAttr')(gather_dims, context=None)
+  }
+  results = ir.InferTypeOpInterface(GatherOp).inferReturnTypes(
+      operands=[source, indices], attributes=ir.DictAttr.get(attributes))
+
+  assert len(results) == 1
+  return tuple(ir.RankedTensorType(results[0]).shape)
