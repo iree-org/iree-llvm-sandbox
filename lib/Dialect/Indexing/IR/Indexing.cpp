@@ -105,6 +105,12 @@ LogicalResult ConcatenateOp::inferReturnTypes(
   return success();
 }
 
+bool ConcatenateOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
+  if (l.size() != r.size() || l.size() != 1)
+    return false;
+  return succeeded(verifyCompatibleShape(l[0], r[0]));
+}
+
 //===----------------------------------------------------------------------===//
 // ARangeOp
 //===----------------------------------------------------------------------===//
@@ -246,6 +252,8 @@ struct ARangeOpPattern : public RewritePattern {
 
     auto attr = rewriter.getDenseI32ArrayAttr(segmentSizes);
     attributes.push_back({arangeOp.getOperandSegmentSizesAttrName(), attr});
+    attributes.push_back(
+        {arangeOp.getFoldAttrAttrName(), arangeOp.getFoldAttrAttr()});
     rewriter.replaceOpWithNewOp<ARangeOp>(arangeOp, operands, attributes);
   }
 };
@@ -259,7 +267,7 @@ void ARangeOp::getCanonicalizationPatterns(RewritePatternSet &results,
 
 OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
   if (!adaptor.getStartAttr() || !adaptor.getStopAttr() ||
-      !adaptor.getStepAttr())
+      !adaptor.getStepAttr() || !adaptor.getFoldAttr())
     return {};
 
   int64_t start = adaptor.getStartAttr().value().getSExtValue(),

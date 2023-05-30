@@ -4,7 +4,7 @@ from random import random
 
 import numpy as np
 
-from mlir_structured.dialects import arith, indexing
+from mlir_structured.dialects import arith, indexing, func
 from mlir_structured.dialects.indexing import (Scalar, Tensor, IndexTensorType,
                                                _canonicalize_tuple_index,
                                                arange)
@@ -280,21 +280,21 @@ def testSimpleLiteralIndexing():
     print(ten.get_name())
 
     w = ten[0]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [0])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[0]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     w = ten[2, 4]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [2 4])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[2 4]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x333x4444xi32>
     print(w.owner)
 
     w = ten[2, 4, 6]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<3xindex>, [2 4 6])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x3xindex>, {{\[}}[2 4 6]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<3xindex>) -> tensor<4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<1x3xindex>) -> tensor<1x4444xi32>
     print(w.owner)
 
     w = ten[2, 4, 6, 8]
@@ -330,21 +330,21 @@ def testSimpleLiteralIndexing():
     print(w.get_name())
 
     w = ten[1, ...]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     w = ten[1, :, ...]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     w = ten[1, :, :, ...]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     try:
@@ -354,99 +354,99 @@ def testSimpleLiteralIndexing():
       print(e)
 
     w = ten[1, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     w = ten[1, :, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     w = ten[1, :, :, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<22x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x22x333x4444xi32>
     print(w.owner)
 
     w = ten[:, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<10x333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x10x333x4444xi32>
     print(w.owner)
 
     w = ten[:, :, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([2]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<10x22x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([2]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x10x22x4444xi32>
     print(w.owner)
 
     w = ten[:, :, :, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<1xindex>, [1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x1xindex>, {{\[}}[1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([3]) unique : (tensor<10x22x333x4444xi32>, tensor<1xindex>) -> tensor<10x22x333xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x1xindex>) -> tensor<1x10x22x333xi32>
     print(w.owner)
 
     w = ten[:, 1, :, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<10x333xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x10x333xi32>
     print(w.owner)
 
     w = ten[1, :, :, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<22x333xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x22x333xi32>
     print(w.owner)
 
     w = ten[1, 1, :, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<333x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x333x4444xi32>
     print(w.owner)
 
     w = ten[:, :, 1, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([2, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<10x22xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([2, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x10x22xi32>
     print(w.owner)
 
     w = ten[:, 1, 1, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<10x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x10x4444xi32>
     print(w.owner)
 
     w = ten[1, :, 1, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<2xindex>, [1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x2xindex>, {{\[}}[1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<2xindex>) -> tensor<22x4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<1x2xindex>) -> tensor<1x22x4444xi32>
     print(w.owner)
 
     w = ten[1, 1, :, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<3xindex>, [1 1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x3xindex>, {{\[}}[1 1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<3xindex>) -> tensor<333xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x3xindex>) -> tensor<1x333xi32>
     print(w.owner)
 
     w = ten[1, :, 1, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<3xindex>, [1 1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x3xindex>, {{\[}}[1 1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 2, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<3xindex>) -> tensor<22xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 2, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x3xindex>) -> tensor<1x22xi32>
     print(w.owner)
 
     w = ten[:, 1, 1, 1]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<3xindex>, [1 1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x3xindex>, {{\[}}[1 1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1, 2, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<3xindex>) -> tensor<10xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([1, 2, 3]) unique : (tensor<10x22x333x4444xi32>, tensor<1x3xindex>) -> tensor<1x10xi32>
     print(w.owner)
 
     w = ten[1, 1, 1, :]
-    # CHECK: Tensor(%[[CST0:.*]], tensor<3xindex>, [1 1 1])
+    # CHECK: Tensor(%[[CST0:.*]], tensor<1x3xindex>, {{\[}}[1 1 1]])
     print(Tensor(w.owner.operands[1]))
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<3xindex>) -> tensor<4444xi32>
+    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[CST0]]] gather_dims([0, 1, 2]) unique : (tensor<10x22x333x4444xi32>, tensor<1x3xindex>) -> tensor<1x4444xi32>
     print(w.owner)
 
 
@@ -677,6 +677,10 @@ def testARangeOpBasics():
     # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50x1xindex>
     print(ara.owner)
 
+    ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2, fold=True))
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2, fold = true) : tensor<50x1xindex>
+    print(ara.owner)
+
   module.operation.verify()
 
 
@@ -709,19 +713,19 @@ def testARangeFun():
     # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?x1xindex>
     print(ara.owner)
 
-    ara = arange(0, 100, 2)
+    ara = arange(0, 100, 2, fold=True)
     # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [2], [4], [6], [8], {{.*}}, [98]]> : tensor<50x1xindex>
     print(ara.owner)
 
-    ara = arange(0, 100)
+    ara = arange(0, 100, fold=True)
     # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
     print(ara.owner)
 
-    ara = arange(100)
+    ara = arange(100, fold=True)
     # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
     print(ara.owner)
 
-  print(module.operation.verify())
+  module.operation.verify()
 
 
 # CHECK-LABEL: TEST: testARangeOpSemantics

@@ -466,6 +466,11 @@ def concatenate(tens: Sequence[Tensor], dim) -> Tensor:
     Tensor that wraps a value that's either the result of index.concatenate
     or (if all tensors are constant and foldable) the result of arith.constant.
   """
+  if dim == -1:
+    assert len(set(
+        i.shape for i in tens)) == 1, f"multiple index shapes: {tens}"
+    dim = len(tens[0].shape) - 1
+
   if all(a.fold() for a in tens):
     return Tensor(np.concatenate([a.literal_value for a in tens], axis=dim))
   else:
@@ -491,7 +496,7 @@ def gather(
 def arange(start: Union[Scalar, int],
            stop: Optional[Union[Scalar, int]] = None,
            step: Optional[Union[Scalar, int]] = None,
-           fold=True):
+           fold=False):
   """Return evenly spaced values within a given interval.
 
   * ``arange(stop)``: Values are generated within the half-open interval
@@ -526,10 +531,12 @@ def arange(start: Union[Scalar, int],
     if stop.fold() and fold:
       return Tensor(np.arange(start=start, stop=stop.literal_value,
                               step=1)[:, np.newaxis],
-                    dtype=IndexType.get())
+                    dtype=IndexType.get(),
+                    fold=True)
     else:
       return Tensor(ARangeOp(start=start, stop=stop, step=1),
-                    dtype=IndexType.get())
+                    dtype=IndexType.get(),
+                    fold=stop.fold() and fold)
   else:
     if isinstance(stop, int):
       stop = Scalar(stop, dtype=index)
@@ -635,14 +642,12 @@ def _expand_dims(inp, newaxis_dims) -> Tensor:
     raise ValueError(f"repeated axis in expand_dims: {newaxis_dims}")
 
   if isinstance(inp, Scalar):
-    assert newaxis_dims == [
-        0,
-    ], f"{newaxis_dims=}"
+    assert newaxis_dims == [0, 1], f"{newaxis_dims=}"
     if inp.is_constant():
-      return _as_index_tensor(np.array(inp.literal_value).reshape((1,)))
+      return _as_index_tensor(np.array(inp.literal_value).reshape((1, 1)))
     else:
       return Tensor(
-          tensor.FromElementsOp(RankedTensorType.get((1,), inp.type), [inp]))
+          tensor.FromElementsOp(RankedTensorType.get((1, 1), inp.type), [inp]))
   elif Tensor.isinstance(inp):
     ndim_out = len(inp.shape) + len(newaxis_dims)
     if not all(0 <= d < ndim_out for d in newaxis_dims):
@@ -817,7 +822,6 @@ def _indices_to_indexer(idx: Sequence[Any],
   out_axis = 0  # Current axis in output.
   collapsed_dims: Sequence[int] = []
   indices: List[Tensor] = []
-  indices_shape: List[int] = []
   newaxis_dims: Sequence[int] = []
 
   # Contiguous in terms of dims that the index/slice
@@ -845,7 +849,6 @@ def _indices_to_indexer(idx: Sequence[Any],
       if len(set([tuple(a.shape) for a in advanced_indexes])) != 1:
         raise IndexError("All advanced indices must have the same shape.")
       indices.extend(advanced_indexes)
-      indices_shape += advanced_indexes[0].shape
       collapsed_dims = _compute_idx_tensor_extent(collapsed_dims, idx,
                                                   idx_advanced_axes)
 
@@ -857,7 +860,7 @@ def _indices_to_indexer(idx: Sequence[Any],
 
     if _is_scalar(idx_e) and _has_index_type(idx_e):
       # Handle basic Scalar indexes.
-      idx_e = _expand_dims(idx_e, (0,))
+      idx_e = _expand_dims(idx_e, (0, 1))
       indices.append(idx_e)
       collapsed_dims.append(in_axis)
       in_axis += 1
@@ -894,13 +897,9 @@ def _indices_to_indexer(idx: Sequence[Any],
   elif len(indices) == 1:
     indices_tensor = indices[0]
   else:
-    if len(indices_shape) == 0:
-      last_dim = 0
-    else:
-      last_dim = len(indices_shape) - 1
     indices_tensor = concatenate(
         indices,
-        last_dim,
+        -1,
     )
 
   if indices_tensor is not None and indices_tensor.is_constant():
