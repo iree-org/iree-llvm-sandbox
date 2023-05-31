@@ -3,7 +3,7 @@ from itertools import permutations
 from random import random
 import numpy as np
 
-from mlir_structured.dialects import arith, indexing, func
+from mlir_structured.dialects import arith, indexing, func, linalg
 from mlir_structured.dialects.indexing import (Scalar, Tensor, IndexTensorType,
                                                _canonicalize_tuple_index,
                                                arange, ARangeOp)
@@ -833,7 +833,6 @@ def testArithPythonValues():
   f32 = F32Type.get()
   f64 = F64Type.get()
   with mlir_mod_ctx() as module:
-
     one = Scalar(1.0, dtype=f64, fold=False)
     # CHECK: %[[VAL_0:.*]] = arith.constant 1.000000e+00 : f64
     print(one.owner)
@@ -960,7 +959,7 @@ def testArbitrarySlicingLiterals1():
   # CHECK:         %[[VAL_3:.*]] = arith.constant 2 : index
   # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) nofold : tensor<?xindex>
   # CHECK:         %[[VAL_5:.*]] = indexing.meshgrid(%[[VAL_4]]) : (tensor<?xindex>) -> tensor<?x1xindex>
-  # CHECK:         %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x330x4400xf32>
+  # CHECK:         %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<7x?x330x4400xf32>
   # CHECK:       }
   print(module)
 
@@ -984,7 +983,7 @@ def testArbitrarySlicingLiterals2():
   # CHECK:         %[[VAL_7:.*]] = arith.constant 30 : index
   # CHECK:         %[[VAL_8:.*]] = indexing.arange(start = %[[VAL_5]], stop = %[[VAL_6]], step = %[[VAL_7]]) nofold : tensor<?xindex>
   # CHECK:         %[[VAL_9:.*]] = indexing.meshgrid(%[[VAL_4]], %[[VAL_8]]) : (tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x2xindex>
-  # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<?x?x7x4400xf32>
+  # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<7x?x?x4400xf32>
   # CHECK:       }
   print(module)
 
@@ -1013,7 +1012,7 @@ def testArbitrarySlicingLiterals3():
   # CHECK:         %[[VAL_11:.*]] = arith.constant 400 : index
   # CHECK:         %[[VAL_12:.*]] = indexing.arange(start = %[[VAL_9]], stop = %[[VAL_10]], step = %[[VAL_11]]) nofold : tensor<?xindex>
   # CHECK:         %[[VAL_13:.*]] = indexing.meshgrid(%[[VAL_4]], %[[VAL_8]], %[[VAL_12]]) : (tensor<?xindex>, tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x?x3xindex>
-  # CHECK:         %[[VAL_14:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_13]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x?x3xindex>) -> tensor<?x?x?x7xf32>
+  # CHECK:         %[[VAL_14:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_13]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x?x3xindex>) -> tensor<7x?x?x?xf32>
   # CHECK:       }
   print(module)
 
@@ -1038,7 +1037,7 @@ def testArbitrarySlicingLiterals4():
   # CHECK:         %[[VAL_7:.*]] = arith.constant 50 : index
   # CHECK:         %[[VAL_8:.*]] = indexing.arange(start = %[[VAL_5]], stop = %[[VAL_6]], step = %[[VAL_7]]) nofold : tensor<?xindex>
   # CHECK:         %[[VAL_9:.*]] = indexing.meshgrid(%[[VAL_4]], %[[VAL_8]]) : (tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x2xindex>
-  # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<?x?x7x22xf32>
+  # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<7x22x?x?xf32>
   # CHECK:       }
   print(module)
 
@@ -1067,15 +1066,15 @@ def testArbitrarySlicingDyn():
   pm = PassManager.parse('builtin.module(canonicalize)')
   pm.run(module.operation)
   # CHECK-LABEL: module {
-  # CHECK:         func.func @test_dyn_indices() -> (tensor<?x7x22x4400xf32>, tensor<?x7x22x4400xf32>) {
+  # CHECK:         func.func @test_dyn_indices() -> (tensor<7x22x?x4400xf32>, tensor<7x22x?x4400xf32>) {
   # CHECK:           %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
   # CHECK:           %[[VAL_1:.*]] = indexing.arange(start = 100, stop = 200, step = 5) nofold : tensor<?xindex>
   # CHECK:           %[[VAL_2:.*]] = indexing.meshgrid(%[[VAL_1]]) : (tensor<?xindex>) -> tensor<?x1xindex>
-  # CHECK:           %[[VAL_3:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_2]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
+  # CHECK:           %[[VAL_3:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_2]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<7x22x?x4400xf32>
   # CHECK:           %[[VAL_4:.*]] = indexing.arange(start = 100, stop = 200, step = 5) nofold : tensor<?xindex>
   # CHECK:           %[[VAL_5:.*]] = indexing.meshgrid(%[[VAL_4]]) : (tensor<?xindex>) -> tensor<?x1xindex>
-  # CHECK:           %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
-  # CHECK:           return %[[VAL_3]], %[[VAL_6]] : tensor<?x7x22x4400xf32>, tensor<?x7x22x4400xf32>
+  # CHECK:           %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<7x22x?x4400xf32>
+  # CHECK:           return %[[VAL_3]], %[[VAL_6]] : tensor<7x22x?x4400xf32>, tensor<7x22x?x4400xf32>
   # CHECK:         }
   # CHECK:       }
   print(module)
@@ -1293,7 +1292,7 @@ def testStaticSliceScatter():
     # CHECK:         %[[VAL_3:.*]] = arith.constant 2 : index
     # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) nofold : tensor<?xindex>
     # CHECK:         %[[VAL_5:.*]] = indexing.meshgrid(%[[VAL_4]]) : (tensor<?xindex>) -> tensor<?x1xindex>
-    # CHECK:         %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x330x4400xf32>
+    # CHECK:         %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<7x?x330x4400xf32>
     # CHECK:         return
     # CHECK:       }
     print(static_slice_scatter1.func_op)
@@ -1316,7 +1315,7 @@ def testStaticSliceScatter():
     # CHECK:         %[[VAL_6:.*]] = arith.constant 30 : index
     # CHECK:         %[[VAL_7:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_5]], step = %[[VAL_6]]) nofold : tensor<?xindex>
     # CHECK:         %[[VAL_8:.*]] = indexing.meshgrid(%[[VAL_4]], %[[VAL_7]]) : (tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x2xindex>
-    # CHECK:         %[[VAL_9:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_8]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<?x?x7x4400xf32>
+    # CHECK:         %[[VAL_9:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_8]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<7x?x?x4400xf32>
     # CHECK:         return
     # CHECK:       }
     print(static_slice_scatter2.func_op)
@@ -1342,7 +1341,7 @@ def testStaticSliceScatter():
     # CHECK:         %[[VAL_9:.*]] = arith.constant 400 : index
     # CHECK:         %[[VAL_10:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_8]], step = %[[VAL_9]]) nofold : tensor<?xindex>
     # CHECK:         %[[VAL_11:.*]] = indexing.meshgrid(%[[VAL_4]], %[[VAL_7]], %[[VAL_10]]) : (tensor<?xindex>, tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x?x3xindex>
-    # CHECK:         %[[VAL_12:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_11]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x?x3xindex>) -> tensor<?x?x?x7xf32>
+    # CHECK:         %[[VAL_12:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_11]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x?x3xindex>) -> tensor<7x?x?x?xf32>
     # CHECK:         return
     # CHECK:       }
     print(static_slice_scatter3.func_op)
@@ -1366,7 +1365,7 @@ def testStaticSliceScatter():
     # CHECK:         %[[VAL_7:.*]] = arith.constant 50 : index
     # CHECK:         %[[VAL_8:.*]] = indexing.arange(start = %[[VAL_5]], stop = %[[VAL_6]], step = %[[VAL_7]]) nofold : tensor<?xindex>
     # CHECK:         %[[VAL_9:.*]] = indexing.meshgrid(%[[VAL_4]], %[[VAL_8]]) : (tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x2xindex>
-    # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<?x?x7x22xf32>
+    # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x?x2xindex>) -> tensor<7x22x?x?xf32>
     # CHECK:         return
     # CHECK:       }
     print(static_slice_scatter4.func_op)
@@ -1404,7 +1403,7 @@ def testDynSliceScatter():
     # CHECK:         %[[VAL_7:.*]] = arith.muli %[[VAL_1]], %[[VAL_6]] : index
     # CHECK:         %[[VAL_8:.*]] = indexing.arange(start = %[[VAL_3]], stop = %[[VAL_7]], step = %[[VAL_5]]) nofold : tensor<?xindex>
     # CHECK:         %[[VAL_9:.*]] = indexing.meshgrid(%[[VAL_8]]) : (tensor<?xindex>) -> tensor<?x1xindex>
-    # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x330x4400xf32>
+    # CHECK:         %[[VAL_10:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_9]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<7x?x330x4400xf32>
     # CHECK:         return
     # CHECK:       }
     print(dyn_slice_scatter1.func_op)
@@ -1527,6 +1526,149 @@ def testForLoopSugarNested():
   # CHECK:             scf.yield %[[VAL_11:.*]] : tensor<7x22x330x4400xf32>
   # CHECK:           }
   # CHECK:           return %[[VAL_12:.*]] : tensor<7x22x330x4400xf32>
+  # CHECK:         }
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testKeepDimOrder
+@run
+def testKeepDimOrder():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+
+    @func.FuncOp.from_py_func(*[])
+    def keep_dim_order():
+      A = Tensor.empty((10, 20, 40, 80), f32)
+      a = A[:, ::2, ::4]
+      b = a + a
+      return b
+
+  module.operation.verify()
+  pm = PassManager.parse('builtin.module(cse,canonicalize)')
+  pm.run(module.operation)
+  print(module)
+
+
+# CHECK-LABEL: TEST: testMatMul
+@run
+def testMatMul():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+
+    @func.FuncOp.from_py_func(*[])
+    def test_matmul():
+      A = Tensor.empty((10, 20), f32)
+      B = Tensor.empty((20, 30), f32)
+      C = Tensor.empty((10, 30), f32)
+      # tile size
+      ts = 5
+      for i, r1 in scf_range(0, 10, ts, iter_args=[C]):
+        for j, r2 in scf_range(0, 30, ts, iter_args=[C]):
+          for k, r3 in scf_range(0, 20, ts, iter_args=[C]):
+            a = A[i:i + ts, k:k + ts]
+            b = B[k:k + ts, j:j + ts]
+            C[i:i + ts, j:j + ts] += a @ b
+
+            scf_yield(C)
+          scf_yield(r3)
+        scf_yield(r2)
+
+      return r1
+
+  module.operation.verify()
+  pm = PassManager.parse(
+      'builtin.module(cse,func.func(canonicalize,gather-to-extract-slice,scatter-to-insert-slice))'
+  )
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         func.func @test_matmul() -> tensor<10x30xf32> {
+  # CHECK:           %[[VAL_0:.*]] = arith.constant 20 : index
+  # CHECK:           %[[VAL_1:.*]] = arith.constant 30 : index
+  # CHECK:           %[[VAL_2:.*]] = arith.constant 5 : index
+  # CHECK:           %[[VAL_3:.*]] = arith.constant 10 : index
+  # CHECK:           %[[VAL_4:.*]] = arith.constant 0 : index
+  # CHECK:           %[[VAL_5:.*]] = tensor.empty() : tensor<10x20xf32>
+  # CHECK:           %[[VAL_6:.*]] = tensor.empty() : tensor<20x30xf32>
+  # CHECK:           %[[VAL_7:.*]] = tensor.empty() : tensor<10x30xf32>
+  # CHECK:           %[[VAL_8:.*]] = scf.for %[[VAL_9:.*]] = %[[VAL_4]] to %[[VAL_3]] step %[[VAL_2]] iter_args(%[[VAL_10:.*]] = %[[VAL_7]]) -> (tensor<10x30xf32>) {
+  # CHECK:             %[[VAL_11:.*]] = scf.for %[[VAL_12:.*]] = %[[VAL_4]] to %[[VAL_1]] step %[[VAL_2]] iter_args(%[[VAL_13:.*]] = %[[VAL_10]]) -> (tensor<10x30xf32>) {
+  # CHECK:               %[[VAL_14:.*]] = scf.for %[[VAL_15:.*]] = %[[VAL_4]] to %[[VAL_0]] step %[[VAL_2]] iter_args(%[[VAL_16:.*]] = %[[VAL_13]]) -> (tensor<10x30xf32>) {
+  # CHECK:                 %[[VAL_17:.*]] = tensor.extract_slice %[[VAL_5]]{{\[}}%[[VAL_9]], %[[VAL_15]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<10x20xf32> to tensor<?x?xf32>
+  # CHECK:                 %[[VAL_18:.*]] = tensor.extract_slice %[[VAL_6]]{{\[}}%[[VAL_15]], %[[VAL_12]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<20x30xf32> to tensor<?x?xf32>
+  # CHECK:                 %[[VAL_19:.*]] = tensor.extract_slice %[[VAL_16]]{{\[}}%[[VAL_9]], %[[VAL_12]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<10x30xf32> to tensor<?x?xf32>
+  # CHECK:                 %[[VAL_20:.*]] = linalg.matmul {cast = #linalg.type_fn<cast_signed>} ins(%[[VAL_17]], %[[VAL_18]] : tensor<?x?xf32>, tensor<?x?xf32>) outs(%[[VAL_19]] : tensor<?x?xf32>) -> tensor<?x?xf32>
+  # CHECK:                 %[[VAL_21:.*]] = tensor.insert_slice %[[VAL_20]] into %[[VAL_16]]{{\[}}%[[VAL_9]], %[[VAL_12]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<?x?xf32> into tensor<10x30xf32>
+  # CHECK:                 scf.yield %[[VAL_21]] : tensor<10x30xf32>
+  # CHECK:               }
+  # CHECK:               scf.yield %[[VAL_22:.*]] : tensor<10x30xf32>
+  # CHECK:             }
+  # CHECK:             scf.yield %[[VAL_23:.*]] : tensor<10x30xf32>
+  # CHECK:           }
+  # CHECK:           return %[[VAL_24:.*]] : tensor<10x30xf32>
+  # CHECK:         }
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testMatMul
+@run
+def testMatMulNoFill():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+
+    @func.FuncOp.from_py_func(*[])
+    def test_matmul_no_fill():
+      A = Tensor.empty((10, 20), f32)
+      B = Tensor.empty((20, 30), f32)
+      C = Tensor.empty((10, 30), f32)
+      # tile size
+      ts = 5
+      for i, r1 in scf_range(0, 10, ts, iter_args=[C]):
+        for j, r2 in scf_range(0, 30, ts, iter_args=[C]):
+          for k, r3 in scf_range(0, 20, ts, iter_args=[C]):
+            a = A[i:i + ts, k:k + ts]
+            b = B[k:k + ts, j:j + ts]
+            c = C[i:i + ts, j:j + ts]
+            out = linalg.matmul(a, b, outs=[c])
+            C[i:i + ts, j:j + ts] = Tensor(out)
+
+            scf_yield(C)
+          scf_yield(r3)
+        scf_yield(r2)
+
+      return r1
+
+  module.operation.verify()
+  pm = PassManager.parse(
+      'builtin.module(cse,func.func(canonicalize,gather-to-extract-slice,scatter-to-insert-slice))'
+  )
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         func.func @test_matmul_no_fill() -> tensor<10x30xf32> {
+  # CHECK:           %[[VAL_0:.*]] = arith.constant 20 : index
+  # CHECK:           %[[VAL_1:.*]] = arith.constant 30 : index
+  # CHECK:           %[[VAL_2:.*]] = arith.constant 5 : index
+  # CHECK:           %[[VAL_3:.*]] = arith.constant 10 : index
+  # CHECK:           %[[VAL_4:.*]] = arith.constant 0 : index
+  # CHECK:           %[[VAL_5:.*]] = tensor.empty() : tensor<10x20xf32>
+  # CHECK:           %[[VAL_6:.*]] = tensor.empty() : tensor<20x30xf32>
+  # CHECK:           %[[VAL_7:.*]] = tensor.empty() : tensor<10x30xf32>
+  # CHECK:           %[[VAL_8:.*]] = scf.for %[[VAL_9:.*]] = %[[VAL_4]] to %[[VAL_3]] step %[[VAL_2]] iter_args(%[[VAL_10:.*]] = %[[VAL_7]]) -> (tensor<10x30xf32>) {
+  # CHECK:             %[[VAL_11:.*]] = scf.for %[[VAL_12:.*]] = %[[VAL_4]] to %[[VAL_1]] step %[[VAL_2]] iter_args(%[[VAL_13:.*]] = %[[VAL_10]]) -> (tensor<10x30xf32>) {
+  # CHECK:               %[[VAL_14:.*]] = scf.for %[[VAL_15:.*]] = %[[VAL_4]] to %[[VAL_0]] step %[[VAL_2]] iter_args(%[[VAL_16:.*]] = %[[VAL_13]]) -> (tensor<10x30xf32>) {
+  # CHECK:                 %[[VAL_17:.*]] = tensor.extract_slice %[[VAL_5]]{{\[}}%[[VAL_9]], %[[VAL_15]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<10x20xf32> to tensor<?x?xf32>
+  # CHECK:                 %[[VAL_18:.*]] = tensor.extract_slice %[[VAL_6]]{{\[}}%[[VAL_15]], %[[VAL_12]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<20x30xf32> to tensor<?x?xf32>
+  # CHECK:                 %[[VAL_19:.*]] = tensor.extract_slice %[[VAL_16]]{{\[}}%[[VAL_9]], %[[VAL_12]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<10x30xf32> to tensor<?x?xf32>
+  # CHECK:                 %[[VAL_20:.*]] = linalg.matmul {cast = #linalg.type_fn<cast_signed>} ins(%[[VAL_17]], %[[VAL_18]] : tensor<?x?xf32>, tensor<?x?xf32>) outs(%[[VAL_19]] : tensor<?x?xf32>) -> tensor<?x?xf32>
+  # CHECK:                 %[[VAL_21:.*]] = tensor.insert_slice %[[VAL_20]] into %[[VAL_16]]{{\[}}%[[VAL_9]], %[[VAL_12]]] {{\[}}%[[VAL_2]], %[[VAL_2]]] [1, 1] : tensor<?x?xf32> into tensor<10x30xf32>
+  # CHECK:                 scf.yield %[[VAL_21]] : tensor<10x30xf32>
+  # CHECK:               }
+  # CHECK:               scf.yield %[[VAL_22:.*]] : tensor<10x30xf32>
+  # CHECK:             }
+  # CHECK:             scf.yield %[[VAL_23:.*]] : tensor<10x30xf32>
+  # CHECK:           }
+  # CHECK:           return %[[VAL_24:.*]] : tensor<10x30xf32>
   # CHECK:         }
   # CHECK:       }
   print(module)

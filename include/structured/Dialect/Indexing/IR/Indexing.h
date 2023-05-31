@@ -15,6 +15,12 @@
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 
+namespace mlir {
+namespace indexing {
+bool isARangeIndices(Value indices);
+} // namespace indexing
+} // namespace mlir
+
 #include "structured/Dialect/Indexing/IR/IndexingOpsDialect.h.inc"
 
 #define GET_TYPEDEF_CLASSES

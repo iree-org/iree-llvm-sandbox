@@ -17,6 +17,7 @@
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "structured/Conversion/Passes.h"
 #include "structured/Dialect/Indexing/IR/Indexing.h"
+#include "structured/Dialect/Indexing/Transforms/Passes.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
@@ -69,6 +70,7 @@ int main(int argc, char **argv) {
   registerAllPasses();
   registerStructuredConversionPasses();
   registerIteratorsPasses();
+  registerIndexingPasses();
   registerTuplePasses();
   registerTritonPasses();
   registerTritonGPUPasses();

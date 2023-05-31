@@ -10,12 +10,15 @@
 #include "mlir/CAPI/Pass.h"
 #include "mlir/Pass/Pass.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
+#include "structured/Dialect/Indexing/Transforms/Passes.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
 
 using namespace mlir;
 
 // Must include the declarations as they carry important visibility attributes.
 #include "structured/Dialect/Iterators/Transforms/Passes.capi.h.inc"
+
+#include "structured/Dialect/Indexing/Transforms/Passes.capi.h.inc"
 
 #include "structured/Dialect/Tuple/Transforms/Passes.capi.h.inc"
 
@@ -24,6 +27,8 @@ extern "C" {
 #endif
 
 #include "structured/Dialect/Iterators/Transforms/Passes.capi.cpp.inc"
+
+#include "structured/Dialect/Indexing/Transforms/Passes.capi.cpp.inc"
 
 #include "structured/Dialect/Tuple/Transforms/Passes.capi.cpp.inc"
 

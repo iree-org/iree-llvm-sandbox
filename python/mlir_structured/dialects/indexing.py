@@ -12,7 +12,7 @@ from typing import Optional, Tuple, Union, NamedTuple, Sequence, Any, List
 
 import numpy as np
 
-from . import arith, tensor
+from . import arith, tensor, linalg
 from ._arith_ops_ext import _is_integer_like_type
 from ._indexing_ops_gen import *
 from ._indexing_ops_ext import get_gather_result_shape
@@ -20,6 +20,7 @@ from ._ods_common import get_op_result_or_value
 from ._structured_transform_ops_ext import _get_int_int_array_attr
 from .linalg.opdsl.lang.emitter import _is_floating_point_type
 from .._mlir_libs._structuredDialects.indexing import *
+from .._mlir_libs import _mlirStructuredPasses as _cextStructuredPasses
 from ..ir import (
     DenseElementsAttr,
     F16Type,
@@ -338,6 +339,12 @@ class Scalar(ArithValue, ScalarValue):
       raise ValueError("Can't build literal from non-constant Scalar")
     return self.owner.opview.literal_value
 
+  def __ge__(self, other):
+    if isinstance(other, int) and self.is_constant():
+      return self.literal_value >= other
+
+    raise NotImplementedError(f"ge comparison not supported for {other=}")
+
 
 class Tensor(ArithValue, TensorValue):
   """Decorator for mlir_value_subclass TensorValue that adds convenience methods
@@ -374,6 +381,16 @@ class Tensor(ArithValue, TensorValue):
   ) -> "Tensor":
 
     return cls(tensor.EmptyOp(shape, el_type).result)
+
+  def cast(self, shape, el_type=None):
+    if el_type is None:
+      el_type = self.dtype
+    shape = list(shape)
+    for i, s in enumerate(shape):
+      if s is None:
+        shape[i] = ShapedType.get_dynamic_size()
+    result_type = RankedTensorType.get(shape, el_type)
+    return Tensor(tensor.CastOp(result_type, self).result)
 
   def __class_getitem__(
       cls, dim_sizes_dtype: Tuple[Union[list[int], tuple[int, ...]],
@@ -459,6 +476,7 @@ class Tensor(ArithValue, TensorValue):
       assert self.shape == source.shape, f"Expected matching shape for dest slice {self.shape=} and source {source.shape=}"
       return self
     idx = list((idx,) if isinstance(idx, int) else idx)
+
     for i, d in enumerate(idx):
       if isinstance(d, int):
         idx[i] = Scalar(arith.ConstantOp.create_index(d))
@@ -466,6 +484,32 @@ class Tensor(ArithValue, TensorValue):
 
     previous_frame = inspect.currentframe().f_back
     _update_caller_vars(previous_frame, [self], [res])
+
+  def __matmul__(self, other):
+    assert len(self.shape) == len(
+        other.shape
+    ) == 2, f"matmul multiplication only supported between 2-d tensors {self=} {other=}"
+    assert self.dtype == other.dtype, f"matmul multiplication only supported between tensors with same dtype {self=} {other=}"
+    M = self.shape[0]
+    if M == ShapedType.get_dynamic_size():
+      M = tensor.DimOp(self, constant(0, index=True)).result
+    N = other.shape[1]
+    if N == ShapedType.get_dynamic_size():
+      N = tensor.DimOp(other, constant(1, index=True)).result
+
+    out = Tensor.empty((M, N), self.dtype)
+    out = linalg.fill(constant(0.0, type=self.dtype), outs=[out])
+    return Tensor(linalg.matmul(self, other, outs=[out]))
+
+  def __iadd__(self, other):
+    if isinstance(other, Tensor) and hasattr(
+        other.owner, "name") and other.owner.name == "linalg.matmul":
+      return Tensor(
+          linalg.matmul(other.owner.operands[0],
+                        other.owner.operands[1],
+                        outs=[self]))
+    else:
+      return super().__add__(other)
 
 
 def _update_caller_vars(previous_frame, args, replacements):
@@ -773,6 +817,7 @@ class _Indexer(NamedTuple):
   collapsed_dims: Tuple[int, ...]
   newaxis_dims: Tuple[int, ...]
   unique_indices: Optional[bool] = None
+  is_slice: bool = False
 
 
 def _is_empty(ten: Tensor) -> bool:
@@ -1026,7 +1071,8 @@ def _indices_to_indexer(idx: Sequence[Any],
       if step is None:
         if start is None or start == 0:
           start = None
-        if stop is None or stop >= in_shape[in_axis]:
+        if stop is None or (isinstance(stop, int) and
+                            stop >= in_shape[in_axis]):
           stop = None
       # Handle slice(None) and slice(None, None, -1)
       if (start is None and stop is None and
@@ -1044,6 +1090,8 @@ def _indices_to_indexer(idx: Sequence[Any],
                  f"size is not statically known ({in_shape[in_axis]}). ")
           raise IndexError(msg)
 
+        if step is None:
+          step = 1
         if all(isinstance(s, int) or s is None for s in (start, stop, step)):
           ara = arange(*slice(start, stop, step).indices(in_shape[in_axis]),
                        fold=False)
@@ -1084,31 +1132,26 @@ def _indices_to_indexer(idx: Sequence[Any],
   else:
     unique_indices = advanced_indexes is None
 
-  return _Indexer(
-      newaxis_dims=tuple(newaxis_dims),
-      collapsed_dims=collapsed_dims,
-      indices=indices_tensor,
-      unique_indices=unique_indices,
-  )
+  return _Indexer(newaxis_dims=tuple(newaxis_dims),
+                  collapsed_dims=collapsed_dims,
+                  indices=indices_tensor,
+                  unique_indices=unique_indices,
+                  is_slice=all(
+                      isinstance(i, Tensor) and hasattr(i.owner, "opview") and
+                      isinstance(i.owner.opview, ARangeOp) for i in indices))
 
 
-def _build_gather(
-    ten: Tensor,
-    idx,
-    unique_indices=False,
-) -> Tensor:
+def _build_gather(ten: Tensor, idx, unique_indices=False) -> Tensor:
   indexer = _indices_to_indexer(idx, ten.shape)
   out = ten
 
   # We avoid generating a gather when indexer.indices is empty i.e., has any
   # zero dims.
   if indexer.indices is not None and not _is_empty(indexer.indices):
-    out = gather(
-        out,
-        indexer.indices,
-        indexer.collapsed_dims,
-        unique_indices=unique_indices or indexer.unique_indices,
-    )
+    out = gather(out,
+                 indexer.indices,
+                 indexer.collapsed_dims,
+                 unique_indices=unique_indices or indexer.unique_indices)
 
   # This adds newaxis/None dimensions.
   return expand_dims(out, indexer.newaxis_dims)
@@ -1125,10 +1168,11 @@ def _build_scatter(
 
   indexer = _indices_to_indexer(idx, dest.shape)
   out = dest
-  result_shape = get_gather_result_shape(dest,
-                                         indexer.indices,
-                                         gather_dims=indexer.collapsed_dims)
-  assert result_shape == source.shape, f"Expected matching shape for dest slice {result_shape=} and source {source.shape=}"
+  if not indexer.is_slice:
+    result_shape = get_gather_result_shape(dest,
+                                           indexer.indices,
+                                           gather_dims=indexer.collapsed_dims)
+    assert result_shape == source.shape, f"Expected matching shape for dest slice {result_shape=} and source {source.shape=}"
   if indexer.indices is not None and not _is_empty(indexer.indices):
     out = scatter(
         source,

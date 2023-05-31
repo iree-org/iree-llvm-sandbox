@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
+#include <mlir/IR/Value.h>
 #include <numeric>
 
 using namespace mlir;
@@ -45,8 +46,8 @@ Operation *IndexingDialect::materializeConstant(OpBuilder &builder,
                                                 Attribute value, Type type,
                                                 Location loc) {
   auto op = arith::ConstantOp::materialize(builder, value, type, loc);
-  if (!op)
-    emitError(loc, "Couldn't materialize constant array.");
+//  if (!op)
+//    emitError(loc, "Couldn't materialize constant array.");
   return op;
 }
 
@@ -62,20 +63,41 @@ Operation *IndexingDialect::materializeConstant(OpBuilder &builder,
 // GatherOp
 //===----------------------------------------------------------------------===//
 
+bool mlir::indexing::isARangeIndices(const Value indices) {
+  return (
+      indices.getDefiningOp<indexing::ARangeOp>() ||
+      (indices.getDefiningOp<indexing::MeshGridOp>() &&
+       llvm::all_of(
+           indices.getDefiningOp<indexing::MeshGridOp>()->getOperands(),
+           [](Value op) { return op.getDefiningOp<indexing::ARangeOp>(); })));
+}
+
 LogicalResult GatherOp::inferReturnTypes(
     MLIRContext *context, std::optional<Location> location, ValueRange operands,
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
-
-  ArrayRef<int64_t> gather_dims =
-      attributes.get("gather_dims").cast<mlir::DenseI64ArrayAttr>();
-  RankedTensorType expectedResultType = mlir::tensor::GatherOp::inferResultType(
-      // source
-      operands[0].getType().cast<RankedTensorType>(),
-      // indices
-      operands[1].getType().cast<RankedTensorType>(), gather_dims,
-      /*rankReduced=*/true);
-  inferredReturnTypes.assign({expectedResultType});
+  ArrayRef<int64_t> gatherDims = attributes.get(getGatherDimsAttrName(context))
+                                     .cast<mlir::DenseI64ArrayAttr>();
+  if (isARangeIndices(operands[1])) {
+    RankedTensorType expectedResultType =
+        mlir::tensor::GatherOp::inferResultType(
+            operands[0].getType().cast<RankedTensorType>(),
+            operands[1].getType().cast<RankedTensorType>(), gatherDims,
+            /*rankReduced=*/false);
+    auto sourceType = operands[0].getType().cast<RankedTensorType>();
+    auto expectedResultShape = sourceType.getShape().vec();
+    for (const auto &dim : gatherDims)
+      expectedResultShape[dim] = expectedResultType.getDimSize(0);
+    inferredReturnTypes.assign(
+        {RankedTensorType::Builder(sourceType).setShape(expectedResultShape)});
+  } else {
+    RankedTensorType expectedResultType =
+        mlir::tensor::GatherOp::inferResultType(
+            operands[0].getType().cast<RankedTensorType>(),
+            operands[1].getType().cast<RankedTensorType>(), gatherDims,
+            /*rankReduced=*/true);
+    inferredReturnTypes.assign({expectedResultType});
+  }
   return success();
 }
 
@@ -103,8 +125,9 @@ LogicalResult ConcatenateOp::inferReturnTypes(
     MLIRContext *context, std::optional<Location> location, ValueRange operands,
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
-
-  auto dimension = attributes.get("dimension").cast<IntegerAttr>().getInt();
+  auto dimension = attributes.get(getDimensionAttrName(context))
+                       .cast<IntegerAttr>()
+                       .getInt();
   auto sourceType = operands[0].getType().cast<RankedTensorType>();
   SmallVector<int64_t> resultShape(sourceType.getShape());
   std::for_each(
@@ -113,9 +136,44 @@ LogicalResult ConcatenateOp::inferReturnTypes(
         resultShape[dimension] +=
             v.getType().cast<RankedTensorType>().getShape()[dimension];
       });
-  inferredReturnTypes.assign(
-      {RankedTensorType::Builder(sourceType).setShape(resultShape)});
+  auto resultType = RankedTensorType::Builder(sourceType).setShape(resultShape);
+  inferredReturnTypes.assign({resultType});
   return success();
+}
+
+namespace {
+
+struct ConcatenateOpPattern : public OpRewritePattern<ConcatenateOp> {
+  using OpRewritePattern<ConcatenateOp>::OpRewritePattern;
+  LogicalResult match(ConcatenateOp op) const override {
+    if (llvm::all_of(
+            op->getOperands(),
+            [](Value op) {
+              return op.getType().cast<RankedTensorType>().hasStaticShape();
+            }) &&
+        !op.getResult().getType().hasStaticShape()) {
+      return success();
+    }
+    return failure();
+  }
+
+  void rewrite(ConcatenateOp op, PatternRewriter &rewriter) const override {
+    // patterns and rewrites go here.
+    SmallVector<Type, 4> inferredReturnTypes;
+    (void)ConcatenateOp::inferReturnTypes(
+        op->getContext(), op.getLoc(), op->getOperands(),
+        op->getAttrDictionary(), nullptr, op->getRegions(),
+        inferredReturnTypes);
+    rewriter.replaceOpWithNewOp<ConcatenateOp>(
+        op, inferredReturnTypes[0], op.getInputs(), op.getDimension());
+  }
+};
+
+} // namespace
+
+void ConcatenateOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                                MLIRContext *context) {
+  results.add<ConcatenateOpPattern>(context);
 }
 
 bool ConcatenateOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
@@ -208,9 +266,12 @@ struct ARangeOpPattern : public RewritePattern {
   LogicalResult match(Operation *op) const override {
     if (!op->getOperands().empty() &&
         llvm::any_of(op->getOperands(), [](Value op) {
-          arith::ConstantOp arithCst =
-              dyn_cast<arith::ConstantOp>(op.getDefiningOp());
-          return arithCst && arithCst.getValue().getType().isa<IndexType>();
+          if (op.isa<OpResult>()) {
+            arith::ConstantOp arithCst =
+                dyn_cast<arith::ConstantOp>(op.getDefiningOp());
+            return arithCst && arithCst.getValue().getType().isa<IndexType>();
+          }
+          return false;
         })) {
       return success();
     }
@@ -238,6 +299,11 @@ struct ARangeOpPattern : public RewritePattern {
       }
 
       auto namedAttr = arangeOp->getAttrOfType<IntegerAttr>(attrName);
+      if (!val.isa<OpResult>()) {
+        operands.push_back(val);
+        continue;
+      }
+
       arith::ConstantOp arithCst =
           dyn_cast<arith::ConstantOp>(val.getDefiningOp());
 

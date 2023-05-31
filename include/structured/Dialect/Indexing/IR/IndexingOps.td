@@ -33,10 +33,13 @@ def Indexing_GatherOp : Indexing_Op<"gather", [
   let results = (outs AnyRankedTensor:$result);
 
   let assemblyFormat = [{
-    $source `[` $indices `]` `gather_dims` `(` $gather_dims `)` (`unique` $unique^)? attr-dict
-        `:` functional-type(operands, results)
+    $source `[` $indices `]`
+            `gather_dims` `(` $gather_dims `)`
+            (`unique` $unique^)?
+            attr-dict `:` functional-type(operands, results)
   }];
   let extraClassDeclaration = [{
+    static StringAttr getGatherDimsAttrName(MLIRContext *ctx) { return getGatherDimsAttrName(OperationName(getOperationName(), ctx)); }
     static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
   }];
 }
@@ -54,8 +57,10 @@ def Indexing_ScatterOp : Indexing_Op<"scatter", [
   let results = (outs AnyRankedTensor:$result);
 
   let assemblyFormat = [{
-    $source `into` $dest `[` $indices `]` `scatter_dims` `(` $scatter_dims `)` (`unique` $unique^)? attr-dict
-        `:` functional-type(operands, results)
+    $source `into` $dest `[` $indices `]`
+            `scatter_dims` `(` $scatter_dims `)`
+            (`unique` $unique^)?
+            attr-dict `:` functional-type(operands, results)
   }];
   let extraClassDeclaration = [{
     static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
@@ -91,8 +96,10 @@ def Indexing_ConcatenateOp : Indexing_Op<"concatenate",
   }];
 
   let extraClassDeclaration = [{
+    static StringAttr getDimensionAttrName(MLIRContext *ctx) { return getDimensionAttrName(OperationName(getOperationName(), ctx)); }
     static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
   }];
+  let hasCanonicalizer = 1;
 }
 
 def Indexing_ARangeOp : Indexing_Op<"arange", [
