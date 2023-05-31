@@ -248,7 +248,8 @@ class ArithValue(metaclass=ArithValueMeta):
 
   @lru_cache(maxsize=1)
   def is_constant(self) -> bool:
-    return isinstance(self.owner.opview, arith.ConstantOp)
+    return isinstance(self.owner, Operation) and isinstance(
+        self.owner.opview, arith.ConstantOp)
 
   @lru_cache(maxsize=1)
   def fold(self) -> bool:
@@ -462,14 +463,53 @@ class Tensor(ArithValue, TensorValue):
         idx[i] = Scalar(arith.ConstantOp.create_index(d))
     res = _build_scatter(self, source, tuple(idx))
 
-    # Update the stack frame with the new muxes as locals.
     previous_frame = inspect.currentframe().f_back
-    filename, line_number, function_name, lines, index = inspect.getframeinfo(
-        previous_frame)
-    tensor_name = lines[0].strip().split("[")[0]
-    previous_frame.f_locals[tensor_name] = res
-    ctypes.pythonapi.PyFrame_LocalsToFast(ctypes.py_object(previous_frame),
-                                          ctypes.c_int(1))
+    _update_caller_vars(previous_frame, [self], [res])
+
+
+def _update_caller_vars(previous_frame, args, replacements):
+  """Update caller vars passed as args.
+
+  This function uses CPython API  to update the values
+  of the caller's args (not the caller of this function but the caller of caller of this function).
+  It does this by searching for a match in the caller's f_locals based on identity (A is A) and then
+  updating all corresponding values in the f_locals dict. Finally, it uses PyFrame_LocalsToFast to signal
+  to the CPython runtime that an update has been made to f_locals.
+
+  Args:
+    previous_frame: The frame in which vars will be updated.
+    args: The args to the callee.
+    replacements: The values that should replace the values of the vars in the caller.
+  """
+
+  if len(args) != len(replacements):
+    raise ValueError(f"updates must be 1-1: {args=} {replacements=}")
+  # find the name of the iter args in the previous frame
+  var_names = [[
+      var_name
+      for var_name, var_val in previous_frame.f_locals.items()
+      if var_val is arg
+  ]
+               for arg in args]
+  for i, var_names in enumerate(var_names):
+    for var_name in var_names:
+      previous_frame.f_locals[var_name] = maybe_cast(replacements[i])
+  # signal to update
+  ctypes.pythonapi.PyFrame_LocalsToFast(ctypes.py_object(previous_frame),
+                                        ctypes.c_int(1))
+
+
+def maybe_cast(val: Value):
+  """Maybe cast an ir.Value to one of Tensor, Scalar.
+
+  Args:
+    val: The ir.Value to maybe cast.
+  """
+  if Tensor.isinstance(val):
+    return Tensor(val)
+  elif Scalar.isinstance(val):
+    return Scalar(val)
+  return val
 
 
 #######################
