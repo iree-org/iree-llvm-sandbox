@@ -61,9 +61,24 @@ if "LLVM_SYMBOLIZER_PATH" in os.environ:
   config.environment["LLVM_SYMBOLIZER_PATH"] = \
       os.environ["LLVM_SYMBOLIZER_PATH"]
 
+
+def add_runtime(name):
+  for prefix in ['', 'lib']:
+    path = os.path.join(config.mlir_lib_dir,
+                        f'{prefix}{name}{config.llvm_shlib_ext}')
+    if os.path.isfile(path):
+      break
+  return path
+
+
+config.environment["MLIR_RUNNER_UTILS_LIB"] = add_runtime('mlir_runner_utils')
+config.environment["MLIR_C_RUNNER_UTILS_LIB"] = add_runtime(
+    'mlir_c_runner_utils')
+config.environment["MLIR_ASYNC_RUNTIME_LIB"] = add_runtime('mlir_async_runtime')
+
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 structured_python_path = os.path.join(config.structured_build_root,
-                                     'python_packages')
+                                      'python_packages')
 llvm_config.with_environment('PYTHONPATH', [structured_python_path],
                              append_path=True)

@@ -37,4 +37,10 @@ def ScatterToInsertSlice : Pass<"scatter-to-insert-slice", "func::FuncOp"> {
   ];
 }
 
+def MungeCallingConventions : Pass<"refbackend-munge-calling-conventions", "ModuleOp"> {
+  let summary = "Munge calling conventions for calling via ExecutionEngine";
+  let constructor = "mlir::createMungeCallingConventionsPass()";
+  let dependentDialects = ["memref::MemRefDialect"];
+}
+
 #endif // INDEXING_TRANSFORMS_PASSES

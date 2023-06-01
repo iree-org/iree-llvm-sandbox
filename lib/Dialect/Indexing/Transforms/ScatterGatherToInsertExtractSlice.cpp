@@ -28,7 +28,8 @@
 #include <tuple>
 
 namespace mlir {
-#define GEN_PASS_CLASSES
+#define GEN_PASS_DEF_GATHERTOEXTRACTSLICE
+#define GEN_PASS_DEF_SCATTERTOINSERTSLICE
 #include "structured/Dialect/Indexing/Transforms/Passes.h.inc"
 } // namespace mlir
 
@@ -176,7 +177,7 @@ struct ConvertGatherOpToInsertSliceOp : public OpRewritePattern<GatherOp> {
 namespace {
 
 struct GatherToExtractSlicePass
-    : public GatherToExtractSliceBase<GatherToExtractSlicePass> {
+    : public mlir::impl::GatherToExtractSliceBase<GatherToExtractSlicePass> {
   void runOnOperation() override {
     RewritePatternSet patterns(&getContext());
     patterns.add<ConvertGatherOpToInsertSliceOp>(&getContext());
@@ -187,7 +188,7 @@ struct GatherToExtractSlicePass
 };
 
 struct ScatterToInsertSlicePass
-    : public ScatterToInsertSliceBase<ScatterToInsertSlicePass> {
+    : public mlir::impl::ScatterToInsertSliceBase<ScatterToInsertSlicePass> {
   void runOnOperation() override {
     RewritePatternSet patterns(&getContext());
     patterns.add<ConvertScatterOpToInsertSliceOp>(&getContext());

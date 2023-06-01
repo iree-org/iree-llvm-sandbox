@@ -504,6 +504,7 @@ class Tensor(ArithValue, TensorValue):
   def __iadd__(self, other):
     if isinstance(other, Tensor) and hasattr(
         other.owner, "name") and other.owner.name == "linalg.matmul":
+      # TODO(max): erase previous owner
       return Tensor(
           linalg.matmul(other.owner.operands[0],
                         other.owner.operands[1],

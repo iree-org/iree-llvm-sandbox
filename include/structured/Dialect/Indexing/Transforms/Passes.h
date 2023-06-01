@@ -22,6 +22,7 @@ namespace mlir {
 
 std::unique_ptr<Pass> createGatherToExtractSlicePass();
 std::unique_ptr<Pass> createScatterToInsertSlicePass();
+std::unique_ptr<Pass> createMungeCallingConventionsPass();
 
 //===----------------------------------------------------------------------===//
 // Registration

@@ -1,5 +1,6 @@
 add_mlir_dialect_library(MLIRIndexingTransforms
   ScatterGatherToInsertExtractSlice.cpp
+  RefBackend.cpp
 
   DEPENDS
   MLIRIndexingPassIncGen
@@ -13,4 +14,6 @@ add_mlir_dialect_library(MLIRIndexingTransforms
   # specific
   MLIRIndexing
   MLIRTensorDialect
+  MLIRFuncDialect
+  MLIRMemRefDialect
 )
