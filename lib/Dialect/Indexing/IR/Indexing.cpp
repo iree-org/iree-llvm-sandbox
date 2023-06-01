@@ -254,8 +254,9 @@ struct ARangeOpPattern : public RewritePattern {
 
     auto attr = rewriter.getDenseI32ArrayAttr(segmentSizes);
     attributes.push_back({arangeOp.getOperandSegmentSizesAttrName(), attr});
-    attributes.push_back(
-        {arangeOp.getFoldAttrAttrName(), arangeOp.getFoldAttrAttr()});
+    if (arangeOp.getNofold())
+      attributes.push_back(
+          {arangeOp.getNofoldAttrName(), arangeOp.getNofoldAttr()});
     rewriter.replaceOpWithNewOp<ARangeOp>(arangeOp, operands, attributes);
   }
 };
@@ -269,7 +270,7 @@ void ARangeOp::getCanonicalizationPatterns(RewritePatternSet &results,
 
 OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
   if (!adaptor.getStartAttr() || !adaptor.getStopAttr() ||
-      !adaptor.getStepAttr() || !adaptor.getFoldAttr())
+      !adaptor.getStepAttr() || adaptor.getNofold())
     return {};
 
   int64_t start = adaptor.getStartAttr().value().getSExtValue(),

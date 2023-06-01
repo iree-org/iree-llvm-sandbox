@@ -677,8 +677,8 @@ def testARangeOpBasics():
     # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50x1xindex>
     print(ara.owner)
 
-    ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2, fold=True))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2, fold = true) : tensor<50x1xindex>
+    ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2, nofold=True))
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) nofold : tensor<50x1xindex>
     print(ara.owner)
 
   module.operation.verify()
@@ -696,7 +696,7 @@ def testARangeFun():
     # CHECK: Value(%[[C2:.*]] = arith.constant 2 : index)
     print(ara.owner.operands[2])
 
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) nofold : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100, fold=False)
@@ -704,13 +704,13 @@ def testARangeFun():
     print(ara.owner.operands[0])
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[1])
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) nofold : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(100, fold=False)
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[0])
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) nofold : tensor<?x1xindex>
     print(ara.owner)
 
     ara = arange(0, 100, 2, fold=True)
@@ -1042,7 +1042,7 @@ def testArbitrarySlicingDyn():
       print(step.owner)
 
       w = ten[:, :, start:stop:step]
-      # CHECK: %[[VAL_8:.*]] = "indexing.arange"(%[[VAL_3]], %[[VAL_5]], %[[VAL_7]]) {foldAttr = false, operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?x1xindex>
+      # CHECK: %[[VAL_8:.*]] = "indexing.arange"(%[[VAL_3]], %[[VAL_5]], %[[VAL_7]]) {nofold, operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?x1xindex>
       print(w.owner.operands[1].owner)
       # CHECK: %[[VAL_9:.*]] = "indexing.gather"(%[[VAL_0]], %[[VAL_8]]) {gather_dims = array<i64: 2>, unique} : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
       print(w.owner)
@@ -1050,7 +1050,7 @@ def testArbitrarySlicingDyn():
       w = ten[:, :, start:stop:5]
       # CHECK: %[[VAL_10:.*]] = "arith.constant"() <{value = 5 : index}> : () -> index
       print(w.owner.operands[1].owner.operands[2])
-      # CHECK: %[[VAL_11:.*]] = "indexing.arange"(%[[VAL_3]], %[[VAL_5]], %[[VAL_10]]) {foldAttr = false, operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?x1xindex>
+      # CHECK: %[[VAL_11:.*]] = "indexing.arange"(%[[VAL_3]], %[[VAL_5]], %[[VAL_10]]) {nofold, operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?x1xindex>
       print(w.owner.operands[1].owner)
       # CHECK: %[[VAL_12:.*]] = "indexing.gather"(%[[VAL_0]], %[[VAL_11]]) {gather_dims = array<i64: 2>, unique} : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
       print(w.owner)
@@ -1064,7 +1064,7 @@ def testArbitrarySlicingDyn():
   # CHECK-LABEL: module {
   # CHECK:         func.func @test_dyn_indices() -> tensor<?x7x22x4400xf32> {
   # CHECK:           %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
-  # CHECK:           %[[VAL_1:.*]] = indexing.arange(start = 100, stop = 200, step = 5) : tensor<20x1xindex>
+  # CHECK:           %[[VAL_1:.*]] = indexing.arange(start = 100, stop = 200, step = 5) nofold : tensor<20x1xindex>
   # CHECK:           %[[VAL_2:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_1]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<20x1xindex>) -> tensor<?x7x22x4400xf32>
   # CHECK:           return %[[VAL_2]] : tensor<?x7x22x4400xf32>
   # CHECK:         }
