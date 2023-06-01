@@ -3,6 +3,8 @@
 # Licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+import ctypes
+import inspect
 import operator
 from copy import deepcopy
 from functools import cached_property, lru_cache, partialmethod
@@ -13,6 +15,7 @@ import numpy as np
 from . import arith, tensor
 from ._arith_ops_ext import _is_integer_like_type
 from ._indexing_ops_gen import *
+from ._indexing_ops_ext import get_gather_result_shape
 from ._ods_common import get_op_result_or_value
 from ._structured_transform_ops_ext import _get_int_int_array_attr
 from .linalg.opdsl.lang.emitter import _is_floating_point_type
@@ -395,7 +398,7 @@ class Tensor(ArithValue, TensorValue):
         static_sizes.append(ShapedType.get_dynamic_size())
     return RankedTensorType.get(static_sizes, dtype)
 
-  def __getitem__(self, idx: tuple) -> Scalar:
+  def __getitem__(self, idx: tuple) -> "Tensor":
     """Advanced indexing for tensors.
 
     This method implements (primarily) a mapping from Numpy style advanced indexing
@@ -433,6 +436,8 @@ class Tensor(ArithValue, TensorValue):
     """
     if idx == Ellipsis or idx == slice(None):
       return self
+    if isinstance(idx, tuple) and all(i == slice(None) for i in idx):
+      return self
     if idx is None:
       return _expand_dims(self, (0,))
     idx = list((idx,) if isinstance(idx, int) else idx)
@@ -440,11 +445,31 @@ class Tensor(ArithValue, TensorValue):
       if isinstance(d, int):
         idx[i] = Scalar(arith.ConstantOp.create_index(d))
 
-    if all(isinstance(d, Scalar) and d.is_constant()
-           for d in idx) and len(idx) == len(self.shape):
+    if all(isinstance(d, Scalar) and d.fold() for d in idx) and len(idx) == len(
+        self.shape):
       return Scalar(tensor.ExtractOp(self, idx))
     else:
       return _build_gather(self, tuple(idx))
+
+  def __setitem__(self, idx, source):
+    if idx == Ellipsis or idx == slice(None) or (isinstance(idx, tuple) and all(
+        i == slice(None) for i in idx)):
+      assert self.shape == source.shape, f"Expected matching shape for dest slice {self.shape=} and source {source.shape=}"
+      return self
+    idx = list((idx,) if isinstance(idx, int) else idx)
+    for i, d in enumerate(idx):
+      if isinstance(d, int):
+        idx[i] = Scalar(arith.ConstantOp.create_index(d))
+    res = _build_scatter(self, source, tuple(idx))
+
+    # Update the stack frame with the new muxes as locals.
+    previous_frame = inspect.currentframe().f_back
+    filename, line_number, function_name, lines, index = inspect.getframeinfo(
+        previous_frame)
+    tensor_name = lines[0].strip().split("[")[0]
+    previous_frame.f_locals[tensor_name] = res
+    ctypes.pythonapi.PyFrame_LocalsToFast(ctypes.py_object(previous_frame),
+                                          ctypes.c_int(1))
 
 
 #######################
@@ -487,6 +512,24 @@ def gather(
           source=operand,
           indices=indices,
           gather_dims=gather_dims,
+          unique=unique_indices,
+      ))
+
+
+def scatter(
+    source: Tensor,
+    dest: Tensor,
+    indices: Tensor,
+    scatter_dims: Tuple[int, ...],
+    *,
+    unique_indices: bool = False,
+) -> Tensor:
+  return Tensor(
+      ScatterOp(
+          source=source,
+          dest=dest,
+          indices=indices,
+          scatter_dims=scatter_dims,
           unique=unique_indices,
       ))
 
@@ -640,12 +683,13 @@ def _expand_dims(inp, newaxis_dims) -> Tensor:
     raise ValueError(f"repeated axis in expand_dims: {newaxis_dims}")
 
   if isinstance(inp, Scalar):
-    assert newaxis_dims == [0, 1], f"{newaxis_dims=}"
     if inp.fold():
-      return _as_index_tensor(np.array(inp.literal_value).reshape((1, 1)))
+      return _as_index_tensor(
+          np.array(inp.literal_value).reshape((1,) * len(newaxis_dims)))
     else:
       return Tensor(
-          tensor.FromElementsOp(RankedTensorType.get((1, 1), inp.type), [inp]))
+          tensor.FromElementsOp(
+              RankedTensorType.get((1,) * len(newaxis_dims), inp.type), [inp]))
   elif Tensor.isinstance(inp):
     ndim_out = len(inp.shape) + len(newaxis_dims)
     if not all(0 <= d < ndim_out for d in newaxis_dims):
@@ -940,10 +984,6 @@ def _build_gather(
     idx,
     unique_indices=False,
 ) -> Tensor:
-  # Early bail for most trivial corner case (all full slices)
-  if all(i == slice(None) for i in idx):
-    return ten
-
   indexer = _indices_to_indexer(idx, ten.shape)
   out = ten
 
@@ -959,3 +999,30 @@ def _build_gather(
 
   # This adds newaxis/None dimensions.
   return _expand_dims(out, indexer.newaxis_dims)
+
+
+def _build_scatter(
+    dest: Tensor,
+    source: Tensor,
+    idx,
+    unique_indices=False,
+):
+  if isinstance(source, Scalar):
+    source = _expand_dims(source, (0,))
+
+  indexer = _indices_to_indexer(idx, dest.shape)
+  out = dest
+  result_shape = get_gather_result_shape(dest,
+                                         indexer.indices,
+                                         gather_dims=indexer.collapsed_dims)
+  assert result_shape == source.shape, f"Expected matching shape for dest slice {result_shape=} and source {source.shape=}"
+  if indexer.indices is not None and not _is_empty(indexer.indices):
+    out = scatter(
+        source,
+        dest,
+        indexer.indices,
+        indexer.collapsed_dims,
+        unique_indices=unique_indices or indexer.unique_indices,
+    )
+
+  return out
