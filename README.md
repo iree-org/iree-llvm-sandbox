@@ -82,7 +82,7 @@ and/or the examples to save compilation time, or use a different variant than
 ```bash
 cmake \
   -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
-  -DLLVM_TARGETS_TO_BUILD=X86 \
+  -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
   -DMLIR_INCLUDE_INTEGRATION_TESTS=ON \
   -DLLVM_ENABLE_ASSERTIONS=ON \
   -DBUILD_SHARED_LIBS=ON \
