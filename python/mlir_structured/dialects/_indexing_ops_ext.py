@@ -21,7 +21,7 @@ class ARangeOp:
                start=None,
                stop=None,
                step=None,
-               fold=None,
+               nofold=None,
                loc=None,
                ip=None):
     operands = []
@@ -79,12 +79,8 @@ class ARangeOp:
                                  not ir.AttrBuilder.contains('IndexAttr')) else
                                 ir.AttrBuilder.get('IndexAttr')(
                                     stepAttr, context=_ods_context))
-    if fold is not None:
-      attributes["foldAttr"] = (fold if
-                                (issubclass(type(fold), ir.Attribute) or
-                                 not ir.AttrBuilder.contains('BoolAttr')) else
-                                ir.AttrBuilder.get('BoolAttr')(
-                                    fold, context=_ods_context))
+    if bool(nofold):
+      attributes["nofold"] = ir.UnitAttr.get(_ods_context)
 
     results = ir.InferTypeOpInterface(ARangeOp).inferReturnTypes(
         operands=operands,

@@ -115,7 +115,7 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
                        OptionalAttr<IndexAttr>:$startAttr,
                        OptionalAttr<IndexAttr>:$stopAttr,
                        OptionalAttr<IndexAttr>:$stepAttr,
-                       DefaultValuedAttr<BoolAttr, "false">:$foldAttr);
+                       UnitAttr:$nofold);
   let results = (outs 2DTensorOf<[Index]>:$result);
   // the reason for the extra double backtick in (```start
   // is because otherwise an extraneous space is emitted in the pretty print
@@ -126,8 +126,8 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
         `stop` `=` ($stop^) : ($stopAttr)?
         `,`
         `step` `=` ($step^) : ($stepAttr)?
-        (`,` `fold` `=` $foldAttr^)?
-    `)` attr-dict `:` type($result)
+
+    `)` (`nofold` $nofold^)? attr-dict `:` type($result)
   }];
 
   let extraClassDeclaration = [{

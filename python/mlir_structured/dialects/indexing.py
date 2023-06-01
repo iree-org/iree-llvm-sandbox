@@ -615,9 +615,9 @@ def arange(start: Union[Scalar, int],
                     dtype=IndexType.get(),
                     fold=True)
     else:
-      return Tensor(ARangeOp(start=start, stop=stop, step=1),
+      return Tensor(ARangeOp(start=start, stop=stop, step=1, nofold=True),
                     dtype=IndexType.get(),
-                    fold=stop.fold() and fold)
+                    fold=False)
   else:
     if isinstance(stop, int):
       stop = Scalar(stop, dtype=index)
@@ -630,9 +630,9 @@ def arange(start: Union[Scalar, int],
                       dtype=IndexType.get(),
                       fold=True)
       else:
-        return Tensor(ARangeOp(start=start, stop=stop, step=1),
+        return Tensor(ARangeOp(start=start, stop=stop, step=1, nofold=True),
                       dtype=IndexType.get(),
-                      fold=start.fold() and stop.fold() and fold)
+                      fold=False)
     if isinstance(step, int):
       step = Scalar(step, dtype=index)
     if start.fold() and stop.fold() and step.fold() and fold:
@@ -642,9 +642,9 @@ def arange(start: Union[Scalar, int],
                     dtype=IndexType.get(),
                     fold=True)
     else:
-      return Tensor(ARangeOp(start=start, stop=stop, step=step),
+      return Tensor(ARangeOp(start=start, stop=stop, step=step, nofold=True),
                     dtype=IndexType.get(),
-                    fold=start.fold() and stop.fold() and step.fold() and fold)
+                    fold=False)
 
 
 ########################
