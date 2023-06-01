@@ -99,7 +99,7 @@ cmake \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
   -DCMAKE_BUILD_TYPE=Debug \
   -S${IREE_LLVM_SANDBOX_SOURCE_DIR}/third_party/llvm-project/llvm \
-  -B${IREE_LLVM_SANDBOX_BUILD_DIR}/build \
+  -B${IREE_LLVM_SANDBOX_BUILD_DIR} \
   -G Ninja
 ```
 
