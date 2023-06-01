@@ -355,8 +355,6 @@ class Tensor(ArithValue, TensorValue):
 
   @cached_property
   def shape(self) -> Tuple[int, ...]:
-    if not self._shaped_type.has_static_shape:
-      raise ValueError("Only static shapes currently supported.")
     return tuple(self._shaped_type.shape)
 
   @cached_property
@@ -466,6 +464,11 @@ def concatenate(tens: Sequence[Tensor], dim) -> Tensor:
     Tensor that wraps a value that's either the result of index.concatenate
     or (if all tensors are constant and foldable) the result of arith.constant.
   """
+  if dim == -1:
+    assert len(set(
+        i.shape for i in tens)) == 1, f"multiple index shapes: {tens}"
+    dim = len(tens[0].shape) - 1
+
   if all(a.fold() for a in tens):
     return Tensor(np.concatenate([a.literal_value for a in tens], axis=dim))
   else:
@@ -491,7 +494,7 @@ def gather(
 def arange(start: Union[Scalar, int],
            stop: Optional[Union[Scalar, int]] = None,
            step: Optional[Union[Scalar, int]] = None,
-           fold=True):
+           fold=False):
   """Return evenly spaced values within a given interval.
 
   * ``arange(stop)``: Values are generated within the half-open interval
@@ -526,10 +529,12 @@ def arange(start: Union[Scalar, int],
     if stop.fold() and fold:
       return Tensor(np.arange(start=start, stop=stop.literal_value,
                               step=1)[:, np.newaxis],
-                    dtype=IndexType.get())
+                    dtype=IndexType.get(),
+                    fold=True)
     else:
       return Tensor(ARangeOp(start=start, stop=stop, step=1),
-                    dtype=IndexType.get())
+                    dtype=IndexType.get(),
+                    fold=stop.fold() and fold)
   else:
     if isinstance(stop, int):
       stop = Scalar(stop, dtype=index)
@@ -635,14 +640,12 @@ def _expand_dims(inp, newaxis_dims) -> Tensor:
     raise ValueError(f"repeated axis in expand_dims: {newaxis_dims}")
 
   if isinstance(inp, Scalar):
-    assert newaxis_dims == [
-        0,
-    ], f"{newaxis_dims=}"
-    if inp.is_constant():
-      return _as_index_tensor(np.array(inp.literal_value).reshape((1,)))
+    assert newaxis_dims == [0, 1], f"{newaxis_dims=}"
+    if inp.fold():
+      return _as_index_tensor(np.array(inp.literal_value).reshape((1, 1)))
     else:
       return Tensor(
-          tensor.FromElementsOp(RankedTensorType.get((1,), inp.type), [inp]))
+          tensor.FromElementsOp(RankedTensorType.get((1, 1), inp.type), [inp]))
   elif Tensor.isinstance(inp):
     ndim_out = len(inp.shape) + len(newaxis_dims)
     if not all(0 <= d < ndim_out for d in newaxis_dims):
@@ -651,6 +654,9 @@ def _expand_dims(inp, newaxis_dims) -> Tensor:
     for i in reversed(newaxis_dims):
       result_shape.insert(i, 1)
 
+    if inp.fold():
+      return _as_index_tensor(inp.literal_value.reshape(result_shape))
+
     reassoc_list = [[i] for i in range(len(inp.shape))]
     for i, d in enumerate(newaxis_dims):
       reassoc_list.append([len(inp.shape) + i])
@@ -658,13 +664,10 @@ def _expand_dims(inp, newaxis_dims) -> Tensor:
         d = 1
       reassoc_list[max(d - 1, 0)].extend(reassoc_list.pop(d))
 
-    if inp.is_constant():
-      return _as_index_tensor(inp.literal_value)
-    else:
-      reassoc_list = _get_int_int_array_attr(reassoc_list)
-      return Tensor(
-          tensor.ExpandShapeOp(RankedTensorType.get(result_shape, inp.dtype),
-                               inp, reassoc_list))
+    reassoc_list = _get_int_int_array_attr(reassoc_list)
+    return Tensor(
+        tensor.ExpandShapeOp(RankedTensorType.get(result_shape, inp.dtype), inp,
+                             reassoc_list))
 
   raise NotImplementedError(inp, newaxis_dims)
 
@@ -677,7 +680,7 @@ def _has_index_type(e: Any) -> bool:
     e: Anything
   """
   return isinstance(e, int) or isinstance(e, np.ndarray) and e.dtype in {
-      np.uintp, np.longlong
+      np.intp
   } or isinstance(e, (Tensor, Scalar)) and IndexType.isinstance(e.dtype)
 
 
@@ -817,7 +820,6 @@ def _indices_to_indexer(idx: Sequence[Any],
   out_axis = 0  # Current axis in output.
   collapsed_dims: Sequence[int] = []
   indices: List[Tensor] = []
-  indices_shape: List[int] = []
   newaxis_dims: Sequence[int] = []
 
   # Contiguous in terms of dims that the index/slice
@@ -843,9 +845,10 @@ def _indices_to_indexer(idx: Sequence[Any],
         advanced_axes_are_contiguous and idx_i == idx_advanced_axes[0] or
         not advanced_axes_are_contiguous and idx_i == 0):
       if len(set([tuple(a.shape) for a in advanced_indexes])) != 1:
-        raise IndexError("All advanced indices must have the same shape.")
+        raise IndexError(
+            f"All advanced indices must have the same shape: {set([tuple(a.shape) for a in advanced_indexes])=}"
+        )
       indices.extend(advanced_indexes)
-      indices_shape += advanced_indexes[0].shape
       collapsed_dims = _compute_idx_tensor_extent(collapsed_dims, idx,
                                                   idx_advanced_axes)
 
@@ -857,7 +860,7 @@ def _indices_to_indexer(idx: Sequence[Any],
 
     if _is_scalar(idx_e) and _has_index_type(idx_e):
       # Handle basic Scalar indexes.
-      idx_e = _expand_dims(idx_e, (0,))
+      idx_e = _expand_dims(idx_e, (0, 1))
       indices.append(idx_e)
       collapsed_dims.append(in_axis)
       in_axis += 1
@@ -883,6 +886,23 @@ def _indices_to_indexer(idx: Sequence[Any],
               f"Negative step indexing mode not yet supported:\n{idx}")
         out_axis += 1
         in_axis += 1
+
+      # Handle slice index (only static, otherwise an error is raised)
+      else:
+        if not isinstance(in_shape[in_axis], int):
+          msg = ("Cannot use NumPy slice indexing on an array dimension whose "
+                 f"size is not statically known ({in_shape[in_axis]}). ")
+          raise IndexError(msg)
+
+        if all(isinstance(s, int) or s is None for s in (start, stop, step)):
+          ara = arange(*slice(start, stop, step).indices(in_shape[in_axis]))
+        else:
+          ara = arange(start, stop, step)
+        indices.append(ara)
+        collapsed_dims.append(in_axis)
+
+        out_axis += 1
+        in_axis += 1
     else:
       raise IndexError(f"Indexing mode not yet supported:\n{idx}")
 
@@ -894,16 +914,12 @@ def _indices_to_indexer(idx: Sequence[Any],
   elif len(indices) == 1:
     indices_tensor = indices[0]
   else:
-    if len(indices_shape) == 0:
-      last_dim = 0
-    else:
-      last_dim = len(indices_shape) - 1
     indices_tensor = concatenate(
         indices,
-        last_dim,
+        -1,
     )
 
-  if indices_tensor is not None and indices_tensor.is_constant():
+  if indices_tensor is not None and indices_tensor.fold():
     lit = indices_tensor.literal_value
     # flatten all but last dim (i.e., idx/coord dim)
     coords = lit.reshape(-1, lit.shape[-1])

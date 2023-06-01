@@ -16,7 +16,14 @@ except ImportError as e:
 class ARangeOp:
   OPERATION_NAME = "indexing.arange"
 
-  def __init__(self, *, start=None, stop=None, step=None, loc=None, ip=None):
+  def __init__(self,
+               *,
+               start=None,
+               stop=None,
+               step=None,
+               fold=None,
+               loc=None,
+               ip=None):
     operands = []
 
     for i, inp in enumerate([start, stop, step]):
@@ -72,6 +79,13 @@ class ARangeOp:
                                  not ir.AttrBuilder.contains('IndexAttr')) else
                                 ir.AttrBuilder.get('IndexAttr')(
                                     stepAttr, context=_ods_context))
+    if fold is not None:
+      attributes["foldAttr"] = (fold if
+                                (issubclass(type(fold), ir.Attribute) or
+                                 not ir.AttrBuilder.contains('BoolAttr')) else
+                                ir.AttrBuilder.get('BoolAttr')(
+                                    fold, context=_ods_context))
+
     results = ir.InferTypeOpInterface(ARangeOp).inferReturnTypes(
         operands=operands,
         attributes=ir.DictAttr.get(attributes, context=_ods_context),

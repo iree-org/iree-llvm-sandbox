@@ -9,6 +9,7 @@
 #ifndef STRUCTURED_DIALECT_INDEXING_IR_INDEXINGOPS
 #define STRUCTURED_DIALECT_INDEXING_IR_INDEXINGOPS
 
+include "mlir/IR/OpBase.td"
 include "structured/Dialect/Indexing/IR/IndexingDialect.td"
 include "structured/Dialect/Indexing/IR/IndexingTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
@@ -34,6 +35,9 @@ def Indexing_GatherOp : Indexing_Op<"gather", [
   let assemblyFormat = [{
     $source `[` $indices `]` `gather_dims` `(` $gather_dims `)` (`unique` $unique^)? attr-dict
         `:` functional-type(operands, results)
+  }];
+  let extraClassDeclaration = [{
+    static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
   }];
 }
 
@@ -63,6 +67,10 @@ def Indexing_ConcatenateOp : Indexing_Op<"concatenate",
   let assemblyFormat = [{
      `(` $inputs `)` `{` `dim` `=` $dimension `}` attr-dict `:` functional-type(operands, results)
   }];
+
+  let extraClassDeclaration = [{
+    static bool isCompatibleReturnTypes(TypeRange l, TypeRange r);
+  }];
 }
 
 def Indexing_ARangeOp : Indexing_Op<"arange", [
@@ -74,7 +82,7 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
   let description = [{
     Example:
     ```mlir
-    %range = arange(%start, %stop, %step) -> tensor<?xi64>
+    %range = arange(%start, %stop, %step) -> tensor<?xindex>
     ```
     Values are generated within the half-open interval [start, stop), with spacing between values given by step.
   }];
@@ -84,7 +92,8 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
                        Optional<Index>:$step,
                        OptionalAttr<IndexAttr>:$startAttr,
                        OptionalAttr<IndexAttr>:$stopAttr,
-                       OptionalAttr<IndexAttr>:$stepAttr);
+                       OptionalAttr<IndexAttr>:$stepAttr,
+                       DefaultValuedAttr<BoolAttr, "false">:$foldAttr);
   let results = (outs 2DTensorOf<[Index]>:$result);
   // the reason for the extra double backtick in (```start
   // is because otherwise an extraneous space is emitted in the pretty print
@@ -95,6 +104,7 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
         `stop` `=` ($stop^) : ($stopAttr)?
         `,`
         `step` `=` ($step^) : ($stepAttr)?
+        (`,` `fold` `=` $foldAttr^)?
     `)` attr-dict `:` type($result)
   }];
 

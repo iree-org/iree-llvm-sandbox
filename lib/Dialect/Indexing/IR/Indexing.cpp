@@ -17,10 +17,6 @@
 #include "mlir/Support/MathExtras.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
-#include "llvm/Support/Debug.h"
-#include <mlir/IR/BuiltinAttributes.h>
-
-#define DEBUG_TYPE "indexing-dialect"
 
 #include <numeric>
 
@@ -82,6 +78,12 @@ LogicalResult GatherOp::inferReturnTypes(
   return success();
 }
 
+bool GatherOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
+  if (l.size() != r.size() || l.size() != 1)
+    return false;
+  return succeeded(verifyCompatibleShape(l[0], r[0]));
+}
+
 //===----------------------------------------------------------------------===//
 // ConcatenateOp
 //===----------------------------------------------------------------------===//
@@ -103,6 +105,12 @@ LogicalResult ConcatenateOp::inferReturnTypes(
   inferredReturnTypes.assign(
       {RankedTensorType::Builder(sourceType).setShape(resultShape)});
   return success();
+}
+
+bool ConcatenateOp::isCompatibleReturnTypes(TypeRange l, TypeRange r) {
+  if (l.size() != r.size() || l.size() != 1)
+    return false;
+  return succeeded(verifyCompatibleShape(l[0], r[0]));
 }
 
 //===----------------------------------------------------------------------===//
@@ -246,6 +254,8 @@ struct ARangeOpPattern : public RewritePattern {
 
     auto attr = rewriter.getDenseI32ArrayAttr(segmentSizes);
     attributes.push_back({arangeOp.getOperandSegmentSizesAttrName(), attr});
+    attributes.push_back(
+        {arangeOp.getFoldAttrAttrName(), arangeOp.getFoldAttrAttr()});
     rewriter.replaceOpWithNewOp<ARangeOp>(arangeOp, operands, attributes);
   }
 };
@@ -259,7 +269,7 @@ void ARangeOp::getCanonicalizationPatterns(RewritePatternSet &results,
 
 OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
   if (!adaptor.getStartAttr() || !adaptor.getStopAttr() ||
-      !adaptor.getStepAttr())
+      !adaptor.getStepAttr() || !adaptor.getFoldAttr())
     return {};
 
   int64_t start = adaptor.getStartAttr().value().getSExtValue(),
