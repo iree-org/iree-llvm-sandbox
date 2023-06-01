@@ -10,7 +10,7 @@ from mlir_structured.dialects.indexing import (Scalar, Tensor, IndexTensorType,
                                                arange)
 from mlir_structured.ir import Context, IntegerType, F64Type, IndexType, F32Type, MLIRError
 from mlir_structured.passmanager import PassManager
-from mlir_structured.runtime.util import mlir_mod_ctx
+from mlir_structured.runtime.util import mlir_mod_ctx, scf_range, scf_yield
 
 
 def get_array_on_one_line(a):
@@ -1302,5 +1302,127 @@ def testDynSliceScatter():
   # CHECK:         %[[VAL_26:.*]] = indexing.arange(start = %[[VAL_23]], stop = %[[VAL_24]], step = %[[VAL_25]]) : tensor<?x1xindex>
   # CHECK:         %[[VAL_27:.*]] = indexing.concatenate(%[[VAL_22]], %[[VAL_26]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x2xindex>
   # CHECK:         %[[VAL_28:.*]] = indexing.gather %[[VAL_18]]{{\[}}%[[VAL_27]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x2xindex>) -> tensor<?x7x22xf32>
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testForLoopSugarNoIterArgs
+@run
+def testForLoopSugarNoIterArgs():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+    for i in scf_range(0, 10):
+      y = 2 * i
+
+  module.operation.verify()
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 10 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 1 : index
+  # CHECK:         scf.for %[[VAL_4:.*]] = %[[VAL_1]] to %[[VAL_2]] step %[[VAL_3]] {
+  # CHECK:           %[[VAL_5:.*]] = arith.constant 2 : index
+  # CHECK:           %[[VAL_6:.*]] = arith.muli %[[VAL_4]], %[[VAL_5]] : index
+  # CHECK:         }
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testForLoopSugarIterArgs
+@run
+def testForLoopSugarIterArgs():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+    for i, _ in scf_range(0, 10, iter_args=[ten]):
+      y = ten + ten
+      scf_yield(y)
+
+  module.operation.verify()
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 10 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 1 : index
+  # CHECK:         %[[VAL_4:.*]] = scf.for %[[VAL_5:.*]] = %[[VAL_1]] to %[[VAL_2]] step %[[VAL_3]] iter_args(%[[VAL_6:.*]] = %[[VAL_0]]) -> (tensor<7x22x330x4400xf32>) {
+  # CHECK:           %[[VAL_7:.*]] = arith.addf %[[VAL_6]], %[[VAL_6]] : tensor<7x22x330x4400xf32>
+  # CHECK:           scf.yield %[[VAL_7]] : tensor<7x22x330x4400xf32>
+  # CHECK:         }
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testForLoopSugarResult
+@run
+def testForLoopSugarResult():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+
+    @func.FuncOp.from_py_func(*[])
+    def test_fold():
+      ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+      for i, result in scf_range(0, 10, iter_args=[ten]):
+        y = ten + ten
+        scf_yield(y)
+      return result
+
+  module.operation.verify()
+
+  # CHECK-LABEL: module {
+  # CHECK:         func.func @test_fold() -> tensor<7x22x330x4400xf32> {
+  # CHECK:           %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:           %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:           %[[VAL_2:.*]] = arith.constant 10 : index
+  # CHECK:           %[[VAL_3:.*]] = arith.constant 1 : index
+  # CHECK:           %[[VAL_4:.*]] = scf.for %[[VAL_5:.*]] = %[[VAL_1]] to %[[VAL_2]] step %[[VAL_3]] iter_args(%[[VAL_6:.*]] = %[[VAL_0]]) -> (tensor<7x22x330x4400xf32>) {
+  # CHECK:             %[[VAL_7:.*]] = arith.addf %[[VAL_6]], %[[VAL_6]] : tensor<7x22x330x4400xf32>
+  # CHECK:             scf.yield %[[VAL_7]] : tensor<7x22x330x4400xf32>
+  # CHECK:           }
+  # CHECK:           return %[[VAL_8:.*]] : tensor<7x22x330x4400xf32>
+  # CHECK:         }
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testForLoopSugarNested
+@run
+def testForLoopSugarNested():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+
+    @func.FuncOp.from_py_func(*[])
+    def test_double_loop():
+      ten = Tensor.empty((7, 22, 330, 4400), f32)
+
+      for i, result1 in scf_range(0, 10, iter_args=[ten]):
+        for i, result2 in scf_range(0, 10, iter_args=[ten]):
+          y = ten + ten
+          scf_yield(y)
+        scf_yield(result2)
+      return result1
+
+  module.operation.verify()
+
+  pm = PassManager.parse('builtin.module(cse)')
+  pm.run(module.operation)
+  # CHECK-LABEL: module {
+  # CHECK:         func.func @test_double_loop() -> tensor<7x22x330x4400xf32> {
+  # CHECK:           %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:           %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:           %[[VAL_2:.*]] = arith.constant 10 : index
+  # CHECK:           %[[VAL_3:.*]] = arith.constant 1 : index
+  # CHECK:           %[[VAL_4:.*]] = scf.for %[[VAL_5:.*]] = %[[VAL_1]] to %[[VAL_2]] step %[[VAL_3]] iter_args(%[[VAL_6:.*]] = %[[VAL_0]]) -> (tensor<7x22x330x4400xf32>) {
+  # CHECK:             %[[VAL_7:.*]] = scf.for %[[VAL_8:.*]] = %[[VAL_1]] to %[[VAL_2]] step %[[VAL_3]] iter_args(%[[VAL_9:.*]] = %[[VAL_6]]) -> (tensor<7x22x330x4400xf32>) {
+  # CHECK:               %[[VAL_10:.*]] = arith.addf %[[VAL_9]], %[[VAL_9]] : tensor<7x22x330x4400xf32>
+  # CHECK:               scf.yield %[[VAL_10]] : tensor<7x22x330x4400xf32>
+  # CHECK:             }
+  # CHECK:             scf.yield %[[VAL_11:.*]] : tensor<7x22x330x4400xf32>
+  # CHECK:           }
+  # CHECK:           return %[[VAL_12:.*]] : tensor<7x22x330x4400xf32>
+  # CHECK:         }
   # CHECK:       }
   print(module)
