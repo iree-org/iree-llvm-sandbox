@@ -225,7 +225,7 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   auto addUnrealizedCast = [](OpBuilder &builder, Type type, ValueRange inputs,
                               Location loc) {
     auto cast = builder.create<UnrealizedConversionCastOp>(loc, type, inputs);
-    return Optional<Value>(cast.getResult(0));
+    return std::optional<Value>(cast.getResult(0));
   };
   typeConverter.addSourceMaterialization(addUnrealizedCast);
   typeConverter.addTargetMaterialization(addUnrealizedCast);

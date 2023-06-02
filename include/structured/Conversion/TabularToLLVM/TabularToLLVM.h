@@ -28,7 +28,7 @@ public:
 
   /// Maps a TabularViewType to an LLVMStruct of pointers, i.e., to a "struct of
   /// arrays".
-  static Optional<Type> convertTabularViewType(Type type);
+  static std::optional<Type> convertTabularViewType(Type type);
 
 private:
   LLVMTypeConverter llvmTypeConverter;
