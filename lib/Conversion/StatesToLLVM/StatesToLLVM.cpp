@@ -43,7 +43,7 @@ public:
 
 private:
   /// Maps an iterator state type to a corresponding LLVMStructType.
-  Optional<Type> convertIteratorStateType(Type type) {
+  std::optional<Type> convertIteratorStateType(Type type) {
     if (auto stateType = type.dyn_cast<StateType>()) {
       llvm::SmallVector<Type> fieldTypes(stateType.getFieldTypes().begin(),
                                          stateType.getFieldTypes().end());
@@ -168,7 +168,7 @@ void ConvertStatesToLLVMPass::runOnOperation() {
   auto addUnrealizedCast = [](OpBuilder &builder, Type type, ValueRange inputs,
                               Location loc) {
     auto cast = builder.create<UnrealizedConversionCastOp>(loc, type, inputs);
-    return Optional<Value>(cast.getResult(0));
+    return std::optional<Value>(cast.getResult(0));
   };
   typeConverter.addSourceMaterialization(addUnrealizedCast);
   typeConverter.addTargetMaterialization(addUnrealizedCast);

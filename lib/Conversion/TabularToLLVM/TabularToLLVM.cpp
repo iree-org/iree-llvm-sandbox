@@ -41,14 +41,14 @@ TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
   addConversion(convertTabularViewType);
 
   // Convert MemRefType using LLVMTypeConverter.
-  addConversion([&](Type type) -> llvm::Optional<Type> {
+  addConversion([&](Type type) -> std::optional<Type> {
     if (type.isa<MemRefType>())
       return llvmTypeConverter.convertType(type);
     return std::nullopt;
   });
 }
 
-Optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
+std::optional<Type> TabularTypeConverter::convertTabularViewType(Type type) {
   if (auto viewType = type.dyn_cast<TabularViewType>()) {
     MLIRContext *context = type.getContext();
     Type dynamicSize = IntegerType::get(context, /*width=*/64);
@@ -165,7 +165,7 @@ void ConvertTabularToLLVMPass::runOnOperation() {
   auto addUnrealizedCast = [](OpBuilder &builder, Type type, ValueRange inputs,
                               Location loc) {
     auto cast = builder.create<UnrealizedConversionCastOp>(loc, type, inputs);
-    return Optional<Value>(cast.getResult(0));
+    return std::optional<Value>(cast.getResult(0));
   };
   typeConverter.addSourceMaterialization(addUnrealizedCast);
   typeConverter.addTargetMaterialization(addUnrealizedCast);

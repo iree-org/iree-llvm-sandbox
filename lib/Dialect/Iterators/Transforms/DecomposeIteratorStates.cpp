@@ -39,8 +39,8 @@ public:
 
 private:
   /// Maps a StateType to the types of its fields.
-  Optional<LogicalResult> decomposeStateType(StateType type,
-                                             SmallVectorImpl<Type> &results) {
+  std::optional<LogicalResult>
+  decomposeStateType(StateType type, SmallVectorImpl<Type> &results) {
     for (Type fieldType : type.getFieldTypes()) {
       if (failed(convertTypes(fieldType, results)))
         return failure();
