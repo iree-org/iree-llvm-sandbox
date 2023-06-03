@@ -20,6 +20,7 @@ jobs:
       run: |
         echo "STRUCTURED_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox" | tee -a $GITHUB_ENV
         echo "STRUCTURED_MAIN_BINARY_DIR=${GITHUB_WORKSPACE}/sandbox/build" | tee -a $GITHUB_ENV
+        echo "LLVM_SYSPATH=${GITHUB_WORKSPACE}/sandbox/build" | tee -a $GITHUB_ENV
 
     - name: Free disk space
       uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
@@ -53,9 +54,6 @@ jobs:
         max-size: 6G
 
     - name: Install Python depends
-      env:
-        CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        CMAKE_C_COMPILER_LAUNCHER: ccache
       run: |
         cd ${STRUCTURED_MAIN_SRC_DIR}
         python -m pip install -v -r requirements.txt
@@ -65,10 +63,9 @@ jobs:
       run: |
         cmake \
           -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
-          -DLLVM_TARGETS_TO_BUILD=X86 \
+          -DLLVM_TARGETS_TO_BUILD="AMDGPU;NVPTX;X86" \
           -DMLIR_INCLUDE_INTEGRATION_TESTS=ON \
           -DLLVM_ENABLE_ASSERTIONS=ON \
-          -DBUILD_SHARED_LIBS=ON \
           -DLLVM_INCLUDE_UTILS=ON \
           -DLLVM_INSTALL_UTILS=ON \
           -DLLVM_LIT_ARGS=-v \
@@ -87,9 +84,19 @@ jobs:
           -B${STRUCTURED_MAIN_BINARY_DIR} -G Ninja
         echo "PYTHONPATH=${PYTHONPATH}:${STRUCTURED_MAIN_BINARY_DIR}/tools/structured/python_packages" | tee -a $GITHUB_ENV
 
-    - name: Build
+    - name: Build main project
       run: |
-        cmake --build ${STRUCTURED_MAIN_BINARY_DIR} --target structured-all
+        cmake --build ${STRUCTURED_MAIN_BINARY_DIR} --target structured-all triton-dependencies
+        ccache -s
+
+    - name: Build Triton
+      env:
+        CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        CMAKE_C_COMPILER_LAUNCHER: ccache
+        MAX_JOBS: 1
+      run: |
+        cd ${STRUCTURED_MAIN_SRC_DIR}/third_party/triton/python
+        pip install -v .
         ccache -s
 
     - name: Run lit tests

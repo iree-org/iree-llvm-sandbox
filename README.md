@@ -56,7 +56,7 @@ export IREE_LLVM_SANDBOX_SOURCE_DIR=$HOME/src/iree-llvm-sandbox
 export IREE_LLVM_SANDBOX_BUILD_DIR=${IREE_LLVM_SANDBOX_SOURCE_DIR}/build
 ```
 
-### Python prerequisites (optional)
+### Python prerequisites
 
 Create a virtual environment, activate it, and install the dependencies from
 [`requirements.txt`](requirements.txt):
@@ -71,21 +71,19 @@ python -m pip install -r ${IREE_LLVM_SANDBOX_SOURCE_DIR}/requirements.txt
 For details, see the documentation of the
 [MLIR Python Bindings](https://mlir.llvm.org/docs/Bindings/Python/).
 
-### Configure and build
+### Configure and build main project
 
 Run the command below to set up the build system, possibly adapting it to your
-needs. For example, you may leave out the Python-related lines if you don't plan
-to use the Python bindings, not compile `clang`, `clang-tools-extra`, `lld`,
+needs. For example, you may not compile `clang`, `clang-tools-extra`, `lld`,
 and/or the examples to save compilation time, or use a different variant than
 `Debug`.
 
 ```bash
 cmake \
   -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
-  -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
+  -DLLVM_TARGETS_TO_BUILD="AMDGPU;NVPTX;X86" \
   -DMLIR_INCLUDE_INTEGRATION_TESTS=ON \
   -DLLVM_ENABLE_ASSERTIONS=ON \
-  -DBUILD_SHARED_LIBS=ON \
   -DLLVM_INCLUDE_UTILS=ON \
   -DLLVM_INSTALL_UTILS=ON \
   -DLLVM_BUILD_EXAMPLES=ON \
@@ -107,6 +105,19 @@ To build, run:
 
 ```bash
 cd ${IREE_LLVM_SANDBOX_BUILD_DIR} && ninja
+```
+
+### Build and install Triton (optional)
+
+You may compile and install the Triton Python module at the same version that
+the main project uses. This is required for some tests to pass and has to be
+done every time the [Triton submodule](third_party/triton/) is updated.
+
+```bash
+CXX=clang++ CC=clang \
+  CMAKE_CXX_COMPILER_LAUNCHER=ccache CMAKE_C_COMPILER_LAUNCHER=ccache
+  LLVM_SYSPATH=${IREE_LLVM_SANDBOX_BUILD_DIR} \
+  pip install -v -e ${IREE_LLVM_SANDBOX_BUILD_DIR}/third_party/triton/python
 ```
 
 ## Using structured-opt
