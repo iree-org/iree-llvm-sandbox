@@ -27,7 +27,6 @@ class MLIRContext;
 
 using namespace mlir;
 using namespace mlir::arith;
-using namespace mlir::func;
 using namespace mlir::LLVM;
 using namespace mlir::tensor;
 using namespace triton;
@@ -36,34 +35,6 @@ namespace {
 struct ConvertTritonToLLVMPass
     : public ConvertTritonToLLVMBase<ConvertTritonToLLVMPass> {
   void runOnOperation() override;
-};
-
-/// Replaces an op of type SourceOp to an op of type TargetOp while preserving
-/// all types, operands, attributes, successors, regions, and its location.
-template <typename SourceOp, typename TargetOp>
-struct OneToOneOpConversion : public OpConversionPattern<SourceOp> {
-  OneToOneOpConversion(TypeConverter &typeConverter, MLIRContext *context,
-                       PatternBenefit benefit = 1)
-      : OpConversionPattern<SourceOp>(typeConverter, context, benefit) {}
-
-  using OpAdaptor = typename OpConversionPattern<SourceOp>::OpAdaptor;
-
-  LogicalResult
-  matchAndRewrite(SourceOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    MLIRContext *context = this->getContext();
-    SmallVector<std::unique_ptr<Region>> regions;
-    for (auto &region : op->getRegions()) {
-      auto &newRegion = regions.emplace_back(new Region);
-      rewriter.inlineRegionBefore(region, *newRegion, newRegion->end());
-    }
-    Operation *newOp = rewriter.create(
-        op->getLoc(), StringAttr::get(context, TargetOp::getOperationName()),
-        op->getOperands(), op->getResultTypes(), op->getAttrs(),
-        op->getSuccessors(), regions);
-    rewriter.replaceOp(op, newOp->getResults());
-    return success();
-  }
 };
 
 struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
@@ -202,10 +173,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
       LoadOpConversion,
       MakeRangeOpConversion,
       SplatOpConversion,
-      StoreOpConversion,
-      OneToOneOpConversion<triton::CallOp, func::CallOp>,
-      OneToOneOpConversion<triton::FuncOp, func::FuncOp>,
-      OneToOneOpConversion<triton::ReturnOp, func::ReturnOp>
+      StoreOpConversion
       // clang-format on
       >(typeConverter, patterns.getContext());
 }
@@ -232,7 +200,7 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
 
-  // Lower tt.func op and friends to corresponding ops from func.
+  // Load patterns specific this pass.
   populateTritonToLLVMConversionPatterns(patterns, typeConverter);
 
   // Lower ops from func to LLVM.
