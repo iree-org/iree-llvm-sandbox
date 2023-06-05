@@ -94,6 +94,7 @@ def compile(fn, **kwargs):
 
     # Compile with custom pipeline.
     pm = PassManager.parse('builtin.module('
+                           '  convert-triton-func-to-func,'
                            '  convert-triton-to-llvm,'
                            '  convert-arith-to-llvm'
                            ')')
