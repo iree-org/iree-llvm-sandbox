@@ -203,15 +203,22 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   // Load patterns specific this pass.
   populateTritonToLLVMConversionPatterns(patterns, typeConverter);
 
-  // Lower ops from func to LLVM.
-  populateFuncToLLVMFuncOpConversionPattern(typeConverter, patterns);
-  populateFuncToLLVMConversionPatterns(typeConverter, patterns);
-
   // Add patterns that converts function signature and calls.
   populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns,
                                                                  typeConverter);
   populateCallOpTypeConversionPattern(patterns, typeConverter);
   populateReturnOpTypeConversionPattern(patterns, typeConverter);
+
+  // Force application of that pattern if signature is not legal yet.
+  target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
+    return typeConverter.isSignatureLegal(op.getFunctionType());
+  });
+  target.addDynamicallyLegalOp<func::ReturnOp>([&](func::ReturnOp op) {
+    return typeConverter.isLegal(op.getOperandTypes());
+  });
+  target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
+    return typeConverter.isSignatureLegal(op.getCalleeType());
+  });
 
   // Use UnrealizedConversionCast as materializations, which have to be cleaned
   // up by later passes.

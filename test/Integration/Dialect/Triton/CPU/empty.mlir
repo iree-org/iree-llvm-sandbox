@@ -10,6 +10,7 @@
 // RUN: structured-opt %s \
 // RUN:   -convert-triton-func-to-func \
 // RUN:   -convert-triton-to-llvm \
+// RUN:   -convert-func-to-llvm \
 // RUN: | mlir-cpu-runner -e kernel -entry-point-result=void
 
 tt.func public @kernel() {
