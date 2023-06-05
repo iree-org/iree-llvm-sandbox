@@ -95,6 +95,28 @@ def ConvertTabularToLLVM : Pass<"convert-tabular-to-llvm", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// TritonFuncToFunc
+//===----------------------------------------------------------------------===//
+
+def ConvertTritonFuncToFunc : Pass<"convert-triton-func-to-func", "ModuleOp"> {
+  let summary = "Convert func-related ops from the Triton to the func dialect";
+  let description = [{
+    Converts the func-related operations from Triton's `tt` dialect to their
+    equivalents from the upstream `func` dialect.
+
+    Triton's `tt` dialect contains copies of the `call`, `func`, and `return`
+    ops from the `func` dialect for finer control of the inlining behaviour of
+    these ops. This pass converts instances of these three ops to the original
+    ops in the `func` dialect while preserving all types, operands, attributes,
+    successors, regions, and its location.
+  }];
+  let constructor = "mlir::createConvertTritonFuncToFuncPass()";
+  let dependentDialects = [
+    "func::FuncDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // TritonToLLVM
 //===----------------------------------------------------------------------===//
 
