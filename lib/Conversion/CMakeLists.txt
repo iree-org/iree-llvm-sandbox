@@ -1,4 +1,5 @@
 add_subdirectory(IteratorsToLLVM)
 add_subdirectory(StatesToLLVM)
 add_subdirectory(TabularToLLVM)
+add_subdirectory(TritonFuncToFunc)
 add_subdirectory(TritonToLLVM)
