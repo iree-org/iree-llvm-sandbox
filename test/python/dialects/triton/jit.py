@@ -64,3 +64,22 @@ def load_store_tensor():
 
   # CHECK-NEXT: tensor([200, 202, 204, 206], dtype=torch.int32)
   print(X)
+
+
+# CHECK-LABEL: TEST: view_op
+@run
+def view_op():
+
+  @jit
+  def kernel(ptr):
+    r1x4 = tl.arange(0, 4)
+    r2x2 = tl.view(r1x4, (2, 2))
+    ptr_r2x2 = ptr + r2x2
+    ptr_r1x4 = tl.view(ptr_r2x2, (4,))
+    tl.store(ptr_r1x4, r1x4)
+
+  X = torch.tensor(list(range(100, 104)), dtype=torch.int32)
+  kernel[(1,)](X)
+
+  # CHECK-NEXT: tensor([0, 1, 2, 3], dtype=torch.int32)
+  print(X)

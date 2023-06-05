@@ -357,6 +357,35 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
     return failure();
   }
 };
+
+struct ViewOpConversion : public OpConversionPattern<triton::ViewOp> {
+  ViewOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                   PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::ViewOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // Compute converted result type.
+    auto srcTensorType = adaptor.getSrc().getType().cast<RankedTensorType>();
+    auto elementType = srcTensorType.getElementType();
+    ArrayRef<int64_t> shape =
+        op.getResult().getType().cast<ShapedType>().getShape();
+    auto resultType = RankedTensorType::get(shape, elementType);
+
+    // Create constant tensor describing new shape.
+    DenseIntElementsAttr shapeAttr = rewriter.getIndexTensorAttr(shape);
+    auto shapeTensor = rewriter.create<arith::ConstantOp>(loc, shapeAttr);
+
+    // Replace op with reshape op.
+    rewriter.replaceOpWithNewOp<tensor::ReshapeOp>(
+        op, resultType, adaptor.getSrc(), shapeTensor);
+
+    return success();
+  }
+};
 } // namespace
 
 void mlir::populateTritonToLLVMConversionPatterns(
@@ -368,7 +397,8 @@ void mlir::populateTritonToLLVMConversionPatterns(
       LoadOpConversion,
       MakeRangeOpConversion,
       SplatOpConversion,
-      StoreOpConversion
+      StoreOpConversion,
+      ViewOpConversion
       // clang-format on
       >(typeConverter, patterns.getContext());
 }
