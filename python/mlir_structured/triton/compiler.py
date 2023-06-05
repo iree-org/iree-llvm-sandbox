@@ -96,7 +96,8 @@ def compile(fn, **kwargs):
     pm = PassManager.parse('builtin.module('
                            '  convert-triton-func-to-func,'
                            '  convert-triton-to-llvm,'
-                           '  convert-arith-to-llvm'
+                           '  convert-arith-to-llvm,'
+                           '  convert-func-to-llvm'
                            ')')
     try:
       pm.run(mod.operation)
