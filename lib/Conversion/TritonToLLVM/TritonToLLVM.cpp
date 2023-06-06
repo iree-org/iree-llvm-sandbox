@@ -29,6 +29,7 @@ using namespace mlir;
 using namespace mlir::arith;
 using namespace mlir::func;
 using namespace mlir::LLVM;
+using namespace mlir::tensor;
 using namespace triton;
 
 namespace {
@@ -142,6 +143,29 @@ struct MakeRangeOpConversion : public OpConversionPattern<triton::MakeRangeOp> {
   }
 };
 
+struct SplatOpConversion : public OpConversionPattern<triton::SplatOp> {
+  SplatOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                    PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::SplatOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value src = adaptor.getSrc();
+
+    // Don't handle splatting of pointers yet.
+    if (src.getType().isa<LLVMPointerType>())
+      return failure();
+    assert(src.getType().isIntOrFloat());
+
+    // Replace tt.splat with tensor.splat.
+    Type tensorType = op.getResult().getType();
+    rewriter.replaceOpWithNewOp<tensor::SplatOp>(op, src, tensorType);
+
+    return success();
+  }
+};
+
 struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
   StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                     PatternBenefit benefit = 1)
@@ -177,6 +201,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
       AddPtrOpConversion,
       LoadOpConversion,
       MakeRangeOpConversion,
+      SplatOpConversion,
       StoreOpConversion,
       OneToOneOpConversion<triton::CallOp, func::CallOp>,
       OneToOneOpConversion<triton::FuncOp, func::FuncOp>,
@@ -203,7 +228,7 @@ void ConvertTritonToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<LLVMDialect, ArithDialect>();
+  target.addLegalDialect<ArithDialect, LLVMDialect, TensorDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
 
