@@ -442,7 +442,7 @@ class Tensor(ArithValue, TensorValue):
       return self
     if idx is None:
       return expand_dims(self, (0,))
-    idx = list((idx,) if isinstance(idx, int) else idx)
+    idx = list((idx,) if isinstance(idx, (int, slice)) else idx)
     for i, d in enumerate(idx):
       if isinstance(d, int):
         idx[i] = Scalar(arith.ConstantOp.create_index(d))
@@ -655,7 +655,8 @@ def expand_dims(inp, newaxis_dims, reshape=None) -> Tensor:
 
   Args:
     inp: Input tensor-like.
-    axis: Position in the expanded axes where the new axis (or axes) is placed.
+    newaxis_dims: Position in the expanded axes where the new axis (or axes) is placed.
+    reshape: For constant/literal inputs, an optional final reshape can be performed.
 
   Returns:
      View of `a` with the number of dimensions increased.
@@ -711,6 +712,41 @@ def expand_dims(inp, newaxis_dims, reshape=None) -> Tensor:
 
 
 def meshgrid(*xi: Tuple[Tensor]) -> Tensor:
+  """
+  Return coordinate matrices from coordinate vectors.
+
+  Make N-D+1 coordinate arrays for vectorized evaluations of
+  N-D scalar/vector fields over N-D grids, given
+  one-dimensional coordinate arrays x1, x2,..., xn.
+
+  This operation combines the semantics of numpy's meshgrid and stack(..., -1);
+  e.g.,
+
+  ```
+  r1 = arange(0, 50, 5)
+  r2 = arange(50, 100, 10)
+  ss = meshgrid(r1, r2)
+  print(ss.shape)
+  >>> (10, 5, 2)
+  ```
+  is the same as
+  ```
+  r1 = np.arange(0, 50, 5)
+  r2 = np.arange(50, 100, 10)
+  xx, yy = np.meshgrid(r1, r2, indexing="ij")
+  ss = np.stack([xx, yy], -1)
+  print(ss.shape)
+  >>> (10, 5, 2)
+  ```
+
+  Args:
+    *xi: tuple x1, x2,..., xn of
+        1-D arrays representing the coordinates of a grid.
+
+  Returns:
+    (len(x1), len(x2), ..., len(xn), len(xi)) shaped array.
+    Note that the last dimension represents the actual coordinate payload.
+  """
   return Tensor(MeshGridOp(inputs=xi))
 
 
@@ -867,14 +903,22 @@ def _canonicalize_tuple_index(idx: Tuple[Any], rank: int):
   return idx
 
 
-def _is_arange_result(i):
-  if isinstance(i, Value) and hasattr(i, "owner"):
-    try:
-      return isinstance(i.owner.opview, ARangeOp)
-    except:
-      return i.owner.name == ARangeOp.OPERATION_NAME
+def _is_arange_result(x):
+  """
+  Checks whether the owner of a tensor is an arange operation.
 
-  return False
+  Args:
+    x: tensor whose owner should be checked.
+
+  Returns: True if the tensor was the result of an arange operation.
+  """
+  if isinstance(x, Value) and hasattr(x, "owner"):
+    try:
+      return isinstance(x.owner.opview, ARangeOp)
+    except:
+      return x.owner.name == ARangeOp.OPERATION_NAME
+  else:
+    raise ValueError("Can only check the owner of an ir.Value object.")
 
 
 def _compute_idx_tensor_extent(collapsed_dims, idx, idx_advanced_axes):
@@ -1021,11 +1065,16 @@ def _indices_to_indexer(idx: Sequence[Any],
     indices_tensor = None
   elif len(indices) == 1:
     indices_tensor = indices[0]
+    if _is_arange_result(indices_tensor):
+      indices_tensor = meshgrid(indices_tensor)
   else:
-    indices_tensor = concatenate(
-        indices,
-        -1,
-    )
+    if any(_is_arange_result(i) for i in indices):
+      indices_tensor = meshgrid(*indices)
+    else:
+      indices_tensor = concatenate(
+          indices,
+          -1,
+      )
 
   if indices_tensor is not None and indices_tensor.fold():
     lit = indices_tensor.literal_value
