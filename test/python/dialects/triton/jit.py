@@ -88,6 +88,28 @@ def load_store_tensor():
   print(X)
 
 
+# CHECK-LABEL: TEST: load_store_kd_tensor
+@run
+def load_store_kd_tensor():
+
+  @jit
+  def kernel(ptr):
+    r = tl.arange(0, 4)
+    r = tl.view(r, (2, 2))
+    ptr_r = ptr + r
+
+    t = tl.load(ptr_r)
+    t = t + t
+
+    tl.store(ptr_r, t)
+
+  X = torch.tensor(list(range(100, 104)), dtype=torch.int32)
+  kernel[(1,)](X)
+
+  # CHECK-NEXT: tensor([200, 202, 204, 206], dtype=torch.int32)
+  print(X)
+
+
 # CHECK-LABEL: TEST: view_op
 @run
 def view_op():
