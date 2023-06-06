@@ -710,6 +710,10 @@ def expand_dims(inp, newaxis_dims, reshape=None) -> Tensor:
   raise NotImplementedError(inp, newaxis_dims)
 
 
+def meshgrid(*xi: Tuple[Tensor]) -> Tensor:
+  return Tensor(MeshGridOp(inputs=xi))
+
+
 ########################
 # advanced indexing impl
 ########################

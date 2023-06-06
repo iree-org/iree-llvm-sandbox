@@ -16,6 +16,7 @@
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Support/MathExtras.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include <numeric>
@@ -294,6 +295,39 @@ OpFoldResult ARangeOp::fold(FoldAdaptor adaptor) {
   }
   auto type = RankedTensorType::get({len}, IndexType::get(getContext()));
   return DenseElementsAttr::get(type, ArrayRef(arange));
+}
+
+//===----------------------------------------------------------------------===//
+// MeshGridOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult MeshGridOp::inferReturnTypes(
+    MLIRContext *context, std::optional<Location> location, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    SmallVectorImpl<Type> &inferredReturnTypes) {
+  llvm::SmallVector<int64_t> shape;
+  for (const Value &op : operands) {
+    auto opShape = op.getType().cast<RankedTensorType>();
+    if (opShape.getRank() != 1) {
+      op.getDefiningOp()->emitError("MeshGrid operand must be 1d.");
+      return failure();
+    }
+    shape.push_back(opShape.getDimSize(0));
+  }
+  shape.push_back(operands.size());
+  inferredReturnTypes.assign(
+      {RankedTensorType::get(shape, IndexType::get(context))});
+  return success();
+}
+
+LogicalResult MeshGridOp::verify() {
+  if (!llvm::all_of(getOperandTypes(), [](Type t) {
+        if (auto r = t.dyn_cast<RankedTensorType>())
+          return r.hasRank() and r.getRank() == 1;
+        return false;
+      }))
+    return failure();
+  return success();
 }
 
 //===----------------------------------------------------------------------===//

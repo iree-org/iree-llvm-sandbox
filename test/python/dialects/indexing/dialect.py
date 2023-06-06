@@ -1,13 +1,12 @@
 # RUN: %PYTHON %s | FileCheck %s
 from itertools import permutations
 from random import random
-
 import numpy as np
 
 from mlir_structured.dialects import arith, indexing, func
 from mlir_structured.dialects.indexing import (Scalar, Tensor, IndexTensorType,
                                                _canonicalize_tuple_index,
-                                               arange)
+                                               arange, ARangeOp)
 from mlir_structured.ir import Context, IntegerType, F64Type, IndexType, F32Type, MLIRError
 from mlir_structured.passmanager import PassManager
 from mlir_structured.runtime.util import mlir_mod_ctx, scf_range, scf_yield
@@ -1066,6 +1065,74 @@ def testArbitrarySlicingDyn():
   # CHECK:         }
   # CHECK:       }
   print(module)
+
+
+# CHECK-LABEL: TEST: testMeshGrid
+@run
+def testMeshGrid():
+  index = IndexType.get()
+  with mlir_mod_ctx():
+
+    @func.FuncOp.from_py_func(*[])
+    def meshgrid1():
+      ara1 = arange(10, fold=False)
+      m = indexing.meshgrid(ara1)
+
+    # CHECK-LABEL: func.func @meshgrid1() {
+    # CHECK:         %[[VAL_0:.*]] = arith.constant 10 : index
+    # CHECK:         %[[VAL_1:.*]] = indexing.arange(start = 0, stop = %[[VAL_0]], step = 1) nofold : tensor<?xindex>
+    # CHECK:         %[[VAL_2:.*]] = indexing.meshgrid(%[[VAL_1]]) : (tensor<?xindex>) -> tensor<?x1xindex>
+    # CHECK:         return
+    # CHECK:       }
+    print(meshgrid1.func_op)
+
+    @func.FuncOp.from_py_func(*[])
+    def meshgrid2():
+      ara1 = arange(10, fold=False)
+      ara2 = arange(10, 20, step=1, fold=False)
+      m = indexing.meshgrid(ara1, ara2)
+
+    # CHECK-LABEL: func.func @meshgrid2() {
+    # CHECK:         %[[VAL_0:.*]] = arith.constant 10 : index
+    # CHECK:         %[[VAL_1:.*]] = indexing.arange(start = 0, stop = %[[VAL_0]], step = 1) nofold : tensor<?xindex>
+    # CHECK:         %[[VAL_2:.*]] = arith.constant 10 : index
+    # CHECK:         %[[VAL_3:.*]] = arith.constant 20 : index
+    # CHECK:         %[[VAL_4:.*]] = arith.constant 1 : index
+    # CHECK:         %[[VAL_5:.*]] = indexing.arange(start = %[[VAL_2]], stop = %[[VAL_3]], step = %[[VAL_4]]) nofold : tensor<?xindex>
+    # CHECK:         %[[VAL_6:.*]] = indexing.meshgrid(%[[VAL_1]], %[[VAL_5]]) : (tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x2xindex>
+    # CHECK:         return
+    # CHECK:       }
+    print(meshgrid2.func_op)
+
+    @func.FuncOp.from_py_func(*[])
+    def meshgrid3():
+      ara1 = arange(10, fold=False)
+      ara2 = arange(10, 20, step=1, fold=False)
+      ara3 = arange(20, 40, 2, fold=False)
+      m = indexing.meshgrid(ara1, ara2, ara3)
+
+    # CHECK-LABEL: func.func @meshgrid3() {
+    # CHECK:         %[[VAL_0:.*]] = arith.constant 10 : index
+    # CHECK:         %[[VAL_1:.*]] = indexing.arange(start = 0, stop = %[[VAL_0]], step = 1) nofold : tensor<?xindex>
+    # CHECK:         %[[VAL_2:.*]] = arith.constant 10 : index
+    # CHECK:         %[[VAL_3:.*]] = arith.constant 20 : index
+    # CHECK:         %[[VAL_4:.*]] = arith.constant 1 : index
+    # CHECK:         %[[VAL_5:.*]] = indexing.arange(start = %[[VAL_2]], stop = %[[VAL_3]], step = %[[VAL_4]]) nofold : tensor<?xindex>
+    # CHECK:         %[[VAL_6:.*]] = arith.constant 20 : index
+    # CHECK:         %[[VAL_7:.*]] = arith.constant 40 : index
+    # CHECK:         %[[VAL_8:.*]] = arith.constant 2 : index
+    # CHECK:         %[[VAL_9:.*]] = indexing.arange(start = %[[VAL_6]], stop = %[[VAL_7]], step = %[[VAL_8]]) nofold : tensor<?xindex>
+    # CHECK:         %[[VAL_10:.*]] = indexing.meshgrid(%[[VAL_1]], %[[VAL_5]], %[[VAL_9]]) : (tensor<?xindex>, tensor<?xindex>, tensor<?xindex>) -> tensor<?x?x?x3xindex>
+    # CHECK:         return
+    # CHECK:       }
+    print(meshgrid3.func_op)
+
+    bad_ara1 = Tensor.empty((10, 10), index)
+    try:
+      m = indexing.meshgrid(bad_ara1, bad_ara1)
+    except ValueError as e:
+      # CHECK: Failed to infer result types
+      print(e)
 
 
 # CHECK-LABEL: TEST: testSimpleLiteralScatter

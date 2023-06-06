@@ -142,4 +142,20 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
   let hasFolder = 1;
 }
 
+def Indexing_MeshGridOp : Indexing_Op<"meshgrid",
+    [Pure, SameOperandsAndResultElementType,
+     DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+  let summary = "Return coordinate matrices from coordinate vectors.";
+  let arguments = (ins
+    Variadic<1DTensorOf<[Index]>>:$inputs
+  );
+
+  let results = (outs AnyRankedTensor);
+
+  let assemblyFormat = [{
+     `(` $inputs `)` attr-dict `:` functional-type(operands, results)
+  }];
+  let hasVerifier = 1;
+}
+
 #endif // STRUCTURED_DIALECT_INDEXING_IR_INDEXINGOPS
