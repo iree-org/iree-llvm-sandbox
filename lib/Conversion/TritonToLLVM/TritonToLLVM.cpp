@@ -376,9 +376,6 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
       if (!tensorType.hasStaticShape())
         return rewriter.notifyMatchFailure(
             loc, "only static shapes supported for now");
-      if (tensorType.getRank() != 1)
-        return rewriter.notifyMatchFailure(loc,
-                                           "only 1D tensors supported for now");
 
       // Derive types.
       Type elementType =
@@ -388,30 +385,37 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
       auto llvmPtrType = typeConverter->convertType(elementPtrType);
 
       // Compute bounds of for loop.
-      Value lb = rewriter.create<arith::ConstantIndexOp>(loc, 0);
-      Value ub = rewriter.create<arith::ConstantIndexOp>(
-          loc, tensorType.getDimSize(0));
-      Value step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      SmallVector<Value> steps(tensorType.getRank());
+      SmallVector<Value> lbs(tensorType.getRank());
+      SmallVector<Value> ubs(tensorType.getRank());
+      for (auto &step : steps)
+        step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      for (auto &lb : lbs)
+        lb = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      for (int64_t i = 0; i < tensorType.getRank(); i++) {
+        ubs[i] = rewriter.create<arith::ConstantIndexOp>(
+            loc, tensorType.getDimSize(i));
+      }
 
       // Store each tensor element at a time.
-      rewriter.create<scf::ForOp>(
-          loc, lb, ub, step, ValueRange{},
-          [&](OpBuilder &b, Location loc, Value iv, ValueRange args) {
+      scf::buildLoopNest(
+          rewriter, loc, lbs, ubs, steps, ValueRange{},
+          [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
             Type idx = b.getIndexType();
             Type i64 = b.getI64Type();
 
             // Extract value that should be stored
-            Value element = b.create<tensor::ExtractOp>(loc, elementType,
-                                                        adaptor.getValue(), iv);
+            Value element = b.create<tensor::ExtractOp>(
+                loc, elementType, adaptor.getValue(), ivs);
 
             // Extract address, cast to pointer, and store value there.
             Value address =
-                b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), iv);
+                b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
             address = b.create<arith::IndexCastOp>(loc, i64, address);
             address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
             rewriter.create<LLVM::StoreOp>(loc, element, address);
 
-            b.create<scf::YieldOp>(loc);
+            return SmallVector<Value>();
           });
       rewriter.eraseOp(op);
 
