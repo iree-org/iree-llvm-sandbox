@@ -1,9 +1,6 @@
 # MLIR dependencies.
 -r third_party/llvm-project/mlir/python/requirements.txt
 
-# Compile and install triton.
-third_party/triton/python/
-
 # Testing.
 lit
 
