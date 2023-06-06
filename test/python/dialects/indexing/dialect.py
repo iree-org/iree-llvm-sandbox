@@ -646,39 +646,39 @@ def testARangeOpBasics():
     print(step.get_name())
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = %[[STOP]], step = 2) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=step))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = %[[STEP]]) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=stop, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[STOP]], step = 2) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=start, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[START]], stop = 100, step = 2) : tensor<?xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) : tensor<50xindex>
     print(ara.owner)
 
     ara = Tensor(indexing.ARangeOp(start=0, stop=100, step=2, nofold=True))
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) nofold : tensor<50x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = 100, step = 2) nofold : tensor<50xindex>
     print(ara.owner)
 
   module.operation.verify()
@@ -696,7 +696,7 @@ def testARangeFun():
     # CHECK: Value(%[[C2:.*]] = arith.constant 2 : index)
     print(ara.owner.operands[2])
 
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) nofold : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = %[[C2]]) nofold : tensor<?xindex>
     print(ara.owner)
 
     ara = arange(0, 100, fold=False)
@@ -704,25 +704,25 @@ def testARangeFun():
     print(ara.owner.operands[0])
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[1])
-    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) nofold : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = %[[C0]], stop = %[[C100]], step = 1) nofold : tensor<?xindex>
     print(ara.owner)
 
     ara = arange(100, fold=False)
     # CHECK: Value(%[[C100:.*]] = arith.constant 100 : index)
     print(ara.owner.operands[0])
-    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) nofold : tensor<?x1xindex>
+    # CHECK: %{{.*}} = indexing.arange(start = 0, stop = %[[C100]], step = 1) nofold : tensor<?xindex>
     print(ara.owner)
 
     ara = arange(0, 100, 2, fold=True)
-    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [2], [4], [6], [8], {{.*}}, [98]]> : tensor<50x1xindex>
+    # CHECK: %{{.*}} = arith.constant dense<[0, 2, 4, 6, 8, {{.*}}, 98]> : tensor<50xindex>
     print(ara.owner)
 
     ara = arange(0, 100, fold=True)
-    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
+    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, {{.*}}, 99]> : tensor<100xindex>
     print(ara.owner)
 
     ara = arange(100, fold=True)
-    # CHECK: %{{.*}} = arith.constant dense<{{\[}}[0], [1], [2], [3], [4], {{.*}}, [99]]> : tensor<100x1xindex>
+    # CHECK: %{{.*}} = arith.constant dense<[0, 1, 2, 3, 4, {{.*}}, 99]> : tensor<100xindex>
     print(ara.owner)
 
   module.operation.verify()
@@ -754,13 +754,13 @@ def testARangeOpSemantics():
       step = np.random.randint(1, 100)
 
       ara = Tensor(indexing.ARangeOp(start=start, stop=stop, step=step))
-      r = np.arange(start, stop, step)[:, np.newaxis]
+      r = np.arange(start, stop, step)
 
       if len(r) != (stop - start) // step + 1:
         assert (stop - start) % step == 0
         assert len(r) == (stop - start) // step
 
-      assert r.shape == ara.shape
+      assert r.shape == ara.shape, f"{r.shape=} {ara.shape=}"
 
 
 # CHECK-LABEL: TEST: testNoneIndices
@@ -885,124 +885,148 @@ def testArithPythonValues():
     # CHECK: %[[VAL_15:.*]] = arith.mulf %[[VAL_13]], %[[VAL_14]] : tensor<2x2xf64>
     print(two_times_ten.owner)
 
-    two_times_ten = ten * 2.0
-    # CHECK: %[[VAL_16:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
-    print(two_times_ten.owner.operands[1].owner)
+    three_times_ten = ten * 3.0
+    # CHECK: %[[VAL_16:.*]] = arith.constant dense<3.000000e+00> : tensor<2x2xf64>
+    print(three_times_ten.owner.operands[1].owner)
     # CHECK: %[[VAL_17:.*]] = arith.mulf %[[VAL_13]], %[[VAL_16]] : tensor<2x2xf64>
-    print(two_times_ten.owner)
+    print(three_times_ten.owner)
 
-    two_times_ten = 2.0 * ten
-    # CHECK: %[[VAL_18:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
-    print(two_times_ten.owner.operands[1].owner)
+    four_times_ten = 4.0 * ten
+    # CHECK: %[[VAL_18:.*]] = arith.constant dense<4.000000e+00> : tensor<2x2xf64>
+    print(four_times_ten.owner.operands[1].owner)
     # CHECK: %[[VAL_19:.*]] = arith.mulf %[[VAL_13]], %[[VAL_18]] : tensor<2x2xf64>
-    print(two_times_ten.owner)
+    print(four_times_ten.owner)
 
-    two_times_ten = ten + 2.0
-    # CHECK: %[[VAL_20:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
-    print(two_times_ten.owner.operands[1].owner)
+    five_plus_ten = ten + 5.0
+    # CHECK: %[[VAL_20:.*]] = arith.constant dense<5.000000e+00> : tensor<2x2xf64>
+    print(five_plus_ten.owner.operands[1].owner)
     # CHECK: %[[VAL_21:.*]] = arith.addf %[[VAL_13]], %[[VAL_20]] : tensor<2x2xf64>
-    print(two_times_ten.owner)
+    print(five_plus_ten.owner)
 
-    two_times_ten = 2.0 + ten
-    # CHECK: %[[VAL_22:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
-    print(two_times_ten.owner.operands[1].owner)
+    two_rplus_ten = 2.0 + ten
+    # CHECK: %[[VAL_22:.*]] = arith.constant dense<2.000000e+00> : tensor<2x2xf64>
+    print(two_rplus_ten.owner.operands[1].owner)
     # CHECK: %[[VAL_23:.*]] = arith.addf %[[VAL_13]], %[[VAL_22]] : tensor<2x2xf64>
-    print(two_times_ten.owner)
+    print(two_rplus_ten.owner)
 
-    two_times_ten = ten - 2.0
-    # CHECK: %[[VAL_24:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
-    print(two_times_ten.owner.operands[1].owner)
+    two_sub_ten = ten - 2.0
+    # CHECK: %[[VAL_24:.*]] = arith.constant dense<2.000000e+00> : tensor<2x2xf64>
+    print(two_sub_ten.owner.operands[1].owner)
     # CHECK: %[[VAL_25:.*]] = arith.subf %[[VAL_13]], %[[VAL_24]] : tensor<2x2xf64>
-    print(two_times_ten.owner)
+    print(two_sub_ten.owner)
 
-    two_times_ten = 2.0 - ten
-    # CHECK: %[[VAL_26:.*]] = arith.constant dense<1.000000e+00> : tensor<2x2xf64>
-    print(two_times_ten.owner.operands[1].owner)
+    two_rsub_ten = 2.0 - ten
+    # CHECK: %[[VAL_26:.*]] = arith.constant dense<2.000000e+00> : tensor<2x2xf64>
+    print(two_rsub_ten.owner.operands[1].owner)
     # CHECK: %[[VAL_27:.*]] = arith.subf %[[VAL_13]], %[[VAL_26]] : tensor<2x2xf64>
-    print(two_times_ten.owner)
+    print(two_rsub_ten.owner)
 
   module.operation.verify()
 
 
-# CHECK-LABEL: TEST: testArbitrarySlicingLiterals
+# CHECK-LABEL: TEST: testArbitrarySlicingLiterals1
 @run
-def testArbitrarySlicingLiterals():
-  index = IndexType.get()
+def testArbitrarySlicingLiterals1():
   f32 = F32Type.get()
   with mlir_mod_ctx() as module:
     ten = Tensor.empty((7, 22, 330, 4400), f32)
-    # CHECK: Tensor(%[[TEN:.*]], tensor<7x22x330x4400xf32>)
-    print(ten)
-
-    w = ten[:, arange(start=0, stop=22, step=2, fold=True)]
-    # CHECK: %[[ARA:.*]] = arith.constant dense<{{\[}}[0], [2], [4], [6], [8], [10], [12], [14], [16], [18], [20]]> : tensor<11x1xindex>
-    print(w.owner.operands[1].owner)
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[ARA]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<11x1xindex>) -> tensor<11x7x330x4400xf32>
-    print(w.owner)
-
-    w = ten[:,
-            arange(start=0, stop=22, step=2, fold=True),
-            arange(start=0, stop=330, step=30, fold=True)]
-    # CHECK: %[[ARA:.*]] = arith.constant dense<{{\[}}[0, 0], [2, 30], [4, 60], [6, 90], [8, 120], [10, 150], [12, 180], [14, 210], [16, 240], [18, 270], [20, 300]]> : tensor<11x2xindex>
-    print(w.owner.operands[1].owner)
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[ARA]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<11x2xindex>) -> tensor<11x7x4400xf32>
-    print(w.owner)
-
-    w = ten[:,
-            arange(start=0, stop=22, step=2, fold=True),
-            arange(start=0, stop=330, step=30, fold=True),
-            arange(start=0, stop=4400, step=400, fold=True)]
-    # CHECK: %[[ARA:.*]] = arith.constant dense<{{\[}}[0, 0, 0], [2, 30, 400], [4, 60, 800], [6, 90, 1200], [8, 120, 1600], [10, 150, 2000], [12, 180, 2400], [14, 210, 2800], [16, 240, 3200], [18, 270, 3600], [20, 300, 4000]]> : tensor<11x3xindex>
-    print(w.owner.operands[1].owner)
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[ARA]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<11x3xindex>) -> tensor<11x7xf32>
-    print(w.owner)
-
-    w = ten[:, :,
-            arange(start=100, stop=200, step=5, fold=True),
-            arange(start=1000, stop=2000, step=50, fold=True)]
-    # CHECK: %[[ARA:.*]] = arith.constant dense<{{\[}}[100, 1000], [105, 1050], [110, 1100], [115, 1150], [120, 1200], [125, 1250], [130, 1300], [135, 1350], [140, 1400], [145, 1450], [150, 1500], [155, 1550], [160, 1600], [165, 1650], [170, 1700], [175, 1750], [180, 1800], [185, 1850], [190, 1900], [195, 1950]]> : tensor<20x2xindex>
-    print(w.owner.operands[1].owner)
-    # CHECK: %{{.*}} = indexing.gather %[[TEN]][%[[ARA]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<20x2xindex>) -> tensor<20x7x22xf32>
-    print(w.owner)
+    w = ten[:, 0:22:2]
 
   module.operation.verify()
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 22 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 2 : index
+  # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_5:.*]] = tensor.expand_shape %[[VAL_4]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([1]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x330x4400xf32>
+  # CHECK:       }
+  print(module)
 
 
-# CHECK-LABEL: TEST: testArithFolding
 @run
-def testArithFolding():
-  index = IndexType.get()
+def testArbitrarySlicingLiterals2():
   f32 = F32Type.get()
   with mlir_mod_ctx() as module:
-
-    @func.FuncOp.from_py_func(*[])
-    def test_fold():
-      ten = Tensor.empty((7, 22, 330, 4400), f32)
-
-      idx1 = arange(100, 200, 5, fold=True)
-      idx2 = arange(1000, 2000, 50, fold=True)
-      w = ten[:, :, idx1, idx2]
-      idx_tensor = Tensor(w.owner.operands[1], fold=False)
-      pid = 42
-      pid_tensor = Tensor(pid * np.ones(idx_tensor.shape, dtype=np.intp),
-                          dtype=index,
-                          fold=False)
-      new_idx_tensor = pid_tensor + idx_tensor
-      w = ten[:, :, new_idx_tensor]
-      return w
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+    w = ten[:, 0:22:2, 0:330:30]
 
   module.operation.verify()
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 22 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 2 : index
+  # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_5:.*]] = tensor.expand_shape %[[VAL_4]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_6:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_7:.*]] = arith.constant 330 : index
+  # CHECK:         %[[VAL_8:.*]] = arith.constant 30 : index
+  # CHECK:         %[[VAL_9:.*]] = indexing.arange(start = %[[VAL_6]], stop = %[[VAL_7]], step = %[[VAL_8]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_10:.*]] = tensor.expand_shape %[[VAL_9]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_11:.*]] = indexing.concatenate(%[[VAL_5]], %[[VAL_10]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x2xindex>
+  # CHECK:         %[[VAL_12:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_11]]] gather_dims([1, 2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x2xindex>) -> tensor<?x7x4400xf32>
+  # CHECK:       }
+  print(module)
 
-  pm = PassManager.parse('builtin.module(canonicalize)')
-  pm.run(module.operation)
-  # CHECK: module {
-  # CHECK:   func.func @test_fold() -> tensor<20x7x22xf32> {
-  # CHECK:     %[[ARA:.*]] = arith.constant dense<{{\[}}[142, 1042], [147, 1092], [152, 1142], [157, 1192], [162, 1242], [167, 1292], [172, 1342], [177, 1392], [182, 1442], [187, 1492], [192, 1542], [197, 1592], [202, 1642], [207, 1692], [212, 1742], [217, 1792], [222, 1842], [227, 1892], [232, 1942], [237, 1992]]> : tensor<20x2xindex>
-  # CHECK:     %[[TEN:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
-  # CHECK:     %[[GATHERED:.*]] = indexing.gather %[[TEN]][%[[ARA]]] gather_dims([2, 3]) : (tensor<7x22x330x4400xf32>, tensor<20x2xindex>) -> tensor<20x7x22xf32>
-  # CHECK:     return %[[GATHERED]] : tensor<20x7x22xf32>
-  # CHECK:   }
-  # CHECK: }
+
+# CHECK-LABEL: TEST: testArbitrarySlicingLiterals3
+@run
+def testArbitrarySlicingLiterals3():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+    w = ten[:, 0:22:2, 0:330:30, 0:4400:400]
+
+  module.operation.verify()
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 22 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 2 : index
+  # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_5:.*]] = tensor.expand_shape %[[VAL_4]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_6:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_7:.*]] = arith.constant 330 : index
+  # CHECK:         %[[VAL_8:.*]] = arith.constant 30 : index
+  # CHECK:         %[[VAL_9:.*]] = indexing.arange(start = %[[VAL_6]], stop = %[[VAL_7]], step = %[[VAL_8]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_10:.*]] = tensor.expand_shape %[[VAL_9]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_11:.*]] = arith.constant 0 : index
+  # CHECK:         %[[VAL_12:.*]] = arith.constant 4400 : index
+  # CHECK:         %[[VAL_13:.*]] = arith.constant 400 : index
+  # CHECK:         %[[VAL_14:.*]] = indexing.arange(start = %[[VAL_11]], stop = %[[VAL_12]], step = %[[VAL_13]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_15:.*]] = tensor.expand_shape %[[VAL_14]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_16:.*]] = indexing.concatenate(%[[VAL_5]], %[[VAL_10]], %[[VAL_15]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x3xindex>
+  # CHECK:         %[[VAL_17:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_16]]] gather_dims([1, 2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x3xindex>) -> tensor<?x7xf32>
+  # CHECK:       }
+  print(module)
+
+
+# CHECK-LABEL: TEST: testArbitrarySlicingLiterals4
+@run
+def testArbitrarySlicingLiterals4():
+  f32 = F32Type.get()
+  with mlir_mod_ctx() as module:
+    ten = Tensor.empty((7, 22, 330, 4400), f32)
+    w = ten[:, :, 100:200:5, 1000:2000:50]
+
+  module.operation.verify()
+  # CHECK-LABEL: module {
+  # CHECK:         %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
+  # CHECK:         %[[VAL_1:.*]] = arith.constant 100 : index
+  # CHECK:         %[[VAL_2:.*]] = arith.constant 200 : index
+  # CHECK:         %[[VAL_3:.*]] = arith.constant 5 : index
+  # CHECK:         %[[VAL_4:.*]] = indexing.arange(start = %[[VAL_1]], stop = %[[VAL_2]], step = %[[VAL_3]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_5:.*]] = tensor.expand_shape %[[VAL_4]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_6:.*]] = arith.constant 1000 : index
+  # CHECK:         %[[VAL_7:.*]] = arith.constant 2000 : index
+  # CHECK:         %[[VAL_8:.*]] = arith.constant 50 : index
+  # CHECK:         %[[VAL_9:.*]] = indexing.arange(start = %[[VAL_6]], stop = %[[VAL_7]], step = %[[VAL_8]]) nofold : tensor<?xindex>
+  # CHECK:         %[[VAL_10:.*]] = tensor.expand_shape %[[VAL_9]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:         %[[VAL_11:.*]] = indexing.concatenate(%[[VAL_5]], %[[VAL_10]]) {dim = 1} : (tensor<?x1xindex>, tensor<?x1xindex>) -> tensor<?x2xindex>
+  # CHECK:         %[[VAL_12:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_11]]] gather_dims([2, 3]) unique : (tensor<7x22x330x4400xf32>, tensor<?x2xindex>) -> tensor<?x7x22xf32>
+  # CHECK:       }
   print(module)
 
 
@@ -1016,57 +1040,29 @@ def testArbitrarySlicingDyn():
     @func.FuncOp.from_py_func(*[])
     def test_dyn_indices():
       ten = Tensor.empty((7, 22, 330, 4400), f32)
-      # CHECK: %[[VAL_0:.*]] = "tensor.empty"() : () -> tensor<7x22x330x4400xf32>
-      print(ten.owner)
-
       one = Scalar(1, dtype=index, fold=False)
-      # CHECK: %[[VAL_1:.*]] = "arith.constant"() <{value = 1 : index}> : () -> index
-      print(one.owner)
-
       start = 100 * one
-      # CHECK: %[[VAL_2:.*]] = "arith.constant"() <{value = 100 : index}> : () -> index
-      print(start.owner.operands[1].owner)
-      # CHECK: %[[VAL_3:.*]] = "arith.muli"(%[[VAL_1]], %[[VAL_2]]) : (index, index) -> index
-      print(start.owner)
-
       stop = 200 * one
-      # CHECK: %[[VAL_4:.*]] = "arith.constant"() <{value = 200 : index}> : () -> index
-      print(stop.owner.operands[1].owner)
-      # CHECK: %[[VAL_5:.*]] = "arith.muli"(%[[VAL_1]], %[[VAL_4]]) : (index, index) -> index
-      print(stop.owner)
-
       step = 5 * one
-      # CHECK: %[[VAL_6:.*]] = "arith.constant"() <{value = 5 : index}> : () -> index
-      print(step.owner.operands[1].owner)
-      # CHECK: %[[VAL_7:.*]] = "arith.muli"(%[[VAL_1]], %[[VAL_6]]) : (index, index) -> index
-      print(step.owner)
+      w1 = ten[:, :, start:stop:step]
+      w2 = ten[:, :, start:stop:5]
 
-      w = ten[:, :, start:stop:step]
-      # CHECK: %[[VAL_8:.*]] = "indexing.arange"(%[[VAL_3]], %[[VAL_5]], %[[VAL_7]]) {nofold, operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?x1xindex>
-      print(w.owner.operands[1].owner)
-      # CHECK: %[[VAL_9:.*]] = "indexing.gather"(%[[VAL_0]], %[[VAL_8]]) {gather_dims = array<i64: 2>, unique} : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
-      print(w.owner)
-
-      w = ten[:, :, start:stop:5]
-      # CHECK: %[[VAL_10:.*]] = "arith.constant"() <{value = 5 : index}> : () -> index
-      print(w.owner.operands[1].owner.operands[2])
-      # CHECK: %[[VAL_11:.*]] = "indexing.arange"(%[[VAL_3]], %[[VAL_5]], %[[VAL_10]]) {nofold, operand_segment_sizes = array<i32: 1, 1, 1>} : (index, index, index) -> tensor<?x1xindex>
-      print(w.owner.operands[1].owner)
-      # CHECK: %[[VAL_12:.*]] = "indexing.gather"(%[[VAL_0]], %[[VAL_11]]) {gather_dims = array<i64: 2>, unique} : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
-      print(w.owner)
-
-      return w
+      return w1, w2
 
   module.operation.verify()
 
   pm = PassManager.parse('builtin.module(canonicalize)')
   pm.run(module.operation)
   # CHECK-LABEL: module {
-  # CHECK:         func.func @test_dyn_indices() -> tensor<?x7x22x4400xf32> {
+  # CHECK:         func.func @test_dyn_indices() -> (tensor<?x7x22x4400xf32>, tensor<?x7x22x4400xf32>) {
   # CHECK:           %[[VAL_0:.*]] = tensor.empty() : tensor<7x22x330x4400xf32>
-  # CHECK:           %[[VAL_1:.*]] = indexing.arange(start = 100, stop = 200, step = 5) nofold : tensor<20x1xindex>
-  # CHECK:           %[[VAL_2:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_1]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<20x1xindex>) -> tensor<?x7x22x4400xf32>
-  # CHECK:           return %[[VAL_2]] : tensor<?x7x22x4400xf32>
+  # CHECK:           %[[VAL_1:.*]] = indexing.arange(start = 100, stop = 200, step = 5) nofold : tensor<?xindex>
+  # CHECK:           %[[VAL_2:.*]] = tensor.expand_shape %[[VAL_1]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:           %[[VAL_3:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_2]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
+  # CHECK:           %[[VAL_4:.*]] = indexing.arange(start = 100, stop = 200, step = 5) nofold : tensor<?xindex>
+  # CHECK:           %[[VAL_5:.*]] = tensor.expand_shape %[[VAL_4]] {{\[\[}}0, 1]] : tensor<?xindex> into tensor<?x1xindex>
+  # CHECK:           %[[VAL_6:.*]] = indexing.gather %[[VAL_0]]{{\[}}%[[VAL_5]]] gather_dims([2]) unique : (tensor<7x22x330x4400xf32>, tensor<?x1xindex>) -> tensor<?x7x22x4400xf32>
+  # CHECK:           return %[[VAL_3]], %[[VAL_6]] : tensor<?x7x22x4400xf32>, tensor<?x7x22x4400xf32>
   # CHECK:         }
   # CHECK:       }
   print(module)
@@ -1202,31 +1198,17 @@ def testStaticSliceScatter():
   with mlir_mod_ctx() as module:
     ten = Tensor.empty((7, 22, 330, 4400), f32)
 
-    w = ten[:, arange(start=0, stop=22, step=2, fold=True)]
-    ten[:, arange(start=0, stop=22, step=2, fold=True)] = w
+    w = ten[:, 0:22:2]
+    ten[:, 0:22:2] = w
 
-    w = ten[:,
-            arange(start=0, stop=22, step=2, fold=True),
-            arange(start=0, stop=330, step=30, fold=True)]
-    ten[:,
-        arange(start=0, stop=22, step=2, fold=True),
-        arange(start=0, stop=330, step=30, fold=True)] = w
+    w = ten[:, 0:22:2, 0:330:30]
+    ten[:, 0:22:2, 0:330:30] = w
 
-    w = ten[:,
-            arange(start=0, stop=22, step=2, fold=True),
-            arange(start=0, stop=330, step=30, fold=True),
-            arange(start=0, stop=4400, step=400, fold=True)]
-    ten[:,
-        arange(start=0, stop=22, step=2, fold=True),
-        arange(start=0, stop=330, step=30, fold=True),
-        arange(start=0, stop=4400, step=400, fold=True)] = w
+    w = ten[:, 0:22:2, 0:330:30, 0:4400:400]
+    ten[:, 0:22:2, 0:330:30, 0:4400:400] = w
 
-    w = ten[:, :,
-            arange(start=100, stop=200, step=5, fold=True),
-            arange(start=1000, stop=2000, step=50, fold=True)]
-    ten[:, :,
-        arange(start=100, stop=200, step=5, fold=True),
-        arange(start=1000, stop=2000, step=50, fold=True)] = w
+    w = ten[:, :, 100:200:5, 1000:2000:50]
+    ten[:, :, 100:200:5, 1000:2000:50] = w
 
   module.operation.verify()
 

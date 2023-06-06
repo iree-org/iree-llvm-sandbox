@@ -119,8 +119,9 @@ def constant(
   elif RankedTensorType.isinstance(type) and isinstance(value,
                                                         (int, float, bool)):
     ranked_tensor_type = RankedTensorType(type)
-    value = np.ones(
+    value = np.full(
         ranked_tensor_type.shape,
+        fill_value=value,
         dtype=MLIR_TYPE_TO_NP_DTYPE()[ranked_tensor_type.element_type])
   assert type is not None
 
@@ -440,7 +441,7 @@ class Tensor(ArithValue, TensorValue):
     if isinstance(idx, tuple) and all(i == slice(None) for i in idx):
       return self
     if idx is None:
-      return _expand_dims(self, (0,))
+      return expand_dims(self, (0,))
     idx = list((idx,) if isinstance(idx, int) else idx)
     for i, d in enumerate(idx):
       if isinstance(d, int):
@@ -577,7 +578,7 @@ def scatter(
 def arange(start: Union[Scalar, int],
            stop: Optional[Union[Scalar, int]] = None,
            step: Optional[Union[Scalar, int]] = None,
-           fold=False):
+           fold=True):
   """Return evenly spaced values within a given interval.
 
   * ``arange(stop)``: Values are generated within the half-open interval
@@ -610,8 +611,7 @@ def arange(start: Union[Scalar, int],
     stop = start
     start = 0
     if stop.fold() and fold:
-      return Tensor(np.arange(start=start, stop=stop.literal_value,
-                              step=1)[:, np.newaxis],
+      return Tensor(np.arange(start=start, stop=stop.literal_value, step=1),
                     dtype=IndexType.get(),
                     fold=True)
     else:
@@ -626,7 +626,7 @@ def arange(start: Union[Scalar, int],
       if start.fold() and stop.fold() and fold:
         return Tensor(np.arange(start=start.literal_value,
                                 stop=stop.literal_value,
-                                step=1)[:, np.newaxis],
+                                step=1),
                       dtype=IndexType.get(),
                       fold=True)
       else:
@@ -638,13 +638,76 @@ def arange(start: Union[Scalar, int],
     if start.fold() and stop.fold() and step.fold() and fold:
       return Tensor(np.arange(start=start.literal_value,
                               stop=stop.literal_value,
-                              step=step.literal_value)[:, np.newaxis],
+                              step=step.literal_value),
                     dtype=IndexType.get(),
                     fold=True)
     else:
       return Tensor(ARangeOp(start=start, stop=stop, step=step, nofold=True),
                     dtype=IndexType.get(),
                     fold=False)
+
+
+def expand_dims(inp, newaxis_dims, reshape=None) -> Tensor:
+  """Expand the shape of a tensor.
+
+  Insert a new axis that will appear at the `axis` position in the expanded
+  tensor shape.
+
+  Args:
+    inp: Input tensor-like.
+    axis: Position in the expanded axes where the new axis (or axes) is placed.
+
+  Returns:
+     View of `a` with the number of dimensions increased.
+
+  """
+  if len(newaxis_dims) == 0:
+    return inp
+
+  newaxis_dims = sorted(newaxis_dims)
+  if len(set(newaxis_dims)) != len(newaxis_dims):
+    raise ValueError(f"repeated axis in expand_dims: {newaxis_dims}")
+
+  if isinstance(inp, Scalar):
+    if reshape is None:
+      raise ValueError(f"expand_dims on scalar requires reshape shape.")
+    if any(r < 0 for r in reshape):
+      raise ValueError(f"expand_dims on scalar requires static reshape.")
+    if inp.fold():
+      return Tensor(
+          constant(inp.literal_value,
+                   type=RankedTensorType.get(reshape, inp.dtype)))
+    else:
+      if not all(r == 1 for r in reshape):
+        raise ValueError(
+            f"expand_dims on scalar num total elements to be 1 (all dims in reshape must equal 1)."
+        )
+      return Tensor(
+          tensor.FromElementsOp(RankedTensorType.get(reshape, inp.type), [inp]))
+  elif Tensor.isinstance(inp):
+    ndim_out = len(inp.shape) + len(newaxis_dims)
+    if not all(0 <= d < ndim_out for d in newaxis_dims):
+      raise ValueError("no negative dims allowed")
+    result_shape = list(inp.shape)
+    for i in reversed(newaxis_dims):
+      result_shape.insert(i, 1)
+
+    if inp.fold():
+      return _as_index_tensor(inp.literal_value.reshape(result_shape))
+
+    reassoc_list = [[i] for i in range(len(inp.shape))]
+    for i, d in enumerate(newaxis_dims):
+      reassoc_list.append([len(inp.shape) + i])
+      if d == 0:
+        d = 1
+      reassoc_list[max(d - 1, 0)].extend(reassoc_list.pop(d))
+
+    reassoc_list = _get_int_int_array_attr(reassoc_list)
+    return Tensor(
+        tensor.ExpandShapeOp(RankedTensorType.get(result_shape, inp.dtype), inp,
+                             reassoc_list))
+
+  raise NotImplementedError(inp, newaxis_dims)
 
 
 ########################
@@ -699,61 +762,6 @@ def _as_index_tensor(val) -> Tensor:
     Tensor with index element type.
   """
   return Tensor(np.array(val), dtype=IndexType.get())
-
-
-def _expand_dims(inp, newaxis_dims) -> Tensor:
-  """Expand the shape of a tensor.
-
-  Insert a new axis that will appear at the `axis` position in the expanded
-  tensor shape.
-
-  Args:
-    inp: Input tensor-like.
-    axis: Position in the expanded axes where the new axis (or axes) is placed.
-
-  Returns:
-     View of `a` with the number of dimensions increased.
-
-  """
-  if len(newaxis_dims) == 0:
-    return inp
-
-  newaxis_dims = sorted(newaxis_dims)
-  if len(set(newaxis_dims)) != len(newaxis_dims):
-    raise ValueError(f"repeated axis in expand_dims: {newaxis_dims}")
-
-  if isinstance(inp, Scalar):
-    if inp.fold():
-      return _as_index_tensor(
-          np.array(inp.literal_value).reshape((1,) * len(newaxis_dims)))
-    else:
-      return Tensor(
-          tensor.FromElementsOp(
-              RankedTensorType.get((1,) * len(newaxis_dims), inp.type), [inp]))
-  elif Tensor.isinstance(inp):
-    ndim_out = len(inp.shape) + len(newaxis_dims)
-    if not all(0 <= d < ndim_out for d in newaxis_dims):
-      raise ValueError("no negative dims allowed")
-    result_shape = list(inp.shape)
-    for i in reversed(newaxis_dims):
-      result_shape.insert(i, 1)
-
-    if inp.fold():
-      return _as_index_tensor(inp.literal_value.reshape(result_shape))
-
-    reassoc_list = [[i] for i in range(len(inp.shape))]
-    for i, d in enumerate(newaxis_dims):
-      reassoc_list.append([len(inp.shape) + i])
-      if d == 0:
-        d = 1
-      reassoc_list[max(d - 1, 0)].extend(reassoc_list.pop(d))
-
-    reassoc_list = _get_int_int_array_attr(reassoc_list)
-    return Tensor(
-        tensor.ExpandShapeOp(RankedTensorType.get(result_shape, inp.dtype), inp,
-                             reassoc_list))
-
-  raise NotImplementedError(inp, newaxis_dims)
 
 
 def _has_index_type(e: Any) -> bool:
@@ -855,6 +863,16 @@ def _canonicalize_tuple_index(idx: Tuple[Any], rank: int):
   return idx
 
 
+def _is_arange_result(i):
+  if isinstance(i, Value) and hasattr(i, "owner"):
+    try:
+      return isinstance(i.owner.opview, ARangeOp)
+    except:
+      return i.owner.name == ARangeOp.OPERATION_NAME
+
+  return False
+
+
 def _compute_idx_tensor_extent(collapsed_dims, idx, idx_advanced_axes):
   """Helper that the proper "extent" (in terms of dims spanned) of an index
   Tensor.
@@ -944,7 +962,7 @@ def _indices_to_indexer(idx: Sequence[Any],
 
     if _is_scalar(idx_e) and _has_index_type(idx_e):
       # Handle basic Scalar indexes.
-      idx_e = _expand_dims(idx_e, (0, 1))
+      idx_e = expand_dims(idx_e, (0, 1), reshape=(1, 1))
       indices.append(idx_e)
       collapsed_dims.append(in_axis)
       in_axis += 1
@@ -979,9 +997,11 @@ def _indices_to_indexer(idx: Sequence[Any],
           raise IndexError(msg)
 
         if all(isinstance(s, int) or s is None for s in (start, stop, step)):
-          ara = arange(*slice(start, stop, step).indices(in_shape[in_axis]))
+          ara = arange(*slice(start, stop, step).indices(in_shape[in_axis]),
+                       fold=False)
         else:
-          ara = arange(start, stop, step)
+          ara = arange(start, stop, step, fold=False)
+
         indices.append(ara)
         collapsed_dims.append(in_axis)
 
@@ -1038,7 +1058,7 @@ def _build_gather(
     )
 
   # This adds newaxis/None dimensions.
-  return _expand_dims(out, indexer.newaxis_dims)
+  return expand_dims(out, indexer.newaxis_dims)
 
 
 def _build_scatter(
@@ -1048,7 +1068,7 @@ def _build_scatter(
     unique_indices=False,
 ):
   if isinstance(source, Scalar):
-    source = _expand_dims(source, (0,))
+    source = expand_dims(source, (0,), reshape=(1,))
 
   indexer = _indices_to_indexer(idx, dest.shape)
   out = dest

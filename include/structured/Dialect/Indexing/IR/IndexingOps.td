@@ -116,7 +116,7 @@ def Indexing_ARangeOp : Indexing_Op<"arange", [
                        OptionalAttr<IndexAttr>:$stopAttr,
                        OptionalAttr<IndexAttr>:$stepAttr,
                        UnitAttr:$nofold);
-  let results = (outs 2DTensorOf<[Index]>:$result);
+  let results = (outs 1DTensorOf<[Index]>:$result);
   // the reason for the extra double backtick in (```start
   // is because otherwise an extraneous space is emitted in the pretty print
   let assemblyFormat = [{
