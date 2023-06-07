@@ -277,10 +277,12 @@ class IteratorsMethod(Method):
 
 
 # Registry of methods that can be benchmarked.
-METHODS = {cls.name: cls for cls in [
-    IteratorsMethod,
-    NumpyMethod,
-]}
+METHODS = {
+    cls.name: cls for cls in [
+        IteratorsMethod,
+        NumpyMethod,
+    ]
+}
 
 
 def parse_args():
