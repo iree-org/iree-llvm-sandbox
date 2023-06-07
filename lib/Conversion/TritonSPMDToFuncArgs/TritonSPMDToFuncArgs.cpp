@@ -27,6 +27,23 @@ struct ConvertTritonSPMDToFuncArgsPass
   void runOnOperation() override;
 };
 
+struct GetNumProgramsOpConversion
+    : public OpRewritePattern<triton::GetNumProgramsOp> {
+  GetNumProgramsOpConversion(MLIRContext *context, PatternBenefit benefit = 1)
+      : OpRewritePattern(context, benefit) {}
+
+  LogicalResult matchAndRewrite(triton::GetNumProgramsOp op,
+                                PatternRewriter &rewriter) const override {
+    auto funcOp = op->getParentOfType<FunctionOpInterface>();
+    Block::BlockArgListType funcArgs =
+        funcOp.getFunctionBody().front().getArguments();
+    uint32_t dim = op.getAxis();
+    Value programIdArg = funcArgs[dim + 3];
+    rewriter.replaceOp(op, programIdArg);
+    return success();
+  }
+};
+
 struct GetProgramIdOpConversion
     : public OpRewritePattern<triton::GetProgramIdOp> {
   GetProgramIdOpConversion(MLIRContext *context, PatternBenefit benefit = 1)
@@ -97,6 +114,7 @@ void mlir::populateTritonSPMDToFuncArgsConversionPatterns(
     RewritePatternSet &patterns) {
   patterns.add<
       // clang-format off
+      GetNumProgramsOpConversion,
       GetProgramIdOpConversion
       // clang-format on
       >(patterns.getContext());

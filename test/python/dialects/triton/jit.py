@@ -63,3 +63,23 @@ def program_id():
 
   # CHECK-NEXT: tensor([0, 1, 2, 3, 4, 5, 6, 7], dtype=torch.int32)
   print(X)
+
+
+# CHECK-LABEL: TEST: num_programs
+@run
+def num_programs():
+
+  @jit
+  def kernel(ptr):
+    n_x = tl.num_programs(axis=0)
+    n_y = tl.num_programs(axis=1)
+    n_z = tl.num_programs(axis=2)
+    tl.store(ptr + 0, n_x)
+    tl.store(ptr + 1, n_y)
+    tl.store(ptr + 2, n_z)
+
+  X = torch.tensor([42] * 3, dtype=torch.int32)
+  kernel[(1, 2, 3)](X)
+
+  # CHECK-NEXT: tensor([1, 2, 3], dtype=torch.int32)
+  print(X)
