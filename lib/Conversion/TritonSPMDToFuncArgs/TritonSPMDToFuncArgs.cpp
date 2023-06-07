@@ -10,6 +10,7 @@
 
 #include "../PassDetail.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 
 namespace mlir {
@@ -24,6 +25,23 @@ namespace {
 struct ConvertTritonSPMDToFuncArgsPass
     : public ConvertTritonSPMDToFuncArgsBase<ConvertTritonSPMDToFuncArgsPass> {
   void runOnOperation() override;
+};
+
+struct GetProgramIdOpConversion
+    : public OpRewritePattern<triton::GetProgramIdOp> {
+  GetProgramIdOpConversion(MLIRContext *context, PatternBenefit benefit = 1)
+      : OpRewritePattern(context, benefit) {}
+
+  LogicalResult matchAndRewrite(triton::GetProgramIdOp op,
+                                PatternRewriter &rewriter) const override {
+    auto funcOp = op->getParentOfType<FunctionOpInterface>();
+    Block::BlockArgListType funcArgs =
+        funcOp.getFunctionBody().front().getArguments();
+    uint32_t dim = op.getAxis();
+    Value programIdArg = funcArgs[dim];
+    rewriter.replaceOp(op, programIdArg);
+    return success();
+  }
 };
 
 struct TrivialPatternRewriter : public PatternRewriter {
@@ -75,6 +93,15 @@ void addGridArguments(FunctionOpInterface op, PatternRewriter &rewriter) {
 }
 } // namespace
 
+void mlir::populateTritonSPMDToFuncArgsConversionPatterns(
+    RewritePatternSet &patterns) {
+  patterns.add<
+      // clang-format off
+      GetProgramIdOpConversion
+      // clang-format on
+      >(patterns.getContext());
+}
+
 void ConvertTritonSPMDToFuncArgsPass::runOnOperation() {
   auto module = getOperation();
   MLIRContext *context = &getContext();
@@ -87,6 +114,20 @@ void ConvertTritonSPMDToFuncArgsPass::runOnOperation() {
         addGridArguments(funcOp, rewriter);
     }
   }
+
+  // Convert the SPMD ops in the Triton dialect to accesses to the corresponding
+  // function arguments.
+  RewritePatternSet patterns(&getContext());
+  populateTritonSPMDToFuncArgsConversionPatterns(patterns);
+
+  // Mark the SPMD ops as illegal; everything else is legal.
+  ConversionTarget target(getContext());
+  target.addLegalDialect<TritonDialect>();
+  target.addIllegalOp<triton::GetNumProgramsOp, triton::GetProgramIdOp>();
+  target.addLegalOp<ModuleOp>();
+
+  if (failed(applyPartialConversion(module, target, std::move(patterns))))
+    signalPassFailure();
 }
 
 std::unique_ptr<OperationPass<ModuleOp>>
