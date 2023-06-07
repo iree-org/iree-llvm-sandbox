@@ -18,8 +18,6 @@ from mlir_structured.dialects import arith, func, memref, scf
 from mlir_structured.execution_engine import ExecutionEngine
 from mlir_structured.ir import (
     Context,  # (Comment preserves formatting.)
-    DictAttr,
-    IndexType,
     IntegerType,
     InsertionPoint,
     Location,
