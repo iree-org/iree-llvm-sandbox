@@ -21,6 +21,8 @@ jobs:
         echo "STRUCTURED_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox" | tee -a $GITHUB_ENV
         echo "STRUCTURED_MAIN_BINARY_DIR=${GITHUB_WORKSPACE}/sandbox/build" | tee -a $GITHUB_ENV
         echo "LLVM_SYSPATH=${GITHUB_WORKSPACE}/sandbox/build" | tee -a $GITHUB_ENV
+        echo "MLIR_RUNNER_UTILS_LIB=${GITHUB_WORKSPACE}/sandbox/build/lib/libmlir_runner_utils.so" | tee -a $GITHUB_ENV
+        echo "MLIR_C_RUNNER_UTILS_LIB=${GITHUB_WORKSPACE}/sandbox/build/lib/libmlir_c_runner_utils.so" | tee -a $GITHUB_ENV
 
     - name: Free disk space
       uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
@@ -105,6 +107,7 @@ jobs:
         cmake --build ${STRUCTURED_MAIN_BINARY_DIR} --target check-structured
 
     - name: Run benchmarks
+      shell: bash # This enables the `-eo pipefail` flag to propagate script failures.
       run: |
         ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
         ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
