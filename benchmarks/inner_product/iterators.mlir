@@ -12,16 +12,15 @@
 !float_type = f32
 
 // Derived types.
-!struct_type = !llvm.struct<(!element_type,!element_type)>
-!struct_type_int = !llvm.struct<(!int_type,!int_type)>
-!struct_type_float = !llvm.struct<(!float_type,!float_type)>
+!tuple_type = tuple<!element_type, !element_type>
+!tuple_type_int = tuple<!int_type, !int_type>
+!tuple_type_float = tuple<!float_type, !float_type>
 
 //
 // Implementation for integer types.
 //
-func.func private @mul_struct_int(%struct : !struct_type_int) -> !int_type {
-  %lhs = llvm.extractvalue %struct[0] : !struct_type_int
-  %rhs = llvm.extractvalue %struct[1] : !struct_type_int
+func.func private @mul_struct_int(%struct : !tuple_type_int) -> !int_type {
+  %lhs, %rhs = tuple.to_elements %struct : !tuple_type_int
   %sum = arith.muli %lhs, %rhs : !int_type
   return %sum : !int_type
 }
@@ -34,9 +33,8 @@ func.func private @sum_int(%lhs : !int_type, %rhs : !int_type) -> !int_type {
 //
 // Implementation for float types.
 //
-func.func private @mul_struct_float(%struct : !struct_type_float) -> !float_type {
-  %lhs = llvm.extractvalue %struct[0] : !struct_type_float
-  %rhs = llvm.extractvalue %struct[1] : !struct_type_float
+func.func private @mul_struct_float(%struct : !tuple_type_float) -> !float_type {
+  %lhs, %rhs = tuple.to_elements %struct : !tuple_type_float
   %sum = arith.mulf %lhs, %rhs : !float_type
   return %sum : !float_type
 }
@@ -53,9 +51,9 @@ func.func @main(%input: !tabular.tabular_view<!element_type,!element_type>,
                 %output: !llvm.ptr<!element_type>)
     attributes { llvm.emit_c_interface } {
   %stream = iterators.tabular_view_to_stream %input
-    to !iterators.stream<!struct_type>
+    to !iterators.stream<!tuple_type>
   %summed = "iterators.map"(%stream) {mapFuncRef = @mul_struct_int}
-    : (!iterators.stream<!struct_type>) -> (!iterators.stream<!element_type>)
+    : (!iterators.stream<!tuple_type>) -> (!iterators.stream<!element_type>)
   %reduced = "iterators.reduce"(%summed) {reduceFuncRef = @sum_int}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   %result:2 = iterators.stream_to_value %reduced : !iterators.stream<!element_type>

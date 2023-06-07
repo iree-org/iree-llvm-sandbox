@@ -13,6 +13,7 @@ import pandas as pd
 
 from mlir_structured.dialects import iterators as it
 from mlir_structured.dialects import tabular as tab
+from mlir_structured.dialects import tuple as tup
 from mlir_structured.dialects import arith, func, memref, scf
 from mlir_structured.execution_engine import ExecutionEngine
 from mlir_structured.ir import (
@@ -50,7 +51,7 @@ def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
   nano_time = func.FuncOp("nanoTime", ([], [i64_type]), visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
-  memref_of_i64_type = MemRefType.get([-1], i64_type)
+  memref_of_i64_type = MemRefType.get([MemRefType.get_dynamic_size()], i64_type)
   wrapper = func.FuncOp(
       # Same signature and an extra buffer of indices to save timings.
       name,
@@ -62,7 +63,7 @@ def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
   with InsertionPoint(wrapper.add_entry_block()):
     timer_buffer = wrapper.arguments[-1]
     zero = arith.ConstantOp.create_index(0)
-    n_iterations = memref.DimOp(IndexType.get(), timer_buffer, zero)
+    n_iterations = memref.DimOp(timer_buffer, zero)
     one = arith.ConstantOp.create_index(1)
     iter_args = list(wrapper.arguments[-num_results - 1:-1])
     loop = scf.ForOp(zero, n_iterations, one, iter_args)
@@ -222,6 +223,7 @@ class IteratorsMethod(Method):
     with Context(), Location.unknown():
       it.register_dialect()
       tab.register_dialect()
+      tup.register_dialect()
       code = self._load_code()
       mod = Module.parse(code)
       symbol_table = SymbolTable(mod.operation)
@@ -229,16 +231,19 @@ class IteratorsMethod(Method):
       with InsertionPoint(mod.body):
         emit_benchmarking_function('main_bench', main_func)
       pm = PassManager.parse(  # (Comment for better formatting.)
-          'convert-iterators-to-llvm,'
-          'decompose-iterator-states,'
-          'canonicalize,'
-          'expand-strided-metadata,'
-          'finalize-memref-to-llvm,'
-          'convert-scf-to-cf,'
-          'convert-func-to-llvm,'
-          'reconcile-unrealized-casts,'
-          'convert-cf-to-llvm')
-    pm.run(mod)
+          'builtin.module('
+          '  convert-iterators-to-llvm,'
+          '  decompose-tuples,'
+          '  decompose-iterator-states,'
+          '  canonicalize,'
+          '  expand-strided-metadata,'
+          '  finalize-memref-to-llvm,'
+          '  convert-scf-to-cf,'
+          '  convert-func-to-llvm,'
+          '  reconcile-unrealized-casts,'
+          '  convert-cf-to-llvm'
+          ')')
+    pm.run(mod.operation)
     shared_libs = [
         os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
         os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV,
