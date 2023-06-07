@@ -105,6 +105,7 @@ jobs:
         cmake --build ${STRUCTURED_MAIN_BINARY_DIR} --target check-structured
 
     - name: Run benchmarks
+      shell: bash # This enables the `-eo pipefail` flag to propagate script failures.
       run: |
         ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/run.sh test | tee /tmp/result.jsonl
         ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
