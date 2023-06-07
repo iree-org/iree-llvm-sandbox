@@ -69,7 +69,9 @@ class CompiledKernel:
     for x in range(n_x):
       for y in range(n_y):
         for z in range(n_z):
-          self.engine.invoke('kernel', *ctype_args)
+          pid_args = [ctypes.pointer(ctypes.c_int32(pid)) for pid in [x, y, z]]
+          N_args = [ctypes.pointer(ctypes.c_int32(n)) for n in [n_x, n_y, n_z]]
+          self.engine.invoke('kernel', *(pid_args + N_args + ctype_args))
 
 
 def compile(fn, **kwargs):
@@ -95,6 +97,7 @@ def compile(fn, **kwargs):
     # Compile with custom pipeline.
     pm = PassManager.parse('builtin.module('
                            '  convert-triton-func-to-func,'
+                           '  convert-triton-spmd-to-func-args,'
                            '  convert-triton-to-llvm,'
                            '  convert-elementwise-to-linalg,'
                            '  empty-tensor-to-alloc-tensor,'

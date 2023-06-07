@@ -15,6 +15,11 @@ namespace mlir {
 class ModuleOp;
 template <typename T>
 class OperationPass;
+class RewritePatternSet;
+
+/// Populate the given list with patterns that convert Triton func ops func.
+void populateTritonSPMDToFuncArgsConversionPatterns(
+    RewritePatternSet &patterns);
 
 /// Create a pass to convert Triton func ops to the func dialect.
 std::unique_ptr<OperationPass<ModuleOp>>
