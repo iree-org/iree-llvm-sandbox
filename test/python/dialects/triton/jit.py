@@ -143,6 +143,31 @@ def load_store_kd_tensor():
   print(X)
 
 
+@jit
+def get_grid_coords(dummy):
+  # Call tl.program_id inside of function to also test tt.call op.
+  x = tl.program_id(axis=0)
+  y = tl.program_id(axis=1)
+  z = tl.program_id(axis=2)
+  return (x, y, z)
+
+
+# CHECK-LABEL: TEST: program_id
+@run
+def program_id():
+
+  @jit
+  def kernel(ptr):
+    x, y, z = get_grid_coords(0)
+    tl.store(ptr + x * 4 + y * 2 + z, x * 4 + y * 2 + z)
+
+  X = torch.tensor([42] * 8, dtype=torch.int32)
+  kernel[(2, 2, 2)](X)
+
+  # CHECK-NEXT: tensor([0, 1, 2, 3, 4, 5, 6, 7], dtype=torch.int32)
+  print(X)
+
+
 # CHECK-LABEL: TEST: view_op
 @run
 def view_op():
