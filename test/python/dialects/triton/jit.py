@@ -30,6 +30,28 @@ def addptr_scalar():
   print(X)
 
 
+@jit
+def times_two(x):
+  return x + x
+
+
+# CHECK-LABEL: TEST: call_other_kernel
+@run
+def call_other_kernel():
+
+  @jit
+  def kernel(ptr):
+    x = tl.load(ptr)
+    x = times_two(x)
+    tl.store(ptr, x)
+
+  X = torch.tensor([21], dtype=torch.int32)
+  kernel[(1,)](X)
+
+  # CHECK-NEXT: tensor([42], dtype=torch.int32)
+  print(X)
+
+
 # CHECK-LABEL: TEST: load_store_scalar
 @run
 def load_store_scalar():

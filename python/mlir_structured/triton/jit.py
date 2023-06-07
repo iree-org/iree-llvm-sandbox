@@ -5,6 +5,9 @@
 # 3. Changing a few variables of the eval scope of function that eventually
 #    calls the compiler such that (1) there is no CUDA dependency and (2) our
 #    compile function is used to produce the compiled kernel.
+# 4. Have the `JITFunction` class of this file inherit from the `JITFunction`
+#    class of the original package such that `instanceof` tests in other parts
+#    of Triton continue to work.
 
 from __future__ import annotations, division
 
@@ -19,6 +22,7 @@ from collections import defaultdict, namedtuple
 from typing import Callable, Generic, Iterable, Optional, TypeVar, Union, cast, overload
 
 import triton
+import triton.runtime.jit
 
 from .compiler import compile
 
@@ -147,7 +151,7 @@ class KernelInterface(Generic[T]):
     return cast(T, functools.partial(cast(Callable, self.run), grid=grid))
 
 
-class JITFunction(KernelInterface[T]):
+class JITFunction(triton.runtime.jit.JITFunction):
 
   # Hook for inspecting compiled functions and modules
   cache_hook = None
