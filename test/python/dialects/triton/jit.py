@@ -143,6 +143,26 @@ def load_store_kd_tensor():
   print(X)
 
 
+# CHECK-LABEL: TEST: num_programs
+@run
+def num_programs():
+
+  @jit
+  def kernel(ptr):
+    n_x = tl.num_programs(axis=0)
+    n_y = tl.num_programs(axis=1)
+    n_z = tl.num_programs(axis=2)
+    tl.store(ptr + 0, n_x)
+    tl.store(ptr + 1, n_y)
+    tl.store(ptr + 2, n_z)
+
+  X = torch.tensor([42] * 3, dtype=torch.int32)
+  kernel[(1, 2, 3)](X)
+
+  # CHECK-NEXT: tensor([1, 2, 3], dtype=torch.int32)
+  print(X)
+
+
 @jit
 def get_grid_coords(dummy):
   # Call tl.program_id inside of function to also test tt.call op.
