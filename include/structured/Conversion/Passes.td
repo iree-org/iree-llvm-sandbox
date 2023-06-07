@@ -117,6 +117,23 @@ def ConvertTritonFuncToFunc : Pass<"convert-triton-func-to-func", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// TritonSPMDToFuncArgs
+//===----------------------------------------------------------------------===//
+
+def ConvertTritonSPMDToFuncArgs :
+    Pass<"convert-triton-spmd-to-func-args", "ModuleOp"> {
+  let summary = "Convert Triton's SPMD ops to function arguments";
+  let description = [{
+    Converts the SPMD-operations from Triton's `tt` dialect, namely `program_id`
+    and `num_programs`, which provide the grid coordinates and grid size,
+    respectively, into accesses to function arguments that provide these values.
+    This allows to run the grid explicitly, for example, in a nested `scf.for`
+    loop, and provide the grid coordinate and size explicitly.
+  }];
+  let constructor = "mlir::createConvertTritonSPMDToFuncArgsPass()";
+}
+
+//===----------------------------------------------------------------------===//
 // TritonToLLVM
 //===----------------------------------------------------------------------===//
 
