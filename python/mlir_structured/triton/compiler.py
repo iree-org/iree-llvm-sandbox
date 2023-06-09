@@ -42,6 +42,7 @@ class CompiledKernel:
     for value, (idx, ty) in zip(kernel_args, self.signature.items()):
       if ty[0] == '*':
         addr = value.data_ptr()
+        print("addr:", hex(addr))
         ctype_arg = ctypes.cast(addr, ctypes.c_void_p)
       else:
         to_ctype_value = {
