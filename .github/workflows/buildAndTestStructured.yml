@@ -37,7 +37,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
       with:
-        python-version: 3.9
+        python-version: 3.11
 
     - name: Checkout project
       uses: actions/checkout@v3
