@@ -84,15 +84,13 @@ void addGridArguments(FunctionOpInterface op, PatternRewriter &rewriter) {
       FunctionType::get(rewriter.getContext(), newArgTypes, resultTypes);
 
   // Compute new argument attributes: add two empty dicts for the new args.
-  ArrayRef<Attribute> oldArgAttrs = op.getArgAttrsAttr().getValue();
-  SmallVector<Attribute> newArgAttrs(gridArgs.size(),
-                                     DictionaryAttr::get(context));
-  newArgAttrs.append(oldArgAttrs.begin(), oldArgAttrs.end());
-  auto newArgAttrsAttr = ArrayAttr::get(context, newArgAttrs);
+  SmallVector<DictionaryAttr> newArgAttrs(gridArgs.size(),
+                                          DictionaryAttr::get(context));
+  op.getAllArgAttrs(newArgAttrs);
 
   // Update function type and argument attributes in-place.
   op.setType(newType);
-  op.setArgAttrsAttr(newArgAttrsAttr);
+  op.setAllArgAttrs(newArgAttrs);
 
   // Compute new arguments for the entry block of the body.
   Block *oldBlock = &op.getFunctionBody().front();
