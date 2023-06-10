@@ -123,14 +123,39 @@ void ConvertTritonSPMDToFuncArgsPass::runOnOperation() {
   MLIRContext *context = &getContext();
 
   // Add grid arguments to all functions.
+  SmallVector<FunctionOpInterface> funcOps;
   TrivialPatternRewriter rewriter(context);
   for (auto &op : module.getBodyRegion().front()) {
     if (auto funcOp = llvm::dyn_cast<FunctionOpInterface>(&op)) {
-      if (!funcOp.isExternal())
+      if (!funcOp.isExternal()) {
         addGridArguments(funcOp, rewriter);
+        funcOps.push_back(funcOp);
+      }
     }
   }
 
+  for (auto op : funcOps) {
+
+    if (!llvm::isa<func::FuncOp>(op))
+      return;
+    rewriter.setInsertionPointAfter(op);
+
+    auto oldArgTypes = op.getArgumentTypes().drop_front(6);
+    auto resultTypes = op->getResultTypes();
+    SmallVector<DictionaryAttr> newArgAttrs;
+    op.getAllArgAttrs(newArgAttrs);
+
+    Location loc = op->getLoc();
+    auto oldFuncType = FunctionType::get(context, oldArgTypes, resultTypes);
+    auto gridFuncOp =
+        rewriter.create<func::FuncOp>(loc, StringRef{"grid"}, oldFuncType);
+    auto oldArgAttrs = ArrayRef<DictionaryAttr>(newArgAttrs).drop_front(6);
+    gridFuncOp.setAllArgAttrs(oldArgAttrs);
+
+    Block *entryBlock = gridFuncOp.addEntryBlock();
+    rewriter.setInsertionPointToStart(entryBlock);
+    rewriter.create<func::ReturnOp>(loc);
+  }
   // Convert the SPMD ops in the Triton dialect to accesses to the corresponding
   // function arguments.
   RewritePatternSet patterns(&getContext());
