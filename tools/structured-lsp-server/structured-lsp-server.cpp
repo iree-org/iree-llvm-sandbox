@@ -27,6 +27,8 @@
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Signals.h"
 
 using namespace mlir;
 
@@ -50,6 +52,12 @@ inline void registerTritonDialects(DialectRegistry &registry) {
 }
 
 int main(int argc, char **argv) {
+#ifndef NDEBUG
+  static std::string executable =
+      llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  llvm::sys::PrintStackTraceOnErrorSignal(executable);
+#endif
+
   registerAllPasses();
   registerStructuredConversionPasses();
   registerIteratorsPasses();

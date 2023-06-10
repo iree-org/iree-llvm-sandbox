@@ -116,6 +116,7 @@ add_mlir_python_modules(StructuredPythonModules
   INSTALL_PREFIX "python_packages/mlir_structured"
   DECLARED_SOURCES
   StructuredPythonSources
+  LLVMSupport
   MLIRPythonExtension.RegisterEverything
   MLIRPythonSources.Core
   MLIRPythonSources.Dialects

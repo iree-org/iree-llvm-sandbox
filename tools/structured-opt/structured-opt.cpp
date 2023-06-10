@@ -29,7 +29,9 @@
 #include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "triton/Dialect/TritonGPU/Transforms/Passes.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/ToolOutputFile.h"
 
@@ -65,6 +67,12 @@ inline void registerTritonDialects(DialectRegistry &registry) {
 }
 
 int main(int argc, char **argv) {
+#ifndef NDEBUG
+  static std::string executable =
+      llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  llvm::sys::PrintStackTraceOnErrorSignal(executable);
+#endif
+
   llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   registerStructuredConversionPasses();
