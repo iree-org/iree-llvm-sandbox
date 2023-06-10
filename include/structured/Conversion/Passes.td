@@ -131,6 +131,10 @@ def ConvertTritonSPMDToFuncArgs :
     loop, and provide the grid coordinate and size explicitly.
   }];
   let constructor = "mlir::createConvertTritonSPMDToFuncArgsPass()";
+  let dependentDialects = [
+    "arith::ArithDialect",
+    "scf::SCFDialect"
+  ];
 }
 
 //===----------------------------------------------------------------------===//
