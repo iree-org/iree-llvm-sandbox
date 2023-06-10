@@ -11,6 +11,8 @@
 #include "mlir-c/IR.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "structured-c/Dialects.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Signals.h"
 
 #include <vector>
 
@@ -18,6 +20,12 @@ namespace py = pybind11;
 using namespace mlir::python::adaptors;
 
 PYBIND11_MODULE(_structuredDialects, mainModule) {
+#ifndef NDEBUG
+  static std::string executable =
+      llvm::sys::fs::getMainExecutable(nullptr, nullptr);
+  llvm::sys::PrintStackTraceOnErrorSignal(executable);
+#endif
+
   //===--------------------------------------------------------------------===//
   // Indexing dialect.
   //===--------------------------------------------------------------------===//
