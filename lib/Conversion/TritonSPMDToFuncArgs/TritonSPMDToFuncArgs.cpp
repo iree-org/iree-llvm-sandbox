@@ -176,6 +176,7 @@ void ConvertTritonSPMDToFuncArgsPass::runOnOperation() {
     rewriter.setInsertionPointToStart(entryBlock);
     rewriter.create<func::ReturnOp>(loc);
   }
+
   // Convert the SPMD ops in the Triton dialect to accesses to the corresponding
   // function arguments.
   RewritePatternSet patterns(&getContext());
