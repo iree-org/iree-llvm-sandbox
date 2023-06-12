@@ -72,8 +72,8 @@ void addGridArguments(FunctionOpInterface op, PatternRewriter &rewriter) {
 
   // New argument types: add two arguments for program_id and num_programs.
   Type i32 = rewriter.getI32Type();
-  ArrayRef<Type> gridArgs{i32, i32, i32,  // program_id per dimension
-                          i32, i32, i32}; // num_programs per dimension
+  TypeRange gridArgs{i32, i32, i32,  // program_id per dimension
+                     i32, i32, i32}; // num_programs per dimension
 
   // Compute new function type: add new arguments at the beginning.
   TypeRange oldArgTypes = op.getArgumentTypes();
