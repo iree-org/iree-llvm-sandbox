@@ -16,6 +16,9 @@ jobs:
     env:
       LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
     steps:
+    - run: |
+        ${LLVM_SYMBOLIZER_PATH} --version
+
     - name: Compute Structured base path
       run: |
         echo "STRUCTURED_MAIN_SRC_DIR=${GITHUB_WORKSPACE}/sandbox" | tee -a $GITHUB_ENV
