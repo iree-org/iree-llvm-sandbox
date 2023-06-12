@@ -100,25 +100,28 @@ void addGridArguments(FunctionOpInterface op, PatternRewriter &rewriter) {
   }
 
   // Create a new block with the new signature and merge the old one into it.
-  std::cout << "locs: " << std::endl << "size: " << locs.size() << std::endl;
+  llvm::errs() << "locs: "
+               << "\n"
+               << "size: " << locs.size() << "\n";
   for (auto loc : locs) {
-    std::cout << "  ";
-    std::cout.flush();
+    llvm::errs() << "  ";
+    llvm::errs().flush();
     loc.dump();
   }
-  std::cout << "newArgTypes: " << std::endl
-            << "size: " << newArgTypes.size() << std::endl;
+  llvm::errs() << "newArgTypes: "
+               << "\n"
+               << "size: " << newArgTypes.size() << "\n";
   for (auto type : newArgTypes) {
-    std::cout << "  ";
-    std::cout.flush();
+    llvm::errs() << "  ";
+    llvm::errs().flush();
     type.dump();
   }
-  std::cout << "oldBlock: " << oldBlock << std::endl;
+  llvm::errs() << "oldBlock: " << oldBlock << "\n";
   oldBlock->dump();
 
   Block *newBlock = rewriter.createBlock(oldBlock, newArgTypes, locs);
 
-  std::cout << "newBlock: " << newBlock << std::endl;
+  llvm::errs() << "newBlock: " << newBlock << "\n";
   newBlock->dump();
 
   oldBlock->replaceAllUsesWith(newBlock);
