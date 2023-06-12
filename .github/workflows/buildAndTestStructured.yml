@@ -17,7 +17,7 @@ jobs:
       LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
     steps:
     - run: |
-        "${LLVM_SYMBOLIZER_PATH}" --version
+        echo --"${LLVM_SYMBOLIZER_PATH}"-- --version
 
     - name: Compute Structured base path
       run: |
