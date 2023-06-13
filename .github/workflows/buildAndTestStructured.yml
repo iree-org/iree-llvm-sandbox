@@ -39,6 +39,10 @@ jobs:
         swap-storage: false # This frees space on the wrong partition.
         tool-cache: false # This includes Python, which we need.
 
+    - name: Reinstall LLVM+Clang
+      run: |
+        sudo apt-get install clang-12 clang-tidy-12 clang-tools-12 llvm-12 llvm-12-dev llvm-12-linker-tools llvm-12-runtime llvm-12-tools
+
     - name: Set up Python
       uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
       with:
