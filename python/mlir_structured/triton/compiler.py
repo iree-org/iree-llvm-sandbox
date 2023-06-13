@@ -96,8 +96,17 @@ def compile(fn, **kwargs):
     pm = PassManager.parse('builtin.module('
                            '  convert-triton-func-to-func,'
                            '  convert-triton-to-llvm,'
+                           '  convert-elementwise-to-linalg,'
+                           '  empty-tensor-to-alloc-tensor,'
+                           '  one-shot-bufferize,'
+                           '  func.func(convert-linalg-to-loops),'
+                           '  expand-strided-metadata,'
+                           '  finalize-memref-to-llvm,'
                            '  convert-arith-to-llvm,'
-                           '  convert-func-to-llvm'
+                           '  convert-index-to-llvm,'
+                           '  convert-scf-to-cf,'
+                           '  convert-func-to-llvm,'
+                           '  canonicalize'
                            ')')
     try:
       pm.run(mod.operation)

@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -28,6 +29,7 @@ class MLIRContext;
 using namespace mlir;
 using namespace mlir::arith;
 using namespace mlir::LLVM;
+using namespace mlir::scf;
 using namespace mlir::tensor;
 using namespace triton;
 
@@ -144,14 +146,69 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
     if (op.getMask() || op.getOther())
       return failure();
 
+    Location loc = op->getLoc();
     Type ptrType = op.getPtr().getType();
 
-    // Only handle scalar pointers to numerics for now.
+    // Scalar pointer.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
       if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
         rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
         return success();
       }
+    }
+
+    // Tensor of pointers.
+    // TODO(ingomueller): This is a manual tiling by one. That is fine in order
+    //     to get things running but drops a lot of information. Eventually, we
+    //     want to map this to a vectorized load/gather in order to distribute
+    //     the loading over SIMT threads.
+    if (auto tensorType = ptrType.dyn_cast<RankedTensorType>()) {
+      if (!tensorType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            loc, "only static shapes supported for now");
+      if (tensorType.getRank() != 1)
+        return rewriter.notifyMatchFailure(loc,
+                                           "only 1D tensors supported for now");
+
+      // Derive types.
+      Type elementType =
+          op.getResult().getType().cast<TensorType>().getElementType();
+      auto elementPtrType =
+          tensorType.getElementType().cast<triton::PointerType>();
+      auto llvmPtrType = typeConverter->convertType(elementPtrType);
+
+      // Compute bounds of for loop.
+      Value lb = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      Value ub = rewriter.create<arith::ConstantIndexOp>(
+          loc, tensorType.getDimSize(0));
+      Value step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+
+      // Load each tensor element at a time.
+      Value values = rewriter.create<tensor::EmptyOp>(
+          loc, tensorType.getShape(), elementType);
+      auto forOp = rewriter.create<scf::ForOp>(
+          loc, lb, ub, step, ValueRange{values},
+          [&](OpBuilder &b, Location loc, Value iv, ValueRange args) {
+            Value values = args[0];
+            Type idx = b.getIndexType();
+            Type i64 = b.getI64Type();
+
+            // Extract index, convert to pointer, and load from there.
+            Value address =
+                b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), iv);
+            address = b.create<arith::IndexCastOp>(loc, i64, address);
+            address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
+            Value element = rewriter.create<LLVM::LoadOp>(loc, address);
+
+            // Insert extracted value into result tensor.
+            values = b.create<tensor::InsertOp>(loc, element, values, iv);
+
+            b.create<scf::YieldOp>(loc, values);
+          });
+      values = forOp.getResult(0);
+
+      rewriter.replaceOp(op, values);
+      return success();
     }
 
     return failure();
@@ -234,15 +291,67 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
     if (op.getMask())
       return failure();
 
+    Location loc = op->getLoc();
     Type ptrType = op.getPtr().getType();
 
-    // Only handle scalar pointers to numerics for now.
+    // Scalar pointer.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
       if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
         rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
                                                    adaptor.getPtr());
         return success();
       }
+    }
+
+    // Tensor of pointers.
+    // TODO(ingomueller): This is a manual tiling by one. That is fine in order
+    //     to get things running but drops a lot of information. Eventually, we
+    //     want to map this to a vectorized store/scatter in order to distribute
+    //     the storing over SIMT threads.
+    if (auto tensorType = ptrType.dyn_cast<RankedTensorType>()) {
+      if (!tensorType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            loc, "only static shapes supported for now");
+      if (tensorType.getRank() != 1)
+        return rewriter.notifyMatchFailure(loc,
+                                           "only 1D tensors supported for now");
+
+      // Derive types.
+      Type elementType =
+          op.getValue().getType().cast<TensorType>().getElementType();
+      auto elementPtrType =
+          tensorType.getElementType().cast<triton::PointerType>();
+      auto llvmPtrType = typeConverter->convertType(elementPtrType);
+
+      // Compute bounds of for loop.
+      Value lb = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      Value ub = rewriter.create<arith::ConstantIndexOp>(
+          loc, tensorType.getDimSize(0));
+      Value step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+
+      // Store each tensor element at a time.
+      rewriter.create<scf::ForOp>(
+          loc, lb, ub, step, ValueRange{},
+          [&](OpBuilder &b, Location loc, Value iv, ValueRange args) {
+            Type idx = b.getIndexType();
+            Type i64 = b.getI64Type();
+
+            // Extract value that should be stored
+            Value element = b.create<tensor::ExtractOp>(loc, elementType,
+                                                        adaptor.getValue(), iv);
+
+            // Extract address, cast to pointer, and store value there.
+            Value address =
+                b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), iv);
+            address = b.create<arith::IndexCastOp>(loc, i64, address);
+            address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
+            rewriter.create<LLVM::StoreOp>(loc, element, address);
+
+            b.create<scf::YieldOp>(loc);
+          });
+      rewriter.eraseOp(op);
+
+      return success();
     }
 
     return failure();
@@ -297,7 +406,8 @@ void ConvertTritonToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target.addLegalDialect<ArithDialect, LLVMDialect, TensorDialect>();
+  target
+      .addLegalDialect<ArithDialect, LLVMDialect, SCFDialect, TensorDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
 
