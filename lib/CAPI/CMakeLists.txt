@@ -18,6 +18,7 @@ add_mlir_public_c_api_library(StructuredCAPI
     MLIRIteratorsTransforms
     MLIRTabular
     MLIRTabularToLLVM
+    MLIRTritonFuncToFunc
     MLIRTritonToLLVM
     MLIRTupleDialect
     MLIRTupleTransforms
