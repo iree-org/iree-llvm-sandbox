@@ -122,15 +122,31 @@ struct SplatOpConversion : public OpConversionPattern<triton::SplatOp> {
   LogicalResult
   matchAndRewrite(triton::SplatOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    Value src = adaptor.getSrc();
+    Location loc = op->getLoc();
+    Type i64 = rewriter.getI64Type();
+    Type idx = rewriter.getIndexType();
 
-    // Don't handle splatting of pointers yet.
-    if (src.getType().isa<LLVMPointerType>())
-      return failure();
-    assert(src.getType().isIntOrFloat());
+    Value src = adaptor.getSrc();
+    TensorType tensorType;
+
+    // Depending on element type: conversion of splat value and tensor type.
+    if (src.getType().isa<LLVMPointerType>()) {
+      // Pointers.
+      Type originalResultType = op.getResult().getType();
+      Type convertedResultType = typeConverter->convertType(originalResultType);
+      tensorType = convertedResultType.cast<TensorType>();
+      assert(tensorType.getElementType() == idx);
+
+      // Convert pointer to int, then cast to index.
+      src = rewriter.create<LLVM::PtrToIntOp>(loc, i64, src);
+      src = rewriter.create<arith::IndexCastOp>(loc, idx, src);
+    } else {
+      // Numeric scalars.
+      assert(src.getType().isIntOrFloat());
+      tensorType = op.getResult().getType().cast<TensorType>();
+    }
 
     // Replace tt.splat with tensor.splat.
-    Type tensorType = op.getResult().getType();
     rewriter.replaceOpWithNewOp<tensor::SplatOp>(op, src, tensorType);
 
     return success();
@@ -192,6 +208,21 @@ void ConvertTritonToLLVMPass::runOnOperation() {
     return LLVM::LLVMPointerType::get(
         typeConverter.convertType(type.getPointeeType()),
         type.getAddressSpace());
+  });
+  // TODO(ingomueller): This drops the address space attribute. Is that a
+  //     problem?
+  // TODO(ingomueller): This converts a pointer to an index whose value is the
+  //     address of the pointer. While this covers the general case, very often
+  //     the pointers belong to a single allocation, which could be represented
+  //     as a base pointer and a tensor of offsets. That, in turn, would
+  //     preserve the semantics about the loads being local to each other and
+  //     maybe fit to (to be developped) primitives in the indexing dialect.
+  typeConverter.addConversion([&](RankedTensorType type) -> Type {
+    if (auto ptrType = type.getElementType().dyn_cast<triton::PointerType>()) {
+      auto idx = IndexType::get(type.getContext());
+      return RankedTensorType::get(type.getShape(), idx);
+    }
+    return type;
   });
 
   // Convert the remaining ops of this dialect using dialect conversion.
