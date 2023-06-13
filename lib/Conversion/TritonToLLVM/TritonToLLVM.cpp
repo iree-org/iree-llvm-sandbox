@@ -209,6 +209,14 @@ void ConvertTritonToLLVMPass::runOnOperation() {
         typeConverter.convertType(type.getPointeeType()),
         type.getAddressSpace());
   });
+  // TODO(ingomueller): This drops the address space attribute. Is that a
+  //     problem?
+  // TODO(ingomueller): This converts a pointer to an index whose value is the
+  //     address of the pointer. While this covers the general case, very often
+  //     the pointers belong to a single allocation, which could be represented
+  //     as a base pointer and a tensor of offsets. That, in turn, would
+  //     preserve the semantics about the loads being local to each other and
+  //     maybe fit to (to be developped) primitives in the indexing dialect.
   typeConverter.addConversion([&](RankedTensorType type) -> Type {
     if (auto ptrType = type.getElementType().dyn_cast<triton::PointerType>()) {
       auto idx = IndexType::get(type.getContext());
