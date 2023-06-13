@@ -52,6 +52,39 @@ def call_other_kernel():
   print(X)
 
 
+# CHECK-LABEL: TEST: dot
+@run
+def dot():
+
+  @jit
+  def kernel(ptrA, ptrB, ptrC):
+    r = tl.arange(0, 256)
+    r = tl.view(r, (16, 16))
+    ptrAs = ptrA + r
+    ptrBs = ptrB + r
+    ptrCs = ptrC + r
+
+    a = tl.load(ptrAs)
+    b = tl.load(ptrBs)
+    c = tl.dot(a, b)
+
+    tl.store(ptrCs, c)
+
+  A = torch.tensor(list(range(16)) * 16, dtype=torch.float32)
+  B = torch.tensor(list(range(4)) * 64, dtype=torch.float32)
+  C = torch.tensor([1] * 256, dtype=torch.float32)
+  kernel[(1,)](A, B, C)
+
+  # CHECK-NEXT: tensor(46080.)
+  print(torch.sum(C))
+
+  # CHECK-NEXT: tensor(46080.)
+  torch.matmul(A.reshape([16, 16]),
+               B.reshape([16, 16]),
+               out=C.reshape([16, 16]))
+  print(torch.sum(C))
+
+
 # CHECK-LABEL: TEST: load_store_scalar
 @run
 def load_store_scalar():

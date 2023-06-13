@@ -159,6 +159,26 @@ struct BroadcastOpConversion : public OpConversionPattern<triton::BroadcastOp> {
   }
 };
 
+struct DotOpConversion : public OpConversionPattern<triton::DotOp> {
+  DotOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                  PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::DotOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Value inputA = op.getA();
+    Value inputB = op.getB();
+    Value inputC = op.getC();
+
+    // Compute A * B + C with `linalg.matmul`.
+    rewriter.replaceOpWithNewOp<linalg::MatmulOp>(
+        op, /*ins=*/ValueRange{inputA, inputB}, /*outs=*/inputC);
+
+    return success();
+  }
+};
+
 struct ExpandDimsOpConversion
     : public OpConversionPattern<triton::ExpandDimsOp> {
   ExpandDimsOpConversion(TypeConverter &typeConverter, MLIRContext *context,
@@ -462,6 +482,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
       // clang-format off
       AddPtrOpConversion,
       BroadcastOpConversion,
+      DotOpConversion,
       ExpandDimsOpConversion,
       LoadOpConversion,
       MakeRangeOpConversion,
