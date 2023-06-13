@@ -122,6 +122,10 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
     }
 
     // Tensor of pointers.
+    // TODO(ingomueller): This is a manual tiling by one. That is fine in order
+    //     to get things running but drops a lot of information. Eventually, we
+    //     want to map this to a vectorized load/gather in order to distribute
+    //     the loading over SIMT threads.
     if (auto tensorType = ptrType.dyn_cast<RankedTensorType>()) {
       if (!tensorType.hasStaticShape())
         return rewriter.notifyMatchFailure(
@@ -264,6 +268,10 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
     }
 
     // Tensor of pointers.
+    // TODO(ingomueller): This is a manual tiling by one. That is fine in order
+    //     to get things running but drops a lot of information. Eventually, we
+    //     want to map this to a vectorized store/scatter in order to distribute
+    //     the storing over SIMT threads.
     if (auto tensorType = ptrType.dyn_cast<RankedTensorType>()) {
       if (!tensorType.hasStaticShape())
         return rewriter.notifyMatchFailure(
