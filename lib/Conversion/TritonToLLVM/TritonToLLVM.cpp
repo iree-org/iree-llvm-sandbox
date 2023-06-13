@@ -45,9 +45,11 @@ struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
   LogicalResult
   matchAndRewrite(triton::AddPtrOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+    Type idx = rewriter.getIndexType();
     Type ptrType = op.getPtr().getType();
 
-    // Only handle scalar pointers to numerics for now.
+    // Scalar pointer.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
       assert(ttPtrType.getPointeeType().isa<IntegerType>() &&
              "expected tt.ptr to point to an integer type");
@@ -56,6 +58,37 @@ struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
       Value offset = adaptor.getOffset();
       rewriter.replaceOpWithNewOp<LLVM::GEPOp>(op, basePtr.getType(), basePtr,
                                                offset);
+      return success();
+    }
+
+    // Tensor of pointers.
+    if (auto ptrTensorType = ptrType.dyn_cast<RankedTensorType>()) {
+      if (!ptrTensorType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            loc, "only static shapes supported for now");
+
+      auto elementPtrType =
+          ptrTensorType.getElementType().cast<triton::PointerType>();
+      auto elementType = elementPtrType.getPointeeType();
+      auto idxTensorType = adaptor.getPtr().getType().cast<RankedTensorType>();
+
+      // Compute element size in bytes.
+      uint32_t elementBitWidth = elementType.getIntOrFloatBitWidth();
+      Value offsets = rewriter.create<arith::IndexCastOp>(loc, idxTensorType,
+                                                          adaptor.getOffset());
+      Value elementSize =
+          rewriter.create<arith::ConstantIndexOp>(loc, elementBitWidth / 8);
+
+      // Compute offsets in terms of bytes.
+      Type offsetsTensorType =
+          RankedTensorType::get(idxTensorType.getShape(), idx);
+      elementSize =
+          rewriter.create<tensor::SplatOp>(loc, elementSize, offsetsTensorType);
+      offsets = rewriter.create<arith::MulIOp>(loc, offsets, elementSize);
+
+      // Add offsets to base pointer.
+      rewriter.replaceOpWithNewOp<arith::AddIOp>(op, adaptor.getPtr(), offsets);
+
       return success();
     }
 
