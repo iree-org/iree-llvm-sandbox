@@ -134,6 +134,7 @@ def ConvertTritonToLLVM : Pass<"convert-triton-to-llvm", "ModuleOp"> {
   let constructor = "mlir::createConvertTritonToLLVMPass()";
   let dependentDialects = [
     "arith::ArithDialect",
+    "linalg::LinalgDialect",
     "LLVM::LLVMDialect",
     "scf::SCFDialect",
     "tensor::TensorDialect"

@@ -15,6 +15,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
@@ -28,6 +29,7 @@ class MLIRContext;
 
 using namespace mlir;
 using namespace mlir::arith;
+using namespace mlir::linalg;
 using namespace mlir::LLVM;
 using namespace mlir::scf;
 using namespace mlir::tensor;
@@ -95,6 +97,65 @@ struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
     }
 
     return failure();
+  }
+};
+
+struct BroadcastOpConversion : public OpConversionPattern<triton::BroadcastOp> {
+  BroadcastOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                        PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::BroadcastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // Compute shapes and element type.
+    auto inputShape = op.getSrc().getType().cast<ShapedType>().getShape();
+    auto resultShape = op.getResult().getType().cast<ShapedType>().getShape();
+    int32_t rank = static_cast<int32_t>(inputShape.size());
+    assert(inputShape.size() == resultShape.size() &&
+           "expected input and result to be of the same rank");
+    auto elementType =
+        adaptor.getSrc().getType().cast<ShapedType>().getElementType();
+
+    // Find broadcast dimensions: dimensions that are different between the
+    // input and the result (and 1 on the input).
+    SmallVector<int64_t> broadcastDims;
+    for (auto [idx, dims] :
+         llvm::enumerate(llvm::zip(inputShape, resultShape))) {
+      auto [inputDim, resultDim] = dims;
+      if (inputDim != resultDim) {
+        assert(inputDim == 1 &&
+               "expected all differing dimensions to be broadcast dimensions");
+        broadcastDims.push_back(idx);
+      }
+    }
+
+    // `tensor.broadcast` uses non-existing dimensions whereas Triton uses
+    // dimensions with unit extent, so we need to collapse those first before
+    // being able to use `tensor.broadcast`.
+    int32_t collapsedRank = rank - broadcastDims.size();
+    SmallVector<ReassociationExprs> reassociationMap(collapsedRank);
+    for (int64_t i = 0, j = 0; i < collapsedRank && j < rank; i++) {
+      // Collapse all source dims into the current result dim until (1) we find
+      // one that shouldn't be collapsed or (2) there are no dims left.
+      int64_t dimToPush;
+      do {
+        dimToPush = j++;
+        reassociationMap[i].push_back(rewriter.getAffineDimExpr(dimToPush));
+      } while (inputShape[dimToPush] != resultShape[dimToPush] &&
+               dimToPush < rank);
+    }
+    auto collapseOp = rewriter.create<tensor::CollapseShapeOp>(
+        loc, adaptor.getSrc(), reassociationMap);
+
+    // Broadcast collapsed value to empty tensor of desired shape.
+    auto init = rewriter.create<tensor::EmptyOp>(loc, resultShape, elementType);
+    rewriter.replaceOpWithNewOp<linalg::BroadcastOp>(op, collapseOp, init,
+                                                     broadcastDims);
+
+    return success();
   }
 };
 
@@ -364,6 +425,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       AddPtrOpConversion,
+      BroadcastOpConversion,
       ExpandDimsOpConversion,
       LoadOpConversion,
       MakeRangeOpConversion,
@@ -406,8 +468,8 @@ void ConvertTritonToLLVMPass::runOnOperation() {
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());
-  target
-      .addLegalDialect<ArithDialect, LLVMDialect, SCFDialect, TensorDialect>();
+  target.addLegalDialect<ArithDialect, LinalgDialect, LLVMDialect, SCFDialect,
+                         TensorDialect>();
   target.addLegalOp<ModuleOp>();
   RewritePatternSet patterns(&getContext());
 
