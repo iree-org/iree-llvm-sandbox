@@ -16,6 +16,7 @@ set(STRUCTURED_TEST_DEPENDS
   count
   FileCheck
   structured-opt
+  mlir_async_runtime
   mlir-cpu-runner
   mlir_c_runner_utils
   mlir_runner_utils

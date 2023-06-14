@@ -1,4 +1,5 @@
 import ctypes
+import os
 
 from triton.compiler.code_generator import ast_to_ttir
 
@@ -10,6 +11,13 @@ from mlir_structured.dialects import triton as tt
 __all__ = [
     "compile",
 ]
+
+_MLIR_ASYNC_RUNTIME_LIB_ENV = "MLIR_ASYNC_RUNTIME_LIB"
+_MLIR_ASYNC_RUNTIME_LIB_DEFAULT = "libmlir_async_runtime.so"
+_MLIR_C_RUNNER_UTILS_LIB_ENV = "MLIR_C_RUNNER_UTILS_LIB"
+_MLIR_C_RUNNER_UTILS_LIB_DEFAULT = "libmlir_c_runner_utils.so"
+_MLIR_RUNNER_UTILS_LIB_ENV = "MLIR_RUNNER_UTILS_LIB"
+_MLIR_RUNNER_UTILS_LIB_DEFAULT = "libmlir_runner_utils.so"
 
 
 class CompiledKernel:
@@ -62,16 +70,9 @@ class CompiledKernel:
       ctype_arg = ctypes.pointer(ctype_arg)
       ctype_args.append(ctype_arg)
 
-    # Run kernel in manually in a grid.
-    # TODO(ingomueller): This is a *very* simplistic way to simulate the grid!
-    #     It allows us to bootstrap the compiler and invocation infrastructure
-    #     but will soon need to be replaced with some proper SPMD concept.
-    for x in range(n_x):
-      for y in range(n_y):
-        for z in range(n_z):
-          pid_args = [ctypes.pointer(ctypes.c_int32(pid)) for pid in [x, y, z]]
-          N_args = [ctypes.pointer(ctypes.c_int32(n)) for n in [n_x, n_y, n_z]]
-          self.engine.invoke('kernel', *(pid_args + N_args + ctype_args))
+    # Run kernel through the grid wrapper.
+    N_args = [ctypes.pointer(ctypes.c_int32(n)) for n in [n_x, n_y, n_z]]
+    self.engine.invoke('grid', *(N_args + ctype_args))
 
 
 def compile(fn, **kwargs):
@@ -99,15 +100,20 @@ def compile(fn, **kwargs):
                            '  convert-triton-func-to-func,'
                            '  convert-triton-spmd-to-func-args,'
                            '  convert-triton-to-llvm,'
+                           '  async-parallel-for,'
+                           '  async-to-async-runtime,'
+                           '  async-runtime-ref-counting,'
+                           '  async-runtime-ref-counting-opt,'
                            '  convert-elementwise-to-linalg,'
+                           '  linalg-fuse-elementwise-ops,'
                            '  empty-tensor-to-alloc-tensor,'
                            '  one-shot-bufferize,'
                            '  func.func(convert-linalg-to-loops),'
-                           '  expand-strided-metadata,'
-                           '  finalize-memref-to-llvm,'
-                           '  convert-arith-to-llvm,'
-                           '  convert-index-to-llvm,'
+                           '  convert-async-to-llvm,'
                            '  convert-scf-to-cf,'
+                           '  finalize-memref-to-llvm,'
+                           '  arith-expand,'
+                           '  memref-expand,'
                            '  convert-func-to-llvm,'
                            '  canonicalize'
                            ')')
@@ -117,27 +123,35 @@ def compile(fn, **kwargs):
       raise RuntimeError(f'Failed compile Triton IR:\n\n{ttir}') from e
 
     # Find exact function name of kernel.
-    kernel_name = None
+    grid_func_name = None
     for op in mod.body.operations:
       if 'sym_name' in op.attributes:
         sym_name = StringAttr(op.attributes['sym_name']).value
-        if sym_name.startswith('kernel'):
-          assert kernel_name is None
-          kernel_name = sym_name
-    assert kernel_name
+        if sym_name.startswith('kernel_') and sym_name.endswith('_grid'):
+          assert grid_func_name is None
+          grid_func_name = sym_name
+    assert grid_func_name
 
     # Replace kernel function name with name implementing C interface and
     # without variant-specific suffix such that we can call it from the
     # ExecutionEngine using a fixed name.
     symbol_table = SymbolTable(mod.operation)
-    src_sym = symbol_table[kernel_name]
-    dst_sym = "_mlir_ciface_kernel"
+    src_sym = symbol_table[grid_func_name]
+    dst_sym = "_mlir_ciface_grid"
     SymbolTable.set_symbol_name(src_sym, dst_sym)
-    SymbolTable.replace_all_symbol_uses(kernel_name, dst_sym, mod.operation)
+    SymbolTable.replace_all_symbol_uses(grid_func_name, dst_sym, mod.operation)
 
     # Create execution engine.
     try:
-      engine = ExecutionEngine(mod)
+      shared_libs = [
+          os.getenv(_MLIR_RUNNER_UTILS_LIB_ENV, _MLIR_RUNNER_UTILS_LIB_DEFAULT),
+          os.getenv(_MLIR_C_RUNNER_UTILS_LIB_ENV,
+                    _MLIR_C_RUNNER_UTILS_LIB_DEFAULT),
+          os.getenv(_MLIR_ASYNC_RUNTIME_LIB_ENV,
+                    _MLIR_ASYNC_RUNTIME_LIB_DEFAULT)
+      ]
+
+      engine = ExecutionEngine(mod, shared_libs=shared_libs, opt_level=3)
     except Exception as e:
       raise RuntimeError(f'Failed to create execution engine.\n\n'
                          f'Triton IR:\n\n{ttir}\n\n'
