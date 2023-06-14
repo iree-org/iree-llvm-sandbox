@@ -61,24 +61,20 @@ struct GetProgramIdOpConversion
   }
 };
 
-void addGridArguments(FunctionOpInterface op, RewriterBase &rewriter) {
+void addArgumentsToFront(FunctionOpInterface op, RewriterBase &rewriter,
+                         TypeRange additionalArgs) {
   MLIRContext *context = rewriter.getContext();
-
-  // New argument types: add three dimensions x (program_id, num_programs).
-  Type i32 = rewriter.getI32Type();
-  SmallVector<Type, 6> gridArgs = {i32, i32, i32,  // program_id per dimension
-                                   i32, i32, i32}; // num_programs per dimension
 
   // Compute new function type: add new arguments at the beginning.
   TypeRange oldArgTypes = op.getArgumentTypes();
-  SmallVector<Type> newArgTypes(gridArgs.begin(), gridArgs.end());
+  SmallVector<Type> newArgTypes(additionalArgs.begin(), additionalArgs.end());
   newArgTypes.append(oldArgTypes.begin(), oldArgTypes.end());
   TypeRange resultTypes = op.getResultTypes();
   auto newType =
       FunctionType::get(rewriter.getContext(), newArgTypes, resultTypes);
 
   // Compute new argument attributes: add two empty dicts for the new args.
-  SmallVector<DictionaryAttr> newArgAttrs(gridArgs.size(),
+  SmallVector<DictionaryAttr> newArgAttrs(additionalArgs.size(),
                                           DictionaryAttr::get(context));
   op.getAllArgAttrs(newArgAttrs);
 
@@ -90,7 +86,7 @@ void addGridArguments(FunctionOpInterface op, RewriterBase &rewriter) {
 
   // Compute new arguments for the entry block of the body.
   Block *oldBlock = &op.getFunctionBody().front();
-  SmallVector<Location> locs(gridArgs.size(), op.getLoc());
+  SmallVector<Location> locs(additionalArgs.size(), op.getLoc());
   for (BlockArgument arg : oldBlock->getArguments()) {
     locs.push_back(arg.getLoc());
   }
@@ -99,8 +95,17 @@ void addGridArguments(FunctionOpInterface op, RewriterBase &rewriter) {
   Block *newBlock = rewriter.createBlock(oldBlock, newArgTypes, locs);
   rewriter.replaceAllUsesWith(oldBlock, newBlock);
   ArrayRef<BlockArgument> forwardArgs =
-      newBlock->getArguments().drop_front(gridArgs.size());
+      newBlock->getArguments().drop_front(additionalArgs.size());
   rewriter.mergeBlocks(oldBlock, newBlock, forwardArgs);
+}
+
+void addGridArguments(FunctionOpInterface op, RewriterBase &rewriter) {
+  // New argument types: add three dimensions x (program_id, num_programs).
+  Type i32 = rewriter.getI32Type();
+  SmallVector<Type, 6> gridArgs = {i32, i32, i32,  // program_id per dimension
+                                   i32, i32, i32}; // num_programs per dimension
+
+  addArgumentsToFront(op, rewriter, gridArgs);
 }
 } // namespace
 
