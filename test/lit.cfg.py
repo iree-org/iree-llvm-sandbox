@@ -49,19 +49,42 @@ config.excludes = [
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 
+
+# Copied from `third_party/llvm-project/mlir/test/lit.cfg.py`.
+# Searches for a runtime library with the given name and returns a tool
+# substitution of the same name and the found path.
+# Correctly handles the platforms shared library directory and naming conventions.
+def add_runtime(name):
+  path = ""
+  for prefix in ["", "lib"]:
+    path = os.path.join(config.llvm_shlib_dir,
+                        f"{prefix}{name}{config.llvm_shlib_ext}")
+    if os.path.isfile(path):
+      break
+  return ToolSubst(f"%{name}", path)
+
+
+mlir_c_runner_utils = add_runtime("mlir_c_runner_utils")
+mlir_runner_utils = add_runtime("mlir_runner_utils")
+
+config.environment['MLIR_C_RUNNER_UTILS_LIB'] = mlir_c_runner_utils.command
+config.environment['MLIR_RUNNER_UTILS_LIB'] = mlir_runner_utils.command
+
 config.structured_tools_dir = os.path.join(config.structured_build_root, 'bin')
 tool_dirs = [config.structured_tools_dir, config.llvm_tools_dir]
 tools = [
+    mlir_c_runner_utils,
+    mlir_runner_utils,
     'structured-opt',
     ToolSubst('%mlir_lib_dir', config.mlir_lib_dir),
 ]
+
+llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 # Pass through LLVM_SYMBOLIZER_PATH from environment
 if "LLVM_SYMBOLIZER_PATH" in os.environ:
   config.environment["LLVM_SYMBOLIZER_PATH"] = \
       os.environ["LLVM_SYMBOLIZER_PATH"]
-
-llvm_config.add_tool_substitutions(tools, tool_dirs)
 
 structured_python_path = os.path.join(config.structured_build_root,
                                      'python_packages')
