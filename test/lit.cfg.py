@@ -87,6 +87,6 @@ if "LLVM_SYMBOLIZER_PATH" in os.environ:
       os.environ["LLVM_SYMBOLIZER_PATH"]
 
 structured_python_path = os.path.join(config.structured_build_root,
-                                     'python_packages')
+                                      'python_packages')
 llvm_config.with_environment('PYTHONPATH', [structured_python_path],
                              append_path=True)
