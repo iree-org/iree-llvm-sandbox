@@ -96,7 +96,7 @@ struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
       return success();
     }
 
-    return failure();
+    return rewriter.notifyMatchFailure(loc, "unsupported type of pointer");
   }
 };
 
@@ -223,12 +223,12 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
   LogicalResult
   matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // Only handle unmasked pointers for now.
-    if (op.getMask() || op.getOther())
-      return failure();
-
     Location loc = op->getLoc();
     Type ptrType = op.getPtr().getType();
+
+    // Only handle unmasked pointers for now.
+    if (op.getMask() || op.getOther())
+      return rewriter.notifyMatchFailure(loc, "mask+other not supported yet");
 
     // Scalar pointer.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
@@ -295,7 +295,7 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
       return success();
     }
 
-    return failure();
+    return rewriter.notifyMatchFailure(loc, "unsupported type of pointer");
   }
 };
 
@@ -371,12 +371,12 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
   LogicalResult
   matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    // Only handle unmasked pointers for now.
-    if (op.getMask())
-      return failure();
-
     Location loc = op->getLoc();
     Type ptrType = op.getPtr().getType();
+
+    // Only handle unmasked pointers for now.
+    if (op.getMask())
+      return rewriter.notifyMatchFailure(loc, "mask not supported yet");
 
     // Scalar pointer.
     if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
@@ -442,7 +442,7 @@ struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
       return success();
     }
 
-    return failure();
+    return rewriter.notifyMatchFailure(loc, "unsupported type of pointer");
   }
 };
 
