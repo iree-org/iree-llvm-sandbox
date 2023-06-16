@@ -52,33 +52,42 @@ struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     Type idx = rewriter.getIndexType();
-    Type ptrType = op.getPtr().getType();
 
-    // Scalar pointer.
-    if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
-      assert(ttPtrType.getPointeeType().isa<IntegerType>() &&
-             "expected tt.ptr to point to an integer type");
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (convertedPtrType.isa<LLVMPointerType>()) {
       // Replace original op with LLVM's GEP op.
       Value basePtr = adaptor.getPtr();
       Value offset = adaptor.getOffset();
-      rewriter.replaceOpWithNewOp<LLVM::GEPOp>(op, basePtr.getType(), basePtr,
+      rewriter.replaceOpWithNewOp<LLVM::GEPOp>(op, convertedPtrType, basePtr,
                                                offset);
       return success();
     }
 
     // Tensor of pointers.
-    if (auto ptrTensorType = ptrType.dyn_cast<RankedTensorType>()) {
+    Type originalPtrType = op.getPtr().getType();
+    if (auto ptrTensorType = originalPtrType.dyn_cast<RankedTensorType>()) {
       if (!ptrTensorType.hasStaticShape())
         return rewriter.notifyMatchFailure(
             loc, "only static shapes supported for now");
 
       auto elementPtrType =
           ptrTensorType.getElementType().cast<triton::PointerType>();
-      auto elementType = elementPtrType.getPointeeType();
+      auto llvmElementType =
+          typeConverter->convertType(elementPtrType.getPointeeType());
       auto idxTensorType = adaptor.getPtr().getType().cast<RankedTensorType>();
 
+      assert((llvmElementType.isIntOrFloat() ||
+              llvmElementType.isa<LLVMPointerType>()) &&
+             "expected int, float, or pointer as pointee types");
+
       // Compute element size in bytes.
-      uint32_t elementBitWidth = elementType.getIntOrFloatBitWidth();
+      uint32_t pointerBitwidth =
+          reinterpret_cast<LLVMTypeConverter *>(typeConverter)
+              ->getPointerBitwidth();
+      uint32_t elementBitWidth = llvmElementType.isIntOrFloat()
+                                     ? llvmElementType.getIntOrFloatBitWidth()
+                                     : pointerBitwidth;
       Value offsets = rewriter.create<arith::IndexCastOp>(loc, idxTensorType,
                                                           adaptor.getOffset());
       Value elementSize =
@@ -224,18 +233,16 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
   matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Type ptrType = op.getPtr().getType();
 
     // Only handle unmasked pointers for now.
     if (op.getMask() || op.getOther())
       return rewriter.notifyMatchFailure(loc, "mask+other not supported yet");
 
-    // Scalar pointer.
-    if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
-      if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
-        rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
-        return success();
-      }
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (convertedPtrType.isa<LLVMPointerType>()) {
+      rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+      return success();
     }
 
     // Tensor of pointers.
@@ -243,17 +250,22 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
     //     to get things running but drops a lot of information. Eventually, we
     //     want to map this to a vectorized load/gather in order to distribute
     //     the loading over SIMT threads.
-    if (auto tensorType = ptrType.dyn_cast<RankedTensorType>()) {
+    Type originalPointerType = op.getPtr().getType();
+    if (auto tensorType = originalPointerType.dyn_cast<RankedTensorType>()) {
       if (!tensorType.hasStaticShape())
         return rewriter.notifyMatchFailure(
             loc, "only static shapes supported for now");
 
       // Derive types.
-      Type elementType =
-          op.getResult().getType().cast<TensorType>().getElementType();
       auto elementPtrType =
           tensorType.getElementType().cast<triton::PointerType>();
-      auto llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmElementType =
+          llvmPtrType.cast<LLVMPointerType>().getElementType();
+
+      assert((llvmElementType.isIntOrFloat() ||
+              llvmElementType.isa<LLVMPointerType>()) &&
+             "expected int, float, or pointer as pointee types");
 
       // Compute bounds of for loop.
       SmallVector<Value> steps(tensorType.getRank());
@@ -270,7 +282,7 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
 
       // Load each tensor element at a time.
       Value values = rewriter.create<tensor::EmptyOp>(
-          loc, tensorType.getShape(), elementType);
+          loc, tensorType.getShape(), llvmElementType);
       LoopNest forOp = scf::buildLoopNest(
           rewriter, loc, lbs, ubs, steps, values,
           [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
@@ -372,19 +384,17 @@ struct StoreOpConversion : public ConvertOpToLLVMPattern<triton::StoreOp> {
   matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
-    Type ptrType = op.getPtr().getType();
 
     // Only handle unmasked pointers for now.
     if (op.getMask())
       return rewriter.notifyMatchFailure(loc, "mask not supported yet");
 
-    // Scalar pointer.
-    if (auto ttPtrType = ptrType.dyn_cast<triton::PointerType>()) {
-      if (ttPtrType.getPointeeType().isIntOrIndexOrFloat()) {
-        rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
-                                                   adaptor.getPtr());
-        return success();
-      }
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (convertedPtrType.isa<LLVMPointerType>()) {
+      rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                                 adaptor.getPtr());
+      return success();
     }
 
     // Tensor of pointers.
@@ -392,17 +402,22 @@ struct StoreOpConversion : public ConvertOpToLLVMPattern<triton::StoreOp> {
     //     to get things running but drops a lot of information. Eventually, we
     //     want to map this to a vectorized store/scatter in order to distribute
     //     the storing over SIMT threads.
-    if (auto tensorType = ptrType.dyn_cast<RankedTensorType>()) {
+    Type originalPointerType = op.getPtr().getType();
+    if (auto tensorType = originalPointerType.dyn_cast<RankedTensorType>()) {
       if (!tensorType.hasStaticShape())
         return rewriter.notifyMatchFailure(
             loc, "only static shapes supported for now");
 
       // Derive types.
-      Type elementType =
-          op.getValue().getType().cast<TensorType>().getElementType();
       auto elementPtrType =
           tensorType.getElementType().cast<triton::PointerType>();
-      auto llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmElementType =
+          llvmPtrType.cast<LLVMPointerType>().getElementType();
+
+      assert((llvmElementType.isIntOrFloat() ||
+              llvmElementType.isa<LLVMPointerType>()) &&
+             "expected int, float, or pointer as pointee types");
 
       // Compute bounds of for loop.
       SmallVector<Value> steps(tensorType.getRank());
@@ -424,9 +439,15 @@ struct StoreOpConversion : public ConvertOpToLLVMPattern<triton::StoreOp> {
             Type idx = b.getIndexType();
             Type i64 = b.getI64Type();
 
-            // Extract value that should be stored
-            Value element = b.create<tensor::ExtractOp>(
-                loc, elementType, adaptor.getValue(), ivs);
+            // Extract value that should be stored.
+            Value element =
+                b.create<tensor::ExtractOp>(loc, adaptor.getValue(), ivs);
+
+            //  Convert if necessary. This happens with pointers of pointers.
+            if (element.getType().isIndex()) {
+              element = b.create<arith::IndexCastOp>(loc, i64, element);
+              element = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, element);
+            }
 
             // Extract address, cast to pointer, and store value there.
             Value address =
@@ -508,11 +529,17 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   //     probably ignore its value in the conversions that use these pointers,
   //     so we'll have to revisit the whole concept of address spaces at some
   //     point.
-  typeConverter.addConversion([&](triton::PointerType type) {
-    return LLVM::LLVMPointerType::get(
-        typeConverter.convertType(type.getPointeeType()),
-        type.getAddressSpace());
-  });
+  typeConverter.addConversion(
+      [&](triton::PointerType type) -> std::optional<Type> {
+        Type pointeeType = type.getPointeeType();
+        Type convertedPointeeType = typeConverter.convertType(pointeeType);
+
+        if (!LLVMPointerType::isValidElementType(convertedPointeeType))
+          return std::nullopt;
+
+        return LLVMPointerType::get(convertedPointeeType,
+                                    type.getAddressSpace());
+      });
   // TODO(ingomueller): This drops the address space attribute. Is that a
   //     problem?
   // TODO(ingomueller): This converts a pointer to an index whose value is the
