@@ -82,9 +82,7 @@ struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
              "expected int, float, or pointer as pointee types");
 
       // Compute element size in bytes.
-      uint32_t pointerBitwidth =
-          reinterpret_cast<LLVMTypeConverter *>(typeConverter)
-              ->getPointerBitwidth();
+      uint32_t pointerBitwidth = getTypeConverter()->getPointerBitwidth();
       uint32_t elementBitWidth = llvmElementType.isIntOrFloat()
                                      ? llvmElementType.getIntOrFloatBitWidth()
                                      : pointerBitwidth;
