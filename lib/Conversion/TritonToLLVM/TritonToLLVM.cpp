@@ -10,6 +10,7 @@
 
 #include "../PassDetail.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+#include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -41,10 +42,10 @@ struct ConvertTritonToLLVMPass
   void runOnOperation() override;
 };
 
-struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
-  AddPtrOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
+  AddPtrOpConversion(LLVMTypeConverter &typeConverter,
                      PatternBenefit benefit = 1)
-      : OpConversionPattern(typeConverter, context, benefit) {}
+      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
 
   LogicalResult
   matchAndRewrite(triton::AddPtrOp op, OpAdaptor adaptor,
@@ -215,10 +216,9 @@ struct ExpandDimsOpConversion
   }
 };
 
-struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
-  LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
-                   PatternBenefit benefit = 1)
-      : OpConversionPattern(typeConverter, context, benefit) {}
+struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
+  LoadOpConversion(LLVMTypeConverter &typeConverter, PatternBenefit benefit = 1)
+      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
 
   LogicalResult
   matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
@@ -363,10 +363,10 @@ struct SplatOpConversion : public OpConversionPattern<triton::SplatOp> {
   }
 };
 
-struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
-  StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+struct StoreOpConversion : public ConvertOpToLLVMPattern<triton::StoreOp> {
+  StoreOpConversion(LLVMTypeConverter &typeConverter,
                     PatternBenefit benefit = 1)
-      : OpConversionPattern(typeConverter, context, benefit) {}
+      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
 
   LogicalResult
   matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
@@ -477,17 +477,22 @@ struct ViewOpConversion : public OpConversionPattern<triton::ViewOp> {
 } // namespace
 
 void mlir::populateTritonToLLVMConversionPatterns(
-    RewritePatternSet &patterns, TypeConverter &typeConverter) {
+    RewritePatternSet &patterns, LLVMTypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
       AddPtrOpConversion,
+      LoadOpConversion,
+      StoreOpConversion
+      // clang-format on
+      >(typeConverter);
+
+  patterns.add<
+      // clang-format off
       BroadcastOpConversion,
       DotOpConversion,
       ExpandDimsOpConversion,
-      LoadOpConversion,
       MakeRangeOpConversion,
       SplatOpConversion,
-      StoreOpConversion,
       ViewOpConversion
       // clang-format on
       >(typeConverter, patterns.getContext());

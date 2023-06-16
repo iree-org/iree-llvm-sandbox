@@ -16,11 +16,11 @@ class ModuleOp;
 template <typename T>
 class OperationPass;
 class RewritePatternSet;
-class TypeConverter;
+class LLVMTypeConverter;
 
 /// Populate the given list with patterns that convert from Triton to LLVM.
 void populateTritonToLLVMConversionPatterns(RewritePatternSet &patterns,
-                                            TypeConverter &typeConverter);
+                                            LLVMTypeConverter &typeConverter);
 
 /// Create a pass to convert Triton operations to the LLVM dialect.
 std::unique_ptr<OperationPass<ModuleOp>> createConvertTritonToLLVMPass();
