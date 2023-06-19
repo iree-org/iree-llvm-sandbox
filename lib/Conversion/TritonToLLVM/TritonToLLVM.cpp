@@ -288,10 +288,6 @@ struct LoadOpConversion : OpConversionPattern<triton::LoadOp> {
       return success();
     }
 
-    // Only handle unmasked pointers for now.
-    if (op.getMask() || op.getOther())
-      return rewriter.notifyMatchFailure(loc, "mask+other not supported yet");
-
     // Tensor of pointers.
     // TODO(ingomueller): This is a manual tiling by one. That is fine in order
     //     to get things running but drops a lot of information. Eventually, we
@@ -338,14 +334,55 @@ struct LoadOpConversion : OpConversionPattern<triton::LoadOp> {
           [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
             Value values = args[0];
             Type idx = b.getIndexType();
+            Type i1 = b.getI1Type();
             Type i64 = b.getI64Type();
 
-            // Extract index, convert to pointer, and load from there.
+            // Extract index and convert to pointer.
             Value address =
                 b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
             address = b.create<arith::IndexCastOp>(loc, i64, address);
             address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
-            Value element = rewriter.create<LLVM::LoadOp>(loc, address);
+
+            // Perform load.
+            Value element;
+            if (!op.getMask()) {
+              // Unmasked load.
+              element = rewriter.create<LLVM::LoadOp>(loc, address);
+            } else {
+              // Masked load.
+              Value maskBit =
+                  b.create<tensor::ExtractOp>(loc, i1, adaptor.getMask(), ivs);
+              auto ifOp = rewriter.create<scf::IfOp>(
+                  loc, /*condition=*/maskBit,
+                  /*thenBuilder=*/
+                  [&](OpBuilder &builder, Location loc) {
+                    Value loaded = rewriter.create<LLVM::LoadOp>(loc, address);
+                    builder.create<scf::YieldOp>(loc, loaded);
+                  },
+                  /*elseBuilder=*/
+                  [&](OpBuilder &builder, Location loc) {
+                    if (op.getOther()) {
+                      Value other = b.create<tensor::ExtractOp>(
+                          loc, adaptor.getOther(), ivs);
+
+                      // Convert index back to pointer if necessary. This
+                      // happens with pointers of pointers.
+                      if (llvmElementType.isa<LLVMPointerType>()) {
+                        other = b.create<arith::IndexCastOp>(loc, i64, other);
+                        other = b.create<LLVM::IntToPtrOp>(loc, llvmElementType,
+                                                           other);
+                      }
+
+                      builder.create<scf::YieldOp>(loc, other);
+                      return;
+                    }
+
+                    Value undef =
+                        rewriter.create<LLVM::UndefOp>(loc, llvmElementType);
+                    builder.create<scf::YieldOp>(loc, undef);
+                  });
+              element = ifOp.getResult(0);
+            }
 
             // Convert element back to index if necessary. This happens on
             // pointer-of-pointer inputs.
