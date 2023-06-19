@@ -38,6 +38,42 @@ func.func public @kernel(%arg0: !tt.ptr<!tt.ptr<f32>>) -> f32 {
 // -----
 
 // CHECK-LABEL: func.func public @kernel(
+// CHECK-SAME:      %[[ARG0:.*]]: !llvm.ptr<i32, 1>,
+// CHECK-SAME:      %[[ARG1:.*]]: i1) -> i32 {
+// CHECK:         %[[V0:.*]] = scf.if %[[ARG1]] -> (i32) {
+// CHECK-DAG:       %[[V1:.*]] = llvm.load %[[ARG0]] : !llvm.ptr<i32, 1>
+// CHECK-DAG:       scf.yield %[[V1]] : i32
+// CHECK-NEXT:    } else {
+// CHECK-DAG:       %[[V2:.*]] = llvm.mlir.undef : i32
+// CHECK-DAG:       scf.yield %[[V2]] : i32
+// CHECK-NEXT:    }
+// CHECK-NEXT:    return
+func.func public @kernel(%arg0: !tt.ptr<i32>, %arg1: i1) -> i32 {
+  %1 = tt.load %arg0, %arg1 {cache = 1 : i32, evict = 1 : i32, isVolatile = false} : i32
+  return %1 : i32
+}
+
+// -----
+
+// CHECK-LABEL: func.func public @kernel(
+// CHECK-SAME:      %[[ARG0:.*]]: !llvm.ptr<i32, 1>,
+// CHECK-SAME:      %[[ARG1:.*]]: i1,
+// CHECK-SAME:      %[[ARG2:.*]]: i32) -> i32 {
+// CHECK-NEXT:    %[[V1:.*]] = scf.if %[[ARG1]] -> (i32) {
+// CHECK-DAG:       %[[V2:.*]] = llvm.load %[[ARG0]] : !llvm.ptr<i32, 1>
+// CHECK-DAG:       scf.yield %[[V2]] : i32
+// CHECK-NEXT:    } else {
+// CHECK-DAG:       scf.yield %[[ARG2]] : i32
+// CHECK-NEXT:    }
+// CHECK-NEXT:    return
+func.func public @kernel(%arg0: !tt.ptr<i32>, %arg1: i1, %arg2: i32) -> i32 {
+  %2 = tt.load %arg0, %arg1, %arg2 {cache = 1 : i32, evict = 1 : i32, isVolatile = false} : i32
+  return %2 : i32
+}
+
+// -----
+
+// CHECK-LABEL: func.func public @kernel(
 // CHECK-SAME:      %[[ARG0:.*]]:  tensor<2xindex>) -> tensor<2xi32> {
 // CHECK-DAG:     %[[V1:.*]] = arith.constant 0 : index
 // CHECK-DAG:     %[[V2:.*]] = arith.constant 2 : index

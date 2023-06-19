@@ -257,16 +257,40 @@ struct LoadOpConversion : OpConversionPattern<triton::LoadOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
 
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (auto llvmPtrType = convertedPtrType.dyn_cast<LLVMPointerType>()) {
+      // Unmasked load.
+      if (!op.getMask()) {
+        rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+        return success();
+      }
+
+      // Masked load.
+      rewriter.replaceOpWithNewOp<scf::IfOp>(
+          op, /*condition=*/op.getMask(),
+          /*thenBuilder=*/
+          [&](OpBuilder &builder, Location loc) {
+            Value loaded = rewriter.create<LLVM::LoadOp>(loc, adaptor.getPtr());
+            builder.create<scf::YieldOp>(loc, loaded);
+          },
+          /*elseBuilder=*/
+          [&](OpBuilder &builder, Location loc) {
+            if (op.getOther()) {
+              builder.create<scf::YieldOp>(loc, op.getOther());
+              return;
+            }
+
+            Type elemType = llvmPtrType.getElementType();
+            Value undef = rewriter.create<LLVM::UndefOp>(loc, elemType);
+            builder.create<scf::YieldOp>(loc, undef);
+          });
+      return success();
+    }
+
     // Only handle unmasked pointers for now.
     if (op.getMask() || op.getOther())
       return rewriter.notifyMatchFailure(loc, "mask+other not supported yet");
-
-    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
-    Type convertedPtrType = adaptor.getPtr().getType();
-    if (convertedPtrType.isa<LLVMPointerType>()) {
-      rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
-      return success();
-    }
 
     // Tensor of pointers.
     // TODO(ingomueller): This is a manual tiling by one. That is fine in order
