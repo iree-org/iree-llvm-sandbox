@@ -146,14 +146,16 @@ struct BroadcastOpConversion : public OpConversionPattern<triton::BroadcastOp> {
     int32_t collapsedRank = rank - broadcastDims.size();
     SmallVector<ReassociationExprs> reassociationMap(collapsedRank);
     for (int64_t i = 0, j = 0; i < collapsedRank && j < rank; i++) {
-      // Collapse all source dims into the current result dim until (1) we find
-      // one that shouldn't be collapsed or (2) there are no dims left.
+      // Collapse all source dims into the current result dim until (1) there
+      // are no dims left and (2) either (a) we find one that shouldn't be
+      // collapsed or (b) this is the last result dim, in which case the next
+      // input dim must be one that should be collapsed.
       int64_t dimToPush;
       do {
         dimToPush = j++;
         reassociationMap[i].push_back(rewriter.getAffineDimExpr(dimToPush));
-      } while (inputShape[dimToPush] != resultShape[dimToPush] &&
-               dimToPush < rank);
+      } while ((j < rank) && (inputShape[dimToPush] != resultShape[dimToPush] ||
+                              i == collapsedRank - 1));
     }
     auto collapseOp = rewriter.create<tensor::CollapseShapeOp>(
         loc, adaptor.getSrc(), reassociationMap);

@@ -11,10 +11,14 @@
 // CHECK-LABEL: func.func public @kernel()
 // CHECK-NEXT:    %[[V0:.*]] = arith.constant {{.*}} : tensor<4xi32>
 // CHECK-DAG:     %[[V1:.*]] = tensor.expand_shape %[[V0]] {{\[}}[0, 1]] : tensor<4xi32> into tensor<1x4xi32>
-// CHECK-DAG:     %[[V2:.*]] = tensor.collapse_shape %[[V1]] {{\[}}[0, 1]] : tensor<1x4xi32> into tensor<4xi32>
-// CHECK-DAG:     %[[V3:.*]] = tensor.empty() : tensor<4x4xi32>
-// CHECK-DAG:     %[[V4:.*]] = linalg.broadcast ins(%[[V2]] : tensor<4xi32>) outs(%[[V3]] : tensor<4x4xi32>) dimensions = [0]
-// CHECK-NEXT:    return %[[V4]] : tensor<4x4xi32>
+// CHECK-DAG:     %[[V2:.*]] = tensor.expand_shape %[[V0]] {{\[}}[0, 1]] : tensor<4xi32> into tensor<4x1xi32>
+// CHECK-DAG:     %[[V3:.*]] = tensor.collapse_shape %[[V1]] {{\[}}[0, 1]] : tensor<1x4xi32> into tensor<4xi32>
+// CHECK-DAG:     %[[V4:.*]] = tensor.empty() : tensor<4x4xi32>
+// CHECK-NEXT:    %[[V5:.*]] = linalg.broadcast ins(%[[V3]] : tensor<4xi32>) outs(%[[V4]] : tensor<4x4xi32>) dimensions = [0]
+// CHECK-DAG:     %[[V6:.*]] = tensor.collapse_shape %[[V2]] {{\[}}[0, 1]] : tensor<4x1xi32> into tensor<4xi32>
+// CHECK-DAG:     %[[V7:.*]] = tensor.empty() : tensor<4x4xi32>
+// CHECK-DAG:     %[[V8:.*]] = linalg.broadcast ins(%[[V6]] : tensor<4xi32>) outs(%[[V7]] : tensor<4x4xi32>) dimensions = [1]
+// CHECK-NEXT:    return %[[V5]] : tensor<4x4xi32>
 
 // CHECK-CANON-LABEL: func.func public @kernel()
 // CHECK-CANON-NEXT:    %[[V0:.*]] = arith.constant {{.*}} : tensor<4xi32>
@@ -24,8 +28,10 @@
 func.func public @kernel() -> tensor<4x4xi32> {
   %0 = tt.make_range {start = 0 : i32, end = 4 : i32} : tensor<4xi32>
   %1 = tt.expand_dims %0 {axis = 0 : i32} : (tensor<4xi32>) -> tensor<1x4xi32>
-  %2 = tt.broadcast %1 : (tensor<1x4xi32>) -> tensor<4x4xi32>
-  return %2 : tensor<4x4xi32>
+  %2 = tt.expand_dims %0 {axis = 1 : i32} : (tensor<4xi32>) -> tensor<4x1xi32>
+  %3 = tt.broadcast %1 : (tensor<1x4xi32>) -> tensor<4x4xi32>
+  %4 = tt.broadcast %2 : (tensor<4x1xi32>) -> tensor<4x4xi32>
+  return %3 : tensor<4x4xi32>
 }
 
 // -----
