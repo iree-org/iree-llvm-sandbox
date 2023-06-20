@@ -13,6 +13,7 @@
 
 #include "mlir/IR/Dialect.h"
 #include "mlir/InitAllDialects.h"
+#include "mlir/InitAllExtensions.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "structured/Conversion/Passes.h"
@@ -89,6 +90,7 @@ int main(int argc, char **argv) {
 
   DialectRegistry registry;
   registerAllDialects(registry);
+  registerAllExtensions(registry);
   registerIteratorDialects(registry);
   registerTritonDialects(registry);
 
