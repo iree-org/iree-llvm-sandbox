@@ -12,6 +12,7 @@ add_mlir_conversion_library(MLIRTritonToLLVM
   MLIRLLVMCommonConversion
   MLIRLLVMDialect
   MLIRPass
+  MLIRSCFTransforms
   MLIRTransformUtils
   TritonIR
 )

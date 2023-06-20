@@ -18,6 +18,7 @@
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/SCF/Transforms/Transforms.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -582,6 +583,10 @@ void ConvertTritonToLLVMPass::runOnOperation() {
   target.addDynamicallyLegalOp<func::CallOp>([&](func::CallOp op) {
     return typeConverter.isSignatureLegal(op.getCalleeType());
   });
+
+  // Add patterns that convert the types in SCF constructs.
+  scf::populateSCFStructuralTypeConversionsAndLegality(typeConverter, patterns,
+                                                       target);
 
   // Use UnrealizedConversionCast as materializations, which have to be cleaned
   // up by later passes.
