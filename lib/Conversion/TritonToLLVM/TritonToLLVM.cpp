@@ -565,17 +565,32 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
 
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (auto llvmPtrType = convertedPtrType.dyn_cast<LLVMPointerType>()) {
+      // Unmasked store.
+      if (!op.getMask()) {
+        rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                                   adaptor.getPtr());
+        return success();
+      }
+
+      // Masked store.
+      rewriter.replaceOpWithNewOp<scf::IfOp>(
+          op, /*condition=*/op.getMask(),
+          /*thenBuilder=*/
+          [&](OpBuilder &builder, Location loc) {
+            rewriter.create<LLVM::StoreOp>(loc, adaptor.getValue(),
+                                           adaptor.getPtr());
+            builder.create<scf::YieldOp>(loc);
+          });
+
+      return success();
+    }
+
     // Only handle unmasked pointers for now.
     if (op.getMask())
       return rewriter.notifyMatchFailure(loc, "mask not supported yet");
-
-    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
-    Type convertedPtrType = adaptor.getPtr().getType();
-    if (convertedPtrType.isa<LLVMPointerType>()) {
-      rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
-                                                 adaptor.getPtr());
-      return success();
-    }
 
     // Tensor of pointers.
     // TODO(ingomueller): This is a manual tiling by one. That is fine in order

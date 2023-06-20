@@ -39,6 +39,21 @@ func.func public @kernel(%arg0: !tt.ptr<!tt.ptr<i32>>, %arg1: !tt.ptr<i32>) {
 // -----
 
 // CHECK-LABEL: func.func public @kernel(
+// CHECK-SAME:      %[[ARG0:.*]]: !llvm.ptr<i32, 1>,
+// CHECK-SAME:      %[[ARG1:.*]]: i32,
+// CHECK-SAME:      %[[ARG2:.*]]: i1) {
+// CHECK-DAG:     scf.if %[[ARG2]] {
+// CHECK-DAG:       llvm.store %[[ARG1]], %[[ARG0]] : !llvm.ptr<i32, 1>
+// CHECK-DAG:     }
+// CHECK-NEXT:    return
+func.func public @kernel(%arg0: !tt.ptr<i32>, %arg1: i32, %arg2: i1) {
+  tt.store %arg0, %arg1, %arg2 {cache = 1 : i32, evict = 1 : i32} : i32
+  return
+}
+
+// -----
+
+// CHECK-LABEL: func.func public @kernel(
 // CHECK-SAME:      %[[ARG0:.*]]: tensor<2xindex>,
 // CHECK-SAME:      %[[ARG1:.*]]: tensor<2xi32>) {
 // CHECK-DAG:     %[[V2:.*]] = arith.constant 0 : index
