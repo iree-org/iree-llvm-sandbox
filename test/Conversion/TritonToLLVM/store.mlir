@@ -98,6 +98,32 @@ func.func public @kernel(%arg0: tensor<2x!tt.ptr<!tt.ptr<i32>>>, %arg1: tensor<2
 // -----
 
 // CHECK-LABEL: func.func public @kernel(
+// CHECK-SAME:      %[[ARG0:.*]]: tensor<2xindex>, %[[ARG1:.*]]: tensor<2xindex>,
+// CHECK-SAME:      %[[ARG2:.*]]: tensor<2xi1>) {
+// CHECK-DAG:     %[[V3:.*]] = arith.constant 0 : index
+// CHECK-DAG:     %[[V4:.*]] = arith.constant 2 : index
+// CHECK-DAG:     %[[V5:.*]] = arith.constant 1 : index
+// CHECK-NEXT:    scf.for %[[ARG3:.*]] = %[[V3]] to %[[V4]] step %[[V5]] {
+// CHECK-DAG:       %[[V6:.*]] = tensor.extract %[[ARG0]][%[[ARG3]]] : tensor<2xindex>
+// CHECK-DAG:       %[[V7:.*]] = arith.index_cast %[[V6]] : index to i64
+// CHECK-DAG:       %[[V8:.*]] = llvm.inttoptr %[[V7]] : i64 to !llvm.ptr<ptr<i32, 1>, 1>
+// CHECK-DAG:       %[[V9:.*]] = tensor.extract %[[ARG1]][%[[ARG3]]] : tensor<2xindex>
+// CHECK-DAG:       %[[Va:.*]] = arith.index_cast %[[V9]] : index to i64
+// CHECK-DAG:       %[[Vb:.*]] = llvm.inttoptr %[[Va]] : i64 to !llvm.ptr<ptr<i32, 1>, 1>
+// CHECK-DAG:       %[[Vc:.*]] = tensor.extract %[[ARG2]][%[[ARG3]]] : tensor<2xi1>
+// CHECK-NEXT:      scf.if %[[Vc]] {
+// CHECK-DAG:         llvm.store %[[Vb]], %[[V8]] : !llvm.ptr<ptr<i32, 1>, 1>
+// CHECK-NEXT:      }
+// CHECK-NEXT:    }
+// CHECK-NEXT:    return
+func.func public @kernel(%arg0: tensor<2x!tt.ptr<!tt.ptr<i32>>>, %arg1: tensor<2x!tt.ptr<i32>>, %arg2: tensor<2xi1>) {
+  tt.store %arg0, %arg1, %arg2 {cache = 1 : i32, evict = 1 : i32} : tensor<2x!tt.ptr<i32>>
+  return
+}
+
+// -----
+
+// CHECK-LABEL: func.func public @kernel(
 // CHECK-SAME:      %[[ARG0:.*]]: tensor<2x8xindex>,
 // CHECK-SAME:      %[[ARG1:.*]]: tensor<2x8xi32>) {
 // CHECK-DAG:     %[[V2:.*]] = arith.constant 2 : index

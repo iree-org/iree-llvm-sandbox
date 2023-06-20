@@ -588,10 +588,6 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
       return success();
     }
 
-    // Only handle unmasked pointers for now.
-    if (op.getMask())
-      return rewriter.notifyMatchFailure(loc, "mask not supported yet");
-
     // Tensor of pointers.
     // TODO(ingomueller): This is a manual tiling by one. That is fine in order
     //     to get things running but drops a lot of information. Eventually, we
@@ -632,6 +628,7 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
           rewriter, loc, lbs, ubs, steps, ValueRange{},
           [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
             Type idx = b.getIndexType();
+            Type i1 = b.getI1Type();
             Type i64 = b.getI64Type();
 
             // Extract value that should be stored.
@@ -649,7 +646,23 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
                 b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
             address = b.create<arith::IndexCastOp>(loc, i64, address);
             address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
-            rewriter.create<LLVM::StoreOp>(loc, element, address);
+
+            // Perform store.
+            if (!op.getMask()) {
+              // Unmasked store.
+              rewriter.create<LLVM::StoreOp>(loc, element, address);
+            } else {
+              // Masked store.
+              Value maskBit =
+                  b.create<tensor::ExtractOp>(loc, i1, adaptor.getMask(), ivs);
+              rewriter.create<scf::IfOp>(loc, /*condition=*/maskBit,
+                                         /*thenBuilder=*/
+                                         [&](OpBuilder &builder, Location loc) {
+                                           rewriter.create<LLVM::StoreOp>(
+                                               loc, element, address);
+                                           builder.create<scf::YieldOp>(loc);
+                                         });
+            }
 
             return SmallVector<Value>();
           });
