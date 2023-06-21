@@ -98,6 +98,7 @@ def compile(fn, **kwargs):
                            '  convert-triton-to-llvm,'
                            '  convert-elementwise-to-linalg,'
                            '  empty-tensor-to-alloc-tensor,'
+                           '  inline,'
                            '  one-shot-bufferize,'
                            '  func.func(convert-linalg-to-loops),'
                            '  expand-strided-metadata,'
