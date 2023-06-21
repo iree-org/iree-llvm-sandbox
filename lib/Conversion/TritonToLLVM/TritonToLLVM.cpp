@@ -18,6 +18,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -346,6 +347,92 @@ struct MakeRangeOpConversion : public OpConversionPattern<triton::MakeRangeOp> {
   }
 };
 
+struct ReduceReturnOpConversion
+    : public OpConversionPattern<triton::ReduceReturnOp> {
+  ReduceReturnOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                           PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::ReduceReturnOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    rewriter.replaceOpWithNewOp<linalg::YieldOp>(op, adaptor.getOperands());
+    return success();
+  }
+};
+
+struct ReduceOpConversion : public OpConversionPattern<triton::ReduceOp> {
+  ReduceOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                     PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::ReduceOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // Derive types. `tt.reduce` treats reducing a 1-D tensor with a special
+    // case that returns a scalar, but we treat it as a 0-D tensor in these
+    // types.
+    auto convertedInputTensorTypes =
+        llvm::map_range(adaptor.getOperands().getTypes(),
+                        [](Type t) { return t.cast<TensorType>(); });
+    auto originalResultTensorTypes =
+        llvm::map_range(op.getResultTypes(), [](Type t) -> TensorType {
+          if (auto tensorType = t.dyn_cast<TensorType>())
+            return tensorType;
+          return RankedTensorType::get({}, t);
+        });
+    assert(llvm::all_equal(llvm::map_range(
+        convertedInputTensorTypes, [](TensorType t) { return t.getShape(); })));
+    assert(llvm::all_equal(llvm::map_range(
+        originalResultTensorTypes, [](TensorType t) { return t.getShape(); })));
+    ArrayRef<int64_t> resultShape =
+        (*originalResultTensorTypes.begin()).getShape();
+    auto convertedResultTensorTypes =
+        llvm::map_range(originalResultTensorTypes, [&](TensorType t) {
+          return RankedTensorType::get(resultShape, t.getElementType());
+        });
+
+    // Create empty vectors as init values.
+    llvm::SmallVector<Value> initVals;
+    for (TensorType t : convertedResultTensorTypes) {
+      TypedAttr zeroAttr = rewriter.getZeroAttr(t.getElementType());
+      Value zero = rewriter.create<arith::ConstantOp>(loc, zeroAttr);
+      auto emptyOp = rewriter.create<tensor::SplatOp>(loc, t, zero);
+      initVals.push_back(emptyOp);
+    }
+
+    // Create a linalg.reduce on the same input and move the combine region
+    // there. (ReduceReturnOpConversion will take care of the terminator.)
+    auto reduceOp = rewriter.create<linalg::ReduceOp>(
+        loc, /*resultTypes=*/SmallVector<Type>(convertedResultTensorTypes),
+        /*inputs=*/adaptor.getOperands(), /*inits=*/initVals,
+        /*dimensions=*/ArrayRef<int64_t>{op.getAxis()});
+    rewriter.inlineRegionBefore(op.getCombineOp(), reduceOp.getCombiner(),
+                                reduceOp.getCombiner().end());
+
+    // If the result on tt.reduce are tensors with rank > 0, we are done.
+    if (!resultShape.empty()) {
+      rewriter.replaceOp(op, reduceOp);
+      return success();
+    }
+
+    // Otherwise, the result has to be a scalar, so we need to extract the
+    // scalar from the 0-ranked result tensor.
+    SmallVector<Value> results;
+    for (auto [tensor, type] :
+         llvm::zip(reduceOp->getResults(), convertedResultTensorTypes)) {
+      Value scalar = rewriter.create<tensor::ExtractOp>(
+          loc, type.getElementType(), tensor, /*indices=*/ValueRange{});
+      results.push_back(scalar);
+    }
+    rewriter.replaceOp(op, results);
+
+    return success();
+  }
+};
+
 struct SplatOpConversion : public OpConversionPattern<triton::SplatOp> {
   SplatOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                     PatternBenefit benefit = 1)
@@ -523,6 +610,8 @@ void mlir::populateTritonToLLVMConversionPatterns(
       DotOpConversion,
       ExpandDimsOpConversion,
       MakeRangeOpConversion,
+      ReduceOpConversion,
+      ReduceReturnOpConversion,
       SplatOpConversion,
       ViewOpConversion
       // clang-format on
