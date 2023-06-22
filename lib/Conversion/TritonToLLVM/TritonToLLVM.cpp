@@ -109,6 +109,45 @@ struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
   }
 };
 
+struct AtomicCASOpConversion
+    : public ConvertOpToLLVMPattern<triton::AtomicCASOp> {
+  AtomicCASOpConversion(LLVMTypeConverter &typeConverter,
+                        PatternBenefit benefit = 1)
+      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::AtomicCASOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // TODO(ingomueller): verify that this is the correct mapping.
+    static const std::map<triton::MemSemantic, LLVM::AtomicOrdering>
+        memoryOrderingMapping = {
+            {MemSemantic::ACQUIRE, AtomicOrdering::acquire},
+            {MemSemantic::ACQUIRE_RELEASE, AtomicOrdering::acq_rel},
+            {MemSemantic::RELAXED, AtomicOrdering::monotonic},
+            {MemSemantic::RELEASE, AtomicOrdering::release}};
+
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (convertedPtrType.isa<LLVMPointerType>()) {
+      LLVM::AtomicOrdering successOrdering =
+          memoryOrderingMapping.at(adaptor.getSem());
+      LLVM::AtomicOrdering failureOrdering =
+          std::min(successOrdering, AtomicOrdering::acquire);
+      Value casResult = rewriter.create<LLVM::AtomicCmpXchgOp>(
+          loc, adaptor.getPtr(), adaptor.getCmp(), adaptor.getVal(),
+          /*successOrdering=*/successOrdering,
+          /*failureOrdering=*/failureOrdering);
+      rewriter.replaceOpWithNewOp<LLVM::ExtractValueOp>(op, casResult,
+                                                        ArrayRef<int64_t>{0});
+      return success();
+    }
+
+    return rewriter.notifyMatchFailure(loc, "unsupported type of pointer");
+  }
+};
+
 struct BroadcastOpConversion : public OpConversionPattern<triton::BroadcastOp> {
   BroadcastOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
@@ -503,6 +542,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       AddPtrOpConversion,
+      AtomicCASOpConversion,
       LoadOpConversion,
       StoreOpConversion
       // clang-format on
