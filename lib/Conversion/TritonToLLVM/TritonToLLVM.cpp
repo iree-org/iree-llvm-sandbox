@@ -108,37 +108,117 @@ struct AddPtrOpConversion : OpConversionPattern<triton::AddPtrOp> {
   }
 };
 
+LLVM::AtomicOrdering convertMemSemanticToLLVM(triton::MemSemantic memSemantic) {
+  // TODO(ingomueller): verify that this is the correct mapping.
+  static const std::map<triton::MemSemantic, LLVM::AtomicOrdering> mapping = {
+      {MemSemantic::ACQUIRE, AtomicOrdering::acquire},
+      {MemSemantic::ACQUIRE_RELEASE, AtomicOrdering::acq_rel},
+      {MemSemantic::RELAXED, AtomicOrdering::monotonic},
+      {MemSemantic::RELEASE, AtomicOrdering::release}};
+  return mapping.at(memSemantic);
+}
+
 struct AtomicCASOpConversion : public OpConversionPattern<triton::AtomicCASOp> {
   AtomicCASOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
       : OpConversionPattern(typeConverter, context, benefit) {}
 
+private:
+  Value buildAtomicCmpXchgOp(ConversionPatternRewriter &rewriter, Location loc,
+                             Value ptr, Value cmp, Value val,
+                             triton::MemSemantic memSemantic) const {
+    LLVM::AtomicOrdering successOrdering =
+        convertMemSemanticToLLVM(memSemantic);
+    LLVM::AtomicOrdering failureOrdering =
+        std::min(successOrdering, AtomicOrdering::acquire);
+    Value casResult = rewriter.create<LLVM::AtomicCmpXchgOp>(
+        loc, ptr, cmp, val, successOrdering, failureOrdering);
+    return rewriter.create<LLVM::ExtractValueOp>(loc, casResult,
+                                                 ArrayRef<int64_t>{0});
+  }
+
+public:
   LogicalResult
   matchAndRewrite(triton::AtomicCASOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
 
-    // TODO(ingomueller): verify that this is the correct mapping.
-    static const std::map<triton::MemSemantic, LLVM::AtomicOrdering>
-        memoryOrderingMapping = {
-            {MemSemantic::ACQUIRE, AtomicOrdering::acquire},
-            {MemSemantic::ACQUIRE_RELEASE, AtomicOrdering::acq_rel},
-            {MemSemantic::RELAXED, AtomicOrdering::monotonic},
-            {MemSemantic::RELEASE, AtomicOrdering::release}};
-
     // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
     Type convertedPtrType = adaptor.getPtr().getType();
     if (convertedPtrType.isa<LLVMPointerType>()) {
-      LLVM::AtomicOrdering successOrdering =
-          memoryOrderingMapping.at(adaptor.getSem());
-      LLVM::AtomicOrdering failureOrdering =
-          std::min(successOrdering, AtomicOrdering::acquire);
-      Value casResult = rewriter.create<LLVM::AtomicCmpXchgOp>(
-          loc, adaptor.getPtr(), adaptor.getCmp(), adaptor.getVal(),
-          /*successOrdering=*/successOrdering,
-          /*failureOrdering=*/failureOrdering);
-      rewriter.replaceOpWithNewOp<LLVM::ExtractValueOp>(op, casResult,
-                                                        ArrayRef<int64_t>{0});
+      Value old = buildAtomicCmpXchgOp(rewriter, loc, adaptor.getPtr(),
+                                       adaptor.getCmp(), adaptor.getVal(),
+                                       adaptor.getSem());
+      rewriter.replaceOp(op, old);
+      return success();
+    }
+
+    // Tensor of pointers.
+    // TODO(ingomueller): This is a manual tiling by one. That is fine in order
+    //     to get things running but drops a lot of information. Eventually, we
+    //     want to map this to a vectorized load/gather in order to distribute
+    //     the loading over SIMT threads.
+    Type originalPointerType = op.getPtr().getType();
+    if (auto tensorType = originalPointerType.dyn_cast<RankedTensorType>()) {
+      if (!tensorType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            loc, "only static shapes supported for now");
+
+      // Derive types.
+      auto elementPtrType =
+          tensorType.getElementType().cast<triton::PointerType>();
+      Type llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmElementType =
+          llvmPtrType.cast<LLVMPointerType>().getElementType();
+
+      assert((llvmElementType.isIntOrFloat() ||
+              llvmElementType.isa<LLVMPointerType>()) &&
+             "expected int, float, or pointer as pointee types");
+
+      // Compute bounds of for loop.
+      SmallVector<Value> steps(tensorType.getRank());
+      SmallVector<Value> lbs(tensorType.getRank());
+      SmallVector<Value> ubs(tensorType.getRank());
+      for (auto &step : steps)
+        step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      for (auto &lb : lbs)
+        lb = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      for (int64_t i = 0; i < tensorType.getRank(); i++) {
+        ubs[i] = rewriter.create<arith::ConstantIndexOp>(
+            loc, tensorType.getDimSize(i));
+      }
+
+      // Load each tensor element at a time.
+      Value values = rewriter.create<tensor::EmptyOp>(
+          loc, tensorType.getShape(), llvmElementType);
+      LoopNest forOp = scf::buildLoopNest(
+          rewriter, loc, lbs, ubs, steps, values,
+          [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
+            Value values = args[0];
+            Type idx = b.getIndexType();
+            Type i64 = b.getI64Type();
+
+            // Extract ptr, cmp, and val.
+            Value ptr =
+                b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
+            Value cmp = b.create<tensor::ExtractOp>(loc, adaptor.getCmp(), ivs);
+            Value val = b.create<tensor::ExtractOp>(loc, adaptor.getVal(), ivs);
+
+            // Convert "ptr", which is an index value, back to an actual ptr.
+            ptr = b.create<arith::IndexCastOp>(loc, i64, ptr);
+            ptr = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, ptr);
+
+            // Perform CmpXchg.
+            Value old = buildAtomicCmpXchgOp(rewriter, loc, ptr, cmp, val,
+                                             adaptor.getSem());
+
+            // Insert extracted value into result tensor.
+            values = b.create<tensor::InsertOp>(loc, old, values, ivs);
+            return SmallVector<Value>{values};
+          });
+      values = forOp.results[0];
+
+      rewriter.replaceOp(op, values);
       return success();
     }
 
