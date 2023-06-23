@@ -30,14 +30,40 @@ struct ConvertTritonPtrToLLVMPass
     : public ConvertTritonPtrToLLVMBase<ConvertTritonPtrToLLVMPass> {
   void runOnOperation() override;
 };
+
+struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
+  AddPtrOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                     PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::AddPtrOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (!convertedPtrType.isa<LLVMPointerType>()) {
+      Location loc = op->getLoc();
+      return rewriter.notifyMatchFailure(loc,
+                                         "only applicable to scalar pointers");
+    }
+
+    // Replace original op with LLVM's GEP op.
+    Value basePtr = adaptor.getPtr();
+    Value offset = adaptor.getOffset();
+    rewriter.replaceOpWithNewOp<LLVM::GEPOp>(op, convertedPtrType, basePtr,
+                                             offset);
+    return success();
+  }
+};
 } // namespace
 
 void mlir::populateTritonPtrToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
-  // patterns.add<
-  //     // clang-format off
-  //     // clang-format on
-  //     >(patterns.getContext());
+  patterns.add<
+      // clang-format off
+      AddPtrOpConversion
+      // clang-format on
+      >(typeConverter, patterns.getContext());
 }
 
 void ConvertTritonPtrToLLVMPass::runOnOperation() {
