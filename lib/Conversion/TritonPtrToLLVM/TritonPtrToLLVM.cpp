@@ -41,6 +41,17 @@ LLVM::AtomicOrdering convertMemSemanticToLLVM(triton::MemSemantic memSemantic) {
   return mapping.at(memSemantic);
 }
 
+LLVM::AtomicBinOp convertRMWOpToLLVM(triton::RMWOp rmwOp) {
+  // TODO(ingomueller): verify that this is the correct mapping.
+  static const std::map<triton::RMWOp, LLVM::AtomicBinOp> mapping = {
+      {RMWOp::AND, AtomicBinOp::_and},  {RMWOp::OR, AtomicBinOp::_or},
+      {RMWOp::XOR, AtomicBinOp::_xor},  {RMWOp::ADD, AtomicBinOp::add},
+      {RMWOp::FADD, AtomicBinOp::fadd}, {RMWOp::MAX, AtomicBinOp::max},
+      {RMWOp::MIN, AtomicBinOp::min},   {RMWOp::UMAX, AtomicBinOp::umax},
+      {RMWOp::UMIN, AtomicBinOp::umin}, {RMWOp::XCHG, AtomicBinOp::xchg}};
+  return mapping.at(rmwOp);
+}
+
 struct AtomicCASOpConversion : public OpConversionPattern<triton::AtomicCASOp> {
   AtomicCASOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
@@ -71,6 +82,53 @@ struct AtomicCASOpConversion : public OpConversionPattern<triton::AtomicCASOp> {
     // Extract old value from result struct.
     rewriter.replaceOpWithNewOp<LLVM::ExtractValueOp>(op, casResult,
                                                       ArrayRef<int64_t>{0});
+
+    return success();
+  }
+};
+
+struct AtomicRMWOpConversion : public OpConversionPattern<triton::AtomicRMWOp> {
+  AtomicRMWOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                        PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::AtomicRMWOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (!convertedPtrType.isa<LLVMPointerType>()) {
+      Location loc = op->getLoc();
+      return rewriter.notifyMatchFailure(loc,
+                                         "only applicable to scalar pointers");
+    }
+
+    LLVM::AtomicOrdering ordering = convertMemSemanticToLLVM(op.getSem());
+    LLVM::AtomicBinOp binOp = convertRMWOpToLLVM(op.getAtomicRmwOp());
+
+    // Unmasked.
+    if (!adaptor.getMask()) {
+      rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
+          op, binOp, adaptor.getPtr(), adaptor.getVal(), ordering);
+      return success();
+    }
+
+    // Masked.
+    rewriter.replaceOpWithNewOp<scf::IfOp>(
+        op,
+        /*condition=*/adaptor.getMask(),
+        /*thenBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          auto atomicOp = builder.create<LLVM::AtomicRMWOp>(
+              loc, binOp, adaptor.getPtr(), adaptor.getVal(), ordering);
+          builder.create<scf::YieldOp>(loc, ValueRange{atomicOp});
+        },
+        /*elseBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          auto undef =
+              builder.create<LLVM::UndefOp>(loc, adaptor.getVal().getType());
+          builder.create<scf::YieldOp>(loc, ValueRange{undef});
+        });
 
     return success();
   }
@@ -191,6 +249,7 @@ void mlir::populateTritonPtrToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       AtomicCASOpConversion,
+      AtomicRMWOpConversion,
       AddPtrOpConversion,
       LoadOpConversion,
       StoreOpConversion
