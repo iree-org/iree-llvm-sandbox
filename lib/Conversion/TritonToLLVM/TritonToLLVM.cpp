@@ -118,6 +118,17 @@ LLVM::AtomicOrdering convertMemSemanticToLLVM(triton::MemSemantic memSemantic) {
   return mapping.at(memSemantic);
 }
 
+LLVM::AtomicBinOp convertRMWOpToLLVM(triton::RMWOp rmwOp) {
+  // TODO(ingomueller): verify that this is the correct mapping.
+  static const std::map<triton::RMWOp, LLVM::AtomicBinOp> mapping = {
+      {RMWOp::AND, AtomicBinOp::_and},  {RMWOp::OR, AtomicBinOp::_or},
+      {RMWOp::XOR, AtomicBinOp::_xor},  {RMWOp::ADD, AtomicBinOp::add},
+      {RMWOp::FADD, AtomicBinOp::fadd}, {RMWOp::MAX, AtomicBinOp::max},
+      {RMWOp::MIN, AtomicBinOp::min},   {RMWOp::UMAX, AtomicBinOp::umax},
+      {RMWOp::UMIN, AtomicBinOp::umin}, {RMWOp::XCHG, AtomicBinOp::xchg}};
+  return mapping.at(rmwOp);
+}
+
 struct AtomicCASOpConversion : public OpConversionPattern<triton::AtomicCASOp> {
   AtomicCASOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                         PatternBenefit benefit = 1)
@@ -214,6 +225,132 @@ public:
 
             // Insert extracted value into result tensor.
             values = b.create<tensor::InsertOp>(loc, old, values, ivs);
+            return SmallVector<Value>{values};
+          });
+      values = forOp.results[0];
+
+      rewriter.replaceOp(op, values);
+      return success();
+    }
+
+    return rewriter.notifyMatchFailure(loc, "unsupported type of pointer");
+  }
+};
+
+struct AtomicRMWOpConversion : public OpConversionPattern<triton::AtomicRMWOp> {
+  AtomicRMWOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                        PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+private:
+  Value buildAtomicRMWOp(ConversionPatternRewriter &rewriter, Location loc,
+                         triton::RMWOp rmwOp, Value ptr, Value val, Value mask,
+                         triton::MemSemantic memSemantic) const {
+    // TODO(ingomueller): verify that this is the correct mapping.
+    LLVM::AtomicOrdering ordering = convertMemSemanticToLLVM(memSemantic);
+    LLVM::AtomicBinOp binOp = convertRMWOpToLLVM(rmwOp);
+
+    // Unmasked.
+    if (!mask)
+      return rewriter.create<LLVM::AtomicRMWOp>(loc, binOp, ptr, val, ordering);
+
+    // Masked.
+    auto ifOp = rewriter.create<scf::IfOp>(
+        loc,
+        /*condition=*/mask,
+        /*thenBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          auto atomicOp =
+              builder.create<LLVM::AtomicRMWOp>(loc, binOp, ptr, val, ordering);
+          builder.create<scf::YieldOp>(loc, ValueRange{atomicOp});
+        },
+        /*elseBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          auto undef = builder.create<LLVM::UndefOp>(loc, val.getType());
+          builder.create<scf::YieldOp>(loc, ValueRange{undef});
+        });
+    return ifOp.getResult(0);
+  }
+
+public:
+  LogicalResult
+  matchAndRewrite(triton::AtomicRMWOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    Location loc = op->getLoc();
+
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (convertedPtrType.isa<LLVMPointerType>()) {
+      Value old = buildAtomicRMWOp(rewriter, loc, adaptor.getAtomicRmwOp(),
+                                   adaptor.getPtr(), adaptor.getVal(),
+                                   adaptor.getMask(), adaptor.getSem());
+      rewriter.replaceOp(op, old);
+      return success();
+    }
+
+    // Tensor of pointers.
+    // TODO(ingomueller): This is a manual tiling by one. That is fine in order
+    //     to get things running but drops a lot of information. Eventually, we
+    //     want to map this to a vectorized load/gather in order to distribute
+    //     the loading over SIMT threads.
+    Type originalPointerType = op.getPtr().getType();
+    if (auto tensorType = originalPointerType.dyn_cast<RankedTensorType>()) {
+      if (!tensorType.hasStaticShape())
+        return rewriter.notifyMatchFailure(
+            loc, "only static shapes supported for now");
+
+      // Derive types.
+      auto elementPtrType =
+          tensorType.getElementType().cast<triton::PointerType>();
+      Type llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmElementType =
+          llvmPtrType.cast<LLVMPointerType>().getElementType();
+
+      assert((llvmElementType.isIntOrFloat() ||
+              llvmElementType.isa<LLVMPointerType>()) &&
+             "expected int, float, or pointer as pointee types");
+
+      // Compute bounds of for loop.
+      SmallVector<Value> steps(tensorType.getRank());
+      SmallVector<Value> lbs(tensorType.getRank());
+      SmallVector<Value> ubs(tensorType.getRank());
+      for (auto &step : steps)
+        step = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+      for (auto &lb : lbs)
+        lb = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      for (int64_t i = 0; i < tensorType.getRank(); i++) {
+        ubs[i] = rewriter.create<arith::ConstantIndexOp>(
+            loc, tensorType.getDimSize(i));
+      }
+
+      // Load each tensor element at a time.
+      Value values = rewriter.create<tensor::EmptyOp>(
+          loc, tensorType.getShape(), llvmElementType);
+      LoopNest forOp = scf::buildLoopNest(
+          rewriter, loc, lbs, ubs, steps, values,
+          [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
+            Value values = args[0];
+            Type idx = b.getIndexType();
+            Type i64 = b.getI64Type();
+
+            // Extract ptr, val, and mask.
+            Value ptr =
+                b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
+            Value val = b.create<tensor::ExtractOp>(loc, adaptor.getVal(), ivs);
+            Value mask = adaptor.getMask();
+            mask = mask ? b.create<tensor::ExtractOp>(loc, mask, ivs) : mask;
+
+            // Convert "ptr", which is an index value, back to an actual ptr.
+            ptr = b.create<arith::IndexCastOp>(loc, i64, ptr);
+            ptr = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, ptr);
+
+            // Perform RMW.
+            Value result =
+                buildAtomicRMWOp(rewriter, loc, adaptor.getAtomicRmwOp(), ptr,
+                                 val, mask, adaptor.getSem());
+
+            // Insert extracted value into result tensor.
+            values = b.create<tensor::InsertOp>(loc, result, values, ivs);
             return SmallVector<Value>{values};
           });
       values = forOp.results[0];
@@ -740,6 +877,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
       // clang-format off
       AddPtrOpConversion,
       AtomicCASOpConversion,
+      AtomicRMWOpConversion,
       LoadOpConversion,
       StoreOpConversion
       // clang-format on
