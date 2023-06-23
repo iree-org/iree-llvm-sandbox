@@ -55,13 +55,61 @@ struct AddPtrOpConversion : public OpConversionPattern<triton::AddPtrOp> {
     return success();
   }
 };
+
+struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
+  LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                   PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (!convertedPtrType.isa<LLVMPointerType>()) {
+      Location loc = op->getLoc();
+      return rewriter.notifyMatchFailure(loc,
+                                         "only applicable to scalar pointers");
+    }
+
+    // Unmasked load.
+    if (!op.getMask()) {
+      rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+      return success();
+    }
+
+    // Masked load.
+    rewriter.replaceOpWithNewOp<scf::IfOp>(
+        op, /*condition=*/op.getMask(),
+        /*thenBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          Value loaded = rewriter.create<LLVM::LoadOp>(loc, adaptor.getPtr());
+          builder.create<scf::YieldOp>(loc, loaded);
+        },
+        /*elseBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          if (op.getOther()) {
+            builder.create<scf::YieldOp>(loc, op.getOther());
+            return;
+          }
+
+          auto llvmPtrType = convertedPtrType.cast<LLVMPointerType>();
+          Type elemType = llvmPtrType.getElementType();
+          Value undef = rewriter.create<LLVM::UndefOp>(loc, elemType);
+          builder.create<scf::YieldOp>(loc, undef);
+        });
+
+    return success();
+  }
+};
 } // namespace
 
 void mlir::populateTritonPtrToLLVMConversionPatterns(
     RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
-      AddPtrOpConversion
+      AddPtrOpConversion,
+      LoadOpConversion
       // clang-format on
       >(typeConverter, patterns.getContext());
 }
