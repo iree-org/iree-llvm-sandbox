@@ -102,6 +102,43 @@ struct LoadOpConversion : public OpConversionPattern<triton::LoadOp> {
     return success();
   }
 };
+
+struct StoreOpConversion : public OpConversionPattern<triton::StoreOp> {
+  StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                    PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
+    Type convertedPtrType = adaptor.getPtr().getType();
+    if (!convertedPtrType.isa<LLVMPointerType>()) {
+      Location loc = op->getLoc();
+      return rewriter.notifyMatchFailure(loc,
+                                         "only applicable to scalar pointers");
+    }
+
+    // Unmasked store.
+    if (!op.getMask()) {
+      rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                                 adaptor.getPtr());
+      return success();
+    }
+
+    // Masked store.
+    rewriter.replaceOpWithNewOp<scf::IfOp>(
+        op, /*condition=*/op.getMask(),
+        /*thenBuilder=*/
+        [&](OpBuilder &builder, Location loc) {
+          rewriter.create<LLVM::StoreOp>(loc, adaptor.getValue(),
+                                         adaptor.getPtr());
+          builder.create<scf::YieldOp>(loc);
+        });
+
+    return success();
+  }
+};
 } // namespace
 
 void mlir::populateTritonPtrToLLVMConversionPatterns(
@@ -109,7 +146,8 @@ void mlir::populateTritonPtrToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       AddPtrOpConversion,
-      LoadOpConversion
+      LoadOpConversion,
+      StoreOpConversion
       // clang-format on
       >(typeConverter, patterns.getContext());
 }
