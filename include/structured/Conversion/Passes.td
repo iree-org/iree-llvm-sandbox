@@ -117,6 +117,28 @@ def ConvertTritonFuncToFunc : Pass<"convert-triton-func-to-func", "ModuleOp"> {
 }
 
 //===----------------------------------------------------------------------===//
+// TritonPtrToLLVM
+//===----------------------------------------------------------------------===//
+
+def ConvertTritonPtrToLLVM : Pass<"convert-triton-ptr-to-llvm", "ModuleOp"> {
+  let summary = "Convert ptr-related ops from Triton to the LLVM dialect";
+  let description = [{
+    Converts the pointer-related operations from Triton's `tt` dialect to the
+    LLVM dialect. In particular, `tt.ptr` is converted to `llvm.ptr`, also
+    inside tensors. Operations in the `tt` dialect that use the pointer value
+    (to dereference it or to do pointer arithmetic) are converted into
+    equivalent operations from the LLVM dialect; operations that treat the
+    pointer value as a blockbox (such as `tt.splat` ) are left as is.
+
+    Tensors of pointers are not handled at the moment.
+  }];
+  let constructor = "mlir::createConvertTritonPtrToLLVMPass()";
+  let dependentDialects = [
+    "LLVM::LLVMDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // TritonToLLVM
 //===----------------------------------------------------------------------===//
 
