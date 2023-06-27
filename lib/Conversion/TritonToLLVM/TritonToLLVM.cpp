@@ -261,6 +261,9 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
       auto elementPtrType =
           tensorType.getElementType().cast<triton::PointerType>();
       Type llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type resultType = typeConverter->convertType(op.getResult().getType());
+      auto resultTensorType = resultType.cast<TensorType>();
+      Type resultElementType = resultTensorType.getElementType();
       Type llvmElementType =
           llvmPtrType.cast<LLVMPointerType>().getElementType();
 
@@ -283,7 +286,7 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
 
       // Load each tensor element at a time.
       Value values = rewriter.create<tensor::EmptyOp>(
-          loc, tensorType.getShape(), llvmElementType);
+          loc, tensorType.getShape(), resultElementType);
       LoopNest forOp = scf::buildLoopNest(
           rewriter, loc, lbs, ubs, steps, values,
           [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
@@ -297,6 +300,13 @@ struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
             address = b.create<arith::IndexCastOp>(loc, i64, address);
             address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
             Value element = rewriter.create<LLVM::LoadOp>(loc, address);
+
+            // Convert element back to index if necessary. This happens on
+            // pointer-of-pointer inputs.
+            if (llvmElementType != resultElementType) {
+              element = b.create<LLVM::PtrToIntOp>(loc, i64, element);
+              element = b.create<arith::IndexCastOp>(loc, idx, element);
+            }
 
             // Insert extracted value into result tensor.
             values = b.create<tensor::InsertOp>(loc, element, values, ivs);
