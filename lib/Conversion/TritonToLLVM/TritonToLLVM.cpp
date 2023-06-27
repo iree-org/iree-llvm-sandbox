@@ -11,7 +11,6 @@
 #include "../PassDetail.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
-#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -43,10 +42,10 @@ struct ConvertTritonToLLVMPass
   void runOnOperation() override;
 };
 
-struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
-  AddPtrOpConversion(LLVMTypeConverter &typeConverter,
+struct AddPtrOpConversion : OpConversionPattern<triton::AddPtrOp> {
+  AddPtrOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                      PatternBenefit benefit = 1)
-      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
+      : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
   matchAndRewrite(triton::AddPtrOp op, OpAdaptor adaptor,
@@ -74,8 +73,9 @@ struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
 
       auto elementPtrType =
           ptrTensorType.getElementType().cast<triton::PointerType>();
-      auto llvmElementType =
-          typeConverter->convertType(elementPtrType.getPointeeType());
+      Type llvmPtrType = typeConverter->convertType(elementPtrType);
+      Type llvmElementType =
+          llvmPtrType.cast<LLVMPointerType>().getElementType();
       auto idxTensorType = adaptor.getPtr().getType().cast<RankedTensorType>();
 
       assert((llvmElementType.isIntOrFloat() ||
@@ -83,14 +83,12 @@ struct AddPtrOpConversion : public ConvertOpToLLVMPattern<triton::AddPtrOp> {
              "expected int, float, or pointer as pointee types");
 
       // Compute element size in bytes.
-      uint32_t pointerBitwidth = getTypeConverter()->getPointerBitwidth();
-      uint32_t elementBitWidth = llvmElementType.isIntOrFloat()
-                                     ? llvmElementType.getIntOrFloatBitWidth()
-                                     : pointerBitwidth;
+      DataLayout dataLayout = DataLayout::closest(op);
+      uint32_t elementTypeSize = dataLayout.getTypeSize(llvmElementType);
       Value offsets = rewriter.create<arith::IndexCastOp>(loc, idxTensorType,
                                                           adaptor.getOffset());
       Value elementSize =
-          rewriter.create<arith::ConstantIndexOp>(loc, elementBitWidth / 8);
+          rewriter.create<arith::ConstantIndexOp>(loc, elementTypeSize);
 
       // Compute offsets in terms of bytes.
       Type offsetsTensorType =
@@ -226,9 +224,10 @@ struct ExpandDimsOpConversion
   }
 };
 
-struct LoadOpConversion : public ConvertOpToLLVMPattern<triton::LoadOp> {
-  LoadOpConversion(LLVMTypeConverter &typeConverter, PatternBenefit benefit = 1)
-      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
+struct LoadOpConversion : OpConversionPattern<triton::LoadOp> {
+  LoadOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                   PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
   matchAndRewrite(triton::LoadOp op, OpAdaptor adaptor,
@@ -386,10 +385,10 @@ struct SplatOpConversion : public OpConversionPattern<triton::SplatOp> {
   }
 };
 
-struct StoreOpConversion : public ConvertOpToLLVMPattern<triton::StoreOp> {
-  StoreOpConversion(LLVMTypeConverter &typeConverter,
+struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
+  StoreOpConversion(TypeConverter &typeConverter, MLIRContext *context,
                     PatternBenefit benefit = 1)
-      : ConvertOpToLLVMPattern(typeConverter, benefit) {}
+      : OpConversionPattern(typeConverter, context, benefit) {}
 
   LogicalResult
   matchAndRewrite(triton::StoreOp op, OpAdaptor adaptor,
@@ -509,14 +508,14 @@ struct ViewOpConversion : public OpConversionPattern<triton::ViewOp> {
 } // namespace
 
 void mlir::populateTritonToLLVMConversionPatterns(
-    RewritePatternSet &patterns, LLVMTypeConverter &typeConverter) {
+    RewritePatternSet &patterns, TypeConverter &typeConverter) {
   patterns.add<
       // clang-format off
       AddPtrOpConversion,
       LoadOpConversion,
       StoreOpConversion
       // clang-format on
-      >(typeConverter);
+      >(typeConverter, patterns.getContext());
 
   patterns.add<
       // clang-format off
@@ -532,25 +531,37 @@ void mlir::populateTritonToLLVMConversionPatterns(
 
 void ConvertTritonToLLVMPass::runOnOperation() {
   auto module = getOperation();
-  LLVMTypeConverter typeConverter(&getContext());
 
-  // triton::PointerType: Replicate logic from
-  // TritonGPUToLLVMTypeConverter::convertTritonPointerType.
+  // We have two type converters: the `TypeConverter` instance only convert
+  // pointer types -- including the pointee types. If that same type, however,
+  // is used outside an LLVM pointer, it should be handled differently. We thus
+  // pass around the `TypeConverter` in the pass and, to implement its
+  // conversions, use the `LLVMTypeConverter` for the pointee types.
+  TypeConverter typeConverter;
+  LLVMTypeConverter llvmTypeConverter(&getContext());
+
+  // Leave unrelated types unchanged.
+  typeConverter.addConversion([&](Type type) { return type; });
+
+  // Scalar `triton::PointerType`.
   // TODO(ingomueller): We preserve the address space attribute here but we'll
   //     probably ignore its value in the conversions that use these pointers,
   //     so we'll have to revisit the whole concept of address spaces at some
   //     point.
-  typeConverter.addConversion(
+  auto convertTritonPtrType =
       [&](triton::PointerType type) -> std::optional<Type> {
-        Type pointeeType = type.getPointeeType();
-        Type convertedPointeeType = typeConverter.convertType(pointeeType);
+    Type pointeeType = type.getPointeeType();
+    Type convertedPointeeType = llvmTypeConverter.convertType(pointeeType);
 
-        if (!LLVMPointerType::isValidElementType(convertedPointeeType))
-          return std::nullopt;
+    if (!LLVMPointerType::isValidElementType(convertedPointeeType))
+      return std::nullopt;
 
-        return LLVMPointerType::get(convertedPointeeType,
-                                    type.getAddressSpace());
-      });
+    return LLVMPointerType::get(convertedPointeeType, type.getAddressSpace());
+  };
+  typeConverter.addConversion(convertTritonPtrType);
+  llvmTypeConverter.addConversion(convertTritonPtrType);
+
+  // Tensor of `triton::PointerType`s.
   // TODO(ingomueller): This drops the address space attribute. Is that a
   //     problem?
   // TODO(ingomueller): This converts a pointer to an index whose value is the
