@@ -71,6 +71,7 @@ jobs:
       run: |
         cmake \
           -DPython3_EXECUTABLE=$(which python) \
+          -DBUILD_SHARED_LIBS=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DCMAKE_C_COMPILER:FILEPATH=clang \

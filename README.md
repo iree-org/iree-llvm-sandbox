@@ -81,6 +81,7 @@ and/or the examples to save compilation time, or use a different variant than
 ```bash
 cmake \
   -DPython3_EXECUTABLE=$(which python) \
+  -DBUILD_SHARED_LIBS=ON \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
   -DCMAKE_BUILD_TYPE=Debug \
   -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
