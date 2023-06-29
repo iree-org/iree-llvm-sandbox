@@ -18,9 +18,7 @@ def emit_transform_matcher(fun_name: str, op_name: str):
   with InsertionPoint(pattern.body):
     operands = pdl.OperandsOp()
     result_types = pdl.TypesOp()
-    pdl_op = pdl.OperationOp(op_name,
-                             args=[operands],
-                             types=[result_types])
+    pdl_op = pdl.OperationOp(op_name, args=[operands], types=[result_types])
     pdl_attr = pdl.AttributeOp(value=FlatSymbolRefAttr.get(fun_name))
     pdl.ApplyNativeConstraintOp('nestedInFunc', args=[pdl_op, pdl_attr])
     pdl.RewriteOp(pdl_op, 'transform.dialect')
@@ -78,8 +76,8 @@ class Fuse(Transform):
     match_symbol = emit_pattern_if_not_present(self.fun_name, self.op_name)
     target = transform.PDLMatchOp(target, match_symbol)
     tiled = transform.FuseOp(target,
-                      tile_sizes=self.tile_sizes,
-                      tile_interchange=self.tile_interchange)
+                             tile_sizes=self.tile_sizes,
+                             tile_interchange=self.tile_interchange)
     for loop_index in self.peel:
       transform.PeelLoopOp(tiled.results[1 + loop_index])
 
@@ -111,8 +109,8 @@ class Tile(Transform):
     match_symbol = emit_pattern_if_not_present(self.fun_name, self.op_name)
     target = transform.PDLMatchOp(target, match_symbol)
     tiled = transform.TileOp(target,
-                      sizes=self.tile_sizes,
-                      interchange=self.tile_interchange)
+                             sizes=self.tile_sizes,
+                             interchange=self.tile_interchange)
     for loop_index in self.peel:
       transform.PeelLoopOp(tiled.results[1 + loop_index])
     if self.scalarize_dyn_dims:
@@ -154,11 +152,11 @@ class Pad(Transform):
     match_symbol = emit_pattern_if_not_present(self.fun_name, self.op_name)
     target = transform.PDLMatchOp(target, match_symbol)
     transform.PadOp(target,
-             padding_values=self.padding_values,
-             padding_dimensions=self.padding_dimensions,
-             pack_paddings=self.pack_paddings,
-             hoist_paddings=self.hoist_paddings,
-             transpose_paddings=self.transpose_paddings)
+                    padding_values=self.padding_values,
+                    padding_dimensions=self.padding_dimensions,
+                    pack_paddings=self.pack_paddings,
+                    hoist_paddings=self.hoist_paddings,
+                    transpose_paddings=self.transpose_paddings)
 
 
 class Vectorize(Transform):
@@ -233,7 +231,8 @@ class Interchange(Transform):
   def build_transform_ir(self, target):
     match_symbol = emit_pattern_if_not_present(self.fun_name, 'generic')
     target = transform.PDLMatchOp(target, match_symbol)
-    transform.InterchangeOp(target, iterator_interchange=self.iterator_interchange)
+    transform.InterchangeOp(target,
+                            iterator_interchange=self.iterator_interchange)
 
 
 class DecomposeToLowerDimensionalNamedOp(Transform):
@@ -303,13 +302,14 @@ class LowerVectors(Transform):
                                   " not supported by the transform dialect")
 
     for stage in sorted(self.stages):
-      transform.LowerVectorsOp(stages=[s + 1 for s in range(stage + 1)],
-                        contraction_lowering=self.contraction_lowering,
-                        multireduction_lowering=self.multi_reduction_lowering,
-                        split_transfers=self.split_transfers,
-                        unroll_vector_transfers=self.unroll_vector_transfers,
-                        transpose_lowering=self.transpose_lowering,
-                        transpose_avx2_lowering=self.transpose_avx2_lowering)
+      transform.LowerVectorsOp(
+          stages=[s + 1 for s in range(stage + 1)],
+          contraction_lowering=self.contraction_lowering,
+          multireduction_lowering=self.multi_reduction_lowering,
+          split_transfers=self.split_transfers,
+          unroll_vector_transfers=self.unroll_vector_transfers,
+          transpose_lowering=self.transpose_lowering,
+          transpose_avx2_lowering=self.transpose_avx2_lowering)
 
 
 class LowerToLLVM(Transform):
@@ -330,13 +330,14 @@ class LowerToLLVM(Transform):
     self._parse_variables_in_kwargs(kwargs)
 
   def build_transform_ir(self, target):
-    transform.LowerToLLVMOp(reassociate_fp_reductions=self.reassociate_fp_reductions,
-                     enable_index_optimizations=self.enable_index_optimizations,
-                     enable_arm_neon=self.enable_arm_neon,
-                     enable_arm_sve=self.enable_arm_sve,
-                     enable_amx=self.enable_amx,
-                     enable_x86vector=self.enable_x86vector,
-                     enable_async=self.enable_async)
+    transform.LowerToLLVMOp(
+        reassociate_fp_reductions=self.reassociate_fp_reductions,
+        enable_index_optimizations=self.enable_index_optimizations,
+        enable_arm_neon=self.enable_arm_neon,
+        enable_arm_sve=self.enable_arm_sve,
+        enable_amx=self.enable_amx,
+        enable_x86vector=self.enable_x86vector,
+        enable_async=self.enable_async)
 
 
 class UnrollOneParentLoop(Transform):
@@ -376,8 +377,8 @@ class PipelineOneParentLoop(Transform):
     target = transform.PDLMatchOp(target, match_symbol)
     loop = transform.GetParentLoopOp(target, num_loops=self.parent_loop_num)
     transform.PipelineLoopOp(loop,
-                      iteration_interval=self.II,
-                      read_latency=self.read_latency)
+                             iteration_interval=self.II,
+                             read_latency=self.read_latency)
 
 
 class OutlineOneParentLoop(Transform):
@@ -459,7 +460,8 @@ class LinalgExtTileToScfFor(Transform):
     self.fun_name = fun_name
 
   def build_transform_ir(self, target):
-    match_symbol = emit_pattern_if_not_present(self.fun_name, 'iree_linalg_ext.tile')
+    match_symbol = emit_pattern_if_not_present(self.fun_name,
+                                               'iree_linalg_ext.tile')
     target = transform.PDLMatchOp(target, match_symbol)
     transform.RewriteLinalgExtTileToScfForOp(target)
 
@@ -474,7 +476,8 @@ class LinalgExtTileToInParallel(Transform):
     self.fun_name = fun_name
 
   def build_transform_ir(self, target):
-    match_symbol = emit_pattern_if_not_present(self.fun_name, 'iree_linalg_ext.tile')
+    match_symbol = emit_pattern_if_not_present(self.fun_name,
+                                               'iree_linalg_ext.tile')
     target = transform.PDLMatchOp(target, match_symbol)
     transform.RewriteLinalgExtTileToInParallelOp(target)
 
@@ -489,7 +492,8 @@ class LinalgExtInParallelToScfFor(Transform):
     self.fun_name = fun_name
 
   def build_transform_ir(self, target):
-    match_symbol = emit_pattern_if_not_present(self.fun_name, 'iree_linalg_ext.in_parallel')
+    match_symbol = emit_pattern_if_not_present(self.fun_name,
+                                               'iree_linalg_ext.in_parallel')
     target = transform.PDLMatchOp(target, match_symbol)
     transform.RewriteLinalgExtInParallelToScfForOp(target)
 
@@ -504,7 +508,8 @@ class LinalgExtInParallelToAsync(Transform):
     self.fun_name = fun_name
 
   def build_transform_ir(self, target):
-    match_symbol = emit_pattern_if_not_present(self.fun_name, 'iree_linalg_ext.in_parallel')
+    match_symbol = emit_pattern_if_not_present(self.fun_name,
+                                               'iree_linalg_ext.in_parallel')
     target = transform.PDLMatchOp(target, match_symbol)
     transform.RewriteLinalgExtInParallelToAsyncOp(target)
 

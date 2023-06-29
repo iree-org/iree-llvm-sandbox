@@ -29,8 +29,8 @@ def assert_runtime_sizes_compatible_with_compile_time_sizes(
     runtime_sizes: dict, compile_time_sizes: dict):
   for r, s in zip(runtime_sizes, compile_time_sizes):
     assert s == r or (
-        s == -1 and r != -1
-    ), f'non-matching compile_time and runtime problem size {s} vs {r}'
+        s == -1 and r
+        != -1), f'non-matching compile_time and runtime problem size {s} vs {r}'
 
 
 ################################################################################
@@ -69,7 +69,7 @@ def maxMultipleOfSmallerThan(n: int, ub: List[int]):
 
 
 def l1_2d_divisible_tile_sizes(problem_sizes: List[int]):
-  """Return some heuristic 2-D tile sizes that divide the 2 leading dimensions 
+  """Return some heuristic 2-D tile sizes that divide the 2 leading dimensions
   of problem_sizes and fit within L1 (unchecked atm)."""
 
   candidateL1TileSizes1 = [
@@ -85,7 +85,7 @@ def l1_2d_divisible_tile_sizes(problem_sizes: List[int]):
 
 
 def register_2d_divisible_tile_sizes(problem_sizes: List[int]):
-  """Return some heuristic 2-D tile sizes that divide the 2 leading dimensions 
+  """Return some heuristic 2-D tile sizes that divide the 2 leading dimensions
   of problem_sizes and fit within registers (unchecked atm)."""
   candidateRegisterTileSizes1 = [1, 2, 4, 8]
   candidateRegisterTileSizes2 = [1, 2, 4, 6, 8, 12, 16]

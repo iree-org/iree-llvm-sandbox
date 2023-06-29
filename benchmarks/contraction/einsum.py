@@ -3,6 +3,7 @@ from iree.compiler.dialects.linalg.opdsl.lang import *
 
 import itertools
 
+
 class EinsumSpecification:
   """Structured representation of a string einsum specification."""
 
@@ -26,9 +27,9 @@ class EinsumSpecification:
     for idx, dims in enumerate(operands_split):
       dims.strip()
       assert len(set(dims)) == len(dims), str.format(
-        f"Unexpected duplicate symbol in operand {idx}.")
+          f"Unexpected duplicate symbol in operand {idx}.")
       assert dims.islower(), str.format(
-        f"Expected only lowercase symbols in operand {idx}.")
+          f"Expected only lowercase symbols in operand {idx}.")
       operand_dims[idx] = dims
     lhs_dims, rhs_dims = operand_dims[0], operand_dims[1]
 
@@ -48,7 +49,7 @@ class EinsumSpecification:
         raise NotImplementedError("Repeated output dimensions.")
       if inferred_output_dims is not None:
         assert set(result) == set(inferred_output_dims), str.format(
-          f"Expected output to match inferred output {inferred_output_dims}.")
+            f"Expected output to match inferred output {inferred_output_dims}.")
     else:
       assert inferred_output_dims is not None, "Expected output specification."
       output_dims = "".join(inferred_output_dims)
@@ -57,7 +58,7 @@ class EinsumSpecification:
     domain_dims = [dim for dim in domain]
     spec_dims = set(lhs_dims + output_dims)
     assert set(domain_dims) == spec_dims, str.format(
-      f"Expected domain dimensions to match specification {spec_dims}")
+        f"Expected domain dimensions to match specification {spec_dims}")
 
     self.__lhs_dims = lhs_dims
     self.__rhs_dims = rhs_dims
@@ -134,39 +135,47 @@ def make_einsum(specification: EinsumSpecification):
     op_dims = "_".join([lhs_dims, output_dims])
 
     if reduction_dims:
+
       @linalg_structured_op(op_name="einsum_contraction_" + op_dims)
       def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                     O=TensorDef(U, *symbols(output_dims), output=True)):
         domain(*dims(domain_dims))
         O[dims(output_dims)] += TypeFn.cast_signed(U, LHS[dims(lhs_dims)])
+
       return einsum_op
     else:
+
       @linalg_structured_op(op_name="einsum_transpose_" + op_dims)
       def einsum_op(LHS=TensorDef(U, *symbols(lhs_dims)),
                     O=TensorDef(U, *symbols(output_dims), output=True)):
         domain(*dims(domain_dims))
         O[dims(output_dims)] = TypeFn.cast_signed(U, LHS[dims(lhs_dims)])
+
       return einsum_op
 
   # Create and return a two-operand non-contraction operation.
   op_dims = "_".join([lhs_dims, rhs_dims, output_dims])
 
   if reduction_dims:
+
     @linalg_structured_op(op_name="einsum_contraction_" + op_dims)
     def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                   RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
                   O=TensorDef(U, *symbols(output_dims), output=True)):
       domain(*dims(domain_dims))
       implements(ContractionOpInterface)
-      O[dims(output_dims)] += TypeFn.cast_signed(U,
-          LHS[dims(lhs_dims)]) * TypeFn.cast_signed(U, RHS[dims(rhs_dims)])
+      O[dims(output_dims)] += TypeFn.cast_signed(
+          U, LHS[dims(lhs_dims)]) * TypeFn.cast_signed(U, RHS[dims(rhs_dims)])
+
     return einsum_op
   else:
+
     @linalg_structured_op(op_name="einsum_transpose_" + op_dims)
     def einsum_op(LHS=TensorDef(TV.T1, *symbols(lhs_dims)),
                   RHS=TensorDef(TV.T2, *symbols(rhs_dims)),
                   O=TensorDef(U, *symbols(output_dims), output=True)):
       domain(*dims(domain_dims))
-      O[dims(output_dims)] = TypeFn.cast_signed(U,
-          LHS[dims(lhs_dims)]) * TypeFn.cast_signed(U, RHS[dims(rhs_dims)])
+      O[dims(output_dims)] = TypeFn.cast_signed(
+          U, LHS[dims(lhs_dims)]) * TypeFn.cast_signed(U, RHS[dims(rhs_dims)])
+
     return einsum_op

@@ -106,16 +106,14 @@ def attach_passthrough(func: func.FuncOp,
   func.attributes["passthrough"] = ArrayAttr.get(attributes)
 
 
-def emit_benchmarking_function(name: str,
-                               bench: func.FuncOp) -> func.FuncOp:
+def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
   """Produces the benchmarking function.
 
   This function calls the given function `bench` as many times as requested by
   its last argument.
   """
   i64_type = IntegerType.get_signless(64)
-  nano_time = func.FuncOp("nanoTime", ([], [i64_type]),
-                             visibility="private")
+  nano_time = func.FuncOp("nanoTime", ([], [i64_type]), visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
   memref_of_i64_type = MemRefType.get([-1], i64_type)
