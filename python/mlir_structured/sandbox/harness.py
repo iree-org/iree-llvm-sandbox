@@ -207,15 +207,17 @@ def compiled_function_element_types_mlir_builder(
 def emit_schedule_dialect(module: ModuleOp,
                           transformations: TransformationList):
   with InsertionPoint(module.body):
-    root = transform.WithPDLPatternsOp(root=None)
-    root_block = root.body.blocks[0]
+    root = transform_pdl.WithPDLPatternsOp(transform.AnyOpType.get())
+    root_block = root.body
     with ir.InsertionPoint(root_block):
-      sequence = transform.CanonicalizedSequenceOp(root_block.arguments[0])
-      sequence_block = sequence.body.blocks[0]
+      sequence = transform.SequenceOp(
+          transform.FailurePropagationMode.PROPAGATE,
+          [transform.AnyOpType.get()], root_block.arguments[0])
+      sequence_block = sequence.body
       with InsertionPoint(sequence_block):
         for t in transformations.transforms:
           t.build_transform_ir(sequence_block.arguments[0])
-        transform.YieldOp([])
+        transform.AnyOpType.get().YieldOp([])
 
 
 class ProblemInstance:

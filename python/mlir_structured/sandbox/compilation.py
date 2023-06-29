@@ -112,7 +112,7 @@ def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
   nano_time = func.FuncOp("nanoTime", ([], [i64_type]), visibility="private")
   nano_time.attributes["llvm.emit_c_interface"] = UnitAttr.get()
 
-  memref_of_i64_type = MemRefType.get([-1], i64_type)
+  memref_of_i64_type = MemRefType.get([MemRefType.get_dynamic_size()], i64_type)
   wrapper = func.FuncOp(
       # Same signature and an extra buffer of indices to save timings.
       name,
@@ -125,7 +125,7 @@ def emit_benchmarking_function(name: str, bench: func.FuncOp) -> func.FuncOp:
   with InsertionPoint(wrapper.add_entry_block()):
     timer_buffer = wrapper.arguments[-1]
     zero = arith.ConstantOp.create_index(0)
-    n_iterations = memref.DimOp(IndexType.get(), timer_buffer, zero)
+    n_iterations = memref.DimOp(timer_buffer, zero)
     one = arith.ConstantOp.create_index(1)
     iter_args = list(wrapper.arguments[-num_results - 1:-1])
     loop = scf.ForOp(zero, n_iterations, one, iter_args)

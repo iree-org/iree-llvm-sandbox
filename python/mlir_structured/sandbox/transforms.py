@@ -258,7 +258,7 @@ class Bufferize(Transform):
     pass
 
   def build_transform_ir(self, target):
-    transform.BufferizeOp()
+    transform.bufferization.OneShotBufferizeOp()
 
 
 class LowerVectors(Transform):
