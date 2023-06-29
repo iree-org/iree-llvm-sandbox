@@ -1,23 +1,19 @@
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
 # pytype: skip-file
 
-import sys, time
 import os
-from typing import List
-from collections import namedtuple
 from collections.abc import Callable
-from itertools import chain
 from typing import Sequence, Optional
 
 import numpy as np
 
-from iree.compiler.ir import *
-from iree.compiler.dialects import arith, func, linalg, memref, scf, func
-from iree.compiler.dialects.linalg.opdsl.lang import OperandKind
-from iree.compiler.execution_engine import *
-from iree.compiler.runtime import *
+from mlir_structured.ir import *
+from mlir_structured.dialects import arith, func, memref, scf, func
+from mlir_structured.dialects.linalg.opdsl.lang import OperandKind
+from mlir_structured.execution_engine import *
+from mlir_structured.runtime import *
 
-from mlir.sandbox.transforms import *
+from mlir_structured.sandbox.transforms import *
 
 f16 = "f16"
 f32 = "f32"

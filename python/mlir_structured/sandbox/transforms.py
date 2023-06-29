@@ -1,10 +1,11 @@
-from iree.compiler.ir import *
-from iree.compiler.passmanager import PassManager
-import iree.compiler.dialects.transform as transform
-from iree.compiler.dialects import builtin, pdl
+from mlir_structured.ir import *
+from mlir_structured.passmanager import PassManager
+import mlir_structured.dialects.transform as transform
+import mlir_structured.dialects.transform.bufferization
+from mlir_structured.dialects import pdl
 
-from mlir.sandbox.variables import *
-from mlir.sandbox.transform import Transform
+from mlir_structured.sandbox.variables import *
+from mlir_structured.sandbox.transform import Transform
 
 import typing as tp
 

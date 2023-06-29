@@ -1,11 +1,11 @@
-from typing import Any, List, Mapping, Optional, Sequence, Union
-from iree.compiler.dialects.func import FuncOp
+from typing import Any, List, Mapping, Sequence
+from mlir_structured.dialects.func import FuncOp
 
 # Qualified import of only np.dtype for type checking.
 np = __import__('numpy', fromlist=['dtype'])
 
-# Qualified import of iree.compiler.ir.Type to disambiguate with typing.Type.
-ir = __import__('iree.compiler.ir', fromlist=['Type'])
+# Qualified import of mlir_structured.ir.Type to disambiguate with typing.Type.
+ir = __import__('mlir_structured.ir', fromlist=['Type'])
 
 
 class ProblemDefinition:

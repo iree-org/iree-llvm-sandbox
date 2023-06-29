@@ -1,15 +1,15 @@
 import os
 import numpy as np
 
-from typing import Any, List, Mapping, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Sequence
 
-from iree.compiler.ir import *
-from iree.compiler.dialects import arith, builtin, linalg, func
+from mlir_structured.ir import *
+from mlir_structured.dialects import arith, linalg, func
 
-from .einsum import EinsumSpecification, make_einsum
-from mlir.sandbox.compilation import attach_inplaceable_attributes, attach_passthrough
-from mlir.sandbox.problem_definition import *
-from mlir.sandbox.utils import *
+from einsum import EinsumSpecification, make_einsum
+from mlir_structured.sandbox.compilation import attach_inplaceable_attributes, attach_passthrough
+from mlir_structured.sandbox.problem_definition import *
+from mlir_structured.sandbox.utils import *
 
 # TODO: Orthogonal configuration object.
 avx512 = True

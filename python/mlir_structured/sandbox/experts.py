@@ -1,4 +1,4 @@
-from mlir.sandbox.transforms import Bufferize, LowerToLLVM, LowerVectors
+from mlir_structured.sandbox.transforms import Bufferize, LowerToLLVM, LowerVectors
 
 # TODO: After DecomposeToLowerDimensionalNamedOp the op_name to anchor on
 # changes: we need a better control mechanism.

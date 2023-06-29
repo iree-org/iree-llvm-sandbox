@@ -1,7 +1,5 @@
-from iree.compiler.ir import *
-from iree.compiler.dialects.linalg.opdsl.lang import *
-
-import itertools
+from mlir_structured.ir import *
+from mlir_structured.dialects.linalg.opdsl.lang import *
 
 
 class EinsumSpecification:

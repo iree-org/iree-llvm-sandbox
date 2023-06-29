@@ -1,13 +1,10 @@
 from __future__ import annotations
-import functools
 
-from iree.compiler.ir import Module
-from iree.compiler.passmanager import PassManager
+from mlir_structured.ir import Module
+from mlir_structured.passmanager import PassManager
 import typing as tp
-import iree.compiler.dialects.iree_linalg_transform as tx
-from copy import deepcopy
 
-from mlir.sandbox.variables import Variable
+from mlir_structured.sandbox.variables import Variable
 
 
 class _TransformThenDescriptor:

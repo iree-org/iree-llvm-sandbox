@@ -5,25 +5,24 @@ import re
 import sys
 import os
 import time
-from collections import defaultdict
 
-from typing import AbstractSet, Any, Callable, List, Mapping, Optional, Sequence, Union
+from typing import AbstractSet, Any, Callable, List, Mapping, Sequence, Union
 
-import numpy
 import pandas
 
-from iree.compiler.execution_engine import *
-from iree.compiler.ir import *
-from iree.compiler.runtime import *
-from iree.compiler.dialects.builtin import ModuleOp
-import iree.compiler.dialects.transform as transform
+from mlir_structured.execution_engine import *
+from mlir_structured.ir import *
+from mlir_structured.runtime import *
+from mlir_structured.dialects.builtin import ModuleOp
+import mlir_structured.dialects.transform as transform
+from mlir_structured.dialects.transform import pdl as transform_pdl
 
-from mlir.sandbox.compilation import compile_to_execution_engine, \
-    emit_benchmarking_function, mlir_type
-from mlir.sandbox.problem_definition import *
-from mlir.sandbox.transform import TransformationList
-from mlir.sandbox.transforms import ApplySchedule
-from mlir.sandbox.utils import *
+from mlir_structured.sandbox.compilation import compile_to_execution_engine, \
+    emit_benchmarking_function
+from mlir_structured.sandbox.problem_definition import *
+from mlir_structured.sandbox.transform import TransformationList
+from mlir_structured.sandbox.transforms import ApplySchedule
+from mlir_structured.sandbox.utils import *
 
 
 # Log everything to stderr and flush so that we have a unified stream to match
@@ -290,10 +289,10 @@ class ProblemInstance:
       dump_ir_to_file: str = '',
       zero_at_each_iteration: bool = False):
     with ir.Context() as ctx, ir.Location.unknown() as loc:
-      import iree.compiler.dialects.iree_linalg_ext as linalg_ext
-      import iree.compiler.dialects.transform as transform
-      linalg_ext.register_dialect(ctx)
-      transform.register_dialect(ctx)
+      # import mlir_structured.dialects.iree_linalg_ext as linalg_ext
+      import mlir_structured.dialects.transform as transform
+      # linalg_ext.register_dialect(ctx)
+      # transform.register_dialect(ctx)
 
       self.mlir_module = Module.create()
       self.compile_time_problem_sizes_dict = compile_time_problem_sizes_dict

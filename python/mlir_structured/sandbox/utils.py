@@ -1,8 +1,8 @@
-from typing import Any, Callable, List, Mapping, Optional, Sequence, Type
+from typing import Any, List, Mapping, Sequence
 
 import numpy as np
 
-from iree.compiler.ir import *
+from mlir_structured.ir import *
 
 
 ################################################################################

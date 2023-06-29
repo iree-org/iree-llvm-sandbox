@@ -4,11 +4,11 @@
 # a performance benchmark so we are not doing transformations other than
 # lowering.
 
-from mlir.sandbox.experts import *
-from mlir.sandbox.harness import *
-from mlir.sandbox.transforms import *
+from mlir_structured.sandbox.experts import *
+from mlir_structured.sandbox.harness import *
+from mlir_structured.sandbox.transforms import *
 
-from ..contraction.definitions import *
+from definitions import *
 
 
 def main():
