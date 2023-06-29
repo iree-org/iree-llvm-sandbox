@@ -24,16 +24,6 @@ jobs:
         echo "MLIR_RUNNER_UTILS_LIB=${GITHUB_WORKSPACE}/sandbox/build/lib/libmlir_runner_utils.so" | tee -a $GITHUB_ENV
         echo "MLIR_C_RUNNER_UTILS_LIB=${GITHUB_WORKSPACE}/sandbox/build/lib/libmlir_c_runner_utils.so" | tee -a $GITHUB_ENV
 
-    - name: Free disk space
-      uses: jlumbroso/free-disk-space@76866dbe54312617f00798d1762df7f43def6e5c # v1.2.0
-      with:
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        swap-storage: false # This frees space on the wrong partition.
-        tool-cache: false # This includes Python, which we need.
-
     - name: Set up Python
       uses: actions/setup-python@13ae5bb136fac2878aff31522b9efb785519f984 # v4.3.0
       with:
