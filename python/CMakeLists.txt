@@ -89,6 +89,7 @@ declare_mlir_python_sources(StructuredPythonSources.ExecutionEngine
   ADD_TO_PARENT StructuredPythonSources
   SOURCES_GLOB
     runtime/*.py
+    sandbox/*.py
     triton/*.py
 )
 
