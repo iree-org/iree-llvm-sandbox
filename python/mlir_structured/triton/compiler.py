@@ -128,6 +128,7 @@ def compile(fn, **kwargs):
                            '  convert-elementwise-to-linalg,'
                            '  linalg-fuse-elementwise-ops,'
                            '  empty-tensor-to-alloc-tensor,'
+                           '  inline,'
                            '  one-shot-bufferize,'
                            '  func.func(convert-linalg-to-loops),'
                            '  convert-async-to-llvm,'

@@ -188,6 +188,87 @@ def program_id():
   print(X)
 
 
+@jit
+def combine_func(x1, y1, x2, y2):
+  return (x1 + x2, y1 + y2)
+
+
+# CHECK-LABEL: TEST: reduce_combine_func
+@run
+def reduce_combine_func():
+
+  @jit
+  def kernel(x_ptr, y_ptr, a_ptr, b_ptr):
+    r = tl.arange(0, 4)
+    r = tl.view(r, (2, 2))
+    x = tl.load(x_ptr + r)
+    y = tl.load(y_ptr + r)
+    (a, b) = tl.reduce((x, y), axis=1, combine_fn=combine_func)
+    r = tl.arange(0, 2)
+    tl.store(a_ptr + r, a)
+    tl.store(b_ptr + r, b)
+
+  X = torch.tensor(list(range(4)), dtype=torch.int32)
+  Y = torch.tensor(list(range(100, 104)), dtype=torch.float64)
+  A = torch.tensor([0] * 2, dtype=torch.int32)
+  B = torch.tensor([0] * 2, dtype=torch.float64)
+  kernel[(1,)](X, Y, A, B)
+
+  # CHECK-NEXT: tensor([0, 1, 2, 3], dtype=torch.int32)
+  # CHECK-NEXT: tensor([100., 101., 102., 103.], dtype=torch.float64)
+  # CHECK-NEXT: tensor([1, 5], dtype=torch.int32)
+  # CHECK-NEXT: tensor([201., 205.], dtype=torch.float64)
+  print(X)
+  print(Y)
+  print(A)
+  print(B)
+
+
+# CHECK-LABEL: TEST: reduce_sum_axis
+@run
+def reduce_sum_axis():
+
+  @jit
+  def kernel(x_ptr, y_ptr):
+    r = tl.arange(0, 4)
+    r = tl.view(r, (2, 2))
+    x = tl.load(x_ptr + r)
+    y = tl.sum(x, axis=1)
+    r = tl.arange(0, 2)
+    tl.store(y_ptr + r, y)
+
+  X = torch.tensor(list(range(4)), dtype=torch.int32)
+  Y = torch.tensor([0] * 2, dtype=torch.int32)
+  kernel[(1,)](X, Y)
+
+  # CHECK-NEXT: tensor([0, 1, 2, 3], dtype=torch.int32)
+  # CHECK-NEXT: tensor([1, 5], dtype=torch.int32)
+  print(X)
+  print(Y)
+
+
+# CHECK-LABEL: TEST: reduce_sum_noaxis
+@run
+def reduce_sum_noaxis():
+
+  @jit
+  def kernel(x_ptr, y_ptr):
+    r = tl.arange(0, 4)
+    r = tl.view(r, (2, 2))
+    x = tl.load(x_ptr + r)
+    y = tl.sum(x)
+    tl.store(y_ptr, y)
+
+  X = torch.tensor(list(range(4)), dtype=torch.int32)
+  Y = torch.tensor([0], dtype=torch.int32)
+  kernel[(1,)](X, Y)
+
+  # CHECK-NEXT: tensor([0, 1, 2, 3], dtype=torch.int32)
+  # CHECK-NEXT: tensor([6], dtype=torch.int32)
+  print(X)
+  print(Y)
+
+
 # CHECK-LABEL: TEST: view_op
 @run
 def view_op():
