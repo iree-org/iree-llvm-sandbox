@@ -64,15 +64,18 @@ def add_runtime(name):
   return ToolSubst(f"%{name}", path)
 
 
+mlir_async_runtime = add_runtime("mlir_async_runtime")
 mlir_c_runner_utils = add_runtime("mlir_c_runner_utils")
 mlir_runner_utils = add_runtime("mlir_runner_utils")
 
+config.environment['MLIR_ASYNC_RUNTIME_LIB'] = mlir_async_runtime.command
 config.environment['MLIR_C_RUNNER_UTILS_LIB'] = mlir_c_runner_utils.command
 config.environment['MLIR_RUNNER_UTILS_LIB'] = mlir_runner_utils.command
 
 config.structured_tools_dir = os.path.join(config.structured_build_root, 'bin')
 tool_dirs = [config.structured_tools_dir, config.llvm_tools_dir]
 tools = [
+    mlir_async_runtime,
     mlir_c_runner_utils,
     mlir_runner_utils,
     'structured-opt',
