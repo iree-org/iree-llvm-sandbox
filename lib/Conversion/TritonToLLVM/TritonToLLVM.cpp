@@ -18,6 +18,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "triton/Dialect/Triton/IR/Dialect.h"
@@ -104,6 +105,28 @@ struct AddPtrOpConversion : OpConversionPattern<triton::AddPtrOp> {
     }
 
     return rewriter.notifyMatchFailure(loc, "unsupported type of pointer");
+  }
+};
+
+struct BitcastOpConversion : public OpConversionPattern<triton::BitcastOp> {
+  BitcastOpConversion(TypeConverter &typeConverter, MLIRContext *context,
+                      PatternBenefit benefit = 1)
+      : OpConversionPattern(typeConverter, context, benefit) {}
+
+  LogicalResult
+  matchAndRewrite(triton::BitcastOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto targetTensorType = op.getResult().getType().cast<TensorType>();
+    Value input = adaptor.getFrom();
+
+    assert(targetTensorType.getElementType().isIntOrFloat() &&
+           "unexpected element type");
+    assert(input.getType().cast<TensorType>().getElementType().isIntOrFloat() &&
+           "unexpected element type");
+
+    rewriter.replaceOpWithNewOp<tensor::BitcastOp>(op, targetTensorType, input);
+
+    return success();
   }
 };
 
@@ -520,6 +543,7 @@ void mlir::populateTritonToLLVMConversionPatterns(
   patterns.add<
       // clang-format off
       BroadcastOpConversion,
+      BitcastOpConversion,
       DotOpConversion,
       ExpandDimsOpConversion,
       MakeRangeOpConversion,
