@@ -72,7 +72,7 @@ class CompiledKernel:
 
     # Run kernel through the grid wrapper.
     N_args = [ctypes.pointer(ctypes.c_int32(n)) for n in [n_x, n_y, n_z]]
-    self.engine.invoke('grid', *(N_args + ctype_args))
+    self.engine.invoke('kernel_grid', *(N_args + ctype_args))
 
 
 def compile(fn, **kwargs):
@@ -95,10 +95,31 @@ def compile(fn, **kwargs):
     except Exception as e:
       raise RuntimeError(f'Failed to parse Triton IR:\n\n{ttir}') from e
 
+    # Find function name of the kernel: there should only be one public function
+    # at this point.
+    kernel_func_name = None
+    for op in mod.body.operations:
+      if 'sym_name' in op.attributes and 'sym_visibility' in op.attributes:
+        visibility = StringAttr(op.attributes['sym_visibility']).value
+        if visibility != 'public':
+          continue
+        assert not kernel_func_name
+        kernel_func_name = StringAttr(op.attributes['sym_name']).value
+    assert kernel_func_name
+
+    # Replace kernel function name a fixed name such that we can call it easily.
+    symbol_table = SymbolTable(mod.operation)
+    src_sym = symbol_table[kernel_func_name]
+    dst_sym = 'kernel'
+    SymbolTable.set_symbol_name(src_sym, dst_sym)
+    SymbolTable.replace_all_symbol_uses(kernel_func_name, dst_sym,
+                                        mod.operation)
+
     # Compile with custom pipeline.
     pm = PassManager.parse('builtin.module('
                            '  convert-triton-func-to-func,'
                            '  convert-triton-spmd-to-func-args,'
+                           '  func.func(llvm-request-c-wrappers),'
                            '  convert-triton-to-llvm,'
                            '  async-parallel-for,'
                            '  async-to-async-runtime,'
@@ -121,25 +142,6 @@ def compile(fn, **kwargs):
       pm.run(mod.operation)
     except Exception as e:
       raise RuntimeError(f'Failed compile Triton IR:\n\n{ttir}') from e
-
-    # Find exact function name of kernel.
-    grid_func_name = None
-    for op in mod.body.operations:
-      if 'sym_name' in op.attributes:
-        sym_name = StringAttr(op.attributes['sym_name']).value
-        if sym_name.startswith('kernel_') and sym_name.endswith('_grid'):
-          assert grid_func_name is None
-          grid_func_name = sym_name
-    assert grid_func_name
-
-    # Replace kernel function name with name implementing C interface and
-    # without variant-specific suffix such that we can call it from the
-    # ExecutionEngine using a fixed name.
-    symbol_table = SymbolTable(mod.operation)
-    src_sym = symbol_table[grid_func_name]
-    dst_sym = "_mlir_ciface_grid"
-    SymbolTable.set_symbol_name(src_sym, dst_sym)
-    SymbolTable.replace_all_symbol_uses(grid_func_name, dst_sym, mod.operation)
 
     # Create execution engine.
     try:
