@@ -257,14 +257,34 @@ struct LoadOpConversion : OpConversionPattern<triton::LoadOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
 
-    // Only handle unmasked pointers for now.
-    if (op.getMask() || op.getOther())
-      return rewriter.notifyMatchFailure(loc, "mask+other not supported yet");
-
     // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
     Type convertedPtrType = adaptor.getPtr().getType();
-    if (convertedPtrType.isa<LLVMPointerType>()) {
-      rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+    if (auto llvmPtrType = convertedPtrType.dyn_cast<LLVMPointerType>()) {
+      // Unmasked load.
+      if (!op.getMask()) {
+        rewriter.replaceOpWithNewOp<LLVM::LoadOp>(op, adaptor.getPtr());
+        return success();
+      }
+
+      // Masked load.
+      rewriter.replaceOpWithNewOp<scf::IfOp>(
+          op, /*condition=*/op.getMask(),
+          /*thenBuilder=*/
+          [&](OpBuilder &builder, Location loc) {
+            Value loaded = rewriter.create<LLVM::LoadOp>(loc, adaptor.getPtr());
+            builder.create<scf::YieldOp>(loc, loaded);
+          },
+          /*elseBuilder=*/
+          [&](OpBuilder &builder, Location loc) {
+            if (op.getOther()) {
+              builder.create<scf::YieldOp>(loc, op.getOther());
+              return;
+            }
+
+            Type elemType = llvmPtrType.getElementType();
+            Value undef = rewriter.create<LLVM::UndefOp>(loc, elemType);
+            builder.create<scf::YieldOp>(loc, undef);
+          });
       return success();
     }
 
@@ -314,14 +334,55 @@ struct LoadOpConversion : OpConversionPattern<triton::LoadOp> {
           [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
             Value values = args[0];
             Type idx = b.getIndexType();
+            Type i1 = b.getI1Type();
             Type i64 = b.getI64Type();
 
-            // Extract index, convert to pointer, and load from there.
+            // Extract index and convert to pointer.
             Value address =
                 b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
             address = b.create<arith::IndexCastOp>(loc, i64, address);
             address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
-            Value element = rewriter.create<LLVM::LoadOp>(loc, address);
+
+            // Perform load.
+            Value element;
+            if (!op.getMask()) {
+              // Unmasked load.
+              element = rewriter.create<LLVM::LoadOp>(loc, address);
+            } else {
+              // Masked load.
+              Value maskBit =
+                  b.create<tensor::ExtractOp>(loc, i1, adaptor.getMask(), ivs);
+              auto ifOp = rewriter.create<scf::IfOp>(
+                  loc, /*condition=*/maskBit,
+                  /*thenBuilder=*/
+                  [&](OpBuilder &builder, Location loc) {
+                    Value loaded = rewriter.create<LLVM::LoadOp>(loc, address);
+                    builder.create<scf::YieldOp>(loc, loaded);
+                  },
+                  /*elseBuilder=*/
+                  [&](OpBuilder &builder, Location loc) {
+                    if (op.getOther()) {
+                      Value other = b.create<tensor::ExtractOp>(
+                          loc, adaptor.getOther(), ivs);
+
+                      // Convert index back to pointer if necessary. This
+                      // happens with pointers of pointers.
+                      if (llvmElementType.isa<LLVMPointerType>()) {
+                        other = b.create<arith::IndexCastOp>(loc, i64, other);
+                        other = b.create<LLVM::IntToPtrOp>(loc, llvmElementType,
+                                                           other);
+                      }
+
+                      builder.create<scf::YieldOp>(loc, other);
+                      return;
+                    }
+
+                    Value undef =
+                        rewriter.create<LLVM::UndefOp>(loc, llvmElementType);
+                    builder.create<scf::YieldOp>(loc, undef);
+                  });
+              element = ifOp.getResult(0);
+            }
 
             // Convert element back to index if necessary. This happens on
             // pointer-of-pointer inputs.
@@ -504,15 +565,26 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
 
-    // Only handle unmasked pointers for now.
-    if (op.getMask())
-      return rewriter.notifyMatchFailure(loc, "mask not supported yet");
-
     // If the pointer got converted to an LLVM pointer, it's a scalar pointer.
     Type convertedPtrType = adaptor.getPtr().getType();
-    if (convertedPtrType.isa<LLVMPointerType>()) {
-      rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
-                                                 adaptor.getPtr());
+    if (auto llvmPtrType = convertedPtrType.dyn_cast<LLVMPointerType>()) {
+      // Unmasked store.
+      if (!op.getMask()) {
+        rewriter.replaceOpWithNewOp<LLVM::StoreOp>(op, adaptor.getValue(),
+                                                   adaptor.getPtr());
+        return success();
+      }
+
+      // Masked store.
+      rewriter.replaceOpWithNewOp<scf::IfOp>(
+          op, /*condition=*/op.getMask(),
+          /*thenBuilder=*/
+          [&](OpBuilder &builder, Location loc) {
+            rewriter.create<LLVM::StoreOp>(loc, adaptor.getValue(),
+                                           adaptor.getPtr());
+            builder.create<scf::YieldOp>(loc);
+          });
+
       return success();
     }
 
@@ -556,6 +628,7 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
           rewriter, loc, lbs, ubs, steps, ValueRange{},
           [&](OpBuilder &b, Location loc, ValueRange ivs, ValueRange args) {
             Type idx = b.getIndexType();
+            Type i1 = b.getI1Type();
             Type i64 = b.getI64Type();
 
             // Extract value that should be stored.
@@ -573,7 +646,23 @@ struct StoreOpConversion : OpConversionPattern<triton::StoreOp> {
                 b.create<tensor::ExtractOp>(loc, idx, adaptor.getPtr(), ivs);
             address = b.create<arith::IndexCastOp>(loc, i64, address);
             address = b.create<LLVM::IntToPtrOp>(loc, llvmPtrType, address);
-            rewriter.create<LLVM::StoreOp>(loc, element, address);
+
+            // Perform store.
+            if (!op.getMask()) {
+              // Unmasked store.
+              rewriter.create<LLVM::StoreOp>(loc, element, address);
+            } else {
+              // Masked store.
+              Value maskBit =
+                  b.create<tensor::ExtractOp>(loc, i1, adaptor.getMask(), ivs);
+              rewriter.create<scf::IfOp>(loc, /*condition=*/maskBit,
+                                         /*thenBuilder=*/
+                                         [&](OpBuilder &builder, Location loc) {
+                                           rewriter.create<LLVM::StoreOp>(
+                                               loc, element, address);
+                                           builder.create<scf::YieldOp>(loc);
+                                         });
+            }
 
             return SmallVector<Value>();
           });
