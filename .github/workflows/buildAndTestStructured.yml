@@ -93,7 +93,10 @@ jobs:
         CMAKE_CXX_COMPILER_LAUNCHER: ccache
         CMAKE_C_COMPILER_LAUNCHER: ccache
         MAX_JOBS: 1
-        TRITON_BUILD_WITH_CLANG_LLD: 1
+        # Use GCC temporarily due to warning in Clang and hard-coded -Werror.
+        CC: gcc
+        CXX: g++
+        # TRITON_BUILD_WITH_CLANG_LLD: 1
       run: |
         cd ${STRUCTURED_MAIN_SRC_DIR}/third_party/triton/python
         pip install -v .
