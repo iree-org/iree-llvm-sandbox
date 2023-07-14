@@ -85,7 +85,12 @@ def compile(fn, **kwargs):
   constants = kwargs['constants']
   debug = kwargs['debug']
   signature = kwargs['signature']
-  ttir = ast_to_ttir(fn, signature, configs[0], constants, debug=debug)
+  ttir = ast_to_ttir(fn,
+                     signature,
+                     configs[0],
+                     constants,
+                     debug=debug,
+                     arch=None)
 
   with Context() as ctx:
     # Parse Triton IR in our extension.
