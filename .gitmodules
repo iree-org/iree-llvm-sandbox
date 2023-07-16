@@ -3,4 +3,4 @@
 	url = https://github.com/llvm/llvm-project.git
 [submodule "third_party/triton"]
 	path = third_party/triton
-	url = https://github.com/ingomueller-net/triton.git
+	url = https://github.com/openai/triton.git
