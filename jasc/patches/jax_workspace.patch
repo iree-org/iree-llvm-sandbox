@@ -1,0 +1,22 @@
+--- a/third_party/xla/workspace.bzl
++++ b/third_party/xla/workspace.bzl
+@@ -24,12 +24,13 @@ XLA_COMMIT = "8f27d321a86029c336558bfbd6
+ XLA_SHA256 = "e8225ee13a8e69c49554d0ec87a0a509c645a1b267c557cd5b9bfe175a4b3f29"
+ 
+ def repo():
+-    tf_http_archive(
+-        name = "xla",
+-        sha256 = XLA_SHA256,
+-        strip_prefix = "xla-{commit}".format(commit = XLA_COMMIT),
+-        urls = tf_mirror_urls("https://github.com/openxla/xla/archive/{commit}.tar.gz".format(commit = XLA_COMMIT)),
+-    )
++    # tf_http_archive(
++    #     name = "xla",
++    #     sha256 = XLA_SHA256,
++    #     strip_prefix = "xla-{commit}".format(commit = XLA_COMMIT),
++    #     urls = tf_mirror_urls("https://github.com/openxla/xla/archive/{commit}.tar.gz".format(commit = XLA_COMMIT)),
++    # )
++    pass
+ 
+     # For development, one often wants to make changes to the TF repository as well
+     # as the JAX repository. You can override the pinned repository above with a

@@ -1,0 +1,207 @@
+workspace(name = "jasc")
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+#
+# @rules_cc.
+#
+
+CCRULES_COMMIT = "c8c38f8c710cbbf834283e4777916b68261b359c"
+CCRULES_SHA256 = "85723d827f080c5e927334f1fb18a294c0b3f94fee6d6b45945f5cdae6ea0fd4"
+
+http_archive(
+    name = "rules_cc",
+    sha256 = CCRULES_SHA256,
+    strip_prefix = "rules_cc-" + CCRULES_COMMIT,
+    urls = [
+        "https://github.com/bazelbuild/rules_cc/archive/{commit}.tar.gz".format(commit = CCRULES_COMMIT),
+    ],
+)
+
+load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies")
+
+rules_cc_dependencies()
+
+#
+# @llvm-project.
+#
+
+LLVM_COMMIT = "2f17c9f65e7da50a77101431ddf7f6ed7e1ea92c"
+LLVM_SHA256 = "a986740933506ebd1127c8abb64c78655a8c329798f37fd466a8e0f7aa7a5578"
+LLVM_TARGETS = ["X86", "AArch64", "AMDGPU"]
+
+http_archive(
+    name = "llvm-raw",
+    build_file_content = "# empty",
+    sha256 = LLVM_SHA256,
+    strip_prefix = "llvm-project-" + LLVM_COMMIT,
+    urls = ["https://github.com/llvm/llvm-project/archive/{commit}.tar.gz".format(commit = LLVM_COMMIT)],
+    patch_args = ["-p1"],
+    patches = ["//:patches/llvm_build.patch"]
+)
+
+load("@llvm-raw//utils/bazel:configure.bzl", "llvm_configure")
+
+llvm_configure(name = "llvm-project", targets = LLVM_TARGETS)
+
+#
+# @xla.
+#
+
+XLA_COMMIT = "7ab5df624ff1d98804999b03b21abecd14ec57a6"
+XLA_SHA256 = "2b6a3ffdb3acf73eaa9b312407400b09c740450ab2222433890712dd4a402a0f"
+
+http_archive(
+    name = "xla",
+    sha256 = XLA_SHA256,
+    strip_prefix = "xla-" + XLA_COMMIT,
+    urls = ["https://github.com/openxla/xla/archive/{commit}.tar.gz".format(commit = XLA_COMMIT)],
+    patch_args = ["-p1"],
+    patches = ["//:patches/xla.patch"],
+)
+
+# Note: Further loading below in conjuction with JAX.
+
+#
+# @rules_python.
+#
+
+PYRULES_COMMIT = "fe33a4582c37499f3caeb49a07a78fc7948a8949"
+PYRULES_SHA256 = "cfa6957832ae0e0c7ee2ccf455a888a291e8419ed8faf45f4420dd7414d5dd96"
+
+http_archive(
+    name = "rules_python",
+    sha256 = PYRULES_SHA256,
+    strip_prefix = "rules_python-" + PYRULES_COMMIT,
+    urls = ["https://github.com/bazelbuild/rules_python/archive/{commit}.tar.gz".format(commit = PYRULES_COMMIT)]
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
+
+load("@rules_python//python/pip_install:repositories.bzl", "pip_install_dependencies")
+
+pip_install_dependencies()
+
+#
+# @jax.
+#
+
+JAX_COMMIT = "32a317f7a43440800e1e39e00ed5f2980e088ab1"
+JAX_SHA256 = "6e2147be7360a5c0672b6ba0d654cdb2ac96113b63ef457dfdc76cd50fe69ff1"
+
+http_archive(
+    name = "jax1",
+    sha256 = JAX_SHA256,
+    strip_prefix = "jax-" + JAX_COMMIT,
+    urls = ["https://github.com/google/jax/archive/{commit}.tar.gz".format(commit = JAX_COMMIT)],
+    patch_args = ["-p1"],
+    patches = ["//:patches/jax.patch"],
+)
+
+#
+# Initialize @jax, @xla, and dependencies.
+#
+
+load("@jax1//third_party/xla:workspace.bzl", jax_xla_workspace = "repo")
+jax_xla_workspace()
+
+load("@xla//:workspace4.bzl", "xla_workspace4")
+xla_workspace4()
+
+load("@xla//:workspace3.bzl", "xla_workspace3")
+xla_workspace3()
+
+load("@xla//:workspace2.bzl", "xla_workspace2")
+xla_workspace2()
+
+load("@xla//:workspace1.bzl", "xla_workspace1")
+xla_workspace1()
+
+load("@xla//:workspace0.bzl", "xla_workspace0")
+xla_workspace0()
+
+load("@jax1//third_party/flatbuffers:workspace.bzl", flatbuffers = "repo")
+flatbuffers()
+
+load("@jax1//third_party/robin_map:workspace.bzl", robin_map = "repo")
+robin_map()
+
+load("@jax1//third_party/nanobind:workspace.bzl", nanobind = "repo")
+nanobind()
+
+#
+# @pybind and friends.
+#
+
+PYBIND_VERSION = "2.11.1"
+PYBIND11_SHA256 = "d475978da0cdc2d43b73f30910786759d593a9d8ee05b1b6846d1eb16c6d2e0c"
+PYBINDBZL_SHA256 = "e8355ee56c2ff772334b4bfa22be17c709e5573f6d1d561c7176312156c27bd4"
+PYBINDABSL_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+http_archive(
+    name = "pybind11_bazel",
+    sha256 = PYBINDBZL_SHA256,
+    strip_prefix = "pybind11_bazel-" + PYBIND_VERSION,
+    urls = ["https://github.com/pybind/pybind11_bazel/archive/refs/tags/v{version}.tar.gz/".format(version = PYBIND_VERSION)],
+)
+
+http_archive(
+    name = "pybind11",
+    sha256 = PYBIND11_SHA256,
+    build_file = "@pybind11_bazel//:pybind11.BUILD",
+    strip_prefix = "pybind11_bazel-" + PYBIND_VERSION,
+    urls = ["https://github.com/pybind/pybind11/archive/refs/tags/v{version}.tar.gz/".format(version = PYBIND_VERSION)],
+)
+
+load("@pybind11_bazel//:python_configure.bzl", "python_configure")
+
+python_configure(name = "local_config_python")
+
+http_archive(
+    name = "pybind11_abseil",
+    sha256 = PYBINDABSL_SHA256,
+    strip_prefix = "pybind11_abseil-" + PYBIND_VERSION,
+    urls = ["https://github.com/pybind/pybind11_abseil/archive/refs/tags/v{version}.tar.gz/".format(version = PYBIND_VERSION)],
+)
+
+#
+# @com_google_absl and friends.
+#
+
+ABSL_COMMIT = "98eb410c93ad059f9bba1bf43f5bb916fc92a5ea"
+ABSL_SHA256 = "aabf6c57e3834f8dc3873a927f37eaf69975d4b28117fc7427dfb1c661542a87"
+
+http_archive(
+    name = "com_google_absl",
+    sha256 = ABSL_SHA256,
+    strip_prefix = "abseil-cpp-" + ABSL_COMMIT,
+    urls = ["https://github.com/abseil/abseil-cpp/archive/{commit}.zip".format(commit = ABSL_COMMIT)],
+)
+
+STMACROS_COMMIT = "1592ab2d4b4f92976fc3f4a6cb3a1323a4b549c3"
+STMACROS_SHA256 = "4317adf5ff551ab3d39af00cd5a3b965d22b266570609bf198166288083f69c0"
+
+http_archive(
+    name = "status_macros",
+    sha256 = STMACROS_SHA256,
+    strip_prefix = "status_macros-" + STMACROS_COMMIT,
+    urls = ["https://github.com/jimrogerz/status_macros/archive/{commit}.zip".format(commit = STMACROS_COMMIT)],
+)
+
+#
+# Python dependencies via pip
+#
+
+load("@rules_python//python:pip.bzl", "pip_parse")
+
+pip_parse(
+    name = "pip_deps",
+    requirements_lock = ":requirements.txt",
+)
+
+load("@pip_deps//:requirements.bzl", "install_deps")
+
+install_deps()
