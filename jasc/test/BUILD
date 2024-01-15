@@ -1,3 +1,7 @@
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 # JASC filecheck tests
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
@@ -6,6 +10,7 @@ load("@pip_deps//:requirements.bzl", "requirement")
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//:__subpackages__"],
 )
 

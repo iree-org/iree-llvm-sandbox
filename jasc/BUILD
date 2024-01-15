@@ -1,11 +1,23 @@
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 # Schedules for JAX.
 
 load("@rules_python//python:defs.bzl", "py_library")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@llvm-project//mlir:build_defs.bzl", "cc_headers_only")
+load("@rules_license//rules:license.bzl", "license")
+
+license(
+    name = "license",
+    package_name = "Jasc",
+    license_text = "LICENSE",
+    package_url = "https://github.com/iree-org/iree-llvm-sandbox/tree/main/jasc",
+)
 
 package(
-    # default_applicable_licenses = ["//third_party/mlir_edge:license"],
+    default_applicable_licenses = [":license"],
     default_visibility = ["//visibility:public"],
 )
 
