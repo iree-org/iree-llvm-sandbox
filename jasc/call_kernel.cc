@@ -196,7 +196,9 @@ absl::StatusOr<std::unique_ptr<CpuKernel>> CreateCpuKernel(
   RETURN_IF_ERROR(LowerStableHloToCpuLLVM(module, dump_ir));
   mlir::ExecutionEngineOptions engine_opts;
   // TODO(ulysse): Select LLVM opt level.
-  engine_opts.sharedLibPaths = {"libmlir_c_runner_utils.so"};
+  static constexpr std::array<llvm::StringRef, 1> sharedLibPaths = {
+      "libmlir_c_runner_utils.so"};
+  engine_opts.sharedLibPaths = sharedLibPaths;
   engine_opts.jitCodeGenOptLevel = llvm::CodeGenOptLevel::Default;
   auto engineOrError = mlir::ExecutionEngine::create(module, engine_opts);
   if (!engineOrError) {
