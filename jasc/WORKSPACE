@@ -233,3 +233,28 @@ pip_parse(
 load("@pip_deps//:requirements.bzl", "install_deps")
 
 install_deps()
+
+#
+# Hedron's Compile Commands Extractor.
+#
+CCEXTRACT_COMMIT = "ceeb5dbdefb8839a1e29cc242bc1fe755a43609c"
+CCEXTRACT_SHA256 = "4e54e689d138462b568b9b3c4f83248eb112dc5b973ef92c190d4c8c2b0a4a9a"
+
+http_archive(
+    name = "hedron_compile_commands",
+    sha256 = CCEXTRACT_SHA256,
+    strip_prefix = "bazel-compile-commands-extractor-{commit}".format(commit=CCEXTRACT_COMMIT),
+    url = "https://github.com/hedronvision/bazel-compile-commands-extractor/archive/{commit}.tar.gz".format(commit=CCEXTRACT_COMMIT),
+)
+
+load("@hedron_compile_commands//:workspace_setup.bzl", "hedron_compile_commands_setup")
+hedron_compile_commands_setup()
+
+load("@hedron_compile_commands//:workspace_setup_transitive.bzl", "hedron_compile_commands_setup_transitive")
+hedron_compile_commands_setup_transitive()
+
+load("@hedron_compile_commands//:workspace_setup_transitive_transitive.bzl", "hedron_compile_commands_setup_transitive_transitive")
+hedron_compile_commands_setup_transitive_transitive()
+
+load("@hedron_compile_commands//:workspace_setup_transitive_transitive_transitive.bzl", "hedron_compile_commands_setup_transitive_transitive_transitive")
+hedron_compile_commands_setup_transitive_transitive_transitive()
