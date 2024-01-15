@@ -92,3 +92,17 @@ index 0cc28fd856bc..51764826a130 100644
  )
  
  # Indirection to avoid 'libmlir_c_runner_utils.so' filename clash.
+
+--- a/llvm/utils/lit/lit.py
++++ b/llvm/utils/lit/lit.py
+@@ -1,5 +1,10 @@
+ #!/usr/bin/env python3
+ 
++from os import path
++import sys
++
++sys.path.append(path.dirname(__file__))
++
+ from lit.main import main
+ 
+ if __name__ == "__main__":
