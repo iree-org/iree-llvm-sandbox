@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef THIRD_PARTY_MLIR_EDGE_JASC_DIALECT_OPS_H_
-#define THIRD_PARTY_MLIR_EDGE_JASC_DIALECT_OPS_H_
+#ifndef JASC_DIALECT_OPS_H_
+#define JASC_DIALECT_OPS_H_
 
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/IR/BuiltinAttributes.h"
@@ -18,4 +18,4 @@
 #define GET_OP_CLASSES
 #include "dialect/ops.h.inc"
 
-#endif  // THIRD_PARTY_MLIR_EDGE_JASC_DIALECT_OPS_H_
+#endif  // JASC_DIALECT_OPS_H_

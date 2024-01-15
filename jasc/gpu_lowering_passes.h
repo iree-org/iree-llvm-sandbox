@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef THIRD_PARTY_MLIR_EDGE_JASC_GPU_LOWERING_PASSES_H_
-#define THIRD_PARTY_MLIR_EDGE_JASC_GPU_LOWERING_PASSES_H_
+#ifndef JASC_GPU_LOWERING_PASSES_H_
+#define JASC_GPU_LOWERING_PASSES_H_
 
 #include <memory>
 
@@ -48,4 +48,4 @@ void registerGPULoweringPasses();
 
 }  // namespace jasc
 
-#endif  // THIRD_PARTY_MLIR_EDGE_JASC_GPU_LOWERING_PASSES_H_
+#endif  // JASC_GPU_LOWERING_PASSES_H_

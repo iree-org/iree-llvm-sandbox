@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef THIRD_PARTY_MLIR_EDGE_JASC_MLIR_LOWERING_H_
-#define THIRD_PARTY_MLIR_EDGE_JASC_MLIR_LOWERING_H_
+#ifndef JASC_MLIR_LOWERING_H_
+#define JASC_MLIR_LOWERING_H_
 
 #include "absl/status/status.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -26,4 +26,4 @@ void registerMLIRLoweringPasses();
 
 }  // namespace jasc
 
-#endif  // THIRD_PARTY_MLIR_EDGE_JASC_MLIR_LOWERING_H_
+#endif  // JASC_MLIR_LOWERING_H_

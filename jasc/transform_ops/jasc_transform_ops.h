@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef THIRD_PARTY_MLIR_EDGE_JASC_TRANSFORMOPS_JASCTRANSFORMOPS_H_
-#define THIRD_PARTY_MLIR_EDGE_JASC_TRANSFORMOPS_JASCTRANSFORMOPS_H_
+#ifndef JASC_TRANSFORMOPS_JASCTRANSFORMOPS_H_
+#define JASC_TRANSFORMOPS_JASCTRANSFORMOPS_H_
 
 #include <optional>
 
@@ -18,4 +18,4 @@
 #define GET_OP_CLASSES
 #include "jasc_transform_ops.h.inc"
 
-#endif  // THIRD_PARTY_MLIR_EDGE_JASC_TRANSFORMOPS_JASCTRANSFORMOPS_H_
+#endif  // JASC_TRANSFORMOPS_JASCTRANSFORMOPS_H_
