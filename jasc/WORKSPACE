@@ -220,14 +220,14 @@ http_archive(
 )
 
 #
-# Python dependencies via pip
+# Python dependencies via pip.
 #
 
 load("@rules_python//python:pip.bzl", "pip_parse")
 
 pip_parse(
     name = "pip_deps",
-    requirements_lock = ":requirements.txt",
+    requirements_lock = "//:requirements.txt",
 )
 
 load("@pip_deps//:requirements.bzl", "install_deps")
