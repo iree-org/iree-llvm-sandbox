@@ -77,6 +77,8 @@ py_binary(
         "//:jasc",
         "//transform_ops",
         requirement("absl-py"),
+        requirement("ml_dtypes"),
+        requirement("opt_einsum"),
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:jasc_dialect",
         "@jax1//jaxlib/mlir:scf_dialect",
@@ -103,6 +105,9 @@ py_binary(
     deps = [
         "//:jasc",
         "//transform_ops",
+        requirement("absl-py"),
+        requirement("ml_dtypes"),
+        requirement("opt_einsum"),
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:scf_dialect",
         "@jax1//jaxlib/mlir:transform_dialect",
