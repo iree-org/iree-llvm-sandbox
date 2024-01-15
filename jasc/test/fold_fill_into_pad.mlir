@@ -3,7 +3,7 @@
 
 
 // Test ported from: 
-// third_party/iree/compiler/src/iree/compiler/Codegen/Common/test/transform_dialect_apply_pattern_op.mlir
+// https://github.com/openxla/iree/blob/a219cb5008a/compiler/src/iree/compiler/Codegen/Common/test/transform_dialect_apply_pattern_op.mlir
 // CHECK-LABEL: @pad_fill_to_fill
 func.func @pad_fill_to_fill(%arg0: tensor<31x62xf32>) -> tensor<32x64xf32> {
   // Check that a pad of a fill with the same constant is replaced by a
