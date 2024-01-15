@@ -16,11 +16,11 @@ LICENSERULES_SHA256 = "4531deccb913639c30e5c7512a054d5d875698daeb75d8cf90f284375
 
 http_archive(
     name = "rules_license",
+    sha256 = LICENSERULES_SHA256,
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/{version}/rules_license-{version}.tar.gz".format(version = LICENSERULES_VERSION),
         "https://github.com/bazelbuild/rules_license/releases/download/{version}/rules_license-{version}.tar.gz".format(version = LICENSERULES_VERSION),
     ],
-    sha256 = LICENSERULES_SHA256,
 )
 
 #
@@ -49,21 +49,29 @@ rules_cc_dependencies()
 
 LLVM_COMMIT = "2f17c9f65e7da50a77101431ddf7f6ed7e1ea92c"
 LLVM_SHA256 = "a986740933506ebd1127c8abb64c78655a8c329798f37fd466a8e0f7aa7a5578"
-LLVM_TARGETS = ["X86", "AArch64", "AMDGPU"]
+
+LLVM_TARGETS = [
+    "X86",
+    "AArch64",
+    "AMDGPU",
+]
 
 http_archive(
     name = "llvm-raw",
     build_file_content = "# empty",
+    patch_args = ["-p1"],
+    patches = ["//:patches/llvm_build.patch"],
     sha256 = LLVM_SHA256,
     strip_prefix = "llvm-project-" + LLVM_COMMIT,
     urls = ["https://github.com/llvm/llvm-project/archive/{commit}.tar.gz".format(commit = LLVM_COMMIT)],
-    patch_args = ["-p1"],
-    patches = ["//:patches/llvm_build.patch"]
 )
 
 load("@llvm-raw//utils/bazel:configure.bzl", "llvm_configure")
 
-llvm_configure(name = "llvm-project", targets = LLVM_TARGETS)
+llvm_configure(
+    name = "llvm-project",
+    targets = LLVM_TARGETS,
+)
 
 #
 # @xla.
@@ -74,11 +82,11 @@ XLA_SHA256 = "2b6a3ffdb3acf73eaa9b312407400b09c740450ab2222433890712dd4a402a0f"
 
 http_archive(
     name = "xla",
+    patch_args = ["-p1"],
+    patches = ["//:patches/xla.patch"],
     sha256 = XLA_SHA256,
     strip_prefix = "xla-" + XLA_COMMIT,
     urls = ["https://github.com/openxla/xla/archive/{commit}.tar.gz".format(commit = XLA_COMMIT)],
-    patch_args = ["-p1"],
-    patches = ["//:patches/xla.patch"],
 )
 
 # Note: Further loading below in conjuction with JAX.
@@ -94,7 +102,7 @@ http_archive(
     name = "rules_python",
     sha256 = PYRULES_SHA256,
     strip_prefix = "rules_python-" + PYRULES_COMMIT,
-    urls = ["https://github.com/bazelbuild/rules_python/archive/{commit}.tar.gz".format(commit = PYRULES_COMMIT)]
+    urls = ["https://github.com/bazelbuild/rules_python/archive/{commit}.tar.gz".format(commit = PYRULES_COMMIT)],
 )
 
 load("@rules_python//python:repositories.bzl", "py_repositories")
@@ -114,11 +122,11 @@ JAX_SHA256 = "6e2147be7360a5c0672b6ba0d654cdb2ac96113b63ef457dfdc76cd50fe69ff1"
 
 http_archive(
     name = "jax1",
+    patch_args = ["-p1"],
+    patches = ["//:patches/jax.patch"],
     sha256 = JAX_SHA256,
     strip_prefix = "jax-" + JAX_COMMIT,
     urls = ["https://github.com/google/jax/archive/{commit}.tar.gz".format(commit = JAX_COMMIT)],
-    patch_args = ["-p1"],
-    patches = ["//:patches/jax.patch"],
 )
 
 #
@@ -170,8 +178,8 @@ http_archive(
 
 http_archive(
     name = "pybind11",
-    sha256 = PYBIND11_SHA256,
     build_file = "@pybind11_bazel//:pybind11.BUILD",
+    sha256 = PYBIND11_SHA256,
     strip_prefix = "pybind11_bazel-" + PYBIND_VERSION,
     urls = ["https://github.com/pybind/pybind11/archive/refs/tags/v{version}.tar.gz/".format(version = PYBIND_VERSION)],
 )

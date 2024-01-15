@@ -96,8 +96,8 @@ cc_library(
     ],
     deps = [
         ":dialect_inc_gen",
-        ":ops_inc_gen",
         ":jasc_dialect_shared_library_deps_headers",
+        ":ops_inc_gen",
     ],
     alwayslink = True,
 )
@@ -148,14 +148,14 @@ gentbl_filegroup(
 cc_library(
     name = "jasc_dialect_shared_library",
     srcs = [
-        ":libjascdialect.so",
         "dialect.h",
         "ops.h",
+        ":libjascdialect.so",
     ],
     deps = [
         ":dialect_inc_gen",
-        ":ops_inc_gen",
         ":jasc_dialect_shared_library_deps_headers",
+        ":ops_inc_gen",
     ],
 )
 
@@ -173,12 +173,12 @@ pybind_extension(
     name = "bindings",
     srcs = ["bindings.cc"],
     deps = [
-        "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
         ":jasc_dialect_headers",
-        "@llvm-project//mlir:CAPIIRHeaders",
-        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
         "//:mlir_lowering_shared_library",
         "//transform_ops:jasc_transform_ops_shared_library",
+        "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
+        "@llvm-project//mlir:CAPIIRHeaders",
+        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
     ],
 )
 

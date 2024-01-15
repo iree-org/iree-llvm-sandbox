@@ -59,8 +59,8 @@ pybind_extension(
     name = "bindings",
     srcs = ["bindings.cpp"],
     deps = [
-        "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
         ":jasc_transform_ops_shared_library",
+        "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
         "@llvm-project//mlir:CAPIIRHeaders",
         "@llvm-project//mlir:MLIRBindingsPythonHeaders",
     ],
@@ -134,7 +134,7 @@ cc_library(
     includes = ["."],
     deps = [
         ":jasc_transform_ops_inc_gen",
-        ":jasc_transform_ops_shared_library_deps_headers"
+        ":jasc_transform_ops_shared_library_deps_headers",
     ],
     alwayslink = True,
 )

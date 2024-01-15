@@ -23,19 +23,22 @@ package(
 
 py_library(
     name = "jasc",
-    srcs = ["jasc.py", "__init__.py"],
+    srcs = [
+        "__init__.py",
+        "jasc.py",
+    ],
     deps = [
         ":call_kernel",
         ":primitives",
         "//dialect:python",
         "//transform_ops",
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:bufferization_dialect",
         "@jax1//jaxlib/mlir:core",
         "@jax1//jaxlib/mlir:ir",
+        "@jax1//jaxlib/mlir:jasc_dialect",
         "@jax1//jaxlib/mlir:pdl_dialect",
         "@jax1//jaxlib/mlir:transform_dialect",
-        "@jax1//jaxlib/mlir:jasc_dialect",
     ],
 )
 
@@ -44,7 +47,7 @@ py_library(
     srcs = ["tuner.py"],
     deps = [
         ":jasc",
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:jasc_dialect",
         "@jax1//jaxlib/mlir:transform_dialect",
@@ -57,7 +60,7 @@ py_library(
     deps = [
         ":call_kernel",
         "//dialect:python",
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jax:extend",
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:pdl_dialect",
@@ -111,7 +114,7 @@ cc_binary(
         "-Wl,-rpath='$$ORIGIN'",
     ],
     linkshared = 1,
-    deps = ["@llvm-project//mlir:mlir_c_runner_utils",],
+    deps = ["@llvm-project//mlir:mlir_c_runner_utils"],
 )
 
 pybind_extension(
@@ -120,15 +123,15 @@ pybind_extension(
     deps = [
         ":call_kernel_shared_library",
         ":libmlir_c_runner_utils.so",
-        "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
         ":mlir_lowering_shared_library",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/synchronization",
+        "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
         "@llvm-project//mlir:ExecutionEngine",
-        "@status_macros//:status_macros",
         "@pybind11_abseil//pybind11_abseil:import_status_module",
+        "@status_macros",
     ],
 )
 
@@ -190,7 +193,10 @@ cc_binary(
 
 cc_library(
     name = "mlir_lowering_shared_library",
-    srcs = [":libmlirlowering.so", "mlir_lowering.h"],
+    srcs = [
+        "mlir_lowering.h",
+        ":libmlirlowering.so",
+    ],
     deps = [":mlir_lowering_shared_library_deps_headers"],
 )
 
@@ -211,9 +217,9 @@ cc_library(
     ],
     data = ["gpu_post_bufferize.mlir"],
     deps = [
+        ":mlir_lowering_shared_library_deps_headers",
         "//dialect:jasc_dialect_headers",
         "//transform_ops:jasc_transform_ops_headers",
-        ":mlir_lowering_shared_library_deps_headers",
     ],
     alwayslink = True,
 )
@@ -223,13 +229,13 @@ cc_binary(
     srcs = ["jasc_opt.cc"],
     deps = [
         ":mlir_lowering",
+        "//dialect",
+        "//transform_ops:jasc_transform_ops_shared_library",
+        "@com_google_absl//absl/status:statusor",
         "@llvm-project//mlir:AllExtensions",
         "@llvm-project//mlir:AllPassesAndDialects",
         "@llvm-project//mlir:AllToLLVMIRTranslations",
         "@llvm-project//mlir:MlirOptLib",
         "@xla//xla/mlir_hlo:mhlo_passes",
-        "//dialect",
-        "//transform_ops:jasc_transform_ops_shared_library",
-        "@com_google_absl//absl/status:statusor",
     ],
 )

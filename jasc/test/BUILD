@@ -24,7 +24,7 @@ py_library(
         "//:jasc",
         requirement("chex"),
         requirement("pytest"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
     ],
 )
 
@@ -91,7 +91,7 @@ py_binary(
         requirement("absl-py"),
         requirement("ml_dtypes"),
         requirement("opt_einsum"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:jasc_dialect",
     ],
@@ -116,7 +116,7 @@ py_binary(
         "//:jasc",
         requirement("absl-py"),
         requirement("chex"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
     ],
 )
 
@@ -128,7 +128,7 @@ py_test(
         "//:jasc",
         requirement("chex"),
         requirement("pytest"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:transform_dialect",
     ],
@@ -142,7 +142,7 @@ py_test(
         "//:jasc",
         requirement("chex"),
         requirement("pytest"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:transform_dialect",
     ],
@@ -156,7 +156,7 @@ py_test(
         requirement("absl-py"),
         requirement("chex"),
         requirement("pytest"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:transform_dialect",
     ],
 )
@@ -170,7 +170,7 @@ py_test(
         requirement("absl-py"),
         requirement("chex"),
         requirement("pytest"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
         "@jax1//jaxlib/mlir:ir",
         "@jax1//jaxlib/mlir:linalg_dialect",
     ],
@@ -183,7 +183,7 @@ py_test(
         "//:jasc",
         requirement("chex"),
         requirement("pytest"),
-        "@jax1//jax:jax",
+        "@jax1//jax",
     ],
 )
 
