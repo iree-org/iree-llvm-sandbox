@@ -1,4 +1,14 @@
+# Jasc's dependencies.
 absl-py
 chex
 pytest
 PyYAML
+
+# JAX's dependencies.
+#
+# Obtained by pip installing jax at the same version as we use in the WORKSPACE
+# into a virtual environment.
+numpy
+scipy
+opt-einsum
+ml-dtypes

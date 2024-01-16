@@ -7,7 +7,7 @@
 from collections.abc import Mapping
 import sys
 
-# XXX: Remove paths to `jax*` packages installed from pip by Bazel rules.
+# Remove paths to `jax*` packages installed from pip. See requirements.txt.
 sys.path = [p for p in sys.path if "/pip_deps_jax" not in p]
 
 import chex
