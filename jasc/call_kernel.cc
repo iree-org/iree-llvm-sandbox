@@ -21,7 +21,6 @@
 #include "absl/log/log.h"
 #include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
-// #include "third_party/gpus/cuda/include/cuda.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Error.h"
@@ -220,154 +219,6 @@ void CpuCallback(void *out, void **ins) {
   kernel->Call(out, (ins + 1));
 }
 
-// CUstream jasc_cuda_stream = nullptr;
-
-// class CudaKernel {
-//  public:
-//   CudaKernel(std::unique_ptr<mlir::ExecutionEngine> execution_engine,
-//              int num_inputs_outputs)
-//       : execution_engine_(std::move(execution_engine)),
-//         num_input_outputs_(num_inputs_outputs) {}
-
-//   // Executes the kernel.
-//   void Call(CUstream stream, void **buffers) const {
-//     // TODO(ulysse): avoid relying on a global variable.
-//     CHECK_EQ(jasc_cuda_stream, nullptr);
-//     jasc_cuda_stream = stream;
-
-//     std::vector<void *> inputs;
-//     inputs.reserve(num_input_outputs_);
-//     for (int i = 0; i < num_input_outputs_; ++i) {
-//       inputs.push_back(&buffers[i]);
-//     }
-//     llvm::cantFail(execution_engine_->invokePacked("main", inputs));
-//     jasc_cuda_stream = nullptr;
-//   }
-
-//  private:
-//   std::unique_ptr<mlir::ExecutionEngine> execution_engine_;
-//   int num_input_outputs_;
-//   int num_outputs_;
-// };
-
-// void CheckCudaError(CUresult result) {
-//   if (result != CUDA_SUCCESS) {
-//     const char **error_msg = nullptr;
-//     cuGetErrorString(result, error_msg);
-//     LOG(FATAL) << *error_msg;
-//   }
-// }
-
-// extern "C" void JascCudaLaunchKernel(CUfunction function, intptr_t gridX,
-//                                      intptr_t gridY, intptr_t gridZ,
-//                                      intptr_t blockX, intptr_t blockY,
-//                                      intptr_t blockZ, int32_t smem,
-//                                      CUstream stream, void **params,
-//                                      void **extra) {
-//   CheckCudaError(cuLaunchKernel(function, gridX, gridY, gridZ, blockX, blockY,
-//                                 blockZ, smem, stream, params, extra));
-// }
-
-// extern "C" CUstream JascCudaStreamCreate() {
-//   // TODO(ulysse): explicitly pass the stream instead of relying on a global
-//   // variable.
-//   return jasc_cuda_stream;
-// }
-
-// extern "C" void JascCudaStreamDestroy(CUstream stream) {
-//   // NO-op as we are reusing the stream given by XLA.
-// }
-
-// extern "C" CUmodule JascCudaModuleLoad(void *data) {
-//   // TODO(ulysse): investigate the performance implications of loading the
-//   // module on the fly.
-//   CUmodule module;
-//   CheckCudaError(cuModuleLoadData(&module, data));
-//   return module;
-// }
-
-// extern "C" void JascCudaModuleUnload(CUmodule module) {
-//   CheckCudaError(cuModuleUnload(module));
-// }
-
-// extern "C" CUfunction JascCudaModuleGetFunction(CUmodule module,
-//                                                 const char *name) {
-//   // TODO(ulysse): investigate the performance implications of loading the
-//   // function on the fly.
-//   CUfunction function;
-//   CheckCudaError(cuModuleGetFunction(&function, module, name));
-//   return function;
-// }
-
-// extern "C" void JascCudaStreamSynchronize(CUstream stream) {
-//   CheckCudaError(cuStreamSynchronize(stream));
-// }
-
-// extern "C" void *JascCudaMemAlloc(uint64_t size_bytes, CUstream) {
-//   CUdeviceptr ptr;
-//   CheckCudaError(cuMemAlloc(&ptr, size_bytes));
-//   return reinterpret_cast<void *>(ptr);
-// }
-
-// extern "C" void JascCudaMemFree(void *ptr, CUstream) {
-//   CheckCudaError(cuMemFree(reinterpret_cast<CUdeviceptr>(ptr)));
-// }
-
-// extern "C" void JascCudaMemcpy(void *dst, void *src, size_t sizeBytes,
-//                                CUstream stream) {
-//   CheckCudaError(cuMemcpy(reinterpret_cast<CUdeviceptr>(dst),
-//                           reinterpret_cast<CUdeviceptr>(src), sizeBytes));
-// }
-
-// absl::StatusOr<std::unique_ptr<CudaKernel>> CreateCudaKernel(
-//     mlir::python::PyModule &py_module, int num_inputs, int num_outputs,
-//     bool dump_ir) {
-//   mlir::ModuleOp module = unwrap(py_module.get());
-//   RETURN_IF_ERROR(LowerStableHloToGpuLLVM(module, dump_ir));
-//   mlir::ExecutionEngineOptions engine_opts;
-//   // TODO(ulysse): Select LLVM opt level.
-//   engine_opts.jitCodeGenOptLevel = llvm::CodeGenOptLevel::Default;
-//   auto engineOrError = mlir::ExecutionEngine::create(module, engine_opts);
-//   if (!engineOrError) {
-//     llvm::handleAllErrors(
-//         engineOrError.takeError(), [&](const llvm::StringError &err) {
-//           LOG(FATAL) << "Error while creating execution engine: "
-//                      << err.getMessage();
-//         });
-//   }
-//   engineOrError.get()->registerSymbols(
-//       [](llvm::orc::MangleAndInterner interner) {
-//         auto map = llvm::orc::SymbolMap();
-//         auto register_symbol = [&map, &interner](llvm::StringRef name,
-//                                                  auto *func) {
-//           auto addr = llvm::orc::ExecutorAddr(reinterpret_cast<uint64_t>(func));
-//           map[interner(name)] = {addr, llvm::JITSymbolFlags::None};
-//         };
-//         register_symbol("mgpuLaunchKernel", &JascCudaLaunchKernel);
-//         register_symbol("mgpuStreamCreate", &JascCudaStreamCreate);
-//         register_symbol("mgpuStreamDestroy", &JascCudaStreamDestroy);
-//         register_symbol("mgpuModuleLoad", &JascCudaModuleLoad);
-//         register_symbol("mgpuModuleUnload", &JascCudaModuleUnload);
-//         register_symbol("mgpuModuleGetFunction", &JascCudaModuleGetFunction);
-//         register_symbol("mgpuStreamSynchronize", &JascCudaStreamSynchronize);
-//         register_symbol("mgpuMemAlloc", &JascCudaMemAlloc);
-//         register_symbol("mgpuMemFree", &JascCudaMemFree);
-//         register_symbol("mgpuMemcpy", &JascCudaMemcpy);
-//         return map;
-//       });
-//   return std::make_unique<CudaKernel>(llvm::cantFail(std::move(engineOrError)),
-//                                       num_inputs + num_outputs);
-// }
-
-// // XLA custom call callback that calls a kernel on GPU.
-// void GpuCallback(CUstream stream, void **buffers, const char *opaque,
-//                  size_t opaque_len) {
-//   CHECK_EQ(opaque_len, sizeof(CudaKernel *));
-//   CudaKernel *kernel_call;
-//   std::memcpy(&kernel_call, opaque, sizeof(CudaKernel *));
-//   kernel_call->Call(stream, buffers);
-// }
-
 /// Clears the `PyOperation` (representing Python-level handles to
 /// `Operation *`s) that are tracked by the context. This function should be
 /// called by any entry point that may modify the IR, which could cause above
@@ -418,31 +269,6 @@ PYBIND11_MODULE(call_kernel, m) {
     return pybind11::capsule(reinterpret_cast<void *>(&CpuCallback),
                              "xla._CUSTOM_CALL_TARGET");
   });
-
-  // py::class_<CudaKernel>(m, "CudaKernel")
-  //     .def_property_readonly("ptr", [](CudaKernel *kernel) {
-  //       union {
-  //         CudaKernel *ptr;
-  //         char bytes[sizeof(CudaKernel *)];
-  //       } bytes_ptr;
-  //       bytes_ptr.ptr = kernel;
-  //       return pybind11::bytes(bytes_ptr.bytes, sizeof(CudaKernel *));
-  //     });
-
-  // m.def(
-  //     "create_cuda_kernel",
-  //     [](mlir::python::PyModule &py_module, int num_inputs, int num_outputs,
-  //        bool dump_ir) {
-  //       clearOperationsInside(py_module);
-  //       return CreateCudaKernel(py_module, num_inputs, num_outputs, dump_ir);
-  //     },
-  //     py::arg("module"), py::arg("num_inputs"), py::arg("num_outputs"),
-  //     py::arg("dump_ir") = false);
-
-  // m.def("get_cuda_callback", []() {
-  //   return pybind11::capsule(reinterpret_cast<void *>(&GpuCallback),
-  //                            "xla._CUSTOM_CALL_TARGET");
-  // });
 
   m.def(
       "lower_to_linalg",

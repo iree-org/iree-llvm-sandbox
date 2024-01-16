@@ -123,15 +123,6 @@ def _jit_lowering(
     identifier_attr = jax_mlir.dense_int_elements([compiled_kernel.identifier])
     identifier_op = stablehlo.ConstantOp(identifier_attr)
     mlir_args = [identifier_op.result]
-  # elif ctx.module_context.platforms[0] == 'cuda':
-  #   compiled_kernel = call_kernel.create_cuda_kernel(
-  #       module=lowered_ir,
-  #       num_inputs=len(args),
-  #       num_outputs=len(ctx.avals_out),
-  #       dump_ir=dump_ir,
-  #   )
-  #   ctx.module_context.add_keepalive(compiled_kernel)
-  #   backend_config = ir.StringAttr.get(compiled_kernel.ptr)
   else:
     raise NotImplementedError(
         f'Jasc does not support platform {ctx.module_context.platforms[0]}'
@@ -164,9 +155,6 @@ jax_mlir.register_lowering(jit_p, _jit_lowering)
 xla_client.register_custom_call_target(
     'jasc.call_kernel', call_kernel.get_cpu_callback(), platform='cpu'
 )
-# xla_client.register_custom_call_target(
-#     'jasc.call_kernel', call_kernel.get_cuda_callback(), platform='CUDA'
-# )
 
 
 def _tag_lowering(

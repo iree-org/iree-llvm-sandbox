@@ -74,7 +74,6 @@ cc_library(
     deps = [
         "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
         ":mlir_lowering_shared_library",
-        # "//third_party/gpus/cuda:cuda_headers",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:CAPIIR",
         "@llvm-project//mlir:ExecutionEngine",
