@@ -120,6 +120,14 @@ pip_install_dependencies()
 JAX_COMMIT = "32a317f7a43440800e1e39e00ed5f2980e088ab1"
 JAX_SHA256 = "6e2147be7360a5c0672b6ba0d654cdb2ac96113b63ef457dfdc76cd50fe69ff1"
 
+# We import JAX as `jax1` since `import jax` otherwise imports the *containing*
+# folder of the JAX Python module rather than the folder of the module. The
+# problem is that Bazel puts empty `__init__.py` files essentially everywhere;
+# See https://github.com/bazelbuild/bazel/issues/7653 and
+# https://github.com/bazelbuild/bazel/issues/3998. That behaviour can be
+# changed with `--incompatible_default_to_explicit_init_py` but then JAX
+# *misses* some empty `__init__.py` files and I have no ambition in fixing that
+# for them currently.
 http_archive(
     name = "jax1",
     patch_args = ["-p1"],

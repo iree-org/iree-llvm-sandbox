@@ -523,3 +523,57 @@
      name = "transform_dialect",
      rule = py_library,
      symlinked_inputs = {"srcs": {"dialects": [
+
+--- a/jaxlib/mlir/BUILD.bazel
++++ b/jaxlib/mlir/BUILD.bazel
+@@ -215,7 +215,6 @@ symlink_inputs(
+         ":ir",
+         ":mlir",
+         "//jaxlib/mlir/_mlir_libs:_mlirDialectsTransform",
+-        "//jaxlib/mlir/_mlir_libs:_mlirTransformOpsJasc",
+     ],
+ )
+ 
+
+--- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
++++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
+@@ -71,39 +71,6 @@ py_extension(
+     ],
+ )
+ 
+-
+-py_extension(
+-    name = "_mlirDialectsJasc",
+-    srcs = [
+-        "@jasc//dialect:bindings.cc",
+-    ],
+-    copts = COPTS,
+-    linkopts = LINKOPTS,
+-    deps = [
+-        ":jaxlib_mlir_capi_shared_library",
+-        "@jasc//dialect:jasc_dialect_headers",
+-        "@jasc//transform_ops:jasc_transform_ops_shared_library_headers",
+-        "@jasc//:mlir_lowering_shared_library_headers",
+-        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
+-        "@pybind11",
+-    ],
+-)
+-
+-py_extension(
+-    name = "_mlirTransformOpsJasc",
+-    srcs = [
+-        "@jasc//transform_ops:bindings.cpp",
+-    ],
+-    copts = COPTS,
+-    linkopts = LINKOPTS,
+-    deps = [
+-        ":jaxlib_mlir_capi_shared_library",
+-        "@jasc//transform_ops:jasc_transform_ops_headers",
+-        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
+-        "@pybind11",
+-    ],
+-)
+-
+ py_extension(
+     name = "_mlirSparseTensorPasses",
+     srcs = [

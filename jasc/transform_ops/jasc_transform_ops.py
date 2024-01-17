@@ -4,7 +4,7 @@
 
 from ._jasc_transform_ops_gen import *
 from ._jasc_transform_ops_gen import _Dialect
-from ..._mlir_libs._mlirTransformOpsJasc import *
+from .bindings import *
 
 try:
   from typing import Sequence

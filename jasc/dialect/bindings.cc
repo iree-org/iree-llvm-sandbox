@@ -16,7 +16,7 @@
 #include "mlir_lowering.h"
 #include "transform_ops/dialect_extension.h"
 
-PYBIND11_MODULE(_mlirDialectsJasc, m) {
+PYBIND11_MODULE(bindings, m) {
   m.def(
       "register_and_load_dialect",
       [](MlirContext py_context) {

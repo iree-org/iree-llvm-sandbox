@@ -20,7 +20,7 @@ from jaxlib.mlir.dialects import stablehlo
 from jaxlib.mlir.dialects import transform
 
 import call_kernel
-from jaxlib.mlir.dialects import jasc as jasc_dialect
+from dialect import jasc as jasc_dialect
 
 
 _JAX_COMPATIBLE_LOWERING = True

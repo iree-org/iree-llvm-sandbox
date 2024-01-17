@@ -64,27 +64,6 @@ gentbl_cc_library(
 )
 
 cc_library(
-    name = "jasc_dialect_shared_library_deps",
-    deps = [
-        "@llvm-project//llvm:Support",
-        "@llvm-project//mlir:GPUDialect",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:MemRefDialect",
-        "@llvm-project//mlir:TransformDialect",
-    ],
-)
-
-cc_headers_only(
-    name = "jasc_dialect_shared_library_deps_headers",
-    src = "jasc_dialect_shared_library_deps",
-)
-
-cc_headers_only(
-    name = "jasc_dialect_headers",
-    src = "dialect",
-)
-
-cc_library(
     name = "dialect",
     srcs = [
         "dialect.cc",
@@ -96,12 +75,26 @@ cc_library(
     ],
     deps = [
         ":dialect_inc_gen",
-        ":jasc_dialect_shared_library_deps_headers",
         ":ops_inc_gen",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:GPUDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:TransformDialect",
     ],
-    alwayslink = True,
 )
 
+cc_headers_only(
+    name = "dialect_headers",
+    src = "dialect",
+)
+
+#
+# CAPI library.
+#
+# We patch this into
+# `@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library`
+# such that that library (and only that) contains all symbols of the dialect.
 cc_library(
     name = "capi",
     srcs = [
@@ -145,39 +138,15 @@ gentbl_filegroup(
     ],
 )
 
-cc_library(
-    name = "jasc_dialect_shared_library",
-    srcs = [
-        "dialect.h",
-        "ops.h",
-        ":libjascdialect.so",
-    ],
-    deps = [
-        ":dialect_inc_gen",
-        ":jasc_dialect_shared_library_deps_headers",
-        ":ops_inc_gen",
-    ],
-)
-
-cc_binary(
-    name = "libjascdialect.so",
-    linkopts = [
-        "-Wl,-soname=libjascdialect.so",
-        "-Wl,-rpath='$$ORIGIN'",
-    ],
-    linkshared = 1,
-    deps = [":dialect"],
-)
-
 pybind_extension(
     name = "bindings",
     srcs = ["bindings.cc"],
+    # Only depend on headers or shared (!) libraries to avoid duplicate symbols.
     deps = [
-        ":jasc_dialect_headers",
+        ":dialect_headers",
         "//:mlir_lowering_shared_library",
-        "//transform_ops:jasc_transform_ops_shared_library",
+        "//transform_ops:jasc_transform_ops_headers",
         "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
-        "@llvm-project//mlir:CAPIIRHeaders",
         "@llvm-project//mlir:MLIRBindingsPythonHeaders",
     ],
 )
@@ -185,14 +154,11 @@ pybind_extension(
 py_library(
     name = "python",
     srcs = [
+        "_ods_common.py",
         "jasc.py",
-        # "_ods_common.py",
         ":ops_py_gen",
     ],
     deps = [
         ":bindings",
-        # "@jax//jaxlib/mlir:core",
-        # "@jax//jaxlib/mlir:ir",
-        # "@jax//jaxlib/mlir:pdl_dialect",
     ],
 )

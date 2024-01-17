@@ -58,10 +58,10 @@ gentbl_filegroup(
 pybind_extension(
     name = "bindings",
     srcs = ["bindings.cpp"],
+    # Only depend on headers or shared (!) libraries to avoid duplicate symbols.
     deps = [
-        ":jasc_transform_ops_shared_library",
+        ":jasc_transform_ops_headers",
         "@jax1//jaxlib/mlir/_mlir_libs:jaxlib_mlir_capi_shared_library",
-        "@llvm-project//mlir:CAPIIRHeaders",
         "@llvm-project//mlir:MLIRBindingsPythonHeaders",
     ],
 )
@@ -80,8 +80,12 @@ py_library(
 )
 
 cc_library(
-    name = "jasc_transform_ops_shared_library_deps",
+    name = "jasc_transform_ops",
+    srcs = glob(["*.cc"]),
+    hdrs = glob(["*.h"]),
+    includes = ["."],
     deps = [
+        ":jasc_transform_ops_inc_gen",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:GPUDialect",
         "@llvm-project//mlir:IR",
@@ -92,49 +96,6 @@ cc_library(
 )
 
 cc_headers_only(
-    name = "jasc_transform_ops_shared_library_deps_headers",
-    src = "jasc_transform_ops_shared_library_deps",
-)
-
-cc_library(
-    name = "jasc_transform_ops_shared_library",
-    srcs = [
-        ":libjasctransformops.so",
-    ],
-    hdrs = glob(["*.h"]),
-    deps = [
-        "jasc_transform_ops_shared_library_deps_headers",
-    ],
-)
-
-cc_headers_only(
-    name = "jasc_transform_ops_shared_library_headers",
-    src = "jasc_transform_ops_shared_library",
-)
-
-cc_binary(
-    name = "libjasctransformops.so",
-    linkopts = [
-        "-Wl,-soname=libjasctransformops.so",
-        "-Wl,-rpath='$$ORIGIN'",
-    ],
-    linkshared = 1,
-    deps = [":jasc_transform_ops"],
-)
-
-cc_headers_only(
     name = "jasc_transform_ops_headers",
     src = "jasc_transform_ops",
-)
-
-cc_library(
-    name = "jasc_transform_ops",
-    srcs = glob(["*.cc"]),
-    hdrs = glob(["*.h"]),
-    includes = ["."],
-    deps = [
-        ":jasc_transform_ops_inc_gen",
-        ":jasc_transform_ops_shared_library_deps_headers",
-    ],
-    alwayslink = True,
 )

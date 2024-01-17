@@ -52,9 +52,9 @@ from jaxlib.mlir.dialects.transform import (
 )
 
 import call_kernel
-from jaxlib.mlir.dialects import jasc as jasc_dialect
+from dialect import jasc as jasc_dialect
 import primitives
-from jaxlib.mlir.dialects.transform import jasc_transform_ops as jto
+from transform_ops import jasc_transform_ops as jto
 
 _JASC_AUTO_NORMALIZATION = True
 

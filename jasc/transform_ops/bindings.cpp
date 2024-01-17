@@ -7,7 +7,7 @@
 
 #include "dialect_extension.h"
 
-PYBIND11_MODULE(_mlirTransformOpsJasc, m) {
+PYBIND11_MODULE(bindings, m) {
   m.def(
       "register_transform_dialect_extension",
       [](mlir::python::DefaultingPyMlirContext py_context) {

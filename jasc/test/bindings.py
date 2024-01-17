@@ -8,8 +8,8 @@ from absl import app
 from jaxlib.mlir import ir, passmanager
 from jaxlib.mlir.dialects import transform
 
-from jaxlib.mlir.dialects import jasc as jd
-from jaxlib.mlir.dialects.transform import jasc_transform_ops as jto
+from dialect import jasc as jd
+from transform_ops import jasc_transform_ops as jto
 
 tests: list[Callable[[], None]] = []
 

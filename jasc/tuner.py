@@ -19,7 +19,7 @@ from jaxlib.mlir import ir
 from jaxlib.mlir.dialects import transform
 
 from jasc import jasc
-from jaxlib.mlir.dialects.transform import jasc_transform_ops
+from transform_ops import jasc_transform_ops
 
 @dataclasses.dataclass
 class TunerBase(abc.ABC):

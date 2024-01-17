@@ -80,7 +80,6 @@ py_binary(
         requirement("ml_dtypes"),
         requirement("opt_einsum"),
         "@jax1//jaxlib/mlir:ir",
-        "@jax1//jaxlib/mlir:jasc_dialect",
         "@jax1//jaxlib/mlir:scf_dialect",
     ],
 )
@@ -95,7 +94,6 @@ py_binary(
         requirement("opt_einsum"),
         "@jax1//jax",
         "@jax1//jaxlib/mlir:ir",
-        "@jax1//jaxlib/mlir:jasc_dialect",
     ],
 )
 

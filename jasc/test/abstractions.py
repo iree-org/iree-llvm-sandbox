@@ -14,7 +14,7 @@ from jaxlib.mlir.dialects import transform
 from jaxlib.mlir.dialects.transform import structured
 
 from jasc import jasc
-from jaxlib.mlir.dialects.transform import jasc_transform_ops
+from transform_ops import jasc_transform_ops
 
 tests: list[Callable[[], None]] = []
 jasc.set_auto_normalization(False)
