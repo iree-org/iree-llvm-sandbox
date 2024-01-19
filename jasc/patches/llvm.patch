@@ -1,8 +1,6 @@
-diff --git a/utils/bazel/llvm-project-overlay/lld/BUILD.bazel b/utils/bazel/llvm-project-overlay/lld/BUILD.bazel
-index fb6e2397cc84..db259fffaa63 100644
 --- a/utils/bazel/llvm-project-overlay/lld/BUILD.bazel
 +++ b/utils/bazel/llvm-project-overlay/lld/BUILD.bazel
-@@ -108,7 +108,6 @@ cc_library(
+@@ -109,7 +109,6 @@ cc_library(
          "//llvm:TargetParser",
          "//llvm:TransformUtils",
          "//llvm:config",
@@ -10,11 +8,10 @@ index fb6e2397cc84..db259fffaa63 100644
          "@llvm_zstd//:zstd",
      ],
  )
-diff --git a/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel b/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
-index 0cc28fd856bc..51764826a130 100644
+
 --- a/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
 +++ b/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
-@@ -277,11 +277,9 @@ cc_library(
+@@ -288,11 +288,9 @@ cc_library(
          # We unconditionally depend on the custom LLVM zlib wrapper. This will
          # be an empty library unless zlib is enabled, in which case it will
          # both provide the necessary dependencies and configuration defines.
@@ -81,10 +78,7 @@ index 0cc28fd856bc..51764826a130 100644
  )
  
  td_library(
-
---- a/utils/bazel/llvm-project-overlay/mlir/BUILD.bazel
-+++ a/utils/bazel/llvm-project-overlay/mlir/BUILD.bazel
-@@ -8907,6 +8907,7 @@ cc_library(
+@@ -8886,6 +8907,7 @@ cc_library(
          ":mlir_float16_utils",
          "//llvm:Support",
      ],

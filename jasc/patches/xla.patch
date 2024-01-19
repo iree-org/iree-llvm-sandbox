@@ -22,7 +22,7 @@
          "//xla/pjrt:mlir_to_hlo",
          "//xla/pjrt:pjrt_api",
          "//xla/pjrt:pjrt_c_api_client",
-@@ -1147,10 +1151,47 @@ cc_library(
+@@ -1147,10 +1151,51 @@ cc_library(
          "//xla/pjrt/distributed:service",
          "//xla/python/ifrt",
          "//xla/python/pjrt_ifrt",
@@ -32,6 +32,7 @@
 +        "//xla/service:buffer_assignment_proto_cc_impl",
 +        "//xla/service:hlo_proto_cc",
 +        "//xla/service:hlo_proto_cc_impl",
++        "//xla/stream_executor/gpu:gpu_init_impl",
 +        "//xla/stream_executor:device_description_proto_cc",
 +        "//xla/stream_executor:device_description_proto_cc_impl",
 +        "//xla/stream_executor:stream_executor_impl",
@@ -40,6 +41,7 @@
 +        "//xla:autotuning_proto_cc",
 +        "//xla:autotuning_proto_cc_impl",
          "@tsl//tsl/distributed_runtime/preemption:preemption_sync_manager",
++        "@tsl//tsl/framework:allocator_registry_impl",
          "@tsl//tsl/platform",
 +        "@tsl//tsl/platform:env",
 +        "@tsl//tsl/platform:env_impl",
@@ -50,6 +52,8 @@
 +        "@tsl//tsl/profiler/lib:profiler_session_impl",
 +        "@tsl//tsl/profiler/protobuf:profiled_instructions_proto_cc",
 +        "@tsl//tsl/profiler/protobuf:profiled_instructions_proto_cc_impl",
++        "@tsl//tsl/profiler/protobuf:profiler_analysis_proto_cc",
++        "@tsl//tsl/profiler/protobuf:profiler_analysis_proto_cc_impl",
 +        "@tsl//tsl/profiler/protobuf:profiler_options_proto_cc",
 +        "@tsl//tsl/profiler/protobuf:profiler_options_proto_cc_impl",
 +        "@tsl//tsl/profiler/protobuf:profiler_service_monitor_result_proto_cc",
@@ -70,31 +74,3 @@
          "@tsl//tsl/python/lib/core:numpy",
          "@pybind11",
      ] + select({
-
---- a/xla/python/BUILD
-+++ b/xla/python/BUILD
-@@ -1157,6 +1157,7 @@ cc_library(
-         "//xla/service:buffer_assignment_proto_cc_impl",
-         "//xla/service:hlo_proto_cc",
-         "//xla/service:hlo_proto_cc_impl",
-+        "//xla/stream_executor/gpu:gpu_init_impl",
-         "//xla/stream_executor:device_description_proto_cc",
-         "//xla/stream_executor:device_description_proto_cc_impl",
-         "//xla/stream_executor:stream_executor_impl",
-@@ -1165,6 +1166,7 @@ cc_library(
-         "//xla:autotuning_proto_cc",
-         "//xla:autotuning_proto_cc_impl",
-         "@tsl//tsl/distributed_runtime/preemption:preemption_sync_manager",
-+        "@tsl//tsl/framework:allocator_registry_impl",
-         "@tsl//tsl/platform",
-         "@tsl//tsl/platform:env",
-         "@tsl//tsl/platform:env_impl",
-@@ -1175,6 +1177,8 @@ cc_library(
-         "@tsl//tsl/profiler/lib:profiler_session_impl",
-         "@tsl//tsl/profiler/protobuf:profiled_instructions_proto_cc",
-         "@tsl//tsl/profiler/protobuf:profiled_instructions_proto_cc_impl",
-+        "@tsl//tsl/profiler/protobuf:profiler_analysis_proto_cc",
-+        "@tsl//tsl/profiler/protobuf:profiler_analysis_proto_cc_impl",
-         "@tsl//tsl/profiler/protobuf:profiler_options_proto_cc",
-         "@tsl//tsl/profiler/protobuf:profiler_options_proto_cc_impl",
-         "@tsl//tsl/profiler/protobuf:profiler_service_monitor_result_proto_cc",

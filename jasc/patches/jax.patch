@@ -1,5 +1,16 @@
+--- a/jax/BUILD
++++ b/jax/BUILD
+@@ -70,6 +70,7 @@ package_group(
+         # Intentionally avoid jax dependencies on jax.extend.
+         # See https://jax.readthedocs.io/en/latest/jep/15856-jex.html
+         "//third_party/py/jax/tests/...",
++        "public",
+     ] + jax_extend_internal_users,
+ )
+ 
+
 --- a/jaxlib/cpu/BUILD
-+++ a/jaxlib/cpu/BUILD
++++ b/jaxlib/cpu/BUILD
 @@ -79,7 +79,7 @@ cc_library(
          ":ducc_fft_flatbuffers_cc",
          "@xla//xla/service:custom_call_status",
@@ -10,79 +21,21 @@
  )
  
 
---- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
-+++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -241,6 +241,7 @@ cc_library(
-     deps = [
-         ":jax_dialects_capi",
-         "//jaxlib/mosaic:tpu_dialect_capi_objects",
-+        "@com_google_protobuf//:protobuf",
-         "@llvm-project//mlir:CAPIArithObjects",
-         "@llvm-project//mlir:CAPIMathObjects",
-         "@llvm-project//mlir:CAPIMemRefObjects",
-@@ -250,7 +251,11 @@ cc_library(
-         "@llvm-project//mlir:MLIRBindingsPythonCAPIObjects",
-         "@stablehlo//:chlo_capi_objects",
-         "@stablehlo//:stablehlo_capi_objects",
-+        "@tsl//tsl/platform:env",
-+        "@tsl//tsl/platform:env_impl",
-         "@xla//xla/mlir_hlo:CAPIObjects",
-+        "@xla//xla:xla_data_proto_cc",
-+        "@xla//xla:xla_data_proto_cc_impl",
-     ],
- )
- 
-
---- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
-+++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -139,6 +139,40 @@ py_extension(
-     ],
- )
- 
-+py_extension(
-+    name = "_mlirDialectsTransform",
-+    srcs = [
-+        "@llvm-project//mlir:lib/Bindings/Python/DialectTransform.cpp",
-+    ],
-+    copts = COPTS,
-+    linkopts = LINKOPTS,
-+    deps = [
-+        ":jax_dialects_capi_headers",
-+        ":jaxlib_mlir_capi_shared_library",
-+        "@llvm-project//mlir:CAPIIRHeaders",
-+        "@llvm-project//mlir:CAPITransformDialect",
-+        "@llvm-project//mlir:MLIRBindingsPythonHeadersAndDeps",
-+        "@pybind11",
-+    ],
-+)
-+
-+py_extension(
-+    name = "_mlirDialectsPDL",
-+    srcs = [
-+        "@llvm-project//mlir:lib/Bindings/Python/DialectPDL.cpp",
-+    ],
-+    copts = COPTS,
-+    linkopts = LINKOPTS,
-+    deps = [
-+        ":jax_dialects_capi_headers",
-+        ":jaxlib_mlir_capi_shared_library",
-+        "@llvm-project//mlir:CAPIIRHeaders",
-+        "@llvm-project//mlir:CAPIPDL",
-+        "@llvm-project//mlir:MLIRBindingsPythonHeadersAndDeps",
-+        "@pybind11",
-+    ],
-+)
-+
- ##---------------------------------------------------------------------------##
- # MHLO Extensions
- ##---------------------------------------------------------------------------##
-
 --- a/jaxlib/mlir/BUILD.bazel
-+++ a/jaxlib/mlir/BUILD.bazel
-@@ -75,6 +75,75 @@ symlink_inputs(
++++ b/jaxlib/mlir/BUILD.bazel
+@@ -13,6 +13,7 @@
+ # limitations under the License.
+ 
+ load("//jaxlib:symlink_files.bzl", "symlink_inputs")
++load("@pip_deps//:requirements.bzl", "requirement")
+ 
+ package(
+     default_visibility = [
+@@ -74,6 +75,141 @@ symlink_inputs(
+     ],
  )
  
- symlink_inputs(
++symlink_inputs(
 +    name = "bufferization_dialect",
 +    rule = py_library,
 +    symlinked_inputs = {"srcs": {"dialects": [
@@ -110,322 +63,6 @@
 +)
 +
 +symlink_inputs(
-+    name = "transform_dialect",
-+    rule = py_library,
-+    symlinked_inputs = {"srcs": {"dialects": [
-+        "@llvm-project//mlir/python:TransformOpsPyFiles",
-+    ]}},
-+    deps = [
-+        ":core",
-+        ":ir",
-+        ":mlir",
-+        ":transform_dialect_extensions",
-+    ],
-+)
-+
-+symlink_inputs(
-+    name = "transform_dialect_extensions",
-+    rule = py_library,
-+    symlinked_inputs = {"srcs": {"dialects/transform": [
-+        "@llvm-project//mlir/python:TransformOpsPackagePyFiles",
-+    ]}},
-+    deps = [
-+        ":core",
-+        ":ir",
-+        ":mlir",
-+        "//jaxlib/mlir/_mlir_libs:_mlirDialectsTransform",
-+    ],
-+)
-+
-+symlink_inputs(
-+    name = "pdl_dialect_extension",
-+    rule = py_library,
-+    symlinked_inputs = {"srcs": {"dialects": [
-+        "@llvm-project//mlir/python:PDLPyFiles",
-+    ]}},
-+    deps = [
-+        ":core",
-+        ":ir",
-+        ":mlir",
-+        "//jaxlib/mlir/_mlir_libs:_mlirDialectsPDL",
-+    ],
-+)
-+
-+symlink_inputs(
-     name = "math_dialect",
-     rule = py_library,
-     symlinked_inputs = {"srcs": {"dialects": [
-
---- a/jax/BUILD
-+++ a/jax/BUILD
-@@ -70,6 +70,7 @@ package_group(
-         # Intentionally avoid jax dependencies on jax.extend.
-         # See https://jax.readthedocs.io/en/latest/jep/15856-jex.html
-         "//third_party/py/jax/tests/...",
-+        "public",
-     ] + jax_extend_internal_users,
- )
- 
-
---- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
-+++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -131,6 +131,8 @@ py_extension(
-         "@llvm-project//mlir:CAPIIRHeaders",
-         "@llvm-project//mlir:CAPIMathHeaders",
-         "@llvm-project//mlir:CAPIMemRefHeaders",
-+        "@llvm-project//mlir:CAPIPDLHeaders",
-+        "@llvm-project//mlir:CAPITransformDialectHeaders",
-         "@llvm-project//mlir:CAPITransformsHeaders",
-         "@llvm-project//mlir:CAPIVectorHeaders",
-         "@llvm-project//mlir:MLIRBindingsPythonHeaders",
-@@ -279,7 +281,9 @@ cc_library(
-         "@llvm-project//mlir:CAPIArithObjects",
-         "@llvm-project//mlir:CAPIMathObjects",
-         "@llvm-project//mlir:CAPIMemRefObjects",
-+        "@llvm-project//mlir:CAPIPDLObjects",
-         "@llvm-project//mlir:CAPISparseTensorObjects",
-+        "@llvm-project//mlir:CAPITransformDialectObjects",
-         "@llvm-project//mlir:CAPITransformsObjects",
-         "@llvm-project//mlir:CAPIVectorObjects",
-         "@llvm-project//mlir:MLIRBindingsPythonCAPIObjects",
-
---- a/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
-+++ b/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
-@@ -2,9 +2,12 @@
- // This module is called by mlir/__init__.py during initialization.
- 
- #include "mlir-c/Dialect/Arith.h"
-+// #include "mlir-c/Dialect/Bufferization.h"
- #include "mlir-c/Dialect/Func.h"
- #include "mlir-c/Dialect/Math.h"
- #include "mlir-c/Dialect/MemRef.h"
-+#include "mlir-c/Dialect/PDL.h"
-+#include "mlir-c/Dialect/Transform.h"
- #include "mlir-c/Dialect/Vector.h"
- #include "mlir-c/Transforms.h"
- #include "mlir/Bindings/Python/PybindAdaptors.h"
-@@ -19,10 +22,13 @@ PYBIND11_MODULE(_site_initialize_0, m) {
- 
-   m.def("register_dialects", [](MlirDialectRegistry registry) {
-     REGISTER_DIALECT(arith);
-+    // REGISTER_DIALECT(bufferization);
-     REGISTER_DIALECT(func);
-     REGISTER_DIALECT(math);
-     REGISTER_DIALECT(memref);
-+    REGISTER_DIALECT(pdl);
-     REGISTER_DIALECT(scf);
-+    REGISTER_DIALECT(transform);
-     REGISTER_DIALECT(vector);
-     mlirRegisterTransformsPasses();
-     // Transforms used by JAX.
-
---- a/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
-+++ b/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
-@@ -9,6 +9,7 @@
- #include "mlir-c/Dialect/PDL.h"
- #include "mlir-c/Dialect/Transform.h"
- #include "mlir-c/Dialect/Vector.h"
-+#include "mlir-c/RegisterEverything.h"
- #include "mlir-c/Transforms.h"
- #include "mlir/Bindings/Python/PybindAdaptors.h"
- #include "jaxlib/mlir/_mlir_libs/jax_dialects.h"
-@@ -31,6 +32,7 @@ PYBIND11_MODULE(_site_initialize_0, m) {
-     REGISTER_DIALECT(transform);
-     REGISTER_DIALECT(vector);
-     mlirRegisterTransformsPasses();
-+    mlirRegisterAllDialects(registry);
-     // Transforms used by JAX.
-     mlirRegisterTransformsStripDebugInfo();
-   });
-
---- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
-+++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -279,18 +279,21 @@ cc_library(
-         "//jaxlib/mosaic:tpu_dialect_capi_objects",
-         "@com_google_protobuf//:protobuf",
-         "@llvm-project//mlir:CAPIArithObjects",
-+        "@llvm-project//mlir:CAPIInterfacesObjects",
-         "@llvm-project//mlir:CAPIMathObjects",
-         "@llvm-project//mlir:CAPIMemRefObjects",
-         "@llvm-project//mlir:CAPIPDLObjects",
-+        "@llvm-project//mlir:CAPIRegisterEverythingObjects",
-         "@llvm-project//mlir:CAPISparseTensorObjects",
-         "@llvm-project//mlir:CAPITransformDialectObjects",
-         "@llvm-project//mlir:CAPITransformsObjects",
-         "@llvm-project//mlir:CAPIVectorObjects",
--        "@llvm-project//mlir:MLIRBindingsPythonCAPIObjects",
-+        "@llvm-project//mlir:CAPIDebugObjects",
-+        "@llvm-project//mlir:MLIRBindingsPythonCoreNoCAPIObjects",
-         "@stablehlo//:chlo_capi_objects",
-         "@stablehlo//:stablehlo_capi_objects",
-         "@tsl//tsl/platform:env",
--        "@tsl//tsl/platform:env_impl",
-+        "@tsl//tsl/platform:env_impl",
-         "@xla//xla/mlir_hlo:CAPIObjects",
-         "@xla//xla:xla_data_proto_cc",
-         "@xla//xla:xla_data_proto_cc_impl",
-
---- a/jaxlib/mlir/BUILD.bazel
-+++ b/jaxlib/mlir/BUILD.bazel
-@@ -120,12 +120,14 @@ symlink_inputs(
-     rule = py_library,
-     symlinked_inputs = {"srcs": {"dialects/transform": [
-         "@llvm-project//mlir/python:TransformOpsPackagePyFiles",
-+        "@jasc//transform_ops:transform_ops",
-     ]}},
-     deps = [
-         ":core",
-         ":ir",
-         ":mlir",
-         "//jaxlib/mlir/_mlir_libs:_mlirDialectsTransform",
-+        "//jaxlib/mlir/_mlir_libs:_mlirTransformOpsJasc",
-     ],
- )
- 
-@@ -250,6 +252,20 @@ symlink_inputs(
-     ],
- )
- 
-+symlink_inputs(
-+    name = "jasc_dialect",
-+    rule = py_library,
-+    symlinked_inputs = {"srcs": {"dialects": [
-+        "@jasc//dialect:python",
-+    ]}},
-+    deps = [
-+        ":core",
-+        ":ir",
-+        ":mlir",
-+        "//jaxlib/mlir/_mlir_libs:_mlirDialectsJasc",
-+    ],
-+)
-+
- symlink_inputs(
-     name = "mhlo_dialect",
-     rule = py_library,
-
---- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
-+++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -71,6 +71,39 @@ py_extension(
-     ],
- )
- 
-+
-+py_extension(
-+    name = "_mlirDialectsJasc",
-+    srcs = [
-+        "@jasc//dialect:bindings.cc",
-+    ],
-+    copts = COPTS,
-+    linkopts = LINKOPTS,
-+    deps = [
-+        ":jaxlib_mlir_capi_shared_library",
-+        "@jasc//dialect:jasc_dialect_headers",
-+        "@jasc//transform_ops:jasc_transform_ops_shared_library_headers",
-+        "@jasc//:mlir_lowering_shared_library_headers",
-+        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
-+        "@pybind11",
-+    ],
-+)
-+
-+py_extension(
-+    name = "_mlirTransformOpsJasc",
-+    srcs = [
-+        "@jasc//transform_ops:bindings.cpp",
-+    ],
-+    copts = COPTS,
-+    linkopts = LINKOPTS,
-+    deps = [
-+        ":jaxlib_mlir_capi_shared_library",
-+        "@jasc//transform_ops:jasc_transform_ops_headers",
-+        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
-+        "@pybind11",
-+    ],
-+)
-+
- py_extension(
-     name = "_mlirSparseTensorPasses",
-     srcs = [
-@@ -126,6 +159,7 @@ py_extension(
-     linkopts = LINKOPTS,
-     deps = [
-         ":jax_dialects_capi_headers",
-+        "@jasc//dialect:capi_headers",
-         ":jaxlib_mlir_capi_shared_library",
-         "@llvm-project//mlir:CAPIArithHeaders",
-         "@llvm-project//mlir:CAPIIRHeaders",
-@@ -276,6 +310,9 @@ cc_library(
-     name = "jaxlib_mlir_capi_objects",
-     deps = [
-         ":jax_dialects_capi",
-+        "@jasc//dialect:capi",
-+        "@jasc//transform_ops:jasc_transform_ops",
-+        "@jasc//:mlir_lowering",
-         "//jaxlib/mosaic:tpu_dialect_capi_objects",
-         "@com_google_protobuf//:protobuf",
-         "@llvm-project//mlir:CAPIArithObjects",
-
---- a/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
-+++ b/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
-@@ -13,6 +13,7 @@
- #include "mlir-c/Transforms.h"
- #include "mlir/Bindings/Python/PybindAdaptors.h"
- #include "jaxlib/mlir/_mlir_libs/jax_dialects.h"
-+#include "dialect/capi.h"
- 
- #define REGISTER_DIALECT(name) \
-     MlirDialectHandle name##_dialect = mlirGetDialectHandle__##name##__(); \
-@@ -25,6 +26,7 @@ PYBIND11_MODULE(_site_initialize_0, m) {
-     REGISTER_DIALECT(arith);
-     // REGISTER_DIALECT(bufferization);
-     REGISTER_DIALECT(func);
-+    REGISTER_DIALECT(jasc);
-     REGISTER_DIALECT(math);
-     REGISTER_DIALECT(memref);
-     REGISTER_DIALECT(pdl);
-
-
---- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
-+++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -209,6 +209,23 @@ py_extension(
-     ],
- )
- 
-+py_extension(
-+    name = "_mlirDialectsLinalg",
-+    srcs = [
-+        "@llvm-project//mlir:lib/Bindings/Python/DialectLinalg.cpp",
-+    ],
-+    copts = COPTS,
-+    linkopts = LINKOPTS,
-+    deps = [
-+        ":jax_dialects_capi_headers",
-+        ":jaxlib_mlir_capi_shared_library",
-+        "@llvm-project//mlir:CAPIIRHeaders",
-+        "@llvm-project//mlir:CAPILinalg",
-+        "@llvm-project//mlir:MLIRBindingsPythonHeadersAndDeps",
-+        "@pybind11",
-+    ],
-+)
-+
- ##---------------------------------------------------------------------------##
- # MHLO Extensions
- ##---------------------------------------------------------------------------##
-
---- a/jaxlib/mlir/BUILD.bazel
-+++ b/jaxlib/mlir/BUILD.bazel
-@@ -13,6 +13,7 @@
- # limitations under the License.
- 
- load("//jaxlib:symlink_files.bzl", "symlink_inputs")
-+load("@pip_deps//:requirements.bzl", "requirement")
- 
- package(
-     default_visibility = [
-@@ -49,6 +50,19 @@ py_library(
- )
- 
- symlink_inputs(
 +    name = "complex_dialect",
 +    rule = py_library,
 +    symlinked_inputs = {"srcs": {"dialects": [
@@ -439,13 +76,6 @@
 +)
 +
 +symlink_inputs(
-     name = "func_dialect",
-     rule = py_library,
-     symlinked_inputs = {"srcs": {"dialects": [
-@@ -102,6 +116,80 @@ symlink_inputs(
- )
- 
- symlink_inputs(
 +    name = "linalg_dialect",
 +    rule = py_library,
 +    symlinked_inputs = {"srcs": {"dialects/linalg": [
@@ -497,83 +127,191 @@
 +    ]}},
 +)
 +
-+# symlink_files(
-+#     name = "linalg_package_opdsl_files",
-+#     srcs = ["//third_party/llvm/llvm-project/mlir/python:LinalgOpsPackageOpDSLPyFiles"],
-+#     dst = "dialects/linalg/opdsl",
-+#     flatten = True,
-+# )
-+
-+# symlink_files(
-+#     name = "linalg_package_opdsl_lang_files",
-+#     srcs = ["//third_party/llvm/llvm-project/mlir/python:LinalgOpsPackageOpDSLLangPyFiles"],
-+#     dst = "dialects/linalg/opdsl/lang",
-+#     flatten = True,
-+# )
-+
-+# symlink_files(
-+#     name = "linalg_package_opdsl_ops_files",
-+#     srcs = ["//third_party/llvm/llvm-project/mlir/python:LinalgOpsPackageOpDSLOpsPyFiles"],
-+#     dst = "dialects/linalg/opdsl/ops",
-+#     flatten = True,
-+# )
-+
++symlink_inputs(
++    name = "transform_dialect",
++    rule = py_library,
++    symlinked_inputs = {"srcs": {"dialects": [
++        "@llvm-project//mlir/python:TransformOpsPyFiles",
++    ]}},
++    deps = [
++        ":core",
++        ":ir",
++        ":mlir",
++        ":transform_dialect_extensions",
++    ],
++)
 +
 +symlink_inputs(
-     name = "transform_dialect",
++    name = "transform_dialect_extensions",
++    rule = py_library,
++    symlinked_inputs = {"srcs": {"dialects/transform": [
++        "@llvm-project//mlir/python:TransformOpsPackagePyFiles",
++        "@jasc//transform_ops:transform_ops",
++    ]}},
++    deps = [
++        ":core",
++        ":ir",
++        ":mlir",
++        "//jaxlib/mlir/_mlir_libs:_mlirDialectsTransform",
++    ],
++)
++
++symlink_inputs(
++    name = "pdl_dialect_extension",
++    rule = py_library,
++    symlinked_inputs = {"srcs": {"dialects": [
++        "@llvm-project//mlir/python:PDLPyFiles",
++    ]}},
++    deps = [
++        ":core",
++        ":ir",
++        ":mlir",
++        "//jaxlib/mlir/_mlir_libs:_mlirDialectsPDL",
++    ],
++)
++
+ symlink_inputs(
+     name = "math_dialect",
      rule = py_library,
-     symlinked_inputs = {"srcs": {"dialects": [
-
---- a/jaxlib/mlir/BUILD.bazel
-+++ b/jaxlib/mlir/BUILD.bazel
-@@ -215,7 +215,6 @@ symlink_inputs(
-         ":ir",
-         ":mlir",
-         "//jaxlib/mlir/_mlir_libs:_mlirDialectsTransform",
--        "//jaxlib/mlir/_mlir_libs:_mlirTransformOpsJasc",
-     ],
- )
- 
 
 --- a/jaxlib/mlir/_mlir_libs/BUILD.bazel
 +++ b/jaxlib/mlir/_mlir_libs/BUILD.bazel
-@@ -71,39 +71,6 @@ py_extension(
+@@ -126,11 +126,14 @@ py_extension(
+     linkopts = LINKOPTS,
+     deps = [
+         ":jax_dialects_capi_headers",
++        "@jasc//dialect:capi_headers",
+         ":jaxlib_mlir_capi_shared_library",
+         "@llvm-project//mlir:CAPIArithHeaders",
+         "@llvm-project//mlir:CAPIIRHeaders",
+         "@llvm-project//mlir:CAPIMathHeaders",
+         "@llvm-project//mlir:CAPIMemRefHeaders",
++        "@llvm-project//mlir:CAPIPDLHeaders",
++        "@llvm-project//mlir:CAPITransformDialectHeaders",
+         "@llvm-project//mlir:CAPITransformsHeaders",
+         "@llvm-project//mlir:CAPIVectorHeaders",
+         "@llvm-project//mlir:MLIRBindingsPythonHeaders",
+@@ -139,6 +142,57 @@ py_extension(
      ],
  )
  
--
--py_extension(
--    name = "_mlirDialectsJasc",
--    srcs = [
--        "@jasc//dialect:bindings.cc",
--    ],
--    copts = COPTS,
--    linkopts = LINKOPTS,
--    deps = [
--        ":jaxlib_mlir_capi_shared_library",
--        "@jasc//dialect:jasc_dialect_headers",
--        "@jasc//transform_ops:jasc_transform_ops_shared_library_headers",
--        "@jasc//:mlir_lowering_shared_library_headers",
--        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
--        "@pybind11",
--    ],
--)
--
--py_extension(
--    name = "_mlirTransformOpsJasc",
--    srcs = [
--        "@jasc//transform_ops:bindings.cpp",
--    ],
--    copts = COPTS,
--    linkopts = LINKOPTS,
--    deps = [
--        ":jaxlib_mlir_capi_shared_library",
--        "@jasc//transform_ops:jasc_transform_ops_headers",
--        "@llvm-project//mlir:MLIRBindingsPythonHeaders",
--        "@pybind11",
--    ],
--)
--
- py_extension(
-     name = "_mlirSparseTensorPasses",
-     srcs = [
++py_extension(
++    name = "_mlirDialectsTransform",
++    srcs = [
++        "@llvm-project//mlir:lib/Bindings/Python/DialectTransform.cpp",
++    ],
++    copts = COPTS,
++    linkopts = LINKOPTS,
++    deps = [
++        ":jax_dialects_capi_headers",
++        ":jaxlib_mlir_capi_shared_library",
++        "@llvm-project//mlir:CAPIIRHeaders",
++        "@llvm-project//mlir:CAPITransformDialect",
++        "@llvm-project//mlir:MLIRBindingsPythonHeadersAndDeps",
++        "@pybind11",
++    ],
++)
++
++py_extension(
++    name = "_mlirDialectsPDL",
++    srcs = [
++        "@llvm-project//mlir:lib/Bindings/Python/DialectPDL.cpp",
++    ],
++    copts = COPTS,
++    linkopts = LINKOPTS,
++    deps = [
++        ":jax_dialects_capi_headers",
++        ":jaxlib_mlir_capi_shared_library",
++        "@llvm-project//mlir:CAPIIRHeaders",
++        "@llvm-project//mlir:CAPIPDL",
++        "@llvm-project//mlir:MLIRBindingsPythonHeadersAndDeps",
++        "@pybind11",
++    ],
++)
++
++py_extension(
++    name = "_mlirDialectsLinalg",
++    srcs = [
++        "@llvm-project//mlir:lib/Bindings/Python/DialectLinalg.cpp",
++    ],
++    copts = COPTS,
++    linkopts = LINKOPTS,
++    deps = [
++        ":jax_dialects_capi_headers",
++        ":jaxlib_mlir_capi_shared_library",
++        "@llvm-project//mlir:CAPIIRHeaders",
++        "@llvm-project//mlir:CAPILinalg",
++        "@llvm-project//mlir:MLIRBindingsPythonHeadersAndDeps",
++        "@pybind11",
++    ],
++)
++
+ ##---------------------------------------------------------------------------##
+ # MHLO Extensions
+ ##---------------------------------------------------------------------------##
+@@ -240,17 +294,30 @@ cc_library(
+     name = "jaxlib_mlir_capi_objects",
+     deps = [
+         ":jax_dialects_capi",
++        "@jasc//dialect:capi",
++        "@jasc//transform_ops:jasc_transform_ops",
++        "@jasc//:mlir_lowering",
+         "//jaxlib/mosaic:tpu_dialect_capi_objects",
++        "@com_google_protobuf//:protobuf",
+         "@llvm-project//mlir:CAPIArithObjects",
++        "@llvm-project//mlir:CAPIInterfacesObjects",
+         "@llvm-project//mlir:CAPIMathObjects",
+         "@llvm-project//mlir:CAPIMemRefObjects",
++        "@llvm-project//mlir:CAPIPDLObjects",
++        "@llvm-project//mlir:CAPIRegisterEverythingObjects",
+         "@llvm-project//mlir:CAPISparseTensorObjects",
++        "@llvm-project//mlir:CAPITransformDialectObjects",
+         "@llvm-project//mlir:CAPITransformsObjects",
+         "@llvm-project//mlir:CAPIVectorObjects",
+-        "@llvm-project//mlir:MLIRBindingsPythonCAPIObjects",
++        "@llvm-project//mlir:CAPIDebugObjects",
++        "@llvm-project//mlir:MLIRBindingsPythonCoreNoCAPIObjects",
+         "@stablehlo//:chlo_capi_objects",
+         "@stablehlo//:stablehlo_capi_objects",
++        "@tsl//tsl/platform:env",
++        "@tsl//tsl/platform:env_impl",
+         "@xla//xla/mlir_hlo:CAPIObjects",
++        "@xla//xla:xla_data_proto_cc",
++        "@xla//xla:xla_data_proto_cc_impl",
+     ],
+ )
+ 
+
+--- a/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
++++ b/jaxlib/mlir/_mlir_libs/_site_initialize_0.cc
+@@ -5,10 +5,14 @@
+ #include "mlir-c/Dialect/Func.h"
+ #include "mlir-c/Dialect/Math.h"
+ #include "mlir-c/Dialect/MemRef.h"
++#include "mlir-c/Dialect/PDL.h"
++#include "mlir-c/Dialect/Transform.h"
+ #include "mlir-c/Dialect/Vector.h"
++#include "mlir-c/RegisterEverything.h"
+ #include "mlir-c/Transforms.h"
+ #include "mlir/Bindings/Python/PybindAdaptors.h"
+ #include "jaxlib/mlir/_mlir_libs/jax_dialects.h"
++#include "dialect/capi.h"
+ 
+ #define REGISTER_DIALECT(name) \
+     MlirDialectHandle name##_dialect = mlirGetDialectHandle__##name##__(); \
+@@ -20,11 +24,15 @@ PYBIND11_MODULE(_site_initialize_0, m) {
+   m.def("register_dialects", [](MlirDialectRegistry registry) {
+     REGISTER_DIALECT(arith);
+     REGISTER_DIALECT(func);
++    REGISTER_DIALECT(jasc);
+     REGISTER_DIALECT(math);
+     REGISTER_DIALECT(memref);
++    REGISTER_DIALECT(pdl);
+     REGISTER_DIALECT(scf);
++    REGISTER_DIALECT(transform);
+     REGISTER_DIALECT(vector);
+     mlirRegisterTransformsPasses();
++    mlirRegisterAllDialects(registry);
+     // Transforms used by JAX.
+     mlirRegisterTransformsStripDebugInfo();
+   });
