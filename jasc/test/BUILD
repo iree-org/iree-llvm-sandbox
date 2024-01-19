@@ -56,7 +56,10 @@ py_test(
     srcs = [
         "gpu_integration.py",
     ],
-    tags = ["requires-gpu-nvidia"],
+    tags = [
+        "manual",  # currently not supported
+        "requires-gpu-nvidia",
+    ],
     deps = [
         ":gpu_integration_lib",
     ],
@@ -126,7 +129,10 @@ py_binary(
 py_test(
     name = "batch_matmul_gpu",
     srcs = ["batch_matmul_gpu.py"],
-    tags = ["requires-gpu-nvidia"],
+    tags = [
+        "manual",  # currently not supported
+        "requires-gpu-nvidia",
+    ],
     deps = [
         "//:jasc",
         requirement("chex"),
@@ -140,7 +146,10 @@ py_test(
 py_test(
     name = "matmul_gpu",
     srcs = ["matmul_gpu.py"],
-    tags = ["requires-gpu-nvidia"],
+    tags = [
+        "manual",  # currently not supported
+        "requires-gpu-nvidia",
+    ],
     deps = [
         "//:jasc",
         requirement("chex"),
