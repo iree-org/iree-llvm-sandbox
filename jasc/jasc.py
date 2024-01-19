@@ -58,6 +58,7 @@ from jaxlib.mlir.dialects.transform import jasc_transform_ops as jto
 
 _JASC_AUTO_NORMALIZATION = True
 
+
 def set_auto_normalization(activate: bool):
   """Toggles the automatic normalization mode."""
   global _JASC_AUTO_NORMALIZATION

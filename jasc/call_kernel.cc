@@ -40,7 +40,8 @@
 
 #include "mlir_lowering.h"
 
-#define VLOG(X) std::cerr
+// Work-around while `VLOG` is still missing in public abseil.
+#define VLOG(X) LOG(INFO)
 
 namespace jasc {
 namespace {
@@ -75,13 +76,13 @@ class CpuKernel {
     identifier_ = next_kernel_id_++;
     global_registry_->emplace(identifier_, this);
 
-    VLOG(1) << "allocated kernel " << identifier_ << "\n";
+    VLOG(1) << "allocated kernel " << identifier_;
   }
 
   ~CpuKernel() {
     absl::WriterMutexLock lock(&global_registry_mutex_);
     global_registry_->erase(identifier_);
-    VLOG(1) << "deallocated kernel " << identifier_ << "\n";
+    VLOG(1) << "deallocated kernel " << identifier_;
   }
 
   // A unique identifier for the kernel.

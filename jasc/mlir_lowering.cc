@@ -368,12 +368,10 @@ void AddLowerCFToLLVMPasses(mlir::PassManager& pm) {
   pm.addPass(mlir::createLowerAffinePass());
 
   mlir::FinalizeMemRefToLLVMConversionPassOptions memref_to_llvm_opts;
-  // memref_to_llvm_opts.useOpaquePointers = true;
   pm.addPass(
       mlir::createFinalizeMemRefToLLVMConversionPass(memref_to_llvm_opts));
 
   mlir::ConvertFuncToLLVMPassOptions func_to_llvm_opts;
-  // func_to_llvm_opts.useOpaquePointers = true;
   func_to_llvm_opts.useBarePtrCallConv = false;
   pm.addPass(mlir::createConvertFuncToLLVMPass(func_to_llvm_opts));
   pm.addPass(mlir::createConvertIndexToLLVMPass());
@@ -478,7 +476,6 @@ absl::Status LowerStableHloToGpuLLVM(mlir::ModuleOp module, bool dump_ir) {
   pm.addPass(mlir::createFinalizeMemRefToLLVMConversionPass());
   pm.addPass(mlir::createLowerAffinePass());
   mlir::ConvertFuncToLLVMPassOptions func_to_llvm_opts;
-  func_to_llvm_opts.useOpaquePointers = true;
   func_to_llvm_opts.useBarePtrCallConv = true;
   pm.addPass(mlir::createConvertFuncToLLVMPass(func_to_llvm_opts));
   pm.addPass(mlir::createCanonicalizerPass());
