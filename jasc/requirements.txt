@@ -1,0 +1,23 @@
+absl-py==2.0.0
+chex==0.1.85
+iniconfig==2.0.0
+# We actually need to install JAX with pip as well because chex, which is
+# installed through @pip_deps, depends on JAX and can't be installed if its
+# dependencies are not. In order for that pip installed JAX not to be used,
+# we remove the corresponding path from the PYTHONPATH in all of our files
+# that import chex. This is a gross hack but the only way I have managed to
+# make things run until now. I opened an issue on Github here
+# https://github.com/bazelbuild/rules_python/issues/1583 but did not get
+# any answer.
+jax==0.4.23
+jaxlib==0.4.23
+ml-dtypes==0.3.2
+numpy==1.26.3
+opt-einsum==3.3.0
+packaging==23.2
+pluggy==1.3.0
+pytest==7.4.4
+PyYAML==6.0.1
+scipy==1.11.4
+toolz==0.12.0
+typing_extensions==4.9.0

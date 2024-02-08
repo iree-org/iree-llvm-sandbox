@@ -1,0 +1,102 @@
+--- a/utils/bazel/llvm-project-overlay/lld/BUILD.bazel
++++ b/utils/bazel/llvm-project-overlay/lld/BUILD.bazel
+@@ -109,7 +109,6 @@ cc_library(
+         "//llvm:TargetParser",
+         "//llvm:TransformUtils",
+         "//llvm:config",
+-        "@llvm_zlib//:zlib",
+         "@llvm_zstd//:zstd",
+     ],
+ )
+
+--- a/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
++++ b/utils/bazel/llvm-project-overlay/llvm/BUILD.bazel
+@@ -288,11 +288,9 @@ cc_library(
+         # We unconditionally depend on the custom LLVM zlib wrapper. This will
+         # be an empty library unless zlib is enabled, in which case it will
+         # both provide the necessary dependencies and configuration defines.
+-        "@llvm_zlib//:zlib",
+         # We unconditionally depend on the custom LLVM zstd wrapper. This will
+         # be an empty library unless zstd is enabled, in which case it will
+         # both provide the necessary dependencies and configuration defines.
+-        "@llvm_zstd//:zstd",
+     ],
+ )
+ 
+
+--- a/utils/bazel/llvm-project-overlay/mlir/BUILD.bazel
++++ b/utils/bazel/llvm-project-overlay/mlir/BUILD.bazel
+@@ -686,12 +686,11 @@ mlir_c_api_cc_library(
+     hdrs = [
+         "include/mlir-c/Dialect/PDL.h",
+     ],
+-    header_deps = [
+-        ":CAPIIRHeaders",
+-    ],
+     includes = ["include"],
+-    deps = [
++    capi_deps = [
+         ":CAPIIR",
++    ],
++    deps = [
+         ":PDLDialect",
+         ":PDLOpsIncGen",
+         ":PDLTypesIncGen",
+@@ -952,6 +951,27 @@ cc_library(
+     ],
+ )
+ 
++
++cc_library(
++    name = "MLIRBindingsPythonCoreNoCAPIObjects",
++    srcs = MLIR_PYTHON_BINDINGS_SOURCES,
++    copts = PYBIND11_COPTS,
++    features = PYBIND11_FEATURES,
++    alwayslink = True,
++    deps = [
++        ":CAPIAsyncHeaders",
++        ":CAPIDebugHeaders",
++        ":CAPIGPUHeaders",
++        ":CAPIIRHeaders",
++        ":CAPIInterfacesHeaders",
++        ":MLIRBindingsPythonHeaders",
++        "//llvm:Support",
++        "@pybind11",
++        "@python_runtime//:headers",
++    ],
++)
++
++
+ # Target that bundles together the CAPI objects needed for
+ # MLIRBindingsPythonCoreNoCAPI.
+ cc_library(
+@@ -6160,6 +6180,7 @@ cc_library(
+         ":SideEffectInterfaces",
+         "//llvm:Support",
+     ],
++    linkstatic = True,
+ )
+ 
+ td_library(
+@@ -8886,6 +8907,7 @@ cc_library(
+         ":mlir_float16_utils",
+         "//llvm:Support",
+     ],
++    alwayslink = True,
+ )
+ 
+ # Indirection to avoid 'libmlir_c_runner_utils.so' filename clash.
+
+--- a/llvm/utils/lit/lit.py
++++ b/llvm/utils/lit/lit.py
+@@ -1,5 +1,10 @@
+ #!/usr/bin/env python3
+ 
++from os import path
++import sys
++
++sys.path.append(path.dirname(__file__))
++
+ from lit.main import main
+ 
+ if __name__ == "__main__":
