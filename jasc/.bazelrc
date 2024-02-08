@@ -19,5 +19,3 @@ build --define=allow_oversize_protos=true
 # Sets the name of JAX's MLIR native extension. This exact value is expected
 # by the Python files of JAX.
 build --copt=-DMLIR_PYTHON_PACKAGE_PREFIX=jaxlib.mlir.
-
-build -c opt
