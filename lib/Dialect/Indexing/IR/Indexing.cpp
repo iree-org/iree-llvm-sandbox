@@ -66,13 +66,13 @@ LogicalResult GatherOp::inferReturnTypes(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
 
-  ArrayRef<int64_t> gather_dims =
-      attributes.get("gather_dims").cast<mlir::DenseI64ArrayAttr>();
+  auto typedProperties = properties.as<GatherOp::Properties *>();
+  ArrayRef<int64_t> gatherDims = typedProperties->getGatherDims();
   RankedTensorType expectedResultType = mlir::tensor::GatherOp::inferResultType(
       // source
       operands[0].getType().cast<RankedTensorType>(),
       // indices
-      operands[1].getType().cast<RankedTensorType>(), gather_dims,
+      operands[1].getType().cast<RankedTensorType>(), gatherDims,
       /*rankReduced=*/true);
   inferredReturnTypes.assign({expectedResultType});
   return success();
@@ -103,7 +103,8 @@ LogicalResult ConcatenateOp::inferReturnTypes(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
 
-  auto dimension = attributes.get("dimension").cast<IntegerAttr>().getInt();
+  auto typedProperties = properties.as<ConcatenateOp::Properties *>();
+  int64_t dimension = typedProperties->getDimension().getInt();
   auto sourceType = operands[0].getType().cast<RankedTensorType>();
   SmallVector<int64_t> resultShape(sourceType.getShape());
   std::for_each(
@@ -139,27 +140,37 @@ LogicalResult ARangeOp::inferReturnTypes(
     MLIRContext *context, std::optional<mlir::Location> location,
     ValueRange operands, DictionaryAttr attributes, OpaqueProperties properties,
     RegionRange regions, SmallVectorImpl<mlir::Type> &inferredReturnTypes) {
+  auto emitError = [&]() {
+    return mlir::emitError(location.value_or(mlir::UnknownLoc()));
+  };
+
   if (!operands.empty()) {
     inferredReturnTypes.assign({RankedTensorType::get(
         {ShapedType::kDynamic, 1}, IndexType::get(context))});
-  } else if (!attributes.empty() &&
-             attributes.contains(ARangeOp::getStartAttrAttrName(context)) &&
-             attributes.contains(ARangeOp::getStopAttrAttrName(context)) &&
-             attributes.contains(ARangeOp::getStepAttrAttrName(context))) {
-    auto start = attributes.get(ARangeOp::getStartAttrAttrName(context))
-                     .cast<IntegerAttr>()
-                     .getInt();
-    auto stop = attributes.get(ARangeOp::getStopAttrAttrName(context))
-                    .cast<IntegerAttr>()
-                    .getInt();
-    auto step = attributes.get(ARangeOp::getStepAttrAttrName(context))
-                    .cast<IntegerAttr>()
-                    .getInt();
-    inferredReturnTypes.assign({RankedTensorType::get(
-        {getARangeLen(start, stop, step), 1}, IndexType::get(context))});
-  } else {
+    return success();
+  }
+
+  if (!properties) {
+    emitError() << "No range provided";
     return failure();
   }
+
+  auto typedProperties = properties.as<ARangeOp::Properties *>();
+  IntegerAttr startAttr = typedProperties->getStartAttr();
+  IntegerAttr stopAttr = typedProperties->getStopAttr();
+  IntegerAttr stepAttr = typedProperties->getStepAttr();
+
+  if (!(startAttr && stopAttr && stepAttr)) {
+    emitError() << "Incomplete range provided";
+    return failure();
+  }
+
+  int64_t start = startAttr.getInt();
+  int64_t stop = stopAttr.getInt();
+  int64_t step = stepAttr.getInt();
+  inferredReturnTypes.assign({RankedTensorType::get(
+      {getARangeLen(start, stop, step), 1}, IndexType::get(context))});
+
   return success();
 }
 
@@ -258,7 +269,7 @@ struct ARangeOpPattern : public RewritePattern {
 
     assert(operands.size() + attributes.size() == 3 &&
            "wrong number of operands and attributes");
-    assert(operands.size() ==
+    assert(static_cast<int32_t>(operands.size()) ==
                std::reduce(segmentSizes.begin(), segmentSizes.end()) &&
            "expected number of non-zero segments to equal number of operands.");
 

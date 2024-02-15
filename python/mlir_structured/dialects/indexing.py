@@ -13,7 +13,7 @@ from typing import Optional, Tuple, Union, NamedTuple, Sequence, Any, List
 import numpy as np
 
 from . import arith, tensor
-from ._arith_ops_ext import _is_integer_like_type
+from .arith import _is_integer_like_type
 from ._indexing_ops_gen import *
 from ._indexing_ops_ext import get_gather_result_shape
 from ._ods_common import get_op_result_or_value
