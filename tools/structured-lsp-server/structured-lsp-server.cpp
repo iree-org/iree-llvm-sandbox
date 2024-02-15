@@ -23,6 +23,7 @@
 #include "structured/Conversion/Passes.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
+#include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
@@ -37,6 +38,14 @@ static void registerIteratorDialects(DialectRegistry &registry) {
       mlir::iterators::IteratorsDialect,
       mlir::tabular::TabularDialect,
       mlir::tuple::TupleDialect
+      // clang-format on
+      >();
+}
+
+static void registerSubstraitDialects(DialectRegistry &registry) {
+  registry.insert<
+      // clang-format off
+      mlir::substrait::SubstraitDialect
       // clang-format on
       >();
 }
@@ -57,6 +66,7 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registerAllExtensions(registry);
   registerIteratorDialects(registry);
+  registerSubstraitDialects(registry);
 
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }
