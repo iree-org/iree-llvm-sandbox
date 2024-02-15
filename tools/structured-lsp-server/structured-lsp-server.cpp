@@ -26,8 +26,6 @@
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
-#include "triton/Dialect/Triton/IR/Dialect.h"
-#include "triton/Dialect/TritonGPU/IR/Dialect.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Signals.h"
 
@@ -39,15 +37,6 @@ static void registerIteratorDialects(DialectRegistry &registry) {
       mlir::iterators::IteratorsDialect,
       mlir::tabular::TabularDialect,
       mlir::tuple::TupleDialect
-      // clang-format on
-      >();
-}
-
-inline void registerTritonDialects(DialectRegistry &registry) {
-  registry.insert<
-      // clang-format off
-      triton::TritonDialect,
-      triton::gpu::TritonGPUDialect
       // clang-format on
       >();
 }
@@ -68,7 +57,6 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registerAllExtensions(registry);
   registerIteratorDialects(registry);
-  registerTritonDialects(registry);
 
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }

@@ -18,15 +18,11 @@
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
-#include "triton/Dialect/Triton/IR/Dialect.h"
-#include "triton/Dialect/TritonGPU/IR/Dialect.h"
 
 using namespace mlir;
 using namespace mlir::indexing;
 using namespace mlir::iterators;
 using namespace mlir::tabular;
-using namespace mlir::triton;
-using namespace mlir::triton::gpu;
 using namespace mlir::tuple;
 
 //===----------------------------------------------------------------------===//
@@ -107,13 +103,6 @@ MlirType mlirTabularViewTypeGetColumnType(MlirType type, intptr_t pos) {
 MlirType mlirTabularViewTypeGetRowType(MlirType type) {
   return wrap(unwrap(type).cast<TabularViewType>().getRowType());
 }
-
-//===----------------------------------------------------------------------===//
-// Triton dialect and attributes
-//===----------------------------------------------------------------------===//
-
-MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Triton, triton, TritonDialect)
-MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(TritonGPU, triton_gpu, TritonGPUDialect)
 
 //===----------------------------------------------------------------------===//
 // Tuple dialect and attributes

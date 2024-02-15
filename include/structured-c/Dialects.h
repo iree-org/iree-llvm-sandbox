@@ -69,13 +69,6 @@ MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGetColumnType(MlirType type,
 MLIR_CAPI_EXPORTED MlirType mlirTabularViewTypeGetRowType(MlirType type);
 
 //===----------------------------------------------------------------------===//
-// Triton dialects and attributes
-//===----------------------------------------------------------------------===//
-
-MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Triton, triton);
-MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Triton, triton_gpu);
-
-//===----------------------------------------------------------------------===//
 // Tuple dialect and attributes
 //===----------------------------------------------------------------------===//
 

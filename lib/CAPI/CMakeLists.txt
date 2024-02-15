@@ -2,13 +2,6 @@ add_mlir_public_c_api_library(StructuredCAPI
     Dialects.cpp
     Passes.cpp
     Transforms.cpp
-    Triton.cpp
-
-  DEPENDS
-    MLIRTritonConversionIncGen
-    MLIRTritonTransformIncGen
-    MLIRTritonTransformsCAPIIncGen
-    MLIRTritonGPUTransformsCAPIIncGen
 
   LINK_LIBS PUBLIC
     MLIRCAPIIR
@@ -18,17 +11,8 @@ add_mlir_public_c_api_library(StructuredCAPI
     MLIRIteratorsTransforms
     MLIRTabular
     MLIRTabularToLLVM
-    MLIRTritonFuncToFunc
-    MLIRTritonSPMDToFuncArgs
-    MLIRTritonToLLVM
     MLIRTupleDialect
     MLIRTupleTransforms
     MLIRPass
     MLIRStatesToLLVM
-    TritonGPUIR
-    TritonGPUToLLVM
-    TritonGPUTransforms
-    TritonIR
-    TritonToTritonGPU
-    TritonTransforms
 )

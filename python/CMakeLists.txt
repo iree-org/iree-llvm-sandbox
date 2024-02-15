@@ -42,24 +42,6 @@ declare_mlir_dialect_python_bindings(
 declare_mlir_dialect_python_bindings(
   ADD_TO_PARENT StructuredPythonSources.Dialects
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
-  TD_FILE dialects/TritonOps.td
-  SOURCES
-  dialects/triton.py
-  DIALECT_NAME tt
-)
-
-declare_mlir_dialect_python_bindings(
-  ADD_TO_PARENT StructuredPythonSources.Dialects
-  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
-  TD_FILE dialects/TritonGPUOps.td
-  SOURCES
-  dialects/triton_gpu.py
-  DIALECT_NAME triton_gpu
-)
-
-declare_mlir_dialect_python_bindings(
-  ADD_TO_PARENT StructuredPythonSources.Dialects
-  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
   TD_FILE dialects/TupleOps.td
   SOURCES
   dialects/tuple.py
@@ -89,7 +71,6 @@ declare_mlir_python_sources(StructuredPythonSources.ExecutionEngine
   ADD_TO_PARENT StructuredPythonSources
   SOURCES_GLOB
     runtime/*.py
-    triton/*.py
 )
 
 # ###############################################################################
