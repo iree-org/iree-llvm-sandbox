@@ -17,7 +17,7 @@ func.func @main() {
   %reduced = "iterators.reduce"(%input) {reduceFuncRef = @sum_tuple} :
                  (!iterators.stream<tuple<i32>>) ->
                      (!iterators.stream<tuple<i32>>)
-// CHECK-NEXT:    %[[V1:reduced.*]] = "iterators.reduce"(%[[V0]]) {reduceFuncRef = @sum_tuple} : (!iterators.stream<tuple<i32>>) -> !iterators.stream<tuple<i32>>
+// CHECK-NEXT:    %[[V1:reduced.*]] = "iterators.reduce"(%[[V0]]) <{reduceFuncRef = @sum_tuple}> : (!iterators.stream<tuple<i32>>) -> !iterators.stream<tuple<i32>>
   return
 // CHECK-NEXT:    return
 }

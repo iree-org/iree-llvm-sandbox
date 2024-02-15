@@ -18,7 +18,7 @@ func.func @main() {
   // CHECK-DAG:      %[[V6:.*]] = llvm.getelementptr %[[V4]][0] : (!llvm.ptr) -> !llvm.ptr, i8
   // CHECK-DAG:      %[[V7:.*]] = tuple.to_elements %[[V3]] : tuple<i32>
   // CHECK-DAG:      %[[Vb:.*]] = arith.extui %[[V7]] : i32 to i64
-  // CHECK-NEXT:     %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[Vb]]) : (!llvm.ptr, i64) -> i32
+  // CHECK-NEXT:     %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[Vb]]) vararg(!llvm.func<i32 (ptr, ...)>) : (!llvm.ptr, i64) -> i32
 
   %three_field_tuple = "iterators.constanttuple"() { values = [1 : i32, 2 : i32, 3 : i32] } : () -> tuple<i32, i32, i32>
   // CHECK-DAG:      %[[V5:.*]] = arith.constant 1 : i32

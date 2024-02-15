@@ -14,7 +14,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/SCF/Transforms/Transforms.h"
+#include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
@@ -35,7 +35,7 @@ struct ConvertTabularToLLVMPass
 };
 } // namespace
 
-TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
+TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter *llvmTypeConverter)
     : llvmTypeConverter(llvmTypeConverter) {
   addConversion([](Type type) { return type; });
   addConversion(convertTabularViewType);
@@ -43,7 +43,7 @@ TabularTypeConverter::TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter)
   // Convert MemRefType using LLVMTypeConverter.
   addConversion([&](Type type) -> std::optional<Type> {
     if (type.isa<MemRefType>())
-      return llvmTypeConverter.convertType(type);
+      return this->llvmTypeConverter->convertType(type);
     return std::nullopt;
   });
 }
@@ -129,7 +129,7 @@ void mlir::tabular::populateTabularToLLVMConversionPatterns(
 void ConvertTabularToLLVMPass::runOnOperation() {
   auto module = getOperation();
   LLVMTypeConverter llvmTypeConverter(&getContext());
-  TabularTypeConverter typeConverter(llvmTypeConverter);
+  TabularTypeConverter typeConverter(&llvmTypeConverter);
 
   // Convert the remaining ops of this dialect using dialect conversion.
   ConversionTarget target(getContext());

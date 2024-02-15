@@ -24,14 +24,14 @@ namespace tabular {
 /// Maps types from the Tabular dialect to corresponding types in LLVM.
 class TabularTypeConverter : public TypeConverter {
 public:
-  TabularTypeConverter(LLVMTypeConverter &llvmTypeConverter);
+  TabularTypeConverter(LLVMTypeConverter *llvmTypeConverter);
 
   /// Maps a TabularViewType to an LLVMStruct of pointers, i.e., to a "struct of
   /// arrays".
   static std::optional<Type> convertTabularViewType(Type type);
 
 private:
-  LLVMTypeConverter llvmTypeConverter;
+  LLVMTypeConverter *llvmTypeConverter;
 };
 
 /// Populate the given list with patterns that convert from Tabular to LLVM.

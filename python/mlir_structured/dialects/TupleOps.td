@@ -7,7 +7,6 @@
 #ifndef PYTHON_BINDINGS_TUPLE_OPS
 #define PYTHON_BINDINGS_TUPLE_OPS
 
-include "mlir/Bindings/Python/Attributes.td"
 include "structured/Dialect/Tuple/IR/TupleOps.td"
 
 #endif // PYTHON_BINDINGS_TUPLE_OPS

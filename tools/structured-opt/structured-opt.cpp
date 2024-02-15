@@ -48,7 +48,6 @@ int main(int argc, char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(executable);
 #endif
 
-  llvm::InitLLVM y(argc, argv);
   registerAllPasses();
   registerStructuredConversionPasses();
   registerIteratorsPasses();
