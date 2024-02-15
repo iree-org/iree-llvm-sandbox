@@ -7,7 +7,6 @@
 #ifndef PYTHON_BINDINGS_ITERATORS_OPS
 #define PYTHON_BINDINGS_ITERATORS_OPS
 
-include "mlir/Bindings/Python/Attributes.td"
 include "structured/Dialect/Iterators/IR/IteratorsOps.td"
 
 #endif // PYTHON_BINDINGS_ITERATORS_OPS

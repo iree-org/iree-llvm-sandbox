@@ -9,7 +9,7 @@
 #include "structured/Dialect/Tuple/Transforms/DecomposeTuples.h"
 
 #include "mlir/Dialect/Func/Transforms/OneToNFuncConversions.h"
-#include "mlir/Dialect/SCF/Transforms/Transforms.h"
+#include "mlir/Dialect/SCF/Transforms/Patterns.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/OneToNTypeConversion.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"

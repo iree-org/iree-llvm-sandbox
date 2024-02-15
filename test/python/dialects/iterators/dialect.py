@@ -40,7 +40,7 @@ def testParse():
       '%0 = "iterators.constantstream"() {value = []} : () -> (!iterators.stream<tuple<i32>>)'
   )
   # CHECK:      module {
-  # CHECK-NEXT:   %[[V0:.*]] = "iterators.constantstream"() {value = []} : () -> !iterators.stream<tuple<i32>>
+  # CHECK-NEXT:   %[[V0:.*]] = "iterators.constantstream"() <{value = []}> : () -> !iterators.stream<tuple<i32>>
   # CHECK-NEXT: }
   print(mod)
 

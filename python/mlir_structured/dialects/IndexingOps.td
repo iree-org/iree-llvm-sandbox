@@ -7,7 +7,6 @@
 #ifndef PYTHON_BINDINGS_INDEXING_OPS
 #define PYTHON_BINDINGS_INDEXING_OPS
 
-include "mlir/Bindings/Python/Attributes.td"
 include "structured/Dialect/Indexing/IR/IndexingOps.td"
 
 #endif // PYTHON_BINDINGS_INDEXING_OPS
