@@ -35,6 +35,10 @@ jobs:
         path: sandbox/.git
         key: git-folder
 
+    - name: Install protobuf
+      run: |
+        sudo apt install -y protobuf-compiler libprotobuf-dev
+
     - name: Checkout project
       uses: actions/checkout@v3
       with:
