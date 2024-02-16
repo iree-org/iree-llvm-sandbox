@@ -17,7 +17,6 @@
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "structured/Conversion/Passes.h"
-#include "structured/Dialect/Indexing/IR/Indexing.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
@@ -35,7 +34,6 @@ using namespace mlir;
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
       // clang-format off
-      mlir::indexing::IndexingDialect,
       mlir::iterators::IteratorsDialect,
       mlir::tabular::TabularDialect,
       mlir::tuple::TupleDialect

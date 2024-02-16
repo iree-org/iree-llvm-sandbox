@@ -14,16 +14,6 @@ declare_mlir_python_sources(StructuredPythonSources.Dialects
 declare_mlir_dialect_python_bindings(
   ADD_TO_PARENT StructuredPythonSources.Dialects
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
-  TD_FILE dialects/IndexingOps.td
-  SOURCES
-  dialects/indexing.py
-  dialects/_indexing_ops_ext.py
-  DIALECT_NAME indexing
-)
-
-declare_mlir_dialect_python_bindings(
-  ADD_TO_PARENT StructuredPythonSources.Dialects
-  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
   TD_FILE dialects/IteratorsOps.td
   SOURCES
   dialects/iterators.py
