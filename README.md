@@ -74,9 +74,9 @@ For details, see the documentation of the
 ### Configure and build main project
 
 Run the command below to set up the build system, possibly adapting it to your
-needs. For example, you may not compile `clang`, `clang-tools-extra`, `lld`,
-and/or the examples to save compilation time, or use a different variant than
-`Debug`.
+needs. For example, you may choose not to compile `clang`, `clang-tools-extra`,
+`lld`, and/or the examples to save compilation time, or use a different variant
+than `Debug`.
 
 ```bash
 cmake \
@@ -85,7 +85,7 @@ cmake \
   -DCMAKE_EXPORT_COMPILE_COMMANDS=TRUE \
   -DCMAKE_BUILD_TYPE=Debug \
   -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
-  -DLLVM_TARGETS_TO_BUILD="AMDGPU;NVPTX;X86" \
+  -DLLVM_TARGETS_TO_BUILD="X86" \
   -DLLVM_ENABLE_ASSERTIONS=ON \
   -DLLVM_INCLUDE_UTILS=ON \
   -DLLVM_INSTALL_UTILS=ON \
@@ -106,19 +106,6 @@ To build, run:
 
 ```bash
 cd ${IREE_LLVM_SANDBOX_BUILD_DIR} && ninja
-```
-
-### Build and install Triton (optional)
-
-You may compile and install the Triton Python module at the same version that
-the main project uses. This is required for some tests to pass and has to be
-done every time the [Triton submodule](third_party/triton/) is updated.
-
-```bash
-CXX=clang++ CC=clang \
-  CMAKE_CXX_COMPILER_LAUNCHER=ccache CMAKE_C_COMPILER_LAUNCHER=ccache
-  LLVM_SYSPATH=${IREE_LLVM_SANDBOX_BUILD_DIR} \
-  pip install -v -e ${IREE_LLVM_SANDBOX_BUILD_DIR}/third_party/triton/python
 ```
 
 ## Using structured-opt

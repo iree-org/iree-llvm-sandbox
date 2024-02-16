@@ -8,7 +8,6 @@ add_llvm_executable(structured-opt
 add_dependencies(structured-tools structured-opt)
 
 set(test_libs
-  TritonTestAnalysis
 )
 
 target_link_libraries(structured-opt

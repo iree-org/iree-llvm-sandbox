@@ -19,16 +19,11 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Pass/Pass.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
-#include "triton/Dialect/Triton/IR/Dialect.h"
-#include "triton/Dialect/TritonGPU/IR/Dialect.h"
 
 namespace mlir {
 
 #define GEN_PASS_CLASSES
 #include "structured/Conversion/Passes.h.inc"
-
-#define GEN_PASS_CLASSES
-#include "structured/Conversion/TritonConversions.h.inc"
 
 } // namespace mlir
 

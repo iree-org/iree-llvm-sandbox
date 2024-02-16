@@ -55,7 +55,6 @@ jobs:
       run: |
         cd ${STRUCTURED_MAIN_SRC_DIR}
         python -m pip install -v -r requirements.txt
-        python -m pip install -v -r requirements-triton.txt
 
     - name: Configure CMake
       run: |
@@ -67,7 +66,7 @@ jobs:
           -DCMAKE_C_COMPILER:FILEPATH=clang \
           -DCMAKE_CXX_COMPILER:FILEPATH=clang++ \
           -DLLVM_ENABLE_PROJECTS="mlir;clang;clang-tools-extra" \
-          -DLLVM_TARGETS_TO_BUILD="AMDGPU;NVPTX;X86" \
+          -DLLVM_TARGETS_TO_BUILD="X86" \
           -DLLVM_ENABLE_ASSERTIONS=ON \
           -DLLVM_INCLUDE_UTILS=ON \
           -DLLVM_INSTALL_UTILS=ON \
@@ -85,21 +84,7 @@ jobs:
 
     - name: Build main project
       run: |
-        cmake --build ${STRUCTURED_MAIN_BINARY_DIR} --target structured-all triton-dependencies
-        ccache -s
-
-    - name: Build Triton
-      env:
-        CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        CMAKE_C_COMPILER_LAUNCHER: ccache
-        MAX_JOBS: 1
-        # Use GCC temporarily due to warning in Clang and hard-coded -Werror.
-        CC: gcc
-        CXX: g++
-        # TRITON_BUILD_WITH_CLANG_LLD: 1
-      run: |
-        cd ${STRUCTURED_MAIN_SRC_DIR}/third_party/triton/python
-        pip install -v .
+        cmake --build ${STRUCTURED_MAIN_BINARY_DIR} --target structured-all
         ccache -s
 
     - name: Run lit tests
