@@ -14,45 +14,14 @@
 #include "mlir/CAPI/Registration.h"
 #include "mlir/CAPI/Support.h"
 #include "mlir/IR/Types.h"
-#include "structured/Dialect/Indexing/IR/Indexing.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 
 using namespace mlir;
-using namespace mlir::indexing;
 using namespace mlir::iterators;
 using namespace mlir::tabular;
 using namespace mlir::tuple;
-
-//===----------------------------------------------------------------------===//
-// Indexing dialect and attributes
-//===----------------------------------------------------------------------===//
-
-MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Indexing, indexing, IndexingDialect)
-
-bool mlirTypeIsAIndexingCustom(MlirType type) {
-  return unwrap(type).isa<CustomType>();
-}
-
-MlirType mlirIndexingCustomTypeGet(MlirContext ctx, MlirStringRef str) {
-  return wrap(CustomType::get(unwrap(ctx), unwrap(str)));
-}
-
-bool mlirIsATensorValue(MlirValue value) {
-  return mlirTypeIsATensor(mlirValueGetType(value));
-}
-
-// Collects together checking for all conventional floats, integers,
-// and index types. Roughly corresponds to the union of
-// _is_floating_point_type, _is_integer_type, and _is_index_type in
-// mlir/dialects/linalg/opdsl/lang/emitter.py.
-bool mlirIsAScalarValue(MlirValue value) {
-  MlirType type = mlirValueGetType(value);
-  return mlirTypeIsABF16(type) || mlirTypeIsAComplex(type) ||
-         mlirTypeIsAF16(type) || mlirTypeIsAF32(type) || mlirTypeIsAF64(type) ||
-         mlirTypeIsAInteger(type) || mlirTypeIsAIndex(type);
-}
 
 //===----------------------------------------------------------------------===//
 // Iterators dialect and types
