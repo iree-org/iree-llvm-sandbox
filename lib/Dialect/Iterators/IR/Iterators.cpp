@@ -83,7 +83,8 @@ LogicalResult ExtractValueOp::inferReturnTypes(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<Type> &inferredReturnTypes) {
   auto stateType = operands[0].getType().cast<StateType>();
-  auto indexAttr = attributes.getAs<IntegerAttr>("index");
+  auto typedProperties = properties.as<ExtractValueOp::Properties *>();
+  auto indexAttr = typedProperties->getIndex();
   int64_t index = indexAttr.getValue().getSExtValue();
   Type fieldType = stateType.getFieldTypes()[index];
   inferredReturnTypes.assign({fieldType});

@@ -15,13 +15,13 @@ func.func @main() {
   // CHECK-DAG:       %[[V6:.*]] = llvm.getelementptr %[[V4]][0] : (!llvm.ptr) -> !llvm.ptr, i8
   // CHECK-DAG:       %[[V7:.*]] = tuple.to_elements %[[arg2:.*]] : tuple<i32>
   // CHECK-DAG:       %[[V9:.*]] = arith.extui %[[V7]] : i32 to i64
-  // CHECK-NEXT:      %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[V9]]) : (!llvm.ptr, i64) -> i32
+  // CHECK-NEXT:      %[[V8:.*]] = llvm.call @printf(%[[V6]], %[[V9]]) vararg(!llvm.func<i32 (ptr, ...)>) : (!llvm.ptr, i64) -> i32
   // CHECK-NEXT:      scf.yield %[[arg1]] : [[rootStateType]]
   // CHECK-NEXT:    }
   // CHECK-NEXT:    %[[V3:.*]] = call @[[rootIteratorName]].close.{{[0-9]+}}(%[[V2]]#0) : ([[rootStateType]]) -> [[rootStateType]]
   // CHECK-DAG:     %[[Va:.*]] = llvm.mlir.addressof @iterators.frmt_spec.0 : !llvm.ptr
   // CHECK-DAG:     %[[Vc:.*]] = llvm.getelementptr %[[Va]][0] : (!llvm.ptr) -> !llvm.ptr, i8
-  // CHECK-NEXT:    %[[Vd:.*]] = llvm.call @printf(%[[Vc]]) : (!llvm.ptr) -> i32
+  // CHECK-NEXT:    %[[Vd:.*]] = llvm.call @printf(%[[Vc]]) vararg(!llvm.func<i32 (ptr, ...)>) : (!llvm.ptr) -> i32
   return
   // CHECK-NEXT:   return
 }

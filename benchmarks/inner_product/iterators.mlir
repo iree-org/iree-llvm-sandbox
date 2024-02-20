@@ -48,7 +48,7 @@ func.func private @sum_float(%lhs : !float_type, %rhs : !float_type) -> !float_t
 // Main program.
 //
 func.func @main(%input: !tabular.tabular_view<!element_type,!element_type>,
-                %output: !llvm.ptr<!element_type>)
+                %output: !llvm.ptr)
     attributes { llvm.emit_c_interface } {
   %stream = iterators.tabular_view_to_stream %input
     to !iterators.stream<!tuple_type>
@@ -57,6 +57,6 @@ func.func @main(%input: !tabular.tabular_view<!element_type,!element_type>,
   %reduced = "iterators.reduce"(%summed) {reduceFuncRef = @sum_int}
     : (!iterators.stream<!element_type>) -> (!iterators.stream<!element_type>)
   %result:2 = iterators.stream_to_value %reduced : !iterators.stream<!element_type>
-  llvm.store %result#0, %output : !llvm.ptr<!element_type>
+  llvm.store %result#0, %output : !element_type, !llvm.ptr
   return
 }

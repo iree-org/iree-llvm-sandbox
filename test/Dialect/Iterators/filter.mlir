@@ -17,7 +17,7 @@ func.func @main() {
   %filtered = "iterators.filter"(%input) {predicateRef = @is_positive_tuple} :
                   (!iterators.stream<tuple<i32>>) ->
                       (!iterators.stream<tuple<i32>>)
-// CHECK-NEXT:    %[[V1:filtered.*]] = "iterators.filter"(%[[V0]]) {predicateRef = @is_positive_tuple} : (!iterators.stream<tuple<i32>>) -> !iterators.stream<tuple<i32>>
+// CHECK-NEXT:    %[[V1:filtered.*]] = "iterators.filter"(%[[V0]]) <{predicateRef = @is_positive_tuple}> : (!iterators.stream<tuple<i32>>) -> !iterators.stream<tuple<i32>>
   return
 // CHECK-NEXT:    return
 }

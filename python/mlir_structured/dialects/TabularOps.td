@@ -7,7 +7,6 @@
 #ifndef PYTHON_BINDINGS_TABULAR_OPS
 #define PYTHON_BINDINGS_TABULAR_OPS
 
-include "mlir/Bindings/Python/Attributes.td"
 include "structured/Dialect/Tabular/IR/TabularOps.td"
 
 #endif // PYTHON_BINDINGS_TABULAR_OPS
