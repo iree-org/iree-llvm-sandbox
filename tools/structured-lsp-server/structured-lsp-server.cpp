@@ -43,11 +43,7 @@ static void registerIteratorDialects(DialectRegistry &registry) {
 }
 
 static void registerSubstraitDialects(DialectRegistry &registry) {
-  registry.insert<
-      // clang-format off
-      mlir::substrait::SubstraitDialect
-      // clang-format on
-      >();
+  registry.insert<mlir::substrait::SubstraitDialect>();
 }
 
 int main(int argc, char **argv) {
