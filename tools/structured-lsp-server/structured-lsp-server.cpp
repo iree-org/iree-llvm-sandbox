@@ -23,6 +23,7 @@
 #include "structured/Conversion/Passes.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
+#include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
@@ -41,6 +42,10 @@ static void registerIteratorDialects(DialectRegistry &registry) {
       >();
 }
 
+static void registerSubstraitDialects(DialectRegistry &registry) {
+  registry.insert<mlir::substrait::SubstraitDialect>();
+}
+
 int main(int argc, char **argv) {
 #ifndef NDEBUG
   static std::string executable =
@@ -57,6 +62,7 @@ int main(int argc, char **argv) {
   registerAllDialects(registry);
   registerAllExtensions(registry);
   registerIteratorDialects(registry);
+  registerSubstraitDialects(registry);
 
   return mlir::failed(mlir::MlirLspServerMain(argc, argv, registry));
 }
