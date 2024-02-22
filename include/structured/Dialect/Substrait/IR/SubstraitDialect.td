@@ -26,6 +26,13 @@ def Substrait_Dialect : Dialect {
     dialect of an MLIR-based pipeline, respectively, or for implementing
     rewrites on Substrait that optimize or legalize plans between existing
     Substraits producers and consumers.
+
+    The ops and types in this dialect have an approximate one-to-one
+    correspondance with the specification and the
+    [protobuf](https://github.com/substrait-io/substrait/tree/main/proto/substrait)
+    message types. The correspondance is only approximate since it is often
+    more natural in MLIR to represent several message types as a single op and
+    express message sub-types with interfaces instead.
   }];
 }
 

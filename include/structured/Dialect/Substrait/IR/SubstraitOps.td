@@ -42,6 +42,10 @@ class AnyOf<list<Constraint> opTypes, string summary = ""> : Constraint<
 //===----------------------------------------------------------------------===//
 // Plan
 //===----------------------------------------------------------------------===//
+// The definitions in this section are related to the top-level `Plan` message.
+// See https://substrait.io/serialization/binary_serialization/ and
+// https://github.com/substrait-io/substrait/blob/main/proto/substrait/plan.proto.
+//===----------------------------------------------------------------------===//
 
 def PlanBodyOp : AnyOf<[
     IsOp<"::mlir::substrait::PlanRelOp">
