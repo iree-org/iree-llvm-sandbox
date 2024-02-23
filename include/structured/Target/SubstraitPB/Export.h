@@ -9,6 +9,7 @@
 #ifndef STRUCTURED_TARGET_SUBSTRAITPB_EXPORT_H
 #define STRUCTURED_TARGET_SUBSTRAITPB_EXPORT_H
 
+#include "structured/Target/SubstraitPB/Options.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace mlir {
@@ -17,8 +18,9 @@ class LogicalResult;
 
 namespace substrait {
 
-LogicalResult translateSubstraitToProtobuf(Operation *op,
-                                           llvm::raw_ostream &output);
+LogicalResult
+translateSubstraitToProtobuf(Operation *op, llvm::raw_ostream &output,
+                             substrait::ImportExportOptions options = {});
 
 } // namespace substrait
 } // namespace mlir

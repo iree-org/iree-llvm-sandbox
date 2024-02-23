@@ -9,6 +9,7 @@
 #ifndef STRUCTURED_TARGET_SUBSTRAITPB_IMPORT_H
 #define STRUCTURED_TARGET_SUBSTRAITPB_IMPORT_H
 
+#include "structured/Target/SubstraitPB/Options.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace mlir {
@@ -20,8 +21,9 @@ class OwningOpRef;
 
 namespace substrait {
 
-OwningOpRef<ModuleOp> translateProtobufToSubstrait(llvm::StringRef input,
-                                                   MLIRContext *context);
+OwningOpRef<ModuleOp>
+translateProtobufToSubstrait(llvm::StringRef input, MLIRContext *context,
+                             substrait::ImportExportOptions options = {});
 
 } // namespace substrait
 } // namespace mlir

@@ -10,9 +10,11 @@
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/LogicalResult.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
+#include "structured/Target/SubstraitPB/Options.h"
 #include "llvm/ADT/TypeSwitch.h"
 
 #include <google/protobuf/text_format.h>
+#include <google/protobuf/util/json_util.h>
 #include <substrait/plan.pb.h>
 
 using namespace mlir;
@@ -94,16 +96,41 @@ FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op) {
 namespace mlir {
 namespace substrait {
 
-LogicalResult translateSubstraitToProtobuf(Operation *op,
-                                           llvm::raw_ostream &output) {
+LogicalResult
+translateSubstraitToProtobuf(Operation *op, llvm::raw_ostream &output,
+                             substrait::ImportExportOptions options) {
   FailureOr<std::unique_ptr<pb::Message>> result = exportOperation(op);
   if (failed(result))
     return failure();
 
   std::string out;
-  if (!pb::TextFormat::PrintToString(*result.value(), &out)) {
-    op->emitOpError("could not be serialized to text format");
-    return failure();
+  switch (options.serdeFormat) {
+  case substrait::SerdeFormat::kText:
+    if (!pb::TextFormat::PrintToString(*result.value(), &out)) {
+      op->emitOpError("could not be serialized to text format");
+      return failure();
+    }
+    break;
+  case substrait::SerdeFormat::kBinary:
+    if (!result->get()->SerializeToString(&out)) {
+      op->emitOpError("could not be serialized to binary format");
+      return failure();
+    }
+    break;
+  case substrait::SerdeFormat::kJson:
+  case substrait::SerdeFormat::kPrettyJson: {
+    pb::util::JsonOptions jsonOptions;
+    if (options.serdeFormat == SerdeFormat::kPrettyJson)
+      jsonOptions.add_whitespace = true;
+    pb::util::Status status =
+        pb::util::MessageToJsonString(*result.value(), &out, jsonOptions);
+    if (!status.ok()) {
+      InFlightDiagnostic diag =
+          op->emitOpError("could not be serialized to binary format");
+      diag.attachNote() << status.message();
+      return diag;
+    }
+  }
   }
 
   output << out;

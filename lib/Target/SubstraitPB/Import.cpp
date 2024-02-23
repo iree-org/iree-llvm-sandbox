@@ -12,9 +12,11 @@
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/OwningOpRef.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
+#include "structured/Target/SubstraitPB/Options.h"
 
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/text_format.h>
+#include <google/protobuf/util/json_util.h>
 #include <substrait/plan.pb.h>
 
 using namespace mlir;
@@ -86,14 +88,34 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
 namespace mlir {
 namespace substrait {
 
-OwningOpRef<ModuleOp> translateProtobufToSubstrait(llvm::StringRef input,
-                                                   MLIRContext *context) {
+OwningOpRef<ModuleOp>
+translateProtobufToSubstrait(llvm::StringRef input, MLIRContext *context,
+                             ImportExportOptions options) {
   Location loc = UnknownLoc::get(context);
-
-  auto plan = std::make_unique<Plan>();
-  if (!pb::TextFormat::ParseFromString(input.str(), plan.get())) {
-    emitError(loc) << "could not parse string as 'Plan' message.";
-    return {};
+  auto plan = std::make_unique<::substrait::Plan>();
+  switch (options.serdeFormat) {
+  case substrait::SerdeFormat::kText:
+    if (!pb::TextFormat::ParseFromString(input.str(), plan.get())) {
+      emitError(loc) << "could not parse string as 'Plan' message.";
+      return {};
+    }
+    break;
+  case substrait::SerdeFormat::kBinary:
+    if (!plan->ParseFromString(input.str())) {
+      emitError(loc) << "could not deserialize input as 'Plan' message.";
+      return {};
+    }
+    break;
+  case substrait::SerdeFormat::kJson:
+  case substrait::SerdeFormat::kPrettyJson: {
+    pb::util::Status status =
+        pb::util::JsonStringToMessage(input.str(), plan.get());
+    if (!status.ok()) {
+      emitError(loc) << "could not deserialize JSON as 'Plan' message:\n"
+                     << status.message().as_string();
+      return {};
+    }
+  }
   }
 
   context->loadDialect<SubstraitDialect>();
