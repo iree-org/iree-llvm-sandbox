@@ -69,7 +69,7 @@ FailureOr<int> verifyNamedStruct(Location loc,
       return emitError(loc, "not enough field names provided");
     auto currentName = llvm::cast<StringAttr>(fieldNames[numConsumedNames]);
     if (!currentLevelNames.insert(currentName).second)
-      return emitError(loc, llvm::Twine("duplicte field name: '") +
+      return emitError(loc, llvm::Twine("duplicate field name: '") +
                                 currentName.getValue() + "'");
     numConsumedNames++;
 
