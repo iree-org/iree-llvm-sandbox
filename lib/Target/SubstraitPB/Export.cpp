@@ -40,9 +40,6 @@ FailureOr<std::unique_ptr<::substrait::Plan>> exportOperation(ModuleOp op) {
   if (!op->getAttrs().empty())
     return failure();
 
-  if (op->getRegions().size() != 1)
-    return failure();
-
   Region &body = op.getBodyRegion();
   if (llvm::range_size(body.getOps()) != 1)
     return failure();
