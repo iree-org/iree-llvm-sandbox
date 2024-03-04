@@ -48,10 +48,10 @@ static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
       version.git_hash(), version.producer());
   planOp.getBody().push_back(new Block());
 
-  for (int i = 0; i < message.relations_size(); i++) {
+  for (const auto &relation : message.relations()) {
     OpBuilder::InsertionGuard insertGuard(builder);
     builder.setInsertionPointToEnd(&planOp.getBody().front());
-    if (failed(importPlanRel(builder, message.relations(i))))
+    if (failed(importPlanRel(builder, relation)))
       return failure();
   }
 
