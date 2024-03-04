@@ -82,7 +82,6 @@ OwningOpRef<ModuleOp> translateProtobufToSubstrait(llvm::StringRef input,
   if (!pb::TextFormat::ParseFromString(input.str(), plan.get()))
     return {};
 
-  // XXX: Is this really the right way/place to do this?
   context->loadDialect<SubstraitDialect>();
 
   Location loc = UnknownLoc::get(context);
