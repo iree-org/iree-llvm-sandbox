@@ -23,6 +23,15 @@ declare_mlir_dialect_python_bindings(
 declare_mlir_dialect_python_bindings(
   ADD_TO_PARENT StructuredPythonSources.Dialects
   ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
+  TD_FILE dialects/SubstraitOps.td
+  SOURCES
+  dialects/substrait.py
+  DIALECT_NAME substrait
+)
+
+declare_mlir_dialect_python_bindings(
+  ADD_TO_PARENT StructuredPythonSources.Dialects
+  ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_structured"
   TD_FILE dialects/TabularOps.td
   SOURCES
   dialects/tabular.py

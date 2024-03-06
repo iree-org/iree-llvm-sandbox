@@ -29,6 +29,12 @@ MLIR_CAPI_EXPORTED
 MlirType mlirIteratorsStreamTypeGet(MlirContext context, MlirType elementType);
 
 //===----------------------------------------------------------------------===//
+// Substrait dialect
+//===----------------------------------------------------------------------===//
+
+MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(Substrait, substrait);
+
+//===----------------------------------------------------------------------===//
 // Tabular dialect and types
 //===----------------------------------------------------------------------===//
 
