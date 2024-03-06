@@ -11,6 +11,7 @@ add_mlir_public_c_api_library(StructuredCAPI
     MLIRSubstraitDialect
     MLIRTabular
     MLIRTabularToLLVM
+    MLIRTargetSubstraitPB
     MLIRTupleDialect
     MLIRTupleTransforms
     MLIRPass
