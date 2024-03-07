@@ -34,6 +34,10 @@ def testJsonFormat():
   print(json_plan)
   # CHECK: {"version":{"minorNumber":42,"patchNumber":1}}
 
+  plan_op = plan_module.body.operations[0]
+  print(plan_op.to_json())
+  # CHECK: {"version":{"minorNumber":42,"patchNumber":1}}
+
   json_plan = json.dumps(json.loads(json_plan))
   print(json_plan)
   # CHECK: {"version": {"minorNumber": 42, "patchNumber": 1}}
@@ -56,6 +60,10 @@ def testTextPB():
   # CHECK-NEXT:   minor_number: 42
   # CHECK-NEXT:   patch_number: 1
 
+  plan_op = plan_module.body.operations[0]
+  print(plan_op.to_textpb())
+  # CHECK:      version {
+
   plan_module = ss.from_textpb(text_plan)
   print(plan_module)
   # CHECK: substrait.plan version
@@ -68,6 +76,10 @@ def testBinPB():
 
   bin_plan = ss.to_binpb(plan_module.operation)
   print(bin_plan)
+  # CHECK: 2
+
+  plan_op = plan_module.body.operations[0]
+  print(plan_op.to_binpb())
   # CHECK: 2
 
   plan_module = ss.from_binpb(bin_plan)
