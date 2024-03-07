@@ -17,6 +17,7 @@
 
 using namespace mlir;
 using namespace mlir::substrait;
+using namespace ::substrait;
 
 namespace pb = google::protobuf;
 
@@ -30,13 +31,12 @@ namespace {
 // `MESSAGE_TYPE` argument corresponds to the protobuf message type returned
 // by the function.
 #define DECLARE_EXPORT_FUNC(OP_TYPE, MESSAGE_TYPE)                             \
-  static FailureOr<std::unique_ptr<::substrait::MESSAGE_TYPE>>                 \
-  exportOperation(OP_TYPE op);
+  static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
 
-FailureOr<std::unique_ptr<::substrait::Plan>> exportOperation(ModuleOp op) {
+FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
   if (!op->getAttrs().empty())
     return failure();
 
@@ -50,9 +50,9 @@ FailureOr<std::unique_ptr<::substrait::Plan>> exportOperation(ModuleOp op) {
   return failure();
 }
 
-FailureOr<std::unique_ptr<::substrait::Plan>> exportOperation(PlanOp op) {
+FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   // Build `Version` message.
-  auto version = std::make_unique<::substrait::Version>();
+  auto version = std::make_unique<Version>();
   version->set_major_number(op.getMajorNumber());
   version->set_minor_number(op.getMinorNumber());
   version->set_patch_number(op.getPatchNumber());
@@ -60,7 +60,7 @@ FailureOr<std::unique_ptr<::substrait::Plan>> exportOperation(PlanOp op) {
   version->set_git_hash(op.getGitHash().str());
 
   // Build `Plan` message.
-  auto plan = std::make_unique<::substrait::Plan>();
+  auto plan = std::make_unique<Plan>();
   plan->set_allocated_version(version.release());
 
   // TODO(ingomueller): build plan content once defined.
@@ -78,7 +78,10 @@ FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op) {
               return failure();
             return std::unique_ptr<pb::Message>(typedMessage.value().release());
           })
-      .Default([](auto) { return failure(); });
+      .Default([](auto op) {
+        op->emitOpError("not supported for export.");
+        return failure();
+      });
 }
 
 } // namespace

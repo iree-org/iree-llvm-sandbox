@@ -18,6 +18,7 @@
 
 using namespace mlir;
 using namespace mlir::substrait;
+using namespace ::substrait;
 
 namespace pb = google::protobuf;
 
@@ -34,15 +35,15 @@ namespace {
 // but the import logic needs the whole context; the message that is passed in
 // is the most deeply nested message that provides the whole context.
 #define DECLARE_IMPORT_FUNC(MESSAGE_TYPE, ARG_TYPE, OP_TYPE)                   \
-  static FailureOr<OP_TYPE> import##MESSAGE_TYPE(                              \
-      ImplicitLocOpBuilder builder, const ::substrait::ARG_TYPE &message);
+  static FailureOr<OP_TYPE> import##MESSAGE_TYPE(ImplicitLocOpBuilder builder, \
+                                                 const ARG_TYPE &message);
 
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
 
 static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
-                                    const ::substrait::Plan &message) {
-  const ::substrait::Version &version = message.version();
+                                    const Plan &message) {
+  const Version &version = message.version();
   auto planOp = builder.create<PlanOp>(
       version.major_number(), version.minor_number(), version.patch_number(),
       version.git_hash(), version.producer());
@@ -59,9 +60,9 @@ static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
 }
 
 static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
-                                          const ::substrait::PlanRel &message) {
+                                          const PlanRel &message) {
   switch (message.rel_type_case()) {
-  case ::substrait::PlanRel::RelTypeCase::kRel: {
+  case PlanRel::RelTypeCase::kRel: {
     auto planRelOp = builder.create<PlanRelOp>();
     // TODO(ingomueller): import content once defined.
     return planRelOp;
@@ -78,7 +79,7 @@ namespace substrait {
 
 OwningOpRef<ModuleOp> translateProtobufToSubstrait(llvm::StringRef input,
                                                    MLIRContext *context) {
-  auto plan = std::make_unique<::substrait::Plan>();
+  auto plan = std::make_unique<Plan>();
   if (!pb::TextFormat::ParseFromString(input.str(), plan.get()))
     return {};
 
