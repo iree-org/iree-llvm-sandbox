@@ -139,8 +139,8 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   // Add `relation`s to plan.
   for (auto relOp : op.getOps<PlanRelOp>()) {
     Operation *terminator = relOp.getBody().front().getTerminator();
-    auto rootOp = llvm::dyn_cast<RelOpInterface>(
-        terminator->getOperand(0).getDefiningOp());
+    auto rootOp =
+        llvm::cast<RelOpInterface>(terminator->getOperand(0).getDefiningOp());
 
     FailureOr<std::unique_ptr<Rel>> rel = exportOperation(rootOp);
     if (failed(rel))
