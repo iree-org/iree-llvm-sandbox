@@ -74,9 +74,8 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
       [](MlirContext context, bool doLoad) {
         MlirDialectHandle handle = mlirGetDialectHandle__substrait__();
         mlirDialectHandleRegisterDialect(handle, context);
-        if (doLoad) {
+        if (doLoad)
           mlirDialectHandleLoadDialect(handle, context);
-        }
       },
       py::arg("context") = py::none(), py::arg("load") = true);
 
