@@ -1,5 +1,6 @@
 // RUN: structured-opt -verify-diagnostics -split-input-file %s
 
+// Test error if providing too many names (1 name for 0 fields).
 substrait.plan version 0 : 42 : 1 {
   relation {
     // expected-error@+2 {{mismatching 'field_names' (["a"]) and result type ('tuple<>')}}
@@ -11,6 +12,7 @@ substrait.plan version 0 : 42 : 1 {
 
 // -----
 
+// Test error if providing too few names (0 names for 1 field).
 substrait.plan version 0 : 42 : 1 {
   relation {
     // expected-error@+2 {{mismatching 'field_names' ([]) and result type ('tuple<si32>')}}
@@ -23,6 +25,7 @@ substrait.plan version 0 : 42 : 1 {
 
 // -----
 
+// Test error if providing duplicate field names in the same nesting level.
 substrait.plan version 0 : 42 : 1 {
   relation {
     // expected-error@+2 {{mismatching 'field_names' (["a", "a"]) and result type ('tuple<si32, si32>')}}
