@@ -95,7 +95,7 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
   auto struct_ = std::make_unique<::substrait::Type::Struct>();
   struct_->set_nullability(
       Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
-  auto tupleType = llvm::cast<TupleType>(op->getResult(0).getType());
+  auto tupleType = llvm::cast<TupleType>(op.getResult().getType());
   for (mlir::Type fieldType : tupleType.getTypes()) {
     FailureOr<std::unique_ptr<::substrait::Type>> type = exportType(fieldType);
     if (failed(type))
