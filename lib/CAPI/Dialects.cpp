@@ -18,6 +18,9 @@
 #include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
+#include "structured/Target/SubstraitPB/Export.h"
+#include "structured/Target/SubstraitPB/Import.h"
+#include "structured/Target/SubstraitPB/Options.h"
 
 using namespace mlir;
 using namespace mlir::iterators;
@@ -44,6 +47,45 @@ MlirType mlirIteratorsStreamTypeGet(MlirContext context, MlirType elementType) {
 //===----------------------------------------------------------------------===//
 
 MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Substrait, substrait, SubstraitDialect)
+
+/// Converts the provided enum value into the equivalent value from
+/// `::mlir::substrait::SerdeFormat`.
+SerdeFormat convertSerdeFormat(MlirSubstraitSerdeFormat format) {
+  switch (format) {
+  case MlirSubstraitBinarySerdeFormat:
+    return SerdeFormat::kBinary;
+  case MlirSubstraitTextSerdeFormat:
+    return SerdeFormat::kText;
+  case MlirSubstraitJsonSerdeFormat:
+    return SerdeFormat::kJson;
+  case MlirSubstraitPrettyJsonSerdeFormat:
+    return SerdeFormat::kPrettyJson;
+  }
+}
+
+MlirModule mlirSubstraitImportPlan(MlirContext context, MlirStringRef input,
+                                   MlirSubstraitSerdeFormat format) {
+  ImportExportOptions options;
+  options.serdeFormat = convertSerdeFormat(format);
+  OwningOpRef<ModuleOp> owning =
+      translateProtobufToSubstrait(unwrap(input), unwrap(context), options);
+  if (!owning)
+    return MlirModule{nullptr};
+  return MlirModule{owning.release().getOperation()};
+}
+
+MlirAttribute mlirSubstraitExportPlan(MlirOperation op,
+                                      MlirSubstraitSerdeFormat format) {
+  std::string str;
+  llvm::raw_string_ostream stream(str);
+  ImportExportOptions options;
+  options.serdeFormat = convertSerdeFormat(format);
+  if (failed(translateSubstraitToProtobuf(unwrap(op), stream, options)))
+    return wrap(Attribute());
+  MLIRContext *context = unwrap(op)->getContext();
+  Attribute attr = StringAttr::get(context, str);
+  return wrap(attr);
+}
 
 //===----------------------------------------------------------------------===//
 // Tabular dialect and types
