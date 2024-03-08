@@ -13,6 +13,7 @@
 #include "mlir/IR/OwningOpRef.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
 
+#include <google/protobuf/descriptor.h>
 #include <google/protobuf/text_format.h>
 #include <substrait/plan.pb.h>
 
@@ -61,14 +62,22 @@ static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
 
 static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
                                           const PlanRel &message) {
-  switch (message.rel_type_case()) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  PlanRel::RelTypeCase rel_type = message.rel_type_case();
+  switch (rel_type) {
   case PlanRel::RelTypeCase::kRel: {
     auto planRelOp = builder.create<PlanRelOp>();
     // TODO(ingomueller): import content once defined.
     return planRelOp;
   }
-  default:
-    return failure();
+  default: {
+    const pb::EnumDescriptor *desc =
+        PlanRel::GetDescriptor()->enum_type(rel_type);
+    emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name() + ".";
+    return {};
+  }
   }
 }
 
@@ -79,13 +88,16 @@ namespace substrait {
 
 OwningOpRef<ModuleOp> translateProtobufToSubstrait(llvm::StringRef input,
                                                    MLIRContext *context) {
+  Location loc = UnknownLoc::get(context);
+
   auto plan = std::make_unique<Plan>();
-  if (!pb::TextFormat::ParseFromString(input.str(), plan.get()))
+  if (!pb::TextFormat::ParseFromString(input.str(), plan.get())) {
+    emitError(loc) << "could not parse string as 'Plan' message.";
     return {};
+  }
 
   context->loadDialect<SubstraitDialect>();
 
-  Location loc = UnknownLoc::get(context);
   ImplicitLocOpBuilder builder(loc, context);
   auto module = builder.create<ModuleOp>(loc);
   auto moduleRef = OwningOpRef<ModuleOp>(module);

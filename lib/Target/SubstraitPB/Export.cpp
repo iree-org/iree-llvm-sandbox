@@ -37,16 +37,21 @@ DECLARE_EXPORT_FUNC(ModuleOp, Plan)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
 
 FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
-  if (!op->getAttrs().empty())
+  if (!op->getAttrs().empty()) {
+    op->emitOpError("has attributes");
     return failure();
+  }
 
   Region &body = op.getBodyRegion();
-  if (llvm::range_size(body.getOps()) != 1)
+  if (llvm::range_size(body.getOps()) != 1) {
+    op->emitOpError("has more than one op in its body");
     return failure();
+  }
 
   if (auto plan = llvm::dyn_cast<PlanOp>(&*body.op_begin()))
     return exportOperation(plan);
 
+  op->emitOpError("contains an op that is not a 'substrait.plan'");
   return failure();
 }
 
@@ -79,7 +84,7 @@ FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op) {
             return std::unique_ptr<pb::Message>(typedMessage.value().release());
           })
       .Default([](auto op) {
-        op->emitOpError("not supported for export.");
+        op->emitOpError("not supported for export");
         return failure();
       });
 }
@@ -96,8 +101,10 @@ LogicalResult translateSubstraitToProtobuf(Operation *op,
     return failure();
 
   std::string out;
-  if (!pb::TextFormat::PrintToString(*result.value(), &out))
+  if (!pb::TextFormat::PrintToString(*result.value(), &out)) {
+    op->emitOpError("could not be serialized to text format");
     return failure();
+  }
 
   output << out;
   return success();
