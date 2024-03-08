@@ -18,11 +18,24 @@
 #include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Target/SubstraitPB/Export.h"
 #include "structured/Target/SubstraitPB/Import.h"
+#include "structured/Target/SubstraitPB/Options.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace mlir {
 namespace substrait {
+
+llvm::cl::opt<SerdeFormat> substraitProtobufFormat(
+    "substrait-protobuf-format", llvm::cl::ValueRequired,
+    llvm::cl::desc(
+        "Serialization format used when translating Substrait plans."),
+    llvm::cl::values(
+        clEnumValN(SerdeFormat::kText, "text", "human-readable text format"),
+        clEnumValN(SerdeFormat::kBinary, "binary", "binary wire format"),
+        clEnumValN(SerdeFormat::kJson, "json", "compact JSON format"),
+        clEnumValN(SerdeFormat::kPrettyJson, "pretty-json",
+                   "JSON format with new lines")),
+    llvm::cl::init(SerdeFormat::kText));
 
 static void registerSubstraitDialects(DialectRegistry &registry) {
   registry.insert<mlir::substrait::SubstraitDialect>();
@@ -31,13 +44,23 @@ static void registerSubstraitDialects(DialectRegistry &registry) {
 void registerSubstraitToProtobufTranslation() {
   TranslateFromMLIRRegistration registration(
       "substrait-to-protobuf", "translate from Substrait MLIR to protobuf",
-      translateSubstraitToProtobuf, registerSubstraitDialects);
+      [&](mlir::Operation *op, llvm::raw_ostream &output) {
+        ImportExportOptions options;
+        options.serdeFormat = substraitProtobufFormat.getValue();
+        return translateSubstraitToProtobuf(op, output, options);
+      },
+      registerSubstraitDialects);
 }
 
 void registerProtobufToSubstraitTranslation() {
   TranslateToMLIRRegistration registration(
       "protobuf-to-substrait", "translate from protobuf to Substrait MLIR",
-      translateProtobufToSubstrait, registerSubstraitDialects);
+      [&](llvm::StringRef input, mlir::MLIRContext *context) {
+        ImportExportOptions options;
+        options.serdeFormat = substraitProtobufFormat.getValue();
+        return translateProtobufToSubstrait(input, context, options);
+      },
+      registerSubstraitDialects);
 }
 
 } // namespace substrait
