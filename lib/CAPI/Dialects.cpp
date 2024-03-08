@@ -15,11 +15,13 @@
 #include "mlir/CAPI/Support.h"
 #include "mlir/IR/Types.h"
 #include "structured/Dialect/Iterators/IR/Iterators.h"
+#include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 
 using namespace mlir;
 using namespace mlir::iterators;
+using namespace mlir::substrait;
 using namespace mlir::tabular;
 using namespace mlir::tuple;
 
@@ -36,6 +38,12 @@ bool mlirTypeIsAIteratorsStreamType(MlirType type) {
 MlirType mlirIteratorsStreamTypeGet(MlirContext context, MlirType elementType) {
   return wrap(StreamType::get(unwrap(context), unwrap(elementType)));
 }
+
+//===----------------------------------------------------------------------===//
+// Substrait dialect
+//===----------------------------------------------------------------------===//
+
+MLIR_DEFINE_CAPI_DIALECT_REGISTRATION(Substrait, substrait, SubstraitDialect)
 
 //===----------------------------------------------------------------------===//
 // Tabular dialect and types

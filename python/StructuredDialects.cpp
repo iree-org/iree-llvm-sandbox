@@ -61,6 +61,25 @@ PYBIND11_MODULE(_structuredDialects, mainModule) {
           py::arg("context") = py::none());
 
   //===--------------------------------------------------------------------===//
+  // Substrait dialect.
+  //===--------------------------------------------------------------------===//
+  auto substraitModule = mainModule.def_submodule("substrait");
+
+  //
+  // Dialect
+  //
+
+  substraitModule.def(
+      "register_dialect",
+      [](MlirContext context, bool doLoad) {
+        MlirDialectHandle handle = mlirGetDialectHandle__substrait__();
+        mlirDialectHandleRegisterDialect(handle, context);
+        if (doLoad)
+          mlirDialectHandleLoadDialect(handle, context);
+      },
+      py::arg("context") = py::none(), py::arg("load") = true);
+
+  //===--------------------------------------------------------------------===//
   // Tabular dialect.
   //===--------------------------------------------------------------------===//
   auto tabularModule = mainModule.def_submodule("tabular");
