@@ -66,8 +66,8 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   // Assemble table name.
   llvm::SmallVector<FlatSymbolRefAttr> tableNameRefs;
   tableNameRefs.reserve(namedTable.names_size());
-  for (int i = 0; i < namedTable.names_size(); i++) {
-    auto attr = FlatSymbolRefAttr::get(context, namedTable.names(i));
+  for (const std::string &name : namedTable.names()) {
+    auto attr = FlatSymbolRefAttr::get(context, name);
     tableNameRefs.push_back(attr);
   }
   llvm::ArrayRef<FlatSymbolRefAttr> tableNameNestedRefs =
@@ -80,8 +80,8 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   const NamedStruct &baseSchema = readRel.base_schema();
   llvm::SmallVector<Attribute> fieldNames;
   fieldNames.reserve(baseSchema.names_size());
-  for (int i = 0; i < baseSchema.names_size(); i++) {
-    auto attr = StringAttr::get(context, baseSchema.names(i));
+  for (const std::string &name : baseSchema.names()) {
+    auto attr = StringAttr::get(context, name);
     fieldNames.push_back(attr);
   }
   auto fieldNamesAttr = ArrayAttr::get(context, fieldNames);
@@ -90,8 +90,7 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   const ::substrait::Type::Struct &struct_ = baseSchema.struct_();
   llvm::SmallVector<mlir::Type> resultTypes;
   resultTypes.reserve(struct_.types_size());
-  for (int i = 0; i < struct_.types_size(); i++) {
-    const ::substrait::Type &type = struct_.types(i);
+  for (const ::substrait::Type &type : struct_.types()) {
     FailureOr<mlir::Type> mlirType = importType(context, type);
     if (failed(mlirType))
       return failure();
