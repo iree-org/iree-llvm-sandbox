@@ -168,6 +168,8 @@ def Substrait_NamedTableOp : Substrait_RelOp<"named_table", [
     %0 = named_table @t1 as ["a"] : tuple<si32>
     ```
   }];
+  // TODO(ingomueller): Maybe the result names should be part of a to-be-created
+  //                    `NamedStruct` type?
   let arguments = (ins
     SymbolRefAttr:$table_name,
     StringArrayAttr:$field_names
