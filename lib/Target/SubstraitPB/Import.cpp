@@ -17,13 +17,14 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
-#include <substrait/algebra.pb.h>
-#include <substrait/plan.pb.h>
-#include <substrait/type.pb.h>
+#include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/plan.pb.h>
+#include <substrait/proto/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
 using namespace ::substrait;
+using namespace ::substrait::proto;
 
 namespace pb = google::protobuf;
 
@@ -50,12 +51,12 @@ DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
-                                              const ::substrait::Type &type) {
+                                              const proto::Type &type) {
   // TODO(ingomueller): Support more types.
   if (!type.has_i32()) {
     auto loc = UnknownLoc::get(context);
     const pb::FieldDescriptor *desc =
-        ::substrait::Type::GetDescriptor()->FindFieldByNumber(type.kind_case());
+        proto::Type::GetDescriptor()->FindFieldByNumber(type.kind_case());
     return emitError(loc) << "could not import unsupported type "
                           << desc->name();
   }
@@ -92,10 +93,10 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   auto fieldNamesAttr = ArrayAttr::get(context, fieldNames);
 
   // Assemble field names from schema.
-  const ::substrait::Type::Struct &struct_ = baseSchema.struct_();
+  const proto::Type::Struct &struct_ = baseSchema.struct_();
   llvm::SmallVector<mlir::Type> resultTypes;
   resultTypes.reserve(struct_.types_size());
-  for (const ::substrait::Type &type : struct_.types()) {
+  for (const proto::Type &type : struct_.types()) {
     FailureOr<mlir::Type> mlirType = importType(context, type);
     if (failed(mlirType))
       return failure();
@@ -204,7 +205,7 @@ OwningOpRef<ModuleOp>
 translateProtobufToSubstrait(llvm::StringRef input, MLIRContext *context,
                              ImportExportOptions options) {
   Location loc = UnknownLoc::get(context);
-  auto plan = std::make_unique<::substrait::Plan>();
+  auto plan = std::make_unique<Plan>();
   switch (options.serdeFormat) {
   case substrait::SerdeFormat::kText:
     if (!pb::TextFormat::ParseFromString(input.str(), plan.get())) {
