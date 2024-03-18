@@ -157,24 +157,36 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
 
 static mlir::FailureOr<RelOpInterface>
 importReadRel(ImplicitLocOpBuilder builder, const Rel &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
   const ReadRel &readRel = message.read();
-  switch (readRel.read_type_case()) {
+  ReadRel::ReadTypeCase read_type = readRel.read_type_case();
+  switch (read_type) {
   case ReadRel::ReadTypeCase::kNamedTable: {
     return importNamedTable(builder, message);
   }
   default:
-    return failure();
+    const pb::FieldDescriptor *desc =
+        ReadRel::GetDescriptor()->FindFieldByNumber(read_type);
+    return emitError(loc) << Twine("unsupported ReadRel type: ") + desc->name();
   }
 }
 
 static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
                                                  const Rel &message) {
-  switch (message.rel_type_case()) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  Rel::RelTypeCase rel_type = message.rel_type_case();
+  switch (rel_type) {
   case Rel::RelTypeCase::kRead: {
     return importReadRel(builder, message);
   }
   default:
-    return failure();
+    const pb::FieldDescriptor *desc =
+        Rel::GetDescriptor()->FindFieldByNumber(rel_type);
+    return emitError(loc) << Twine("unsupported Rel type: ") + desc->name();
   }
 }
 
