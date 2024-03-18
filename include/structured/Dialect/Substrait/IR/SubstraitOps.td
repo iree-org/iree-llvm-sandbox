@@ -12,6 +12,7 @@
 include "structured/Dialect/Substrait/IR/SubstraitDialect.td"
 include "structured/Dialect/Substrait/IR/SubstraitInterfaces.td"
 include "structured/Dialect/Substrait/IR/SubstraitTypes.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/BuiltinAttributes.td"
 include "mlir/IR/CommonAttrConstraints.td"
 include "mlir/IR/OpBase.td"
@@ -154,6 +155,32 @@ class Substrait_RelOp<string mnemonic, list<Trait> traits = []> :
           Substrait_Relation.predicate>
       ]>>
   ]>;
+
+def Substrait_CrossOp : Substrait_RelOp<"cross", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+  ]> {
+  let summary = "Cross product operation";
+  let description = [{
+    Represents a `CrossRel` message together with the `RelCommon` and left and
+    right `Rel` messages it contains.
+
+    Example:
+
+    ```mlir
+    %0 = ...
+    %1 = ...
+    %2 = cross %0 x %1 : tuple<si32> x tuple<si32> -> tuple<si32, si32>
+    ```
+  }];
+  let arguments = (ins
+    Substrait_Relation:$left,
+    Substrait_Relation:$right
+  );
+  let results = (outs Substrait_Relation:$result);
+  let assemblyFormat = [{
+    $left `x` $right attr-dict `:` type($left) `x` type($right)
+  }];
+}
 
 def Substrait_NamedTableOp : Substrait_RelOp<"named_table", [
   ]> {

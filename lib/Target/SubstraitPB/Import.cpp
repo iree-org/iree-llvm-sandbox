@@ -44,6 +44,7 @@ namespace {
   static FailureOr<OP_TYPE> import##MESSAGE_TYPE(ImplicitLocOpBuilder builder, \
                                                  const ARG_TYPE &message);
 
+DECLARE_IMPORT_FUNC(Cross, Rel, CrossOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
@@ -61,6 +62,27 @@ static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
                           << desc->name();
   }
   return IntegerType::get(context, 32, IntegerType::Signed);
+}
+
+static mlir::FailureOr<CrossOp> importCross(ImplicitLocOpBuilder builder,
+                                            const Rel &message) {
+  const CrossRel &crossRel = message.cross();
+
+  // Import left and right inputs.
+  const Rel &leftRel = crossRel.left();
+  const Rel &rightRel = crossRel.right();
+
+  mlir::FailureOr<RelOpInterface> leftOp = importRel(builder, leftRel);
+  mlir::FailureOr<RelOpInterface> rightOp = importRel(builder, rightRel);
+
+  if (failed(leftOp) || failed(rightOp))
+    return failure();
+
+  // Build `CrossOp`.
+  Value leftVal = leftOp.value()->getResult(0);
+  Value rightVal = rightOp.value()->getResult(0);
+
+  return builder.create<CrossOp>(leftVal, rightVal);
 }
 
 static mlir::FailureOr<NamedTableOp>
@@ -186,6 +208,9 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
 
   Rel::RelTypeCase relType = message.rel_type_case();
   switch (relType) {
+  case Rel::RelTypeCase::kCross: {
+    return importCross(builder, message);
+  }
   case Rel::RelTypeCase::kRead: {
     return importReadRel(builder, message);
   }
