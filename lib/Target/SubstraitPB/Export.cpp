@@ -156,7 +156,10 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
       .Case<NamedTableOp>([&](auto op) { return exportOperation(op); })
-      .Default([](auto) { return failure(); });
+      .Default([](auto op) {
+        op->emitOpError("not supported for export");
+        return failure();
+      });
 }
 
 FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op) {
