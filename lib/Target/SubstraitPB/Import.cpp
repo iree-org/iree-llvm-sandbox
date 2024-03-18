@@ -45,6 +45,9 @@ namespace {
                                                  const ARG_TYPE &message);
 
 DECLARE_IMPORT_FUNC(CrossRel, Rel, CrossOp)
+DECLARE_IMPORT_FUNC(FilterRel, Rel, FilterOp)
+DECLARE_IMPORT_FUNC(Expression, Expression, ExpressionOpInterface)
+DECLARE_IMPORT_FUNC(Literal, Expression::Literal, LiteralOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
@@ -104,6 +107,81 @@ static mlir::FailureOr<CrossOp> importCrossRel(ImplicitLocOpBuilder builder,
   Value rightVal = rightOp.value()->getResult(0);
 
   return builder.create<CrossOp>(leftVal, rightVal);
+}
+
+static mlir::FailureOr<ExpressionOpInterface>
+importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  Expression::RexTypeCase rex_type = message.rex_type_case();
+  switch (rex_type) {
+  case Expression::RexTypeCase::kLiteral: {
+    return importLiteral(builder, message.literal());
+  }
+  default: {
+    const pb::FieldDescriptor *desc =
+        Expression::GetDescriptor()->FindFieldByNumber(rex_type);
+    return emitError(loc) << Twine("unsupported Expression type: ") +
+                                 desc->name();
+  }
+  }
+}
+
+static mlir::FailureOr<LiteralOp>
+importLiteral(ImplicitLocOpBuilder builder,
+              const Expression::Literal &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  Expression::Literal::LiteralTypeCase literalType =
+      message.literal_type_case();
+  switch (literalType) {
+  case Expression::Literal::LiteralTypeCase::kBoolean: {
+    auto attr = IntegerAttr::get(
+        IntegerType::get(context, 1, IntegerType::Signed), message.boolean());
+    return builder.create<LiteralOp>(attr);
+  }
+  default: {
+    const pb::FieldDescriptor *desc =
+        Expression::Literal::GetDescriptor()->FindFieldByNumber(literalType);
+    return emitError(loc) << Twine("unsupported Literal type: ") + desc->name();
+  }
+  }
+}
+
+static mlir::FailureOr<FilterOp> importFilterRel(ImplicitLocOpBuilder builder,
+                                                 const Rel &message) {
+  const FilterRel &filterRel = message.filter();
+
+  // Import input op.
+  const Rel &inputRel = filterRel.input();
+  mlir::FailureOr<RelOpInterface> inputOp = importRel(builder, inputRel);
+  if (failed(inputOp))
+    return failure();
+
+  // Create filter op.
+  auto filterOp = builder.create<FilterOp>(inputOp.value()->getResult(0));
+  filterOp.getCondition().push_back(new Block);
+  Block &conditionBlock = filterOp.getCondition().front();
+  conditionBlock.addArgument(filterOp.getResult().getType(),
+                             filterOp->getLoc());
+
+  // Create condition region.
+  const Expression &expression = filterRel.condition();
+  {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(&conditionBlock);
+
+    FailureOr<ExpressionOpInterface> conditionOp =
+        importExpression(builder, expression);
+    if (failed(conditionOp))
+      return failure();
+
+    builder.create<YieldOp>(conditionOp.value()->getResult(0));
+  }
+
+  return filterOp;
 }
 
 static mlir::FailureOr<NamedTableOp>
@@ -244,6 +322,9 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
   switch (relType) {
   case Rel::RelTypeCase::kCross: {
     return importCrossRel(builder, message);
+  }
+  case Rel::RelTypeCase::kFilter: {
+    return importFilterRel(builder, message);
   }
   case Rel::RelTypeCase::kRead: {
     return importReadRel(builder, message);
