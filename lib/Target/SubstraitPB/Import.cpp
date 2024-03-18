@@ -77,8 +77,7 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   default: {
     const pb::FieldDescriptor *desc =
         PlanRel::GetDescriptor()->FindFieldByNumber(rel_type);
-    emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name();
-    return {};
+    return emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name();
   }
   }
 }
