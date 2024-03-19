@@ -67,8 +67,8 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   MLIRContext *context = builder.getContext();
   Location loc = UnknownLoc::get(context);
 
-  PlanRel::RelTypeCase rel_type = message.rel_type_case();
-  switch (rel_type) {
+  PlanRel::RelTypeCase relType = message.rel_type_case();
+  switch (relType) {
   case PlanRel::RelTypeCase::kRel: {
     auto planRelOp = builder.create<PlanRelOp>();
     // TODO(ingomueller): import content once defined.
@@ -76,7 +76,7 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   }
   default: {
     const pb::FieldDescriptor *desc =
-        PlanRel::GetDescriptor()->FindFieldByNumber(rel_type);
+        PlanRel::GetDescriptor()->FindFieldByNumber(relType);
     return emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name();
   }
   }
