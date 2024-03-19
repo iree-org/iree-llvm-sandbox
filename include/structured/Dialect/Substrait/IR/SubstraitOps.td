@@ -164,6 +164,33 @@ class Substrait_ExpressionOp<string mnemonic, list<Trait> traits = []> :
     Substrait_ExpressionOpInterface
   ]>;
 
+def Substrait_FieldReferenceOp : Substrait_ExpressionOp<"field_reference", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+  ]> {
+  let summary = "Field reference expression";
+  let description = [{
+    Represents a `FieldReference` message together with all messages it contains
+    and the `Expression` message it is contained in.
+
+    Example:
+
+    ```mlir
+    %0 = ...
+    %1 = field_reference %0[[0]] : tuple<si32>
+    // %1 is of type `si32`
+    ```
+  }];
+  // TODO(ingomueller): extend to other types, map access, and masked references.
+  let arguments = (ins
+    Substrait_ContainerType:$container,
+    I64ArrayAttr:$position
+  );
+  let results = (outs Substrait_AtomicType:$result);
+  let assemblyFormat = [{
+    $container `[` $position `]` attr-dict `:` type($container)
+  }];
+}
+
 def Substrait_LiteralOp : Substrait_ExpressionOp<"literal", [
     DeclareOpInterfaceMethods<InferTypeOpInterface>
   ]> {
