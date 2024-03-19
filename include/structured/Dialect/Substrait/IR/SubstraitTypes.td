@@ -43,6 +43,9 @@ def Substrait_AtomicAttribute : AnyAttrOf<Substrait_AtomicAttributes.attrs>;
 /// One of the currently supported atomic types.
 def Substrait_AtomicType : AnyTypeOf<Substrait_AtomicTypes.types>;
 
+/// Any container type, i.e., structs, maps, lists, and nestings thereof.
+def Substrait_ContainerType : NestedTupleOf<Substrait_AtomicTypes.types>;
+
 /// Placeholder for a proper relation type, the result of any `RelOpInterface`
 /// op.
 // TODO(ingomueller): Transform this into a proper relation type.
