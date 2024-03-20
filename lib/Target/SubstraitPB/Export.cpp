@@ -42,11 +42,12 @@ DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
 DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
-FailureOr<std::unique_ptr<::substrait::Type>> exportType(mlir::Type mlirType) {
+FailureOr<std::unique_ptr<::substrait::Type>> exportType(Location loc,
+                                                         mlir::Type mlirType) {
   // TODO(ingomueller): Support other types.
   auto si32 = IntegerType::get(mlirType.getContext(), 32, IntegerType::Signed);
   if (mlirType != si32)
-    return failure();
+    return emitError(loc) << "could not export unsupported type " << mlirType;
 
   // TODO(ingomueller): support other nullability modes.
   auto i32Type = std::make_unique<::substrait::Type::I32>();
@@ -79,6 +80,8 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
 }
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
+  Location loc = op.getLoc();
+
   // Build `NamedTable` message.
   auto namedTable = std::make_unique<ReadRel::NamedTable>();
   namedTable->add_names(op.getTableName().getRootReference().str());
@@ -97,7 +100,8 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
       Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
   auto tupleType = llvm::cast<TupleType>(op.getResult().getType());
   for (mlir::Type fieldType : tupleType.getTypes()) {
-    FailureOr<std::unique_ptr<::substrait::Type>> type = exportType(fieldType);
+    FailureOr<std::unique_ptr<::substrait::Type>> type =
+        exportType(loc, fieldType);
     if (failed(type))
       return (failure());
     *struct_->add_types() = *std::move(type.value());

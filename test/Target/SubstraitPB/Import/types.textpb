@@ -1,0 +1,41 @@
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN: | FileCheck %s
+
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN: | structured-translate -substrait-to-protobuf \
+# RUN: | structured-translate -protobuf-to-substrait \
+# RUN: | FileCheck %s
+
+# CHECK:      substrait.plan
+# CHECK-NEXT:   relation
+# CHECK-NEXT:     named_table
+# CHECK-SAME:       : tuple<si32>
+
+relations {
+  rel {
+    read {
+      common {
+        direct {
+        }
+      }
+      base_schema {
+        names: "a"
+        struct {
+          types {
+            i32 {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      named_table {
+        names: "t1"
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}

@@ -52,8 +52,13 @@ DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
                                               const ::substrait::Type &type) {
   // TODO(ingomueller): Support more types.
-  if (!type.has_i32())
-    return failure();
+  if (!type.has_i32()) {
+    auto loc = UnknownLoc::get(context);
+    const pb::FieldDescriptor *desc =
+        ::substrait::Type::GetDescriptor()->FindFieldByNumber(type.kind_case());
+    return emitError(loc) << "could not import unsupported type "
+                          << desc->name();
+  }
   return IntegerType::get(context, 32, IntegerType::Signed);
 }
 
