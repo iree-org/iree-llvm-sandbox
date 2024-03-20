@@ -66,7 +66,7 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
   }
 
   Region &body = op.getBodyRegion();
-  if (std::next(body.op_begin()) != body.op_end()) {
+  if (llvm::range_size(body.getOps()) != 1) {
     op->emitOpError("has more than one op in its body");
     return failure();
   }
