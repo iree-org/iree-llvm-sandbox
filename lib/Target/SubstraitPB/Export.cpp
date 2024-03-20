@@ -45,20 +45,51 @@ DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
 FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
                                                    mlir::Type mlirType) {
+  MLIRContext *context = mlirType.getContext();
+
+  // Handle SI1.
+  auto si1 = IntegerType::get(context, 1, IntegerType::Signed);
+  if (mlirType == si1) {
+    // TODO(ingomueller): support other nullability modes.
+    auto i1Type = std::make_unique<proto::Type::Boolean>();
+    i1Type->set_nullability(
+        Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+
+    auto type = std::make_unique<proto::Type>();
+    type->set_allocated_bool_(i1Type.release());
+    return std::move(type);
+  }
+
+  // Handle SI32.
+  auto si32 = IntegerType::get(context, 32, IntegerType::Signed);
+  if (mlirType == si32) {
+    // TODO(ingomueller): support other nullability modes.
+    auto i32Type = std::make_unique<proto::Type::I32>();
+    i32Type->set_nullability(
+        Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+
+    auto type = std::make_unique<proto::Type>();
+    type->set_allocated_i32(i32Type.release());
+    return std::move(type);
+  }
+
+  if (auto tupleType = llvm::dyn_cast<TupleType>(mlirType)) {
+    auto structType = std::make_unique<proto::Type::Struct>();
+    for (mlir::Type fieldType : tupleType.getTypes()) {
+      // Convert field type recursively.
+      FailureOr<std::unique_ptr<proto::Type>> type = exportType(loc, fieldType);
+      if (failed(type))
+        return failure();
+      *structType->add_types() = *type.value();
+    }
+
+    auto type = std::make_unique<proto::Type>();
+    type->set_allocated_struct_(structType.release());
+    return std::move(type);
+  }
+
   // TODO(ingomueller): Support other types.
-  auto si32 = IntegerType::get(mlirType.getContext(), 32, IntegerType::Signed);
-  if (mlirType != si32)
-    return emitError(loc) << "could not export unsupported type " << mlirType;
-
-  // TODO(ingomueller): support other nullability modes.
-  auto i32Type = std::make_unique<proto::Type::I32>();
-  i32Type->set_nullability(
-      Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
-
-  auto type = std::make_unique<proto::Type>();
-  type->set_allocated_i32(i32Type.release());
-
-  return std::move(type);
+  return emitError(loc) << "could not export unsupported type " << mlirType;
 }
 
 FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {

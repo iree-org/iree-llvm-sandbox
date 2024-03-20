@@ -52,15 +52,36 @@ DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
                                               const proto::Type &type) {
-  // TODO(ingomueller): Support more types.
-  if (!type.has_i32()) {
+
+  proto::Type::KindCase kind_case = type.kind_case();
+  switch (kind_case) {
+  case proto::Type::kBool: {
+    return IntegerType::get(context, 1, IntegerType::Signed);
+  }
+  case proto::Type::kI32: {
+    return IntegerType::get(context, 32, IntegerType::Signed);
+  }
+  case proto::Type::kStruct: {
+    const proto::Type::Struct &structType = type.struct_();
+    llvm::SmallVector<mlir::Type> fieldTypes;
+    fieldTypes.reserve(structType.types_size());
+    for (const proto::Type &fieldType : structType.types()) {
+      FailureOr<mlir::Type> mlirFieldType = importType(context, fieldType);
+      if (failed(mlirFieldType))
+        return failure();
+      fieldTypes.push_back(mlirFieldType.value());
+    }
+    return TupleType::get(context, fieldTypes);
+  }
+    // TODO(ingomueller): Support more types.
+  default: {
     auto loc = UnknownLoc::get(context);
     const pb::FieldDescriptor *desc =
-        proto::Type::GetDescriptor()->FindFieldByNumber(type.kind_case());
+        proto::Type::GetDescriptor()->FindFieldByNumber(kind_case);
     return emitError(loc) << "could not import unsupported type "
                           << desc->name();
   }
-  return IntegerType::get(context, 32, IntegerType::Signed);
+  }
 }
 
 static mlir::FailureOr<NamedTableOp>
