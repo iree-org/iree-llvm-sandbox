@@ -15,7 +15,9 @@
 
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
+#include <substrait/algebra.pb.h>
 #include <substrait/plan.pb.h>
+#include <substrait/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
@@ -36,7 +38,26 @@ namespace {
   static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
+DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
+DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
+
+FailureOr<std::unique_ptr<::substrait::Type>> exportType(mlir::Type mlirType) {
+  // TODO(ingomueller): Support other types.
+  auto si32 = IntegerType::get(mlirType.getContext(), 32, IntegerType::Signed);
+  if (mlirType != si32)
+    return failure();
+
+  // TODO(ingomueller): support other nullability modes.
+  auto i32Type = std::make_unique<::substrait::Type::I32>();
+  i32Type->set_nullability(
+      Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+
+  auto type = std::make_unique<::substrait::Type>();
+  type->set_allocated_i32(i32Type.release());
+
+  return std::move(type);
+}
 
 FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
   if (!op->getAttrs().empty()) {
@@ -57,6 +78,51 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
   return failure();
 }
 
+FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
+  // Build `NamedTable` message.
+  auto namedTable = std::make_unique<ReadRel::NamedTable>();
+  namedTable->add_names(op.getTableName().getRootReference().str());
+  for (SymbolRefAttr attr : op.getTableName().getNestedReferences()) {
+    namedTable->add_names(attr.getLeafReference().str());
+  }
+
+  // Build `RelCommon` message.
+  auto relCommon = std::make_unique<RelCommon>();
+  auto direct = std::make_unique<RelCommon::Direct>();
+  relCommon->set_allocated_direct(direct.release());
+
+  // Build `Struct` message.
+  auto struct_ = std::make_unique<::substrait::Type::Struct>();
+  struct_->set_nullability(
+      Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+  auto tupleType = llvm::cast<TupleType>(op.getResult().getType());
+  for (mlir::Type fieldType : tupleType.getTypes()) {
+    FailureOr<std::unique_ptr<::substrait::Type>> type = exportType(fieldType);
+    if (failed(type))
+      return (failure());
+    *struct_->add_types() = *std::move(type.value());
+  }
+
+  // Build `NamedStruct` message.
+  auto namedStruct = std::make_unique<NamedStruct>();
+  namedStruct->set_allocated_struct_(struct_.release());
+  for (Attribute attr : op.getFieldNames()) {
+    namedStruct->add_names(attr.cast<StringAttr>().getValue().str());
+  }
+
+  // Build `ReadRel` message.
+  auto readRel = std::make_unique<ReadRel>();
+  readRel->set_allocated_common(relCommon.release());
+  readRel->set_allocated_base_schema(namedStruct.release());
+  readRel->set_allocated_named_table(namedTable.release());
+
+  // Build `Rel` message.
+  auto rel = std::make_unique<Rel>();
+  rel->set_allocated_read(readRel.release());
+
+  return rel;
+}
+
 FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   // Build `Version` message.
   auto version = std::make_unique<Version>();
@@ -70,9 +136,30 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   auto plan = std::make_unique<Plan>();
   plan->set_allocated_version(version.release());
 
-  // TODO(ingomueller): build plan content once defined.
+  // Add `relation`s to plan.
+  for (auto relOp : op.getOps<PlanRelOp>()) {
+    Operation *terminator = relOp.getBody().front().getTerminator();
+    auto rootOp =
+        llvm::cast<RelOpInterface>(terminator->getOperand(0).getDefiningOp());
+
+    FailureOr<std::unique_ptr<Rel>> rel = exportOperation(rootOp);
+    if (failed(rel))
+      return failure();
+
+    PlanRel *planRel = plan->add_relations();
+    planRel->set_allocated_rel(rel.value().release());
+  }
 
   return std::move(plan);
+}
+
+FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
+  return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
+      .Case<NamedTableOp>([&](auto op) { return exportOperation(op); })
+      .Default([](auto op) {
+        op->emitOpError("not supported for export");
+        return failure();
+      });
 }
 
 FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op) {

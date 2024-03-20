@@ -17,6 +17,9 @@
 
 #include "structured/Dialect/Substrait/IR/SubstraitOpsDialect.h.inc" // IWYU: export
 
+#include "structured/Dialect/Substrait/IR/SubstraitOpInterfaces.h.inc" // IWYU: export
+#include "structured/Dialect/Substrait/IR/SubstraitTypeInterfaces.h.inc" // IWYU: export
+
 #define GET_TYPEDEF_CLASSES
 #include "structured/Dialect/Substrait/IR/SubstraitOpsTypes.h.inc" // IWYU: export
 

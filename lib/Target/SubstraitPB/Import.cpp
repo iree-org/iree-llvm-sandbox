@@ -17,7 +17,9 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
+#include <substrait/algebra.pb.h>
 #include <substrait/plan.pb.h>
+#include <substrait/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
@@ -41,8 +43,67 @@ namespace {
   static FailureOr<OP_TYPE> import##MESSAGE_TYPE(ImplicitLocOpBuilder builder, \
                                                  const ARG_TYPE &message);
 
+DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
+DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
+DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
+
+static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
+                                              const ::substrait::Type &type) {
+  // TODO(ingomueller): Support more types.
+  if (!type.has_i32())
+    return failure();
+  return IntegerType::get(context, 32, IntegerType::Signed);
+}
+
+static mlir::FailureOr<NamedTableOp>
+importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
+  const ReadRel &readRel = message.read();
+  const ReadRel::NamedTable &namedTable = readRel.named_table();
+  MLIRContext *context = builder.getContext();
+
+  // Assemble table name.
+  llvm::SmallVector<FlatSymbolRefAttr> tableNameRefs;
+  tableNameRefs.reserve(namedTable.names_size());
+  for (const std::string &name : namedTable.names()) {
+    auto attr = FlatSymbolRefAttr::get(context, name);
+    tableNameRefs.push_back(attr);
+  }
+  llvm::ArrayRef<FlatSymbolRefAttr> tableNameNestedRefs =
+      llvm::ArrayRef<FlatSymbolRefAttr>(tableNameRefs).drop_front();
+  llvm::StringRef tableNameRootRef = tableNameRefs.front().getValue();
+  auto tableName =
+      SymbolRefAttr::get(context, tableNameRootRef, tableNameNestedRefs);
+
+  // Assemble field names from schema.
+  const NamedStruct &baseSchema = readRel.base_schema();
+  llvm::SmallVector<Attribute> fieldNames;
+  fieldNames.reserve(baseSchema.names_size());
+  for (const std::string &name : baseSchema.names()) {
+    auto attr = StringAttr::get(context, name);
+    fieldNames.push_back(attr);
+  }
+  auto fieldNamesAttr = ArrayAttr::get(context, fieldNames);
+
+  // Assemble field names from schema.
+  const ::substrait::Type::Struct &struct_ = baseSchema.struct_();
+  llvm::SmallVector<mlir::Type> resultTypes;
+  resultTypes.reserve(struct_.types_size());
+  for (const ::substrait::Type &type : struct_.types()) {
+    FailureOr<mlir::Type> mlirType = importType(context, type);
+    if (failed(mlirType))
+      return failure();
+    resultTypes.push_back(mlirType.value());
+  }
+  auto resultType = TupleType::get(context, resultTypes);
+
+  // Assemble final op.
+  auto namedTableOp =
+      builder.create<NamedTableOp>(resultType, tableName, fieldNamesAttr);
+
+  return namedTableOp;
+}
 
 static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
                                     const Plan &message) {
@@ -71,7 +132,19 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   switch (relType) {
   case PlanRel::RelTypeCase::kRel: {
     auto planRelOp = builder.create<PlanRelOp>();
-    // TODO(ingomueller): import content once defined.
+    planRelOp.getBody().push_back(new Block());
+    Block *block = &planRelOp.getBody().front();
+
+    OpBuilder::InsertionGuard insertGuard(builder);
+    builder.setInsertionPointToEnd(block);
+    const Rel &rel = message.rel();
+    mlir::FailureOr<Operation *> rootRel = importRel(builder, rel);
+    if (failed(rootRel))
+      return failure();
+
+    builder.setInsertionPointToEnd(block);
+    builder.create<YieldOp>(rootRel.value()->getResult(0));
+
     return planRelOp;
   }
   default: {
@@ -79,6 +152,41 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
         PlanRel::GetDescriptor()->FindFieldByNumber(relType);
     return emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name();
   }
+  }
+}
+
+static mlir::FailureOr<RelOpInterface>
+importReadRel(ImplicitLocOpBuilder builder, const Rel &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  const ReadRel &readRel = message.read();
+  ReadRel::ReadTypeCase readType = readRel.read_type_case();
+  switch (readType) {
+  case ReadRel::ReadTypeCase::kNamedTable: {
+    return importNamedTable(builder, message);
+  }
+  default:
+    const pb::FieldDescriptor *desc =
+        ReadRel::GetDescriptor()->FindFieldByNumber(readType);
+    return emitError(loc) << Twine("unsupported ReadRel type: ") + desc->name();
+  }
+}
+
+static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
+                                                 const Rel &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  Rel::RelTypeCase relType = message.rel_type_case();
+  switch (relType) {
+  case Rel::RelTypeCase::kRead: {
+    return importReadRel(builder, message);
+  }
+  default:
+    const pb::FieldDescriptor *desc =
+        Rel::GetDescriptor()->FindFieldByNumber(relType);
+    return emitError(loc) << Twine("unsupported Rel type: ") + desc->name();
   }
 }
 
