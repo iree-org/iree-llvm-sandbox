@@ -14,7 +14,7 @@ jobs:
     name: Structured Build and Test (Release Asserts)
     runs-on: ubuntu-22.04
     env:
-      LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-11/bin/llvm-symbolizer
+      LLVM_SYMBOLIZER_PATH: /usr/lib/llvm-14/bin/llvm-symbolizer
     steps:
     - name: Compute Structured base path
       run: |
