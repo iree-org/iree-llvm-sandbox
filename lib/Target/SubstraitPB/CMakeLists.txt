@@ -7,5 +7,6 @@ add_mlir_translation_library(MLIRTargetSubstraitPB
   MLIRSubstraitDialect
   MLIRSupport
   MLIRTranslateLib
-  Substrait
+  substrait_proto
+  protobuf::libprotobuf
   )

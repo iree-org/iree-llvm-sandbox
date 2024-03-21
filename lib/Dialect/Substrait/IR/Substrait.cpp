@@ -51,6 +51,27 @@ void SubstraitDialect::initialize() {
 namespace mlir {
 namespace substrait {
 
+LogicalResult
+CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                          ValueRange operands, DictionaryAttr attributes,
+                          OpaqueProperties properties, RegionRange regions,
+                          llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  Value leftInput = operands[0];
+  Value rightInput = operands[0];
+
+  TypeRange leftFieldTypes = leftInput.getType().cast<TupleType>().getTypes();
+  TypeRange rightFieldTypes = rightInput.getType().cast<TupleType>().getTypes();
+
+  llvm::SmallVector<mlir::Type> fieldTypes;
+  fieldTypes.append(leftFieldTypes.begin(), rightFieldTypes.end());
+  fieldTypes.append(rightFieldTypes.begin(), rightFieldTypes.end());
+  auto resultType = TupleType::get(context, fieldTypes);
+
+  inferredReturnTypes.emplace_back(resultType);
+
+  return success();
+}
+
 /// Verifies that the provided field names match the provided field types. While
 /// the field types are potentially nested, the names are given in a single,
 /// flat list and correspond to the field types in depth first order (where each
