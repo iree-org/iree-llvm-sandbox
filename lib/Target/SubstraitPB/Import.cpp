@@ -17,13 +17,14 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
-#include <substrait/algebra.pb.h>
-#include <substrait/plan.pb.h>
-#include <substrait/type.pb.h>
+#include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/plan.pb.h>
+#include <substrait/proto/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
 using namespace ::substrait;
+using namespace ::substrait::proto;
 
 namespace pb = google::protobuf;
 
@@ -43,6 +44,7 @@ namespace {
   static FailureOr<OP_TYPE> import##MESSAGE_TYPE(ImplicitLocOpBuilder builder, \
                                                  const ARG_TYPE &message);
 
+DECLARE_IMPORT_FUNC(Cross, Rel, CrossOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
@@ -50,16 +52,58 @@ DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
-                                              const ::substrait::Type &type) {
-  // TODO(ingomueller): Support more types.
-  if (!type.has_i32()) {
+                                              const proto::Type &type) {
+
+  proto::Type::KindCase kind_case = type.kind_case();
+  switch (kind_case) {
+  case proto::Type::kBool: {
+    return IntegerType::get(context, 1, IntegerType::Signed);
+  }
+  case proto::Type::kI32: {
+    return IntegerType::get(context, 32, IntegerType::Signed);
+  }
+  case proto::Type::kStruct: {
+    const proto::Type::Struct &structType = type.struct_();
+    llvm::SmallVector<mlir::Type> fieldTypes;
+    fieldTypes.reserve(structType.types_size());
+    for (const proto::Type &fieldType : structType.types()) {
+      FailureOr<mlir::Type> mlirFieldType = importType(context, fieldType);
+      if (failed(mlirFieldType))
+        return failure();
+      fieldTypes.push_back(mlirFieldType.value());
+    }
+    return TupleType::get(context, fieldTypes);
+  }
+    // TODO(ingomueller): Support more types.
+  default: {
     auto loc = UnknownLoc::get(context);
     const pb::FieldDescriptor *desc =
-        ::substrait::Type::GetDescriptor()->FindFieldByNumber(type.kind_case());
+        proto::Type::GetDescriptor()->FindFieldByNumber(kind_case);
     return emitError(loc) << "could not import unsupported type "
                           << desc->name();
   }
-  return IntegerType::get(context, 32, IntegerType::Signed);
+  }
+}
+
+static mlir::FailureOr<CrossOp> importCross(ImplicitLocOpBuilder builder,
+                                            const Rel &message) {
+  const CrossRel &crossRel = message.cross();
+
+  // Import left and right inputs.
+  const Rel &leftRel = crossRel.left();
+  const Rel &rightRel = crossRel.right();
+
+  mlir::FailureOr<RelOpInterface> leftOp = importRel(builder, leftRel);
+  mlir::FailureOr<RelOpInterface> rightOp = importRel(builder, rightRel);
+
+  if (failed(leftOp) || failed(rightOp))
+    return failure();
+
+  // Build `CrossOp`.
+  Value leftVal = leftOp.value()->getResult(0);
+  Value rightVal = rightOp.value()->getResult(0);
+
+  return builder.create<CrossOp>(leftVal, rightVal);
 }
 
 static mlir::FailureOr<NamedTableOp>
@@ -92,10 +136,10 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   auto fieldNamesAttr = ArrayAttr::get(context, fieldNames);
 
   // Assemble field names from schema.
-  const ::substrait::Type::Struct &struct_ = baseSchema.struct_();
+  const proto::Type::Struct &struct_ = baseSchema.struct_();
   llvm::SmallVector<mlir::Type> resultTypes;
   resultTypes.reserve(struct_.types_size());
-  for (const ::substrait::Type &type : struct_.types()) {
+  for (const proto::Type &type : struct_.types()) {
     FailureOr<mlir::Type> mlirType = importType(context, type);
     if (failed(mlirType))
       return failure();
@@ -185,6 +229,9 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
 
   Rel::RelTypeCase relType = message.rel_type_case();
   switch (relType) {
+  case Rel::RelTypeCase::kCross: {
+    return importCross(builder, message);
+  }
   case Rel::RelTypeCase::kRead: {
     return importReadRel(builder, message);
   }
@@ -204,7 +251,7 @@ OwningOpRef<ModuleOp>
 translateProtobufToSubstrait(llvm::StringRef input, MLIRContext *context,
                              ImportExportOptions options) {
   Location loc = UnknownLoc::get(context);
-  auto plan = std::make_unique<::substrait::Plan>();
+  auto plan = std::make_unique<Plan>();
   switch (options.serdeFormat) {
   case substrait::SerdeFormat::kText:
     if (!pb::TextFormat::ParseFromString(input.str(), plan.get())) {
