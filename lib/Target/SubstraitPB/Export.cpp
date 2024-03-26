@@ -176,9 +176,29 @@ FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
   // Build `FieldReference` message.
   auto fieldReference = std::make_unique<FieldReference>();
   fieldReference->set_allocated_direct_reference(referenceRoot.release());
-  // TODO: support other reference types.
-  auto rootReference = std::make_unique<FieldReference::RootReference>();
-  fieldReference->set_allocated_root_reference(rootReference.release());
+
+  // Handle different `root_type`s.
+  Value inputVal = op.getContainer();
+  if (Operation *definingOp = inputVal.getDefiningOp()) {
+    // If there is a defining op, the `root_type` is an `Expression`.
+    ExpressionOpInterface exprOp =
+        llvm::dyn_cast<ExpressionOpInterface>(definingOp);
+    if (!exprOp)
+      return op->emitOpError("has 'container' operand that was not produced by "
+                             "Substrait expression");
+
+    FailureOr<std::unique_ptr<Expression>> expression = exportOperation(exprOp);
+    fieldReference->set_allocated_expression(expression->release());
+  } else {
+    // Input must be a `BlockArgument`. Only support root references for now.
+    auto blockArg = llvm::cast<BlockArgument>(inputVal);
+    if (blockArg.getOwner() != op->getBlock())
+      // TODO(ingomueller): support outer reference type.
+      return op.emitOpError("has unsupported outer reference");
+
+    auto rootReference = std::make_unique<FieldReference::RootReference>();
+    fieldReference->set_allocated_root_reference(rootReference.release());
+  }
 
   // Build `Expression` message.
   auto expression = std::make_unique<Expression>();

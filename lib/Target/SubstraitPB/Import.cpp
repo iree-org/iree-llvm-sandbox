@@ -146,9 +146,6 @@ importFieldReference(ImplicitLocOpBuilder builder,
   if (!message.has_direct_reference())
     return emitError(loc) << "only direct reference supported";
 
-  if (!message.has_root_reference())
-    return emitError(loc) << "only root reference supported";
-
   // Traverse list to extract indexes.
   llvm::SmallVector<int64_t> indexes;
   const ReferenceSegment *currentSegment = &message.direct_reference();
@@ -169,11 +166,28 @@ importFieldReference(ImplicitLocOpBuilder builder,
   // Build `position` attribute of indexes.
   ArrayAttr position = builder.getI64ArrayAttr(indexes);
 
-  // Get input value. For direct references, that's the current block argument.
-  mlir::Block::BlockArgListType blockArgs =
-      builder.getInsertionBlock()->getArguments();
-  assert(blockArgs.size() == 1 && "expected a single block argument");
-  Value container = blockArgs.front();
+  // Get input value.
+  Value container;
+  if (message.has_root_reference()) {
+    // For the `root_reference` case, that's the current block argument.
+    mlir::Block::BlockArgListType blockArgs =
+        builder.getInsertionBlock()->getArguments();
+    assert(blockArgs.size() == 1 && "expected a single block argument");
+    container = blockArgs.front();
+  } else if (message.has_expression()) {
+    // For the `expression`case, recursively import the expression.
+    FailureOr<ExpressionOpInterface> maybeContainer =
+        importExpression(builder, message.expression());
+    if (failed(maybeContainer))
+      return failure();
+    container = maybeContainer.value()->getResult(0);
+  } else {
+    // For the `outer_reference` case, we need to refer to an argument of some
+    // outer-level block.
+    // TODO(ingomueller): support outer references.
+    assert(message.has_outer_reference() && "unexpected 'root_type` case");
+    return emitError(loc) << "outer references not supported";
+  }
 
   // Build and return the op.
   return builder.create<FieldReferenceOp>(container, position);
