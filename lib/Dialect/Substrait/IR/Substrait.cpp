@@ -51,6 +51,127 @@ void SubstraitDialect::initialize() {
 namespace mlir {
 namespace substrait {
 
+LogicalResult
+CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                          ValueRange operands, DictionaryAttr attributes,
+                          OpaqueProperties properties, RegionRange regions,
+                          llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  Value leftInput = operands[0];
+  Value rightInput = operands[0];
+
+  TypeRange leftFieldTypes = leftInput.getType().cast<TupleType>().getTypes();
+  TypeRange rightFieldTypes = rightInput.getType().cast<TupleType>().getTypes();
+
+  llvm::SmallVector<mlir::Type> fieldTypes;
+  fieldTypes.append(leftFieldTypes.begin(), rightFieldTypes.end());
+  fieldTypes.append(rightFieldTypes.begin(), rightFieldTypes.end());
+  auto resultType = TupleType::get(context, fieldTypes);
+
+  inferredReturnTypes.emplace_back(resultType);
+
+  return success();
+}
+
+/// Computes the type of the nested field of the given `type` identified by
+/// `position`. Each entry `n` in the given index array `position` corresponds
+/// to the `n`-th entry in that level. The function is thus implemented
+/// recursively, where each recursion level extracts the type of the outer-most
+/// level identified by the first index in the `position` array.
+static FailureOr<Type> computeTypeAtPosition(Location loc, Type type,
+                                             ArrayRef<Attribute> position) {
+  if (position.empty())
+    return type;
+
+  // Recurse into tuple field of first index in position array.
+  if (auto tupleType = llvm::dyn_cast<TupleType>(type)) {
+    auto indexAttr = llvm::dyn_cast<IntegerAttr>(position[0]);
+    if (!indexAttr)
+      return emitError(loc) << position[0] << " is not a valid index";
+
+    int64_t index = indexAttr.getInt();
+    ArrayRef<Type> fieldTypes = tupleType.getTypes();
+    if (index >= static_cast<int64_t>(fieldTypes.size()) || index < 0)
+      return emitError(loc) << index << " is not a valid index for " << type;
+
+    return computeTypeAtPosition(loc, fieldTypes[index], position.drop_front());
+  }
+
+  return emitError(loc) << "can't extract element from type " << type;
+}
+
+LogicalResult FieldReferenceOp::inferReturnTypes(
+    MLIRContext *context, std::optional<Location> loc, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+  if (!loc)
+    loc = UnknownLoc::get(context);
+
+  // Extract field type at given position.
+  ArrayAttr position = typedProperties->getPosition();
+  Type inputType = operands[0].getType();
+  FailureOr<Type> fieldType =
+      computeTypeAtPosition(loc.value(), inputType, position.getValue());
+  if (failed(fieldType))
+    return ::emitError(loc.value())
+           << "mismatching position and type (position: " << position
+           << ", type: " << inputType << ")";
+
+  inferredReturnTypes.push_back(fieldType.value());
+
+  return success();
+}
+
+LogicalResult FilterOp::verifyRegions() {
+  MLIRContext *context = getContext();
+  Type si1 = IntegerType::get(context, /*width=*/1, IntegerType::Signed);
+  Region &condition = getCondition();
+
+  // Verify that type of yielded value is Boolean.
+  auto yieldOp = llvm::cast<YieldOp>(condition.front().getTerminator());
+  Type yieldedType = yieldOp.getValue().getType();
+  if (yieldedType != si1)
+    return emitOpError()
+           << " must have 'condition' region yielding 'si1' (yields "
+           << yieldedType << ")";
+
+  // Verify that block has argument of input tuple type.
+  Type tupleType = getResult().getType();
+  if (condition.getNumArguments() != 1 ||
+      condition.getArgument(0).getType() != tupleType) {
+    InFlightDiagnostic diag = emitOpError()
+                              << "must have 'condition' region taking "
+                              << tupleType << " as argument (takes ";
+    if (condition.getNumArguments() == 0)
+      diag << "no arguments)";
+    else
+      diag << condition.getArgument(0).getType() << ")";
+    return diag;
+  }
+
+  return success();
+}
+
+LogicalResult
+LiteralOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                            ValueRange operands, DictionaryAttr attributes,
+                            OpaqueProperties properties, RegionRange regions,
+                            llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+  if (!loc)
+    loc = UnknownLoc::get(context);
+
+  auto attr = llvm::dyn_cast<TypedAttr>(typedProperties->getValue());
+  if (!attr)
+    ::emitError(loc.value()) << "unsuited attribute for literal value: "
+                             << typedProperties->getValue();
+
+  Type resultType = attr.getType();
+  inferredReturnTypes.emplace_back(resultType);
+
+  return success();
+}
+
 /// Verifies that the provided field names match the provided field types. While
 /// the field types are potentially nested, the names are given in a single,
 /// flat list and correspond to the field types in depth first order (where each

@@ -24,12 +24,33 @@ class Substrait_Type<string name, string typeMnemonic, list<Trait> traits = []>
 // TODO(ingomueller): Add the other low-hanging fruits here.
 def Substrait_AtomicTypes {
   list<Type> types = [
+    SI1, // Boolean
     SI32 // I32
   ];
 }
 
+/// Attributes of currently supported atomic types.
+def Substrait_AtomicAttributes {
+  list<Attr> attrs = [
+    SI1Attr, // Boolean
+    SI32Attr // I32
+  ];
+}
+
+/// Attrbitue of one of the currently supported atomic types.
+def Substrait_AtomicAttribute : AnyAttrOf<Substrait_AtomicAttributes.attrs>;
+
 /// One of the currently supported atomic types.
 def Substrait_AtomicType : AnyTypeOf<Substrait_AtomicTypes.types>;
+
+/// Any container type, i.e., structs, maps, lists, and nestings thereof.
+def Substrait_ContainerType : NestedTupleOf<Substrait_AtomicTypes.types>;
+
+/// One of the currently supported atomic or nested types.
+def Substrait_FieldType : AnyTypeOf<[
+  Substrait_AtomicType,
+  Substrait_ContainerType
+]>;
 
 /// Placeholder for a proper relation type, the result of any `RelOpInterface`
 /// op.
