@@ -11,6 +11,16 @@
 
 include "mlir/IR/OpBase.td"
 
+def Substrait_ExpressionOpInterface : OpInterface<"ExpressionOpInterface"> {
+  let description = [{
+    Interface for any expression in a Substrait plan. This corresponds to an
+    `Expression` message, which only consists of the `rex_type` field, which, in
+    turn, holds a more specialized message with the information specific to the
+    concrete expression.
+  }];
+  let cppNamespace = "::mlir::substrait";
+}
+
 def Substrait_RelOpInterface : OpInterface<"RelOpInterface"> {
   let description = [{
     Interface for any relational operation in a Substrait plan. This corresponds
