@@ -12,6 +12,7 @@
 include "structured/Dialect/Substrait/IR/SubstraitDialect.td"
 include "structured/Dialect/Substrait/IR/SubstraitInterfaces.td"
 include "structured/Dialect/Substrait/IR/SubstraitTypes.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/BuiltinAttributes.td"
 include "mlir/IR/CommonAttrConstraints.td"
 include "mlir/IR/OpBase.td"
@@ -127,12 +128,50 @@ def Substrait_PlanRelOp : Substrait_Op<"relation", [
 }
 
 def Substrait_YieldOp : Substrait_Op<"yield", [
-    Terminator, HasParent<"::mlir::substrait::PlanRelOp">
+    Terminator,
+    ParentOneOf<[
+      "::mlir::substrait::PlanRelOp",
+      "::mlir::substrait::FilterOp"
+    ]>
   ]> {
   let summary = "Yields the result of a `PlanRelOp`";
   let arguments = (ins AnyType:$value);
   let assemblyFormat = "$value attr-dict `:` type($value)";
   let builders = [OpBuilder<(ins), [{ /* do nothing */ }]>];
+}
+
+//===----------------------------------------------------------------------===//
+// Expressions
+//===----------------------------------------------------------------------===//
+// The definitions in this section are related to the various `Expression`
+// message types. See https://substrait.io/expressions/field_references/ and
+// https://github.com/substrait-io/substrait/blob/main/proto/substrait/algebra.proto.
+//===----------------------------------------------------------------------===//
+
+// TODO(ingomueller): Make this a proper base for expressions.
+class Substrait_ExpressionOp<string mnemonic, list<Trait> traits = []> :
+  Substrait_Op<mnemonic, traits # [
+    Substrait_ExpressionOpInterface
+  ]>;
+
+def Substrait_LiteralOp : Substrait_ExpressionOp<"literal", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+  ]> {
+  let summary = "Literal expression";
+  let description = [{
+    Represents a `Literal` message together with all messages it contains and
+    the `Expression` message it is contained in.
+
+    Example:
+
+    ```mlir
+    %0 = literal true
+    ```
+  }];
+  // TODO(ingomueller): extend to other types.
+  let arguments = (ins Substrait_AtomicAttribute:$value);
+  let results = (outs Substrait_AtomicType:$result);
+  let assemblyFormat = "$value attr-dict";
 }
 
 //===----------------------------------------------------------------------===//
@@ -154,6 +193,71 @@ class Substrait_RelOp<string mnemonic, list<Trait> traits = []> :
           Substrait_Relation.predicate>
       ]>>
   ]>;
+
+def Substrait_CrossOp : Substrait_RelOp<"cross", [
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+  ]> {
+  let summary = "Cross product operation";
+  let description = [{
+    Represents a `CrossRel` message together with the `RelCommon` and left and
+    right `Rel` messages it contains.
+
+    Example:
+
+    ```mlir
+    %0 = ...
+    %1 = ...
+    %2 = cross %0 x %1 : tuple<si32> x tuple<si32> -> tuple<si32, si32>
+    ```
+  }];
+  let arguments = (ins
+    Substrait_Relation:$left,
+    Substrait_Relation:$right
+  );
+  let results = (outs Substrait_Relation:$result);
+  let assemblyFormat = [{
+    $left `x` $right attr-dict `:` type($left) `x` type($right)
+  }];
+}
+
+def Substrait_FilterOp : Substrait_RelOp<"filter", [
+    SingleBlockImplicitTerminator<"::mlir::substrait::YieldOp">,
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getDefaultDialect"]>,
+    SameOperandsAndResultType
+  ]> {
+  let summary = "Filter operation";
+  let description = [{
+    Represents a `FilterRel` message together with the `RelCommon`, input `Rel`,
+    and `Expression` messages it contains.
+
+    Example:
+
+    ```mlir
+    %0 = ...
+    %1 = filter %0 : tuple<si32> {
+    ^bb0(%arg : tuple<si32>):
+      %true = literal true
+      yield %true : si1
+    }
+    ```
+  }];
+  let arguments = (ins Substrait_Relation:$input);
+  let regions = (region AnyRegion:$condition);
+  let results = (outs Substrait_Relation:$result);
+  // TODO(ingomueller): We could elide/shorten the block argument from the
+  //                    assembly by writing custom printers/parsers similar to
+  //                    `scf.for` etc.
+  let assemblyFormat = [{
+    $input attr-dict `:` type($input) $condition
+  }];
+  let hasRegionVerifier = 1;
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    ::llvm::StringRef $cppClass::getDefaultDialect() {
+      return SubstraitDialect::getDialectNamespace();
+    }
+  }];
+}
 
 def Substrait_NamedTableOp : Substrait_RelOp<"named_table", [
   ]> {

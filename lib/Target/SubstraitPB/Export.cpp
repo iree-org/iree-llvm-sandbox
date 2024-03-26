@@ -15,13 +15,14 @@
 
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
-#include <substrait/algebra.pb.h>
-#include <substrait/plan.pb.h>
-#include <substrait/type.pb.h>
+#include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/plan.pb.h>
+#include <substrait/proto/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
 using namespace ::substrait;
+using namespace ::substrait::proto;
 
 namespace pb = google::protobuf;
 
@@ -37,27 +38,178 @@ namespace {
 #define DECLARE_EXPORT_FUNC(OP_TYPE, MESSAGE_TYPE)                             \
   static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
+DECLARE_EXPORT_FUNC(CrossOp, Rel)
+DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
+DECLARE_EXPORT_FUNC(FilterOp, Rel)
+DECLARE_EXPORT_FUNC(LiteralOp, Expression)
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
 DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
 DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
-FailureOr<std::unique_ptr<::substrait::Type>> exportType(Location loc,
-                                                         mlir::Type mlirType) {
+FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op);
+FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op);
+
+FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
+                                                   mlir::Type mlirType) {
+  MLIRContext *context = mlirType.getContext();
+
+  // Handle SI1.
+  auto si1 = IntegerType::get(context, 1, IntegerType::Signed);
+  if (mlirType == si1) {
+    // TODO(ingomueller): support other nullability modes.
+    auto i1Type = std::make_unique<proto::Type::Boolean>();
+    i1Type->set_nullability(
+        Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+
+    auto type = std::make_unique<proto::Type>();
+    type->set_allocated_bool_(i1Type.release());
+    return std::move(type);
+  }
+
+  // Handle SI32.
+  auto si32 = IntegerType::get(context, 32, IntegerType::Signed);
+  if (mlirType == si32) {
+    // TODO(ingomueller): support other nullability modes.
+    auto i32Type = std::make_unique<proto::Type::I32>();
+    i32Type->set_nullability(
+        Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+
+    auto type = std::make_unique<proto::Type>();
+    type->set_allocated_i32(i32Type.release());
+    return std::move(type);
+  }
+
+  if (auto tupleType = llvm::dyn_cast<TupleType>(mlirType)) {
+    auto structType = std::make_unique<proto::Type::Struct>();
+    for (mlir::Type fieldType : tupleType.getTypes()) {
+      // Convert field type recursively.
+      FailureOr<std::unique_ptr<proto::Type>> type = exportType(loc, fieldType);
+      if (failed(type))
+        return failure();
+      *structType->add_types() = *type.value();
+    }
+
+    auto type = std::make_unique<proto::Type>();
+    type->set_allocated_struct_(structType.release());
+    return std::move(type);
+  }
+
   // TODO(ingomueller): Support other types.
-  auto si32 = IntegerType::get(mlirType.getContext(), 32, IntegerType::Signed);
-  if (mlirType != si32)
-    return emitError(loc) << "could not export unsupported type " << mlirType;
+  return emitError(loc) << "could not export unsupported type " << mlirType;
+}
 
-  // TODO(ingomueller): support other nullability modes.
-  auto i32Type = std::make_unique<::substrait::Type::I32>();
-  i32Type->set_nullability(
-      Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
+FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
+  // Build `RelCommon` message.
+  auto relCommon = std::make_unique<RelCommon>();
+  auto direct = std::make_unique<RelCommon::Direct>();
+  relCommon->set_allocated_direct(direct.release());
 
-  auto type = std::make_unique<::substrait::Type>();
-  type->set_allocated_i32(i32Type.release());
+  // Build `left` input message.
+  auto leftOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getLeft().getDefiningOp());
+  if (!leftOp)
+    return op->emitOpError(
+        "left input was not produced by Substrait relation op");
 
-  return std::move(type);
+  FailureOr<std::unique_ptr<Rel>> leftRel = exportOperation(leftOp);
+  if (failed(leftRel))
+    return failure();
+
+  // Build `right` input message.
+  auto rightOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getRight().getDefiningOp());
+  if (!rightOp)
+    return op->emitOpError(
+        "right input was not produced by Substrait relation op");
+
+  FailureOr<std::unique_ptr<Rel>> rightRel = exportOperation(rightOp);
+  if (failed(rightRel))
+    return failure();
+
+  // Build `CrossRel` message.
+  auto crossRel = std::make_unique<CrossRel>();
+  crossRel->set_allocated_common(relCommon.release());
+  crossRel->set_allocated_left(leftRel->release());
+  crossRel->set_allocated_right(rightRel->release());
+
+  // Build `Rel` message.
+  auto rel = std::make_unique<Rel>();
+  rel->set_allocated_cross(crossRel.release());
+
+  return rel;
+}
+
+FailureOr<std::unique_ptr<Expression>>
+exportOperation(ExpressionOpInterface op) {
+  return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
+             op)
+      .Case<LiteralOp>([&](auto op) { return exportOperation(op); })
+      .Default(
+          [](auto op) { return op->emitOpError("not supported for export"); });
+}
+
+FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
+  // Build `RelCommon` message.
+  auto relCommon = std::make_unique<RelCommon>();
+  auto direct = std::make_unique<RelCommon::Direct>();
+  relCommon->set_allocated_direct(direct.release());
+
+  // Build input `Rel` message.
+  auto inputOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getInput().getDefiningOp());
+  if (!inputOp)
+    return op->emitOpError("input was not produced by Substrait relation op");
+
+  FailureOr<std::unique_ptr<Rel>> inputRel = exportOperation(inputOp);
+  if (failed(inputRel))
+    return failure();
+
+  // Build condition `Expression` message.
+  auto yieldOp = llvm::cast<YieldOp>(op.getCondition().front().getTerminator());
+  // TODO(ingomueller): There can be cases where there isn't a defining op but
+  //                    the region argument is returned directly. Support that.
+  auto conditionOp = llvm::dyn_cast_if_present<ExpressionOpInterface>(
+      yieldOp.getValue().getDefiningOp());
+  if (!conditionOp)
+    return op->emitOpError("condition not supported for export: yielded op was "
+                           "not produced by Substrait expression op");
+  FailureOr<std::unique_ptr<Expression>> condition =
+      exportOperation(conditionOp);
+  if (failed(condition))
+    return failure();
+
+  // Build `FilterRel` message.
+  auto filterRel = std::make_unique<FilterRel>();
+  filterRel->set_allocated_common(relCommon.release());
+  filterRel->set_allocated_input(inputRel->release());
+  filterRel->set_allocated_condition(condition->release());
+
+  // Build `Rel` message.
+  auto rel = std::make_unique<Rel>();
+  rel->set_allocated_filter(filterRel.release());
+
+  return rel;
+}
+
+FailureOr<std::unique_ptr<Expression>> exportOperation(LiteralOp op) {
+  auto si1 = IntegerType::get(op.getContext(), 1, IntegerType::Signed);
+  auto si32 = IntegerType::get(op.getContext(), 32, IntegerType::Signed);
+
+  // Build `Literal` message.
+  auto value = llvm::cast<TypedAttr>(op.getValue());
+  mlir::Type literalType = value.getType();
+  auto literal = std::make_unique<Expression::Literal>();
+  if (literalType == si1 || literalType == si32)
+    literal->set_boolean(value.cast<IntegerAttr>().getSInt());
+  else
+    op->emitOpError("has unsupported value");
+
+  // Build `Expression` message.
+  auto expression = std::make_unique<Expression>();
+  expression->set_allocated_literal(literal.release());
+
+  return expression;
 }
 
 FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
@@ -95,13 +247,12 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
   relCommon->set_allocated_direct(direct.release());
 
   // Build `Struct` message.
-  auto struct_ = std::make_unique<::substrait::Type::Struct>();
+  auto struct_ = std::make_unique<proto::Type::Struct>();
   struct_->set_nullability(
       Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
   auto tupleType = llvm::cast<TupleType>(op.getResult().getType());
   for (mlir::Type fieldType : tupleType.getTypes()) {
-    FailureOr<std::unique_ptr<::substrait::Type>> type =
-        exportType(loc, fieldType);
+    FailureOr<std::unique_ptr<proto::Type>> type = exportType(loc, fieldType);
     if (failed(type))
       return (failure());
     *struct_->add_types() = *std::move(type.value());
@@ -159,7 +310,8 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<NamedTableOp>([&](auto op) { return exportOperation(op); })
+      .Case<CrossOp, FilterOp, NamedTableOp>(
+          [&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");
         return failure();

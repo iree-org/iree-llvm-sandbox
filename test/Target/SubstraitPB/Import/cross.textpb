@@ -1,0 +1,74 @@
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN: | FileCheck %s
+
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN: | structured-translate -substrait-to-protobuf \
+# RUN: | structured-translate -protobuf-to-substrait \
+# RUN: | FileCheck %s
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    relation {
+# CHECK-NEXT:      %[[V0:.*]] = named_table
+# CHECK-NEXT:      %[[V1:.*]] = named_table
+# CHECK-NEXT:      %[[V2:.*]] = cross %[[V0]] x %[[V1]]
+# CHECK-SAME:        : tuple<si32> x tuple<si32>
+# CHECK-NEXT:      yield %[[V2]] : tuple<si32, si32>
+
+relations {
+  rel {
+    cross {
+      common {
+        direct {
+        }
+      }
+      left {
+        read {
+          common {
+            direct {
+            }
+          }
+          base_schema {
+            names: "a"
+            struct {
+              types {
+                i32 {
+                  nullability: NULLABILITY_REQUIRED
+                }
+              }
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          named_table {
+            names: "t1"
+          }
+        }
+      }
+      right {
+        read {
+          common {
+            direct {
+            }
+          }
+          base_schema {
+            names: "b"
+            struct {
+              types {
+                i32 {
+                  nullability: NULLABILITY_REQUIRED
+                }
+              }
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          named_table {
+            names: "t2"
+          }
+        }
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
