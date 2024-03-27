@@ -2,7 +2,9 @@
 -r third_party/llvm-project/mlir/python/requirements.txt
 
 # Testing.
+duckdb
 lit
+pyarrow
 
 # Plotting.
 pandas
