@@ -3,6 +3,9 @@
 
 # Testing.
 datafusion==32.0.0
+ibis==3.3.0
+ibis-framework==8.0.0
+ibis-substrait==3.2.0
 lit
 pyarrow
 
