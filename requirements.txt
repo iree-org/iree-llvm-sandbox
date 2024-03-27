@@ -3,6 +3,7 @@
 
 # Testing.
 lit
+pyarrow
 
 # Plotting.
 pandas
