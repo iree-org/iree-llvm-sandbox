@@ -51,6 +51,127 @@ void SubstraitDialect::initialize() {
 namespace mlir {
 namespace substrait {
 
+LogicalResult
+CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                          ValueRange operands, DictionaryAttr attributes,
+                          OpaqueProperties properties, RegionRange regions,
+                          llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  Value leftInput = operands[0];
+  Value rightInput = operands[0];
+
+  TypeRange leftFieldTypes = leftInput.getType().cast<TupleType>().getTypes();
+  TypeRange rightFieldTypes = rightInput.getType().cast<TupleType>().getTypes();
+
+  llvm::SmallVector<mlir::Type> fieldTypes;
+  fieldTypes.append(leftFieldTypes.begin(), rightFieldTypes.end());
+  fieldTypes.append(rightFieldTypes.begin(), rightFieldTypes.end());
+  auto resultType = TupleType::get(context, fieldTypes);
+
+  inferredReturnTypes.emplace_back(resultType);
+
+  return success();
+}
+
+/// Computes the type of the nested field of the given `type` identified by
+/// `position`. Each entry `n` in the given index array `position` corresponds
+/// to the `n`-th entry in that level. The function is thus implemented
+/// recursively, where each recursion level extracts the type of the outer-most
+/// level identified by the first index in the `position` array.
+static FailureOr<Type> computeTypeAtPosition(Location loc, Type type,
+                                             ArrayRef<Attribute> position) {
+  if (position.empty())
+    return type;
+
+  // Recurse into tuple field of first index in position array.
+  if (auto tupleType = llvm::dyn_cast<TupleType>(type)) {
+    auto indexAttr = llvm::dyn_cast<IntegerAttr>(position[0]);
+    if (!indexAttr)
+      return emitError(loc) << position[0] << " is not a valid index";
+
+    int64_t index = indexAttr.getInt();
+    ArrayRef<Type> fieldTypes = tupleType.getTypes();
+    if (index >= static_cast<int64_t>(fieldTypes.size()) || index < 0)
+      return emitError(loc) << index << " is not a valid index for " << type;
+
+    return computeTypeAtPosition(loc, fieldTypes[index], position.drop_front());
+  }
+
+  return emitError(loc) << "can't extract element from type " << type;
+}
+
+LogicalResult FieldReferenceOp::inferReturnTypes(
+    MLIRContext *context, std::optional<Location> loc, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+  if (!loc)
+    loc = UnknownLoc::get(context);
+
+  // Extract field type at given position.
+  ArrayAttr position = typedProperties->getPosition();
+  Type inputType = operands[0].getType();
+  FailureOr<Type> fieldType =
+      computeTypeAtPosition(loc.value(), inputType, position.getValue());
+  if (failed(fieldType))
+    return ::emitError(loc.value())
+           << "mismatching position and type (position: " << position
+           << ", type: " << inputType << ")";
+
+  inferredReturnTypes.push_back(fieldType.value());
+
+  return success();
+}
+
+LogicalResult FilterOp::verifyRegions() {
+  MLIRContext *context = getContext();
+  Type si1 = IntegerType::get(context, /*width=*/1, IntegerType::Signed);
+  Region &condition = getCondition();
+
+  // Verify that type of yielded value is Boolean.
+  auto yieldOp = llvm::cast<YieldOp>(condition.front().getTerminator());
+  Type yieldedType = yieldOp.getValue().getType();
+  if (yieldedType != si1)
+    return emitOpError()
+           << " must have 'condition' region yielding 'si1' (yields "
+           << yieldedType << ")";
+
+  // Verify that block has argument of input tuple type.
+  Type tupleType = getResult().getType();
+  if (condition.getNumArguments() != 1 ||
+      condition.getArgument(0).getType() != tupleType) {
+    InFlightDiagnostic diag = emitOpError()
+                              << "must have 'condition' region taking "
+                              << tupleType << " as argument (takes ";
+    if (condition.getNumArguments() == 0)
+      diag << "no arguments)";
+    else
+      diag << condition.getArgument(0).getType() << ")";
+    return diag;
+  }
+
+  return success();
+}
+
+LogicalResult
+LiteralOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                            ValueRange operands, DictionaryAttr attributes,
+                            OpaqueProperties properties, RegionRange regions,
+                            llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+  if (!loc)
+    loc = UnknownLoc::get(context);
+
+  auto attr = llvm::dyn_cast<TypedAttr>(typedProperties->getValue());
+  if (!attr)
+    ::emitError(loc.value()) << "unsuited attribute for literal value: "
+                             << typedProperties->getValue();
+
+  Type resultType = attr.getType();
+  inferredReturnTypes.emplace_back(resultType);
+
+  return success();
+}
+
 /// Verifies that the provided field names match the provided field types. While
 /// the field types are potentially nested, the names are given in a single,
 /// flat list and correspond to the field types in depth first order (where each
@@ -58,9 +179,9 @@ namespace substrait {
 /// own). Furthermore, the names on each nesting level need to be unique. For
 /// details, see
 /// https://substrait.io/tutorial/sql_to_substrait/#types-and-schemas.
-FailureOr<int> verifyNamedStruct(Location loc,
-                                 llvm::ArrayRef<Attribute> fieldNames,
-                                 TypeRange fieldTypes) {
+FailureOr<int> verifyNamedStructHelper(Location loc,
+                                       llvm::ArrayRef<Attribute> fieldNames,
+                                       TypeRange fieldTypes) {
   int numConsumedNames = 0;
   llvm::SmallSet<llvm::StringRef, 8> currentLevelNames;
   for (Type type : fieldTypes) {
@@ -79,7 +200,7 @@ FailureOr<int> verifyNamedStruct(Location loc,
       llvm::ArrayRef<Attribute> remainingNames =
           fieldNames.drop_front(numConsumedNames);
       FailureOr<int> res =
-          verifyNamedStruct(loc, remainingNames, nestedFieldTypes);
+          verifyNamedStructHelper(loc, remainingNames, nestedFieldTypes);
       if (failed(res))
         return failure();
       numConsumedNames += res.value();
@@ -88,16 +209,16 @@ FailureOr<int> verifyNamedStruct(Location loc,
   return numConsumedNames;
 }
 
-LogicalResult NamedTableOp::verify() {
-  Location loc = getLoc();
-  llvm::ArrayRef<Attribute> fieldNames = getFieldNames().getValue();
-  auto tupleType = llvm::cast<TupleType>(getResult().getType());
+LogicalResult verifyNamedStruct(Operation *op,
+                                llvm::ArrayRef<Attribute> fieldNames,
+                                TupleType tupleType) {
+  Location loc = op->getLoc();
   TypeRange fieldTypes = tupleType.getTypes();
 
   // Emits error message with context on failure.
   auto emitErrorMessage = [&]() {
-    InFlightDiagnostic error = ::emitError(loc)
-                               << "mismatching 'field_names' ([";
+    InFlightDiagnostic error = op->emitOpError()
+                               << "has mismatching 'field_names' ([";
     llvm::interleaveComma(fieldNames, error);
     error << "]) and result type (" << tupleType << ")";
     return error;
@@ -105,20 +226,36 @@ LogicalResult NamedTableOp::verify() {
 
   // Call recursive verification function.
   FailureOr<int> numConsumedNames =
-      verifyNamedStruct(loc, fieldNames, fieldTypes);
+      verifyNamedStructHelper(loc, fieldNames, fieldTypes);
 
   // Relay any failure.
   if (failed(numConsumedNames))
     return emitErrorMessage();
 
   // If we haven't consumed all names, we got too many of them, so report.
-  if (numConsumedNames.value() != static_cast<int>(getFieldNames().size())) {
+  if (numConsumedNames.value() != static_cast<int>(fieldNames.size())) {
     InFlightDiagnostic error = emitErrorMessage();
     error.attachNote(loc) << "too many field names provided";
     return error;
   }
 
   return success();
+}
+
+LogicalResult NamedTableOp::verify() {
+  llvm::ArrayRef<Attribute> fieldNames = getFieldNames().getValue();
+  auto tupleType = llvm::cast<TupleType>(getResult().getType());
+  return verifyNamedStruct(getOperation(), fieldNames, tupleType);
+}
+
+LogicalResult PlanRelOp::verifyRegions() {
+  if (!getFieldNames().has_value())
+    return success();
+
+  llvm::ArrayRef<Attribute> fieldNames = getFieldNames()->getValue();
+  auto yieldOp = llvm::cast<YieldOp>(getBody().front().getTerminator());
+  auto tupleType = llvm::cast<TupleType>(yieldOp.getValue().getType());
+  return verifyNamedStruct(getOperation(), fieldNames, tupleType);
 }
 
 } // namespace substrait
