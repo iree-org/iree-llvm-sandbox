@@ -17,13 +17,14 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
-#include <substrait/algebra.pb.h>
-#include <substrait/plan.pb.h>
-#include <substrait/type.pb.h>
+#include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/plan.pb.h>
+#include <substrait/proto/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
 using namespace ::substrait;
+using namespace ::substrait::proto;
 
 namespace pb = google::protobuf;
 
@@ -43,6 +44,12 @@ namespace {
   static FailureOr<OP_TYPE> import##MESSAGE_TYPE(ImplicitLocOpBuilder builder, \
                                                  const ARG_TYPE &message);
 
+DECLARE_IMPORT_FUNC(Cross, Rel, CrossOp)
+DECLARE_IMPORT_FUNC(Filter, Rel, FilterOp)
+DECLARE_IMPORT_FUNC(Expression, Expression, ExpressionOpInterface)
+DECLARE_IMPORT_FUNC(FieldReference, Expression::FieldReference,
+                    FieldReferenceOp)
+DECLARE_IMPORT_FUNC(Literal, Expression::Literal, LiteralOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
@@ -50,16 +57,182 @@ DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
-                                              const ::substrait::Type &type) {
-  // TODO(ingomueller): Support more types.
-  if (!type.has_i32()) {
+                                              const proto::Type &type) {
+
+  proto::Type::KindCase kind_case = type.kind_case();
+  switch (kind_case) {
+  case proto::Type::kBool: {
+    return IntegerType::get(context, 1, IntegerType::Signed);
+  }
+  case proto::Type::kI32: {
+    return IntegerType::get(context, 32, IntegerType::Signed);
+  }
+  case proto::Type::kStruct: {
+    const proto::Type::Struct &structType = type.struct_();
+    llvm::SmallVector<mlir::Type> fieldTypes;
+    fieldTypes.reserve(structType.types_size());
+    for (const proto::Type &fieldType : structType.types()) {
+      FailureOr<mlir::Type> mlirFieldType = importType(context, fieldType);
+      if (failed(mlirFieldType))
+        return failure();
+      fieldTypes.push_back(mlirFieldType.value());
+    }
+    return TupleType::get(context, fieldTypes);
+  }
+    // TODO(ingomueller): Support more types.
+  default: {
     auto loc = UnknownLoc::get(context);
     const pb::FieldDescriptor *desc =
-        ::substrait::Type::GetDescriptor()->FindFieldByNumber(type.kind_case());
+        proto::Type::GetDescriptor()->FindFieldByNumber(kind_case);
     return emitError(loc) << "could not import unsupported type "
                           << desc->name();
   }
-  return IntegerType::get(context, 32, IntegerType::Signed);
+  }
+}
+
+static mlir::FailureOr<CrossOp> importCross(ImplicitLocOpBuilder builder,
+                                            const Rel &message) {
+  const CrossRel &crossRel = message.cross();
+
+  // Import left and right inputs.
+  const Rel &leftRel = crossRel.left();
+  const Rel &rightRel = crossRel.right();
+
+  mlir::FailureOr<RelOpInterface> leftOp = importRel(builder, leftRel);
+  mlir::FailureOr<RelOpInterface> rightOp = importRel(builder, rightRel);
+
+  if (failed(leftOp) || failed(rightOp))
+    return failure();
+
+  // Build `CrossOp`.
+  Value leftVal = leftOp.value()->getResult(0);
+  Value rightVal = rightOp.value()->getResult(0);
+
+  return builder.create<CrossOp>(leftVal, rightVal);
+}
+
+static mlir::FailureOr<ExpressionOpInterface>
+importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  Expression::RexTypeCase rex_type = message.rex_type_case();
+  switch (rex_type) {
+  case Expression::RexTypeCase::kSelection: {
+    return importFieldReference(builder, message.selection());
+  }
+  case Expression::RexTypeCase::kLiteral: {
+    return importLiteral(builder, message.literal());
+  }
+  default: {
+    const pb::FieldDescriptor *desc =
+        Expression::GetDescriptor()->FindFieldByNumber(rex_type);
+    return emitError(loc) << Twine("unsupported Expression type: ") +
+                                 desc->name();
+  }
+  }
+}
+
+static mlir::FailureOr<FieldReferenceOp>
+importFieldReference(ImplicitLocOpBuilder builder,
+                     const Expression::FieldReference &message) {
+  using ReferenceSegment = Expression::ReferenceSegment;
+
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  // Emit error on unsupported cases.
+  // TODO(ingomueller): support more cases.
+  if (!message.has_direct_reference())
+    return emitError(loc) << "only direct reference supported";
+
+  if (!message.has_root_reference())
+    return emitError(loc) << "only root reference supported";
+
+  // Traverse list to extract indexes.
+  llvm::SmallVector<int64_t> indexes;
+  const ReferenceSegment *currentSegment = &message.direct_reference();
+  while (true) {
+    if (!currentSegment->has_struct_field())
+      return emitError(loc) << "only struct fields supported";
+
+    const ReferenceSegment::StructField &structField =
+        currentSegment->struct_field();
+    indexes.push_back(structField.field());
+
+    // Continue in linked list or end traversal.
+    if (!structField.has_child())
+      break;
+    currentSegment = &structField.child();
+  }
+
+  // Build `position` attribute of indexes.
+  ArrayAttr position = builder.getI64ArrayAttr(indexes);
+
+  // Get input value. For direct references, that's the current block argument.
+  mlir::Block::BlockArgListType blockArgs =
+      builder.getInsertionBlock()->getArguments();
+  assert(blockArgs.size() == 1 && "expected a single block argument");
+  Value container = blockArgs.front();
+
+  // Build and return the op.
+  return builder.create<FieldReferenceOp>(container, position);
+}
+
+static mlir::FailureOr<LiteralOp>
+importLiteral(ImplicitLocOpBuilder builder,
+              const Expression::Literal &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  Expression::Literal::LiteralTypeCase literalType =
+      message.literal_type_case();
+  switch (literalType) {
+  case Expression::Literal::LiteralTypeCase::kBoolean: {
+    auto attr = IntegerAttr::get(
+        IntegerType::get(context, 1, IntegerType::Signed), message.boolean());
+    return builder.create<LiteralOp>(attr);
+  }
+  default: {
+    const pb::FieldDescriptor *desc =
+        Expression::Literal::GetDescriptor()->FindFieldByNumber(literalType);
+    return emitError(loc) << Twine("unsupported Literal type: ") + desc->name();
+  }
+  }
+}
+
+static mlir::FailureOr<FilterOp> importFilter(ImplicitLocOpBuilder builder,
+                                              const Rel &message) {
+  const FilterRel &filterRel = message.filter();
+
+  // Import input op.
+  const Rel &inputRel = filterRel.input();
+  mlir::FailureOr<RelOpInterface> inputOp = importRel(builder, inputRel);
+  if (failed(inputOp))
+    return failure();
+
+  // Create filter op.
+  auto filterOp = builder.create<FilterOp>(inputOp.value()->getResult(0));
+  filterOp.getCondition().push_back(new Block);
+  Block &conditionBlock = filterOp.getCondition().front();
+  conditionBlock.addArgument(filterOp.getResult().getType(),
+                             filterOp->getLoc());
+
+  // Create condition region.
+  const Expression &expression = filterRel.condition();
+  {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(&conditionBlock);
+
+    FailureOr<ExpressionOpInterface> conditionOp =
+        importExpression(builder, expression);
+    if (failed(conditionOp))
+      return failure();
+
+    builder.create<YieldOp>(conditionOp.value()->getResult(0));
+  }
+
+  return filterOp;
 }
 
 static mlir::FailureOr<NamedTableOp>
@@ -92,10 +265,10 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   auto fieldNamesAttr = ArrayAttr::get(context, fieldNames);
 
   // Assemble field names from schema.
-  const ::substrait::Type::Struct &struct_ = baseSchema.struct_();
+  const proto::Type::Struct &struct_ = baseSchema.struct_();
   llvm::SmallVector<mlir::Type> resultTypes;
   resultTypes.reserve(struct_.types_size());
-  for (const ::substrait::Type &type : struct_.types()) {
+  for (const proto::Type &type : struct_.types()) {
     FailureOr<mlir::Type> mlirType = importType(context, type);
     if (failed(mlirType))
       return failure();
@@ -133,31 +306,44 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   MLIRContext *context = builder.getContext();
   Location loc = UnknownLoc::get(context);
 
-  PlanRel::RelTypeCase relType = message.rel_type_case();
-  switch (relType) {
-  case PlanRel::RelTypeCase::kRel: {
-    auto planRelOp = builder.create<PlanRelOp>();
-    planRelOp.getBody().push_back(new Block());
-    Block *block = &planRelOp.getBody().front();
-
-    OpBuilder::InsertionGuard insertGuard(builder);
-    builder.setInsertionPointToEnd(block);
-    const Rel &rel = message.rel();
-    mlir::FailureOr<Operation *> rootRel = importRel(builder, rel);
-    if (failed(rootRel))
-      return failure();
-
-    builder.setInsertionPointToEnd(block);
-    builder.create<YieldOp>(rootRel.value()->getResult(0));
-
-    return planRelOp;
-  }
-  default: {
+  if (!message.has_rel() && !message.has_root()) {
+    PlanRel::RelTypeCase relType = message.rel_type_case();
     const pb::FieldDescriptor *desc =
         PlanRel::GetDescriptor()->FindFieldByNumber(relType);
     return emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name();
   }
+
+  // Create new `PlanRelOp`.
+  auto planRelOp = builder.create<PlanRelOp>();
+  planRelOp.getBody().push_back(new Block());
+  Block *block = &planRelOp.getBody().front();
+
+  // Handle `Rel` and `RelRoot` separately.
+  const Rel *rel;
+  if (message.has_rel())
+    rel = &message.rel();
+  else {
+    const RelRoot &root = message.root();
+    rel = &root.input();
+
+    // Extract names.
+    SmallVector<std::string> names(root.names().begin(), root.names().end());
+    SmallVector<llvm::StringRef> nameAttrs(names.begin(), names.end());
+    ArrayAttr namesAttr = builder.getStrArrayAttr(nameAttrs);
+    planRelOp.setFieldNamesAttr(namesAttr);
   }
+
+  // Import body of `PlanRelOp`.
+  OpBuilder::InsertionGuard insertGuard(builder);
+  builder.setInsertionPointToEnd(block);
+  mlir::FailureOr<Operation *> rootRel = importRel(builder, *rel);
+  if (failed(rootRel))
+    return failure();
+
+  builder.setInsertionPointToEnd(block);
+  builder.create<YieldOp>(rootRel.value()->getResult(0));
+
+  return planRelOp;
 }
 
 static mlir::FailureOr<RelOpInterface>
@@ -185,6 +371,12 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
 
   Rel::RelTypeCase relType = message.rel_type_case();
   switch (relType) {
+  case Rel::RelTypeCase::kCross: {
+    return importCross(builder, message);
+  }
+  case Rel::RelTypeCase::kFilter: {
+    return importFilter(builder, message);
+  }
   case Rel::RelTypeCase::kRead: {
     return importReadRel(builder, message);
   }
@@ -204,7 +396,7 @@ OwningOpRef<ModuleOp>
 translateProtobufToSubstrait(llvm::StringRef input, MLIRContext *context,
                              ImportExportOptions options) {
   Location loc = UnknownLoc::get(context);
-  auto plan = std::make_unique<::substrait::Plan>();
+  auto plan = std::make_unique<Plan>();
   switch (options.serdeFormat) {
   case substrait::SerdeFormat::kText:
     if (!pb::TextFormat::ParseFromString(input.str(), plan.get())) {

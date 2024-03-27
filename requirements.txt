@@ -2,6 +2,8 @@
 -r third_party/llvm-project/mlir/python/requirements.txt
 
 # Testing.
+ibis
+ibis_substrait
 lit
 
 # Plotting.
