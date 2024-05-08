@@ -1,6 +1,6 @@
 [submodule "experimental/iterators/third_party/llvm-project"]
 	path = third_party/llvm-project
 	url = https://github.com/llvm/llvm-project.git
-[submodule "third_party/substrait"]
-	path = third_party/substrait
-	url = https://github.com/substrait-io/substrait.git
+[submodule "third_party/substrait-cpp"]
+	path = third_party/substrait-cpp
+	url = https://github.com/substrait-io/substrait-cpp.git

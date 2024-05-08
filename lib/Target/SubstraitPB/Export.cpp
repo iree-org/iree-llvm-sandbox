@@ -15,13 +15,14 @@
 
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
-#include <substrait/algebra.pb.h>
-#include <substrait/plan.pb.h>
-#include <substrait/type.pb.h>
+#include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/plan.pb.h>
+#include <substrait/proto/type.pb.h>
 
 using namespace mlir;
 using namespace mlir::substrait;
 using namespace ::substrait;
+using namespace ::substrait::proto;
 
 namespace pb = google::protobuf;
 
@@ -42,19 +43,19 @@ DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
 DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
-FailureOr<std::unique_ptr<::substrait::Type>> exportType(Location loc,
-                                                         mlir::Type mlirType) {
+FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
+                                                   mlir::Type mlirType) {
   // TODO(ingomueller): Support other types.
   auto si32 = IntegerType::get(mlirType.getContext(), 32, IntegerType::Signed);
   if (mlirType != si32)
     return emitError(loc) << "could not export unsupported type " << mlirType;
 
   // TODO(ingomueller): support other nullability modes.
-  auto i32Type = std::make_unique<::substrait::Type::I32>();
+  auto i32Type = std::make_unique<proto::Type::I32>();
   i32Type->set_nullability(
       Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
 
-  auto type = std::make_unique<::substrait::Type>();
+  auto type = std::make_unique<proto::Type>();
   type->set_allocated_i32(i32Type.release());
 
   return std::move(type);
@@ -95,13 +96,12 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
   relCommon->set_allocated_direct(direct.release());
 
   // Build `Struct` message.
-  auto struct_ = std::make_unique<::substrait::Type::Struct>();
+  auto struct_ = std::make_unique<proto::Type::Struct>();
   struct_->set_nullability(
       Type_Nullability::Type_Nullability_NULLABILITY_REQUIRED);
   auto tupleType = llvm::cast<TupleType>(op.getResult().getType());
   for (mlir::Type fieldType : tupleType.getTypes()) {
-    FailureOr<std::unique_ptr<::substrait::Type>> type =
-        exportType(loc, fieldType);
+    FailureOr<std::unique_ptr<proto::Type>> type = exportType(loc, fieldType);
     if (failed(type))
       return (failure());
     *struct_->add_types() = *std::move(type.value());
