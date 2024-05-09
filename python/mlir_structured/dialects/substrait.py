@@ -37,6 +37,15 @@ class PlanOp(PlanOp):
   def body(self) -> ir.Block:
     return self.regions[0].blocks[0]
 
+  def to_json(self, pretty: bool = False) -> str:
+    return to_json(self.operation, pretty)
+
+  def to_binpb(self) -> str:
+    return to_binpb(self.operation)
+
+  def to_textpb(self) -> str:
+    return to_textpb(self.operation)
+
 
 @_ods_cext.register_operation(_Dialect, replace=True)
 class PlanRelOp(PlanRelOp):
