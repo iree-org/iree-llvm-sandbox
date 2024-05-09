@@ -15,15 +15,26 @@ def run(f):
 # CHECK-LABEL: TEST: testSubstraitDialect
 @run
 def testSubstraitDialect():
-  plan = ss.PlanOp(0, 42, 1)
+  plan = ss.PlanOp(version=(0, 42, 1))
   print(plan)
   # CHECK: substrait.plan
+
+
+# CHECK-LABEL: TEST: testPlanOp
+@run
+def testPlanOp():
+  plan = ss.PlanOp(0, 42, 1)
+  print(plan)
+  # CHECK: substrait.plan version 0 : 42 : 1
+  plan = ss.PlanOp(version=(0, 42, 1))
+  print(plan)
+  # CHECK: substrait.plan version 0 : 42 : 1
 
 
 # CHECK-LABEL: TEST: testNamedTable
 @run
 def testNamedTable():
-  plan = ss.PlanOp(0, 42, 1)
+  plan = ss.PlanOp(version=(0, 42, 1))
 
   with ir.InsertionPoint(plan.body):
     plan_rel = ss.PlanRelOp()
