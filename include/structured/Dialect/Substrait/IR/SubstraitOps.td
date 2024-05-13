@@ -257,6 +257,40 @@ def Substrait_CrossOp : Substrait_RelOp<"cross", [
   }];
 }
 
+def Substrait_EmitOp : Substrait_RelOp<"emit", [
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getDefaultDialect"]>,
+    DeclareOpInterfaceMethods<InferTypeOpInterface>
+  ]> {
+  let summary = "Projection (a.k.a. 'emit') as dedicated operation";
+  let description = [{
+    Represents the `Emit` message of the `emit_kind` field in the `RelCommon`
+    message. While projection is inlined into all relations in the protobuf
+    format, this op separates out this functionality in a dedicated op in order
+    to simplify rewriting.
+
+    Example:
+
+    ```mlir
+    %0 = ...
+    %1 = emit [2, 1] from %0 : tuple<si32, s1, si32> -> tuple<si32, si1>
+    ```
+  }];
+  let arguments = (ins
+    Substrait_Relation:$input,
+    I64ArrayAttr:$mapping
+  );
+  let results = (outs Substrait_Relation:$result);
+  let assemblyFormat = [{
+    $mapping `from` $input attr-dict `:` type($input) `->` type($result)
+  }];
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    ::llvm::StringRef $cppClass::getDefaultDialect() {
+      return SubstraitDialect::getDialectNamespace();
+    }
+  }];
+}
+
 def Substrait_FilterOp : Substrait_RelOp<"filter", [
     SingleBlockImplicitTerminator<"::mlir::substrait::YieldOp">,
     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getDefaultDialect"]>,

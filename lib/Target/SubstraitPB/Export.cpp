@@ -39,6 +39,7 @@ namespace {
   static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
 DECLARE_EXPORT_FUNC(CrossOp, Rel)
+DECLARE_EXPORT_FUNC(EmitOp, Rel)
 DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
 DECLARE_EXPORT_FUNC(FieldReferenceOp, Expression)
 DECLARE_EXPORT_FUNC(FilterOp, Rel)
@@ -50,6 +51,65 @@ DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
 FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op);
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op);
+
+/// Creates the `RelCommon` message with the `emit_kind` field for the given
+/// op.
+///
+/// **This function has to be called during the export of every `Rel` case
+/// that has a `RelCommon` message.**
+///
+/// If the result produced by the gien op is an `EmitOp`, then the returned
+/// `RelCommon` message contains an `Emit` message that represents the
+/// output mapping of the `EmitOp`. Otherwise, the returned `RelCommon`
+/// message contains a `Direct` message.
+///
+/// If there is more than one `EmitOp` user or some `EmitOp` users and some
+/// other users, then an error is returned because these cases can't be
+/// expressed by a single `Emit` message. Some corner cases where export
+/// might still be possible are cases with multiple `EmitOp`s that are all
+/// identical and a subset of `EmitOp` users all with identity mappings. All
+/// of these should go away through canonicalization and/or CSE.
+FailureOr<std::unique_ptr<RelCommon>>
+createRelComminWithEmit(RelOpInterface op) {
+  auto relCommon = std::make_unique<RelCommon>();
+
+  Value result = op->getResult(0);
+
+  // Collect all `EmitOp`s that use the result of this operation.
+  SmallVector<EmitOp> emitOps;
+  size_t numUsers = 0;
+  for (Operation *user : result.getUsers()) {
+    numUsers++;
+    if (isa<EmitOp>(user))
+      emitOps.push_back(dyn_cast<EmitOp>(user));
+  }
+
+  // If we don't have an `EmitOp` user, then `op` has direct emit behavior.
+  if (emitOps.empty()) {
+    auto direct = std::make_unique<RelCommon::Direct>();
+    relCommon->set_allocated_direct(direct.release());
+    return relCommon;
+  }
+
+  // If we have more that one `EmitOp` user or fewer `EmitOp` users than total
+  // users, then some mappings are different from the others, which can't be
+  // expressed by a single `Emit` message.
+  if (emitOps.size() > 1 || emitOps.size() != numUsers) {
+    return op->emitOpError("is consumed by different emit ops (try running "
+                           "canonicalization and/or CSE)");
+  }
+
+  // Normal case: we have exactly one `EmitOp` user.
+  EmitOp emitOp = emitOps.front();
+
+  // Build the `Emit` message.
+  auto emit = std::make_unique<RelCommon::Emit>();
+  for (auto intAttr : emitOp.getMapping().getAsRange<IntegerAttr>())
+    emit->add_output_mapping(intAttr.getInt());
+
+  relCommon->set_allocated_emit(emit.release());
+  return relCommon;
+}
 
 FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
                                                    mlir::Type mlirType) {
@@ -141,6 +201,25 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
   return rel;
 }
 
+/// We just forward to the overload for `RelOpInterface`, which will have to
+/// export this op. We can't (easily) do it here because the emit op is
+/// represented as part of the `RelCommon` message of one of the cases of the
+/// `Rel` message but there is no generic way to access the `common` field of
+/// the various cases.
+FailureOr<std::unique_ptr<Rel>> exportOperation(EmitOp op) {
+  auto inputOp =
+      dyn_cast_if_present<RelOpInterface>(op.getInput().getDefiningOp());
+  if (!inputOp)
+    return op->emitOpError("input was not produced by Substrait relation op");
+
+  if (dyn_cast<EmitOp>(inputOp.getOperation()))
+    return op->emitOpError(
+        "with input produced by 'substrait.emit' op not supported for export "
+        "(try running canonicalization)");
+
+  return exportOperation(inputOp);
+}
+
 FailureOr<std::unique_ptr<Expression>>
 exportOperation(ExpressionOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
@@ -208,10 +287,12 @@ FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
 }
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
-  // Build `RelCommon` message.
-  auto relCommon = std::make_unique<RelCommon>();
-  auto direct = std::make_unique<RelCommon::Direct>();
-  relCommon->set_allocated_direct(direct.release());
+  // Build `RelCommon` message with emit mapping.
+  FailureOr<std::unique_ptr<RelCommon>> maybeRelCommon =
+      createRelComminWithEmit(op);
+  if (failed(maybeRelCommon))
+    return failure();
+  auto relCommon = std::move(maybeRelCommon.value());
 
   // Build input `Rel` message.
   auto inputOp =
@@ -310,10 +391,12 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
     namedTable->add_names(attr.getLeafReference().str());
   }
 
-  // Build `RelCommon` message.
-  auto relCommon = std::make_unique<RelCommon>();
-  auto direct = std::make_unique<RelCommon::Direct>();
-  relCommon->set_allocated_direct(direct.release());
+  // Build `RelCommon` message with emit mapping.
+  FailureOr<std::unique_ptr<RelCommon>> maybeRelCommon =
+      createRelComminWithEmit(op);
+  if (failed(maybeRelCommon))
+    return failure();
+  auto relCommon = std::move(maybeRelCommon.value());
 
   // Build `Struct` message.
   auto struct_ = std::make_unique<proto::Type::Struct>();
@@ -392,7 +475,7 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<CrossOp, FieldReferenceOp, FilterOp, NamedTableOp>(
+      .Case<CrossOp, EmitOp, FieldReferenceOp, FilterOp, NamedTableOp>(
           [&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");

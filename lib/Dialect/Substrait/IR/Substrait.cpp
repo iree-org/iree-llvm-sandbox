@@ -72,6 +72,38 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
   return success();
 }
 
+LogicalResult
+EmitOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                         ValueRange operands, DictionaryAttr attributes,
+                         OpaqueProperties properties, RegionRange regions,
+                         llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+  if (!loc)
+    loc = UnknownLoc::get(context);
+
+  ArrayAttr mapping = typedProperties->getMapping();
+  Type inputType = operands[0].getType();
+  ArrayRef<Type> inputTypes = inputType.cast<TupleType>().getTypes();
+
+  // Map input types to output types.
+  SmallVector<Type> outputTypes;
+  outputTypes.reserve(mapping.size());
+  for (auto indexAttr : mapping.getAsRange<IntegerAttr>()) {
+    int64_t index = indexAttr.getInt();
+    if (index < 0 || index >= static_cast<int64_t>(inputTypes.size()))
+      return ::emitError(loc.value())
+             << index << " is not a valid index into " << inputType;
+    Type mappedType = inputTypes[index];
+    outputTypes.push_back(mappedType);
+  }
+
+  // Create final tuple type.
+  auto outputType = TupleType::get(context, outputTypes);
+  inferredReturnTypes.push_back(outputType);
+
+  return success();
+}
+
 /// Computes the type of the nested field of the given `type` identified by
 /// `position`. Each entry `n` in the given index array `position` corresponds
 /// to the `n`-th entry in that level. The function is thus implemented
