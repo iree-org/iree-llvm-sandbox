@@ -232,7 +232,7 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
       auto root = std::make_unique<RelRoot>();
       root->set_allocated_input(rel->release());
 
-      auto namesArray = names->cast<ArrayAttr>().getAsRange<StringAttr>();
+      auto namesArray = cast<ArrayAttr>(names.value()).getAsRange<StringAttr>();
       for (StringAttr name : namesArray) {
         root->add_names(name.getValue().str());
       }
