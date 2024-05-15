@@ -79,9 +79,9 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
 /// own). Furthermore, the names on each nesting level need to be unique. For
 /// details, see
 /// https://substrait.io/tutorial/sql_to_substrait/#types-and-schemas.
-FailureOr<int> verifyNamedStructHelper(Location loc,
-                                       llvm::ArrayRef<Attribute> fieldNames,
-                                       TypeRange fieldTypes) {
+static FailureOr<int>
+verifyNamedStructHelper(Location loc, llvm::ArrayRef<Attribute> fieldNames,
+                        TypeRange fieldTypes) {
   int numConsumedNames = 0;
   llvm::SmallSet<llvm::StringRef, 8> currentLevelNames;
   for (Type type : fieldTypes) {
@@ -109,9 +109,9 @@ FailureOr<int> verifyNamedStructHelper(Location loc,
   return numConsumedNames;
 }
 
-LogicalResult verifyNamedStruct(Operation *op,
-                                llvm::ArrayRef<Attribute> fieldNames,
-                                TupleType tupleType) {
+static LogicalResult verifyNamedStruct(Operation *op,
+                                       llvm::ArrayRef<Attribute> fieldNames,
+                                       TupleType tupleType) {
   Location loc = op->getLoc();
   TypeRange fieldTypes = tupleType.getTypes();
 
