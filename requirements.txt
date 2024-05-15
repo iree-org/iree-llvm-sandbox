@@ -2,6 +2,7 @@
 -r third_party/llvm-project/mlir/python/requirements.txt
 
 # Testing.
+datafusion==32.0.0
 lit
 pyarrow
 
