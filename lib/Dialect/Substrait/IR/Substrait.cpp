@@ -67,7 +67,7 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
   llvm::append_range(fieldTypes, rightFieldTypes);
   auto resultType = TupleType::get(context, fieldTypes);
 
-  inferredReturnTypes.emplace_back(resultType);
+  inferredReturnTypes = SmallVector<Type>{resultType};
 
   return success();
 }
