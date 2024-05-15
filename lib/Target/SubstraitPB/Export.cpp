@@ -38,10 +38,14 @@ namespace {
 #define DECLARE_EXPORT_FUNC(OP_TYPE, MESSAGE_TYPE)                             \
   static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
+DECLARE_EXPORT_FUNC(CrossOp, Rel)
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
 DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
 DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
+
+FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op);
+FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op);
 
 FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
                                                    mlir::Type mlirType) {
@@ -90,6 +94,47 @@ FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
 
   // TODO(ingomueller): Support other types.
   return emitError(loc) << "could not export unsupported type " << mlirType;
+}
+
+FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
+  // Build `RelCommon` message.
+  auto relCommon = std::make_unique<RelCommon>();
+  auto direct = std::make_unique<RelCommon::Direct>();
+  relCommon->set_allocated_direct(direct.release());
+
+  // Build `left` input message.
+  auto leftOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getLeft().getDefiningOp());
+  if (!leftOp)
+    return op->emitOpError(
+        "left input was not produced by Substrait relation op");
+
+  FailureOr<std::unique_ptr<Rel>> leftRel = exportOperation(leftOp);
+  if (failed(leftRel))
+    return failure();
+
+  // Build `right` input message.
+  auto rightOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getRight().getDefiningOp());
+  if (!rightOp)
+    return op->emitOpError(
+        "right input was not produced by Substrait relation op");
+
+  FailureOr<std::unique_ptr<Rel>> rightRel = exportOperation(rightOp);
+  if (failed(rightRel))
+    return failure();
+
+  // Build `CrossRel` message.
+  auto crossRel = std::make_unique<CrossRel>();
+  crossRel->set_allocated_common(relCommon.release());
+  crossRel->set_allocated_left(leftRel->release());
+  crossRel->set_allocated_right(rightRel->release());
+
+  // Build `Rel` message.
+  auto rel = std::make_unique<Rel>();
+  rel->set_allocated_cross(crossRel.release());
+
+  return rel;
 }
 
 FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
@@ -190,7 +235,7 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<NamedTableOp>([&](auto op) { return exportOperation(op); })
+      .Case<CrossOp, NamedTableOp>([&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");
         return failure();
