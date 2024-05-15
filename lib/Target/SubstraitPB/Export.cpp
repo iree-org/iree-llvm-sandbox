@@ -226,8 +226,21 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
     if (failed(rel))
       return failure();
 
+    // Handle `Rel`/`RelRoot` cases depending on whether `names` is set.
     PlanRel *planRel = plan->add_relations();
-    planRel->set_allocated_rel(rel.value().release());
+    if (std::optional<Attribute> names = relOp.getFieldNames()) {
+      auto root = std::make_unique<RelRoot>();
+      root->set_allocated_input(rel->release());
+
+      auto namesArray = cast<ArrayAttr>(names.value()).getAsRange<StringAttr>();
+      for (StringAttr name : namesArray) {
+        root->add_names(name.getValue().str());
+      }
+
+      planRel->set_allocated_root(root.release());
+    } else {
+      planRel->set_allocated_rel(rel->release());
+    }
   }
 
   return std::move(plan);

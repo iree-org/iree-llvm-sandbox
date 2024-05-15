@@ -177,31 +177,44 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   MLIRContext *context = builder.getContext();
   Location loc = UnknownLoc::get(context);
 
-  PlanRel::RelTypeCase relType = message.rel_type_case();
-  switch (relType) {
-  case PlanRel::RelTypeCase::kRel: {
-    auto planRelOp = builder.create<PlanRelOp>();
-    planRelOp.getBody().push_back(new Block());
-    Block *block = &planRelOp.getBody().front();
-
-    OpBuilder::InsertionGuard insertGuard(builder);
-    builder.setInsertionPointToEnd(block);
-    const Rel &rel = message.rel();
-    mlir::FailureOr<Operation *> rootRel = importRel(builder, rel);
-    if (failed(rootRel))
-      return failure();
-
-    builder.setInsertionPointToEnd(block);
-    builder.create<YieldOp>(rootRel.value()->getResult(0));
-
-    return planRelOp;
-  }
-  default: {
+  if (!message.has_rel() && !message.has_root()) {
+    PlanRel::RelTypeCase relType = message.rel_type_case();
     const pb::FieldDescriptor *desc =
         PlanRel::GetDescriptor()->FindFieldByNumber(relType);
     return emitError(loc) << Twine("unsupported PlanRel type: ") + desc->name();
   }
+
+  // Create new `PlanRelOp`.
+  auto planRelOp = builder.create<PlanRelOp>();
+  planRelOp.getBody().push_back(new Block());
+  Block *block = &planRelOp.getBody().front();
+
+  // Handle `Rel` and `RelRoot` separately.
+  const Rel *rel;
+  if (message.has_rel())
+    rel = &message.rel();
+  else {
+    const RelRoot &root = message.root();
+    rel = &root.input();
+
+    // Extract names.
+    SmallVector<std::string> names(root.names().begin(), root.names().end());
+    SmallVector<llvm::StringRef> nameAttrs(names.begin(), names.end());
+    ArrayAttr namesAttr = builder.getStrArrayAttr(nameAttrs);
+    planRelOp.setFieldNamesAttr(namesAttr);
   }
+
+  // Import body of `PlanRelOp`.
+  OpBuilder::InsertionGuard insertGuard(builder);
+  builder.setInsertionPointToEnd(block);
+  mlir::FailureOr<Operation *> rootRel = importRel(builder, *rel);
+  if (failed(rootRel))
+    return failure();
+
+  builder.setInsertionPointToEnd(block);
+  builder.create<YieldOp>(rootRel.value()->getResult(0));
+
+  return planRelOp;
 }
 
 static mlir::FailureOr<RelOpInterface>

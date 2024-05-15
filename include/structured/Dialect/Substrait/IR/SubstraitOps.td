@@ -113,12 +113,22 @@ def Substrait_PlanRelOp : Substrait_Op<"relation", [
   let summary = "Represents a query tree in a Substrait plan";
   let description = [{
     Represents a `PlanRel` message, which is used in the `relations` field of
-    the `Plan` message. The body of this op contains various `RelOpInterface`
-    ops (corresponding to the `Rel` message type) producing SSA values and the
-    one being yielded reprents the root of the query tree that this op contains.
+    the `Plan` message. The same op can represent either the `Rel`, in which
+    case the `fieldNames` attribute is not set, or the `RootRel` case, in which
+    case the `fieldNames` attribute corresponds to the `RelRoot.names` field.
+    The body of this op contains various `RelOpInterface` ops (corresponding to
+    the `Rel` message type) producing SSA values and the one being yielded
+    reprents the root of the query tree that this op contains.
   }];
+  let arguments = (ins OptionalAttr<StringArrayAttr>:$fieldNames);
   let regions = (region RegionOf<RelationBodyOp>:$body);
-  let assemblyFormat = "attr-dict-with-keyword $body";
+  let assemblyFormat = "(`as` $fieldNames^)? attr-dict-with-keyword $body";
+  let hasRegionVerifier = 1;
+  let builders = [
+      OpBuilder<(ins ), [{
+        build($_builder, $_state, ArrayAttr());
+      }]>
+    ];
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
     ::llvm::StringRef $cppClass::getDefaultDialect() {

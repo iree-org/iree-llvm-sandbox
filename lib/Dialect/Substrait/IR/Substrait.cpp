@@ -79,9 +79,9 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
 /// own). Furthermore, the names on each nesting level need to be unique. For
 /// details, see
 /// https://substrait.io/tutorial/sql_to_substrait/#types-and-schemas.
-FailureOr<int> verifyNamedStruct(Location loc,
-                                 llvm::ArrayRef<Attribute> fieldNames,
-                                 TypeRange fieldTypes) {
+static FailureOr<int>
+verifyNamedStructHelper(Location loc, llvm::ArrayRef<Attribute> fieldNames,
+                        TypeRange fieldTypes) {
   int numConsumedNames = 0;
   llvm::SmallSet<llvm::StringRef, 8> currentLevelNames;
   for (Type type : fieldTypes) {
@@ -100,7 +100,7 @@ FailureOr<int> verifyNamedStruct(Location loc,
       llvm::ArrayRef<Attribute> remainingNames =
           fieldNames.drop_front(numConsumedNames);
       FailureOr<int> res =
-          verifyNamedStruct(loc, remainingNames, nestedFieldTypes);
+          verifyNamedStructHelper(loc, remainingNames, nestedFieldTypes);
       if (failed(res))
         return failure();
       numConsumedNames += res.value();
@@ -109,16 +109,16 @@ FailureOr<int> verifyNamedStruct(Location loc,
   return numConsumedNames;
 }
 
-LogicalResult NamedTableOp::verify() {
-  Location loc = getLoc();
-  llvm::ArrayRef<Attribute> fieldNames = getFieldNames().getValue();
-  auto tupleType = llvm::cast<TupleType>(getResult().getType());
+static LogicalResult verifyNamedStruct(Operation *op,
+                                       llvm::ArrayRef<Attribute> fieldNames,
+                                       TupleType tupleType) {
+  Location loc = op->getLoc();
   TypeRange fieldTypes = tupleType.getTypes();
 
   // Emits error message with context on failure.
   auto emitErrorMessage = [&]() {
-    InFlightDiagnostic error = ::emitError(loc)
-                               << "mismatching 'field_names' ([";
+    InFlightDiagnostic error = op->emitOpError()
+                               << "has mismatching 'field_names' ([";
     llvm::interleaveComma(fieldNames, error);
     error << "]) and result type (" << tupleType << ")";
     return error;
@@ -126,20 +126,36 @@ LogicalResult NamedTableOp::verify() {
 
   // Call recursive verification function.
   FailureOr<int> numConsumedNames =
-      verifyNamedStruct(loc, fieldNames, fieldTypes);
+      verifyNamedStructHelper(loc, fieldNames, fieldTypes);
 
   // Relay any failure.
   if (failed(numConsumedNames))
     return emitErrorMessage();
 
   // If we haven't consumed all names, we got too many of them, so report.
-  if (numConsumedNames.value() != static_cast<int>(getFieldNames().size())) {
+  if (numConsumedNames.value() != static_cast<int>(fieldNames.size())) {
     InFlightDiagnostic error = emitErrorMessage();
     error.attachNote(loc) << "too many field names provided";
     return error;
   }
 
   return success();
+}
+
+LogicalResult NamedTableOp::verify() {
+  llvm::ArrayRef<Attribute> fieldNames = getFieldNames().getValue();
+  auto tupleType = llvm::cast<TupleType>(getResult().getType());
+  return verifyNamedStruct(getOperation(), fieldNames, tupleType);
+}
+
+LogicalResult PlanRelOp::verifyRegions() {
+  if (!getFieldNames().has_value())
+    return success();
+
+  llvm::ArrayRef<Attribute> fieldNames = getFieldNames()->getValue();
+  auto yieldOp = llvm::cast<YieldOp>(getBody().front().getTerminator());
+  auto tupleType = llvm::cast<TupleType>(yieldOp.getValue().getType());
+  return verifyNamedStruct(getOperation(), fieldNames, tupleType);
 }
 
 } // namespace substrait
