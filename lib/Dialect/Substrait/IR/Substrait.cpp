@@ -73,6 +73,29 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
 }
 
 OpFoldResult EmitOp::fold(FoldAdaptor adaptor) {
+  MLIRContext *context = getContext();
+  Type i64 = IntegerType::get(context, 64);
+
+  // If the input is also an `emit`, fold it into this op.
+  if (auto previousEmit = dyn_cast<EmitOp>(getInput().getDefiningOp())) {
+    // Compute new mapping.
+    ArrayAttr previousMapping = previousEmit.getMapping();
+    SmallVector<Attribute> newMapping;
+    newMapping.reserve(getMapping().size());
+    for (auto attr : getMapping().getAsRange<IntegerAttr>()) {
+      int64_t index = attr.getInt();
+      int64_t newIndex = cast<IntegerAttr>(previousMapping[index]).getInt();
+      newMapping.push_back(IntegerAttr::get(i64, newIndex));
+    }
+
+    // Update this op.
+    setMappingAttr(ArrayAttr::get(context, newMapping));
+    setOperand(previousEmit.getInput());
+    return getResult();
+  }
+
+  // Remainder: fold away if the mapping is the identity mapping.
+
   // Return if the mapping is not the identity mapping.
   int64_t numFields = cast<TupleType>(getInput().getType()).size();
   int64_t numIndices = getMapping().size();
