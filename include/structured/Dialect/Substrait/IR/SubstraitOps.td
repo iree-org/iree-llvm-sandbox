@@ -13,6 +13,7 @@ include "structured/Dialect/Substrait/IR/SubstraitDialect.td"
 include "structured/Dialect/Substrait/IR/SubstraitInterfaces.td"
 include "structured/Dialect/Substrait/IR/SubstraitTypes.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributes.td"
 include "mlir/IR/CommonAttrConstraints.td"
 include "mlir/IR/OpBase.td"
@@ -222,7 +223,7 @@ def Substrait_LiteralOp : Substrait_ExpressionOp<"literal", [
 /// Attaches all traits that ops representing a `Rel` message type should have.
 class Substrait_RelOp<string mnemonic, list<Trait> traits = []> :
   Substrait_Op<mnemonic, traits # [
-    Substrait_RelOpInterface,
+    Substrait_RelOpInterface, Pure,
     PredOpTrait<"result must be extactly one Relation",
       And<[
         CPred<"$_op.getNumResults() == 1">,

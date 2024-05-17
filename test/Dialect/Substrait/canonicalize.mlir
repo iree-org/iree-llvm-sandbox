@@ -59,8 +59,7 @@ substrait.plan version 0 : 42 : 1 {
 // CHECK-LABEL: substrait.plan
 // CHECK-NEXT:    relation
 // CHECK-NEXT:      %[[V0:.*]] = named_table
-// TODO(ingomueller): check for DCE once implemented.
-// CHECK:           yield %[[V0]]
+// CHECK-NEXT:      yield %[[V0]]
 
 substrait.plan version 0 : 42 : 1 {
   relation {
