@@ -57,7 +57,7 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
                           OpaqueProperties properties, RegionRange regions,
                           llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
   Value leftInput = operands[0];
-  Value rightInput = operands[0];
+  Value rightInput = operands[1];
 
   TypeRange leftFieldTypes = cast<TupleType>(leftInput.getType()).getTypes();
   TypeRange rightFieldTypes = cast<TupleType>(rightInput.getType()).getTypes();
