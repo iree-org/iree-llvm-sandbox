@@ -82,7 +82,7 @@ LogicalResult FilterOp::verifyRegions() {
   Type yieldedType = yieldOp.getValue().getType();
   if (yieldedType != si1)
     return emitOpError()
-           << " must have 'condition' region yielding 'si1' (yields "
+           << "must have 'condition' region yielding 'si1' (yields "
            << yieldedType << ")";
 
   // Verify that block has argument of input tuple type.
