@@ -39,6 +39,9 @@ namespace {
   static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
 DECLARE_EXPORT_FUNC(CrossOp, Rel)
+DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
+DECLARE_EXPORT_FUNC(FilterOp, Rel)
+DECLARE_EXPORT_FUNC(LiteralOp, Expression)
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
 DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
@@ -135,6 +138,89 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
   rel->set_allocated_cross(crossRel.release());
 
   return rel;
+}
+
+FailureOr<std::unique_ptr<Expression>>
+exportOperation(ExpressionOpInterface op) {
+  return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
+             op)
+      .Case<LiteralOp>([&](auto op) { return exportOperation(op); })
+      .Default(
+          [](auto op) { return op->emitOpError("not supported for export"); });
+}
+
+FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
+  // Build `RelCommon` message.
+  auto relCommon = std::make_unique<RelCommon>();
+  auto direct = std::make_unique<RelCommon::Direct>();
+  relCommon->set_allocated_direct(direct.release());
+
+  // Build input `Rel` message.
+  auto inputOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getInput().getDefiningOp());
+  if (!inputOp)
+    return op->emitOpError("input was not produced by Substrait relation op");
+
+  FailureOr<std::unique_ptr<Rel>> inputRel = exportOperation(inputOp);
+  if (failed(inputRel))
+    return failure();
+
+  // Build condition `Expression` message.
+  auto yieldOp = llvm::cast<YieldOp>(op.getCondition().front().getTerminator());
+  // TODO(ingomueller): There can be cases where there isn't a defining op but
+  //                    the region argument is returned directly. Support that.
+  auto conditionOp = llvm::dyn_cast_if_present<ExpressionOpInterface>(
+      yieldOp.getValue().getDefiningOp());
+  if (!conditionOp)
+    return op->emitOpError("condition not supported for export: yielded op was "
+                           "not produced by Substrait expression op");
+  FailureOr<std::unique_ptr<Expression>> condition =
+      exportOperation(conditionOp);
+  if (failed(condition))
+    return failure();
+
+  // Build `FilterRel` message.
+  auto filterRel = std::make_unique<FilterRel>();
+  filterRel->set_allocated_common(relCommon.release());
+  filterRel->set_allocated_input(inputRel->release());
+  filterRel->set_allocated_condition(condition->release());
+
+  // Build `Rel` message.
+  auto rel = std::make_unique<Rel>();
+  rel->set_allocated_filter(filterRel.release());
+
+  return rel;
+}
+
+FailureOr<std::unique_ptr<Expression>> exportOperation(LiteralOp op) {
+  // Build `Literal` message depending on type.
+  auto value = llvm::cast<TypedAttr>(op.getValue());
+  mlir::Type literalType = value.getType();
+  auto literal = std::make_unique<Expression::Literal>();
+
+  // `IntegerType`s.
+  if (auto intType = dyn_cast<IntegerType>(literalType)) {
+    if (!intType.isSigned())
+      op->emitOpError("has integer value with unsupported signedness");
+    switch (intType.getWidth()) {
+    case 1:
+      literal->set_boolean(value.cast<IntegerAttr>().getSInt());
+      break;
+    case 32:
+      // TODO(ingomueller): Add tests when we can express plans that use i32.
+      literal->set_i32(value.cast<IntegerAttr>().getSInt());
+      break;
+    default:
+      op->emitOpError("has integer value with unsupported width");
+    }
+  } else
+    op->emitOpError("has unsupported value");
+
+  // Build `Expression` message.
+  auto expression = std::make_unique<Expression>();
+  expression->set_allocated_literal(literal.release());
+
+  return expression;
 }
 
 FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
@@ -248,7 +334,8 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<CrossOp, NamedTableOp>([&](auto op) { return exportOperation(op); })
+      .Case<CrossOp, FilterOp, NamedTableOp>(
+          [&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");
         return failure();

@@ -72,6 +72,54 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
   return success();
 }
 
+LogicalResult FilterOp::verifyRegions() {
+  MLIRContext *context = getContext();
+  Type si1 = IntegerType::get(context, /*width=*/1, IntegerType::Signed);
+  Region &condition = getCondition();
+
+  // Verify that type of yielded value is Boolean.
+  auto yieldOp = llvm::cast<YieldOp>(condition.front().getTerminator());
+  Type yieldedType = yieldOp.getValue().getType();
+  if (yieldedType != si1)
+    return emitOpError()
+           << " must have 'condition' region yielding 'si1' (yields "
+           << yieldedType << ")";
+
+  // Verify that block has argument of input tuple type.
+  Type tupleType = getResult().getType();
+  if (condition.getNumArguments() != 1 ||
+      condition.getArgument(0).getType() != tupleType) {
+    InFlightDiagnostic diag = emitOpError()
+                              << "must have 'condition' region taking "
+                              << tupleType << " as argument (takes ";
+    if (condition.getNumArguments() == 0)
+      diag << "no arguments)";
+    else
+      diag << condition.getArgument(0).getType() << ")";
+    return diag;
+  }
+
+  return success();
+}
+
+LogicalResult
+LiteralOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
+                            ValueRange operands, DictionaryAttr attributes,
+                            OpaqueProperties properties, RegionRange regions,
+                            llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+
+  auto attr = llvm::dyn_cast<TypedAttr>(typedProperties->getValue());
+  if (!attr)
+    return emitOptionalError(loc, "unsuited attribute for literal value: ",
+                             typedProperties->getValue());
+
+  Type resultType = attr.getType();
+  inferredReturnTypes.emplace_back(resultType);
+
+  return success();
+}
+
 /// Verifies that the provided field names match the provided field types. While
 /// the field types are potentially nested, the names are given in a single,
 /// flat list and correspond to the field types in depth first order (where each

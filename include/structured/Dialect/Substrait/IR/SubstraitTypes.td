@@ -29,6 +29,17 @@ def Substrait_AtomicTypes {
   ];
 }
 
+/// Attributes of currently supported atomic types.
+def Substrait_AtomicAttributes {
+  list<Attr> attrs = [
+    SI1Attr, // Boolean
+    SI32Attr // I32
+  ];
+}
+
+/// Attribute of one of the currently supported atomic types.
+def Substrait_AtomicAttribute : AnyAttrOf<Substrait_AtomicAttributes.attrs>;
+
 /// One of the currently supported atomic types.
 def Substrait_AtomicType : AnyTypeOf<Substrait_AtomicTypes.types>;
 
