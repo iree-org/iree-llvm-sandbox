@@ -118,11 +118,11 @@ importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
 
   Expression::RexTypeCase rex_type = message.rex_type_case();
   switch (rex_type) {
-  case Expression::RexTypeCase::kSelection: {
-    return importFieldReference(builder, message.selection());
-  }
   case Expression::RexTypeCase::kLiteral: {
     return importLiteral(builder, message.literal());
+  }
+  case Expression::RexTypeCase::kSelection: {
+    return importFieldReference(builder, message.selection());
   }
   default: {
     const pb::FieldDescriptor *desc =
