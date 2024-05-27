@@ -37,7 +37,7 @@ def Substrait_AtomicAttributes {
   ];
 }
 
-/// Attrbitue of one of the currently supported atomic types.
+/// Attribute of one of the currently supported atomic types.
 def Substrait_AtomicAttribute : AnyAttrOf<Substrait_AtomicAttributes.attrs>;
 
 /// One of the currently supported atomic types.

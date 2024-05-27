@@ -140,8 +140,8 @@ def Substrait_PlanRelOp : Substrait_Op<"relation", [
 def Substrait_YieldOp : Substrait_Op<"yield", [
     Terminator,
     ParentOneOf<[
-      "::mlir::substrait::PlanRelOp",
-      "::mlir::substrait::FilterOp"
+      "::mlir::substrait::FilterOp",
+      "::mlir::substrait::PlanRelOp"
     ]>
   ]> {
   let summary = "Yields the result of a `PlanRelOp`";
