@@ -193,16 +193,27 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
 }
 
 FailureOr<std::unique_ptr<Expression>> exportOperation(LiteralOp op) {
-  auto si1 = IntegerType::get(op.getContext(), 1, IntegerType::Signed);
-  auto si32 = IntegerType::get(op.getContext(), 32, IntegerType::Signed);
-
-  // Build `Literal` message.
+  // Build `Literal` message depending on type.
   auto value = llvm::cast<TypedAttr>(op.getValue());
   mlir::Type literalType = value.getType();
   auto literal = std::make_unique<Expression::Literal>();
-  if (literalType == si1 || literalType == si32)
-    literal->set_boolean(value.cast<IntegerAttr>().getSInt());
-  else
+
+  // `IntegerType`s.
+  if (auto intType = dyn_cast<IntegerType>(literalType)) {
+    if (!intType.isSigned())
+      op->emitOpError("has integer value with unsupported signedness");
+    switch (intType.getWidth()) {
+    case 1:
+      literal->set_boolean(value.cast<IntegerAttr>().getSInt());
+      break;
+    case 32:
+      // TODO(ingomueller): Add tests when we can express plans that use i32.
+      literal->set_i32(value.cast<IntegerAttr>().getSInt());
+      break;
+    default:
+      op->emitOpError("has integer value with unsupported width");
+    }
+  } else
     op->emitOpError("has unsupported value");
 
   // Build `Expression` message.
