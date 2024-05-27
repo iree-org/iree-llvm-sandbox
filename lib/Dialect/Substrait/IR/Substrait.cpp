@@ -108,13 +108,11 @@ LiteralOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
                             OpaqueProperties properties, RegionRange regions,
                             llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
   auto *typedProperties = properties.as<Properties *>();
-  if (!loc)
-    loc = UnknownLoc::get(context);
 
   auto attr = llvm::dyn_cast<TypedAttr>(typedProperties->getValue());
   if (!attr)
-    ::emitError(loc.value()) << "unsuited attribute for literal value: "
-                             << typedProperties->getValue();
+    return emitOptionalError(loc, "unsuited attribute for literal value: ",
+                             typedProperties->getValue());
 
   Type resultType = attr.getType();
   inferredReturnTypes.emplace_back(resultType);
