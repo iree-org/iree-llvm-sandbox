@@ -393,7 +393,7 @@ translateSubstraitToProtobuf(Operation *op, llvm::raw_ostream &output,
         pb::util::MessageToJsonString(*result.value(), &out, jsonOptions);
     if (!status.ok()) {
       InFlightDiagnostic diag =
-          op->emitOpError("could not be serialized to binary format");
+          op->emitOpError("could not be serialized to JSON format");
       diag.attachNote() << status.message();
       return diag;
     }
