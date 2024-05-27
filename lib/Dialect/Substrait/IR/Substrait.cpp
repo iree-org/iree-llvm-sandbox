@@ -198,7 +198,12 @@ LogicalResult FilterOp::verifyRegions() {
 
   // Verify that type of yielded value is Boolean.
   auto yieldOp = llvm::cast<YieldOp>(condition.front().getTerminator());
-  Type yieldedType = yieldOp.getValue().getType();
+  if (yieldOp.getValue().size() != 1)
+    return emitOpError()
+           << "must have 'condition' region yielding one value (yields "
+           << yieldOp.getValue().size() << ")";
+
+  Type yieldedType = yieldOp.getValue().getTypes()[0];
   if (yieldedType != si1)
     return emitOpError()
            << "must have 'condition' region yielding 'si1' (yields "
@@ -316,13 +321,58 @@ LogicalResult NamedTableOp::verify() {
 }
 
 LogicalResult PlanRelOp::verifyRegions() {
+  // Verify that we `yield` exactly one value.
+  auto yieldOp = llvm::cast<YieldOp>(getBody().front().getTerminator());
+  if (yieldOp.getValue().size() != 1)
+    return emitOpError()
+           << "must have 'body' region yielding one value (yields "
+           << yieldOp.getValue().size() << ")";
+
+  // Verify that the field names match the field types. If we don't have any,
+  // we're done.
   if (!getFieldNames().has_value())
     return success();
 
+  // Otherwise, use helper to verify.
   llvm::ArrayRef<Attribute> fieldNames = getFieldNames()->getValue();
-  auto yieldOp = llvm::cast<YieldOp>(getBody().front().getTerminator());
-  auto tupleType = llvm::cast<TupleType>(yieldOp.getValue().getType());
+  auto tupleType = llvm::cast<TupleType>(yieldOp.getValue().getTypes()[0]);
   return verifyNamedStruct(getOperation(), fieldNames, tupleType);
+}
+
+LogicalResult ProjectOp::verifyRegions() {
+  // Verify that the expression block has a matching argument type.
+  auto inputTupleType = llvm::cast<TupleType>(getInput().getType());
+  auto blockArgTypes = getExpressions().front().getArgumentTypes();
+  if (blockArgTypes != ArrayRef<Type>(inputTupleType))
+    return emitOpError()
+           << "has 'expressions' region with mismatching argument type"
+           << " (has: " << blockArgTypes << ", expected: " << inputTupleType
+           << ")";
+
+  // Verify that the input field types are a prefix of the output field types.
+  size_t numInputFields = inputTupleType.getTypes().size();
+  auto outputTupleType = llvm::cast<TupleType>(getResult().getType());
+  ArrayRef<Type> outputPrefixTypes =
+      outputTupleType.getTypes().take_front(numInputFields);
+
+  if (inputTupleType.getTypes() != outputPrefixTypes)
+    return emitOpError()
+           << "has output field type whose prefix is different from "
+           << "input field types (" << inputTupleType.getTypes() << " vs "
+           << outputPrefixTypes << ")";
+
+  // Verify that yielded operands have the same types as the new output fields.
+  ArrayRef<Type> newFieldTypes =
+      outputTupleType.getTypes().drop_front(numInputFields);
+  auto yieldOp = llvm::cast<YieldOp>(getExpressions().front().getTerminator());
+
+  if (yieldOp.getOperandTypes() != newFieldTypes)
+    return emitOpError()
+           << "has output field type whose new fields are different from "
+           << "the yielded operand types (" << newFieldTypes << " vs "
+           << yieldOp.getOperandTypes() << ")";
+
+  return success();
 }
 
 } // namespace substrait

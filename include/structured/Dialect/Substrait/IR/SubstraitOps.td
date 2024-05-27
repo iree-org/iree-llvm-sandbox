@@ -142,12 +142,13 @@ def Substrait_YieldOp : Substrait_Op<"yield", [
     Terminator,
     ParentOneOf<[
       "::mlir::substrait::FilterOp",
-      "::mlir::substrait::PlanRelOp"
+      "::mlir::substrait::PlanRelOp",
+      "::mlir::substrait::ProjectOp"
     ]>
   ]> {
   let summary = "Yields the result of a `PlanRelOp`";
-  let arguments = (ins AnyType:$value);
-  let assemblyFormat = "$value attr-dict `:` type($value)";
+  let arguments = (ins Variadic<AnyType>:$value);
+  let assemblyFormat = "attr-dict ($value^ `:` type($value))?";
   let builders = [OpBuilder<(ins), [{ /* do nothing */ }]>];
 }
 
@@ -356,6 +357,50 @@ def Substrait_NamedTableOp : Substrait_RelOp<"named_table", [
     $table_name `as` $field_names attr-dict `:` type($result)
   }];
   let hasVerifier = true;
+}
+
+def Substrait_ProjectOp : Substrait_RelOp<"project", [
+    SingleBlockImplicitTerminator<"::mlir::substrait::YieldOp">,
+    DeclareOpInterfaceMethods<OpAsmOpInterface, ["getDefaultDialect"]>
+  ]> {
+  let summary = "Project operation";
+  let description = [{
+    Represents a `ProjectRel` message together with the `RelCommon`, input
+    `Rel`, and `Expression` messages it contains. While in protobuf the
+    different `Expression` messages are distinct trees, the `project` op has
+    a single `expression` region with one terminating `yield` and the values
+    yielded by that terminator correspond to the expressions. Each individual
+    `Expression` thus corresponds to the whole use-def tree of the corresponding
+    yielded value.
+
+    Example:
+
+    ```mlir
+    %0 = ...
+    %1 = project %0 : tuple<si32> -> tuple<si32, si1, si32> {
+    ^bb0(%arg : tuple<si32>):
+      %true = literal -1 : si1
+      %42 = literal 42 : si32
+      yield %true, %42 : si1, si32
+    }
+    ```
+  }];
+  let arguments = (ins Substrait_Relation:$input);
+  let regions = (region AnyRegion:$expressions);
+  let results = (outs Substrait_Relation:$result);
+  // TODO(ingomueller): We could elide/shorten the block argument from the
+  //                    assembly by writing custom printers/parsers similar to
+  //                    `scf.for` etc.
+  let assemblyFormat = [{
+    $input attr-dict `:` type($input) `->` type($result) $expressions
+  }];
+  let hasRegionVerifier = 1;
+  let extraClassDefinition = [{
+    /// Implement OpAsmOpInterface.
+    ::llvm::StringRef $cppClass::getDefaultDialect() {
+      return SubstraitDialect::getDialectNamespace();
+    }
+  }];
 }
 
 #endif // SUBSTRAIT_DIALECT_SUBSTRAIT_IR_SUBSTRAITOPS
