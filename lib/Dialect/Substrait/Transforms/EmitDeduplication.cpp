@@ -8,7 +8,9 @@
 
 #include "structured/Dialect/Substrait/Transforms/Passes.h"
 
+#include "mlir/IR/Dominance.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Transforms/CSE.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
 
@@ -396,6 +398,13 @@ struct PushDuplicatesThroughFilterPattern : public OpRewritePattern<FilterOp> {
     deduplicateRegionArgs(newOp.getCondition(), emitOp.getMapping(),
                           newInput.getType(), rewriter);
 
+    // Deduplicating block args may create common subexpressions. Eliminate
+    // them immediately.
+    {
+      DominanceInfo domInfo;
+      mlir::eliminateCommonSubExpressions(rewriter, domInfo, newOp);
+    }
+
     // Replace the old `filter` op with a new `emit` op that maps back to the
     // original emit order.
     ArrayAttr reverseMappingAttr = rewriter.getI64ArrayAttr(reverseMapping);
@@ -456,6 +465,13 @@ struct PushDuplicatesThroughProjectPattern
     auto emitOp = op.getInput().getDefiningOp<EmitOp>();
     deduplicateRegionArgs(newOp.getExpressions(), emitOp.getMapping(),
                           newInput.getType(), rewriter);
+
+    // Deduplicating block args may create common subexpressions. Eliminate
+    // them immediately.
+    {
+      DominanceInfo domInfo;
+      mlir::eliminateCommonSubExpressions(rewriter, domInfo, newOp);
+    }
 
     // Compute output indices for the expressions added by the region.
     int64_t numTotalIndices = numDedupIndices + terminator->getNumOperands();
