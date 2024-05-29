@@ -1,9 +1,13 @@
 # RUN: structured-translate -protobuf-to-substrait %s \
+# RUN:   --split-input-file="# ""-----" \
 # RUN: | FileCheck %s
 
 # RUN: structured-translate -protobuf-to-substrait %s \
+# RUN:   --split-input-file="# ""-----" --output-split-marker="// -----" \
 # RUN: | structured-translate -substrait-to-protobuf \
+# RUN:   --split-input-file --output-split-marker="# ""-----" \
 # RUN: | structured-translate -protobuf-to-substrait \
+# RUN:   --split-input-file="# ""-----" --output-split-marker="// -----" \
 # RUN: | FileCheck %s
 
 # CHECK-LABEL: substrait.plan
@@ -67,6 +71,86 @@ relations {
             }
           }
           root_reference {
+          }
+        }
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
+
+# -----
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    relation
+# CHECK-NEXT:      named_table
+# CHECK-NEXT:      filter
+# CHECK-NEXT:        (%[[ARG0:.*]]: tuple<si1, tuple<si1>>)
+# CHECK-NEXT:          %[[V0:.*]] = field_reference %[[ARG0]]{{\[}}[1]]
+# CHECK-SAME:            : tuple<si1, tuple<si1>>
+# CHECK-NEXT:          %[[V1:.*]] = field_reference %[[V0]]{{\[}}[0]]
+# CHECK-SAME:            : tuple<si1>
+# CHECK-NEXT:          yield %[[V1]] : si1
+
+relations {
+  rel {
+    filter {
+      common {
+        direct {
+        }
+      }
+      input {
+        read {
+          common {
+            direct {
+            }
+          }
+          base_schema {
+            names: "a"
+            names: "b"
+            names: "c"
+            struct {
+              types {
+                bool {
+                  nullability: NULLABILITY_REQUIRED
+                }
+              }
+              types {
+                struct {
+                  types {
+                    bool {
+                      nullability: NULLABILITY_REQUIRED
+                    }
+                  }
+                }
+              }
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          named_table {
+            names: "t1"
+          }
+        }
+      }
+      condition {
+        selection {
+          direct_reference {
+            struct_field {
+            }
+          }
+          expression {
+            selection {
+              direct_reference {
+                struct_field {
+                  field: 1
+                }
+              }
+              root_reference {
+              }
+            }
           }
         }
       }

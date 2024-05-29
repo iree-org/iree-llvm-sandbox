@@ -185,7 +185,7 @@ def Substrait_FieldReferenceOp : Substrait_ExpressionOp<"field_reference", [
     Substrait_ContainerType:$container,
     I64ArrayAttr:$position
   );
-  let results = (outs Substrait_AtomicType:$result);
+  let results = (outs Substrait_FieldType:$result);
   let assemblyFormat = [{
     $container `[` $position `]` attr-dict `:` type($container)
   }];
