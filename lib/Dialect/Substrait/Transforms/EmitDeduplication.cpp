@@ -172,6 +172,76 @@ void deduplicateRegionArgs(Region &region, ArrayAttr newMapping,
   region.getArgument(0).setType(newElementType);
 }
 
+struct EliminateDuplicateYieldsInProjectPattern
+    : public OpRewritePattern<ProjectOp> {
+  using OpRewritePattern<ProjectOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ProjectOp op,
+                                PatternRewriter &rewriter) const override {
+    MLIRContext *context = op.getContext();
+    Operation *terminator = op.getExpressions().front().getTerminator();
+    int64_t numOriginalYields = terminator->getNumOperands();
+    auto inputTupleType = cast<TupleType>(op.getInput().getType());
+
+    // Determine duplicate values in `yield` and remember the first ocurrence of
+    // each value.
+    llvm::DenseMap<Value, int64_t> valuePositions;
+    for (Value value : terminator->getOperands())
+      valuePositions.try_emplace(value, valuePositions.size());
+
+    if (valuePositions.size() == numOriginalYields)
+      return rewriter.notifyMatchFailure(op, "does not yield duplicate values");
+
+    // Create a mapping from the de-duplicated values that re-establishes the
+    // original emit order. The input fields are just forwarded, so create
+    // identity prefix.
+    SmallVector<int64_t> reverseMapping;
+    reverseMapping.reserve(inputTupleType.size() + numOriginalYields);
+    append_range(reverseMapping, iota_range<int64_t>(0, inputTupleType.size(),
+                                                     /*Inclusive=*/false));
+
+    // Reverse mapping: The fields added by the `expression` regions are now
+    // de-duplicated, so we need to reverse the effect of the deduplication,
+    // taking the prefix into account.
+    for (Value value : terminator->getOperands()) {
+      int64_t pos = valuePositions[value];
+      reverseMapping.push_back(inputTupleType.size() + pos);
+    }
+
+    // Remove duplicate values in `yield` op of the `expressions` region.
+    {
+      SmallVector<Value> values;
+      values.reserve(valuePositions.size());
+      for (auto [value, pos] : valuePositions)
+        values.push_back(value);
+
+      PatternRewriter::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(terminator);
+      terminator = rewriter.replaceOpWithNewOp<YieldOp>(terminator, values);
+    }
+
+    // Compute deduplicated output field types.
+    SmallVector<Type> outputTypes;
+    int64_t numNewYields = terminator->getNumOperands();
+    outputTypes.reserve(inputTupleType.size() + numNewYields);
+    append_range(outputTypes, inputTupleType.getTypes());
+    append_range(outputTypes, terminator->getOperandTypes());
+    auto newOutputType = TupleType::get(context, outputTypes);
+
+    // Create new `project` op with updated region and output type.
+    auto newOp =
+        rewriter.create<ProjectOp>(op.getLoc(), newOutputType, op.getInput());
+    rewriter.inlineRegionBefore(op.getExpressions(), newOp.getExpressions(),
+                                newOp.getExpressions().end());
+
+    // Create `emit` op with the reverse mapping.
+    ArrayAttr reverseMappingAttr = rewriter.getI64ArrayAttr(reverseMapping);
+    rewriter.replaceOpWithNewOp<EmitOp>(op, newOp, reverseMappingAttr);
+
+    return success();
+  }
+};
+
 /// Pushes duplicates in the mappings of `emit` ops producing either of the two
 /// inputs through the `cross` op. This works by introducing new emit ops
 /// without the duplicates, creating a new `cross` op that uses them, and
@@ -356,6 +426,7 @@ void populateEmitDeduplicationPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
   patterns.add<
       // clang-format off
+      EliminateDuplicateYieldsInProjectPattern,
       PushDuplicatesThroughCrossPattern,
       PushDuplicatesThroughFilterPattern,
       PushDuplicatesThroughProjectPattern

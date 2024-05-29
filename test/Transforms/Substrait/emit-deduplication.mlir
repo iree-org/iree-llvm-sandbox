@@ -228,3 +228,36 @@ substrait.plan version 0 : 42 : 1 {
     yield %2 : tuple<si32, si32, si1>
   }
 }
+
+// -----
+
+// `project` op (`EliminateDuplicateYieldsInProjectPattern`).
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = project %[[V0]] : {{.*}} {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V2:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V3:.*]] = func.call @f(%[[V2]]) :
+// CHECK-NEXT:        yield %[[V3]] : si1
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[V4:.*]] = emit [0, 1, 1] from %[[V1]]
+
+func.func private @f(si32) -> si1
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a"] : tuple<si32>
+    %1 = project %0 : tuple<si32> -> tuple<si32, si1, si1> {
+    ^bb0(%arg : tuple<si32>):
+      %2 = field_reference %arg[[0]] : tuple<si32>
+      %3 = func.call @f(%2) : (si32) -> si1
+      // We yield two times the same value. This pattern should remove one of
+      // the two and re-establish the duplicate with an `amit` after the
+      // `project`.
+      yield %3, %3 : si1, si1
+    }
+    yield %1 : tuple<si32, si1, si1>
+  }
+}
