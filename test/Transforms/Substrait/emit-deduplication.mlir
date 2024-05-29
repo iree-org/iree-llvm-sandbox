@@ -194,3 +194,32 @@ substrait.plan version 0 : 42 : 1 {
     yield %2 : tuple<si1, si1, tuple<si1, si32>, si1, si1>
   }
 }
+
+// -----
+
+// `project` op.
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = emit [1] from %[[V0]] :
+// CHECK-NEXT:      %[[V2:.*]] = project %[[V1]] : {{.*}} {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V3:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V4:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        yield %[[V3]], %[[V4]] : si32, si32
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[V5:.*]] = emit [0, 0, 1, 2] from %[[V2]]
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b"] : tuple<si1, si32>
+    %1 = emit [1, 1] from %0 : tuple<si1, si32> -> tuple<si32, si32>
+    %2 = project %1 : tuple<si32, si32> -> tuple<si32, si32, si32, si32> {
+    ^bb0(%arg : tuple<si32, si32>):
+      %3 = field_reference %arg[[0]] : tuple<si32, si32>
+      %4 = field_reference %arg[[1]] : tuple<si32, si32>
+      yield %3, %4 : si32, si32
+    }
+    yield %2 : tuple<si32, si32, si32, si32>
+  }
+}
