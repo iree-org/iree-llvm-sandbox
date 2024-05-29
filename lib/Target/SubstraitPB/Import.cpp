@@ -47,6 +47,8 @@ namespace {
 DECLARE_IMPORT_FUNC(CrossRel, Rel, CrossOp)
 DECLARE_IMPORT_FUNC(FilterRel, Rel, FilterOp)
 DECLARE_IMPORT_FUNC(Expression, Expression, ExpressionOpInterface)
+DECLARE_IMPORT_FUNC(FieldReference, Expression::FieldReference,
+                    FieldReferenceOp)
 DECLARE_IMPORT_FUNC(Literal, Expression::Literal, LiteralOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
@@ -119,6 +121,9 @@ importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
   case Expression::RexTypeCase::kLiteral: {
     return importLiteral(builder, message.literal());
   }
+  case Expression::RexTypeCase::kSelection: {
+    return importFieldReference(builder, message.selection());
+  }
   default: {
     const pb::FieldDescriptor *desc =
         Expression::GetDescriptor()->FindFieldByNumber(rex_type);
@@ -126,6 +131,52 @@ importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
                                  desc->name();
   }
   }
+}
+
+static mlir::FailureOr<FieldReferenceOp>
+importFieldReference(ImplicitLocOpBuilder builder,
+                     const Expression::FieldReference &message) {
+  using ReferenceSegment = Expression::ReferenceSegment;
+
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  // Emit error on unsupported cases.
+  // TODO(ingomueller): support more cases.
+  if (!message.has_direct_reference())
+    return emitError(loc) << "only direct reference supported";
+
+  if (!message.has_root_reference())
+    return emitError(loc) << "only root reference supported";
+
+  // Traverse list to extract indexes.
+  llvm::SmallVector<int64_t> indexes;
+  const ReferenceSegment *currentSegment = &message.direct_reference();
+  while (true) {
+    if (!currentSegment->has_struct_field())
+      return emitError(loc) << "only struct fields supported";
+
+    const ReferenceSegment::StructField &structField =
+        currentSegment->struct_field();
+    indexes.push_back(structField.field());
+
+    // Continue in linked list or end traversal.
+    if (!structField.has_child())
+      break;
+    currentSegment = &structField.child();
+  }
+
+  // Build `position` attribute of indexes.
+  ArrayAttr position = builder.getI64ArrayAttr(indexes);
+
+  // Get input value. For direct references, that's the current block argument.
+  mlir::Block::BlockArgListType blockArgs =
+      builder.getInsertionBlock()->getArguments();
+  assert(blockArgs.size() == 1 && "expected a single block argument");
+  Value container = blockArgs.front();
+
+  // Build and return the op.
+  return builder.create<FieldReferenceOp>(container, position);
 }
 
 static mlir::FailureOr<LiteralOp>

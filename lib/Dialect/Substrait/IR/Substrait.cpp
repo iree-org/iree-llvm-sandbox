@@ -72,6 +72,56 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
   return success();
 }
 
+/// Computes the type of the nested field of the given `type` identified by
+/// `position`. Each entry `n` in the given index array `position` corresponds
+/// to the `n`-th entry in that level. The function is thus implemented
+/// recursively, where each recursion level extracts the type of the outer-most
+/// level identified by the first index in the `position` array.
+static FailureOr<Type> computeTypeAtPosition(Location loc, Type type,
+                                             ArrayRef<Attribute> position) {
+  if (position.empty())
+    return type;
+
+  // Recurse into tuple field of first index in position array.
+  if (auto tupleType = llvm::dyn_cast<TupleType>(type)) {
+    auto indexAttr = llvm::dyn_cast<IntegerAttr>(position[0]);
+    if (!indexAttr)
+      return emitError(loc) << position[0] << " is not a valid index";
+
+    int64_t index = indexAttr.getInt();
+    ArrayRef<Type> fieldTypes = tupleType.getTypes();
+    if (index >= static_cast<int64_t>(fieldTypes.size()) || index < 0)
+      return emitError(loc) << index << " is not a valid index for " << type;
+
+    return computeTypeAtPosition(loc, fieldTypes[index], position.drop_front());
+  }
+
+  return emitError(loc) << "can't extract element from type " << type;
+}
+
+LogicalResult FieldReferenceOp::inferReturnTypes(
+    MLIRContext *context, std::optional<Location> loc, ValueRange operands,
+    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
+    llvm::SmallVectorImpl<Type> &inferredReturnTypes) {
+  auto *typedProperties = properties.as<Properties *>();
+  if (!loc)
+    loc = UnknownLoc::get(context);
+
+  // Extract field type at given position.
+  ArrayAttr position = typedProperties->getPosition();
+  Type inputType = operands[0].getType();
+  FailureOr<Type> fieldType =
+      computeTypeAtPosition(loc.value(), inputType, position.getValue());
+  if (failed(fieldType))
+    return ::emitError(loc.value())
+           << "mismatching position and type (position: " << position
+           << ", type: " << inputType << ")";
+
+  inferredReturnTypes.push_back(fieldType.value());
+
+  return success();
+}
+
 LogicalResult FilterOp::verifyRegions() {
   MLIRContext *context = getContext();
   Type si1 = IntegerType::get(context, /*width=*/1, IntegerType::Signed);

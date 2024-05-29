@@ -40,6 +40,7 @@ namespace {
 
 DECLARE_EXPORT_FUNC(CrossOp, Rel)
 DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
+DECLARE_EXPORT_FUNC(FieldReferenceOp, Expression)
 DECLARE_EXPORT_FUNC(FilterOp, Rel)
 DECLARE_EXPORT_FUNC(LiteralOp, Expression)
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
@@ -144,9 +145,46 @@ FailureOr<std::unique_ptr<Expression>>
 exportOperation(ExpressionOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
              op)
-      .Case<LiteralOp>([&](auto op) { return exportOperation(op); })
+      .Case<FieldReferenceOp, LiteralOp>(
+          [&](auto op) { return exportOperation(op); })
       .Default(
           [](auto op) { return op->emitOpError("not supported for export"); });
+}
+
+FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
+  using FieldReference = Expression::FieldReference;
+  using ReferenceSegment = Expression::ReferenceSegment;
+
+  // Build linked list of `ReferenceSegment` messages.
+  // TODO: support masked references.
+  std::unique_ptr<Expression::ReferenceSegment> referenceRoot;
+  for (Attribute attr : llvm::reverse(op.getPosition().getValue())) {
+    // Remember child segment and create new `ReferenceSegment` message.
+    auto childReference = std::move(referenceRoot);
+    referenceRoot = std::make_unique<ReferenceSegment>();
+
+    // Create `StructField` message.
+    // TODO(ingomueller): support other segment types.
+    auto indexAttr = llvm::cast<IntegerAttr>(attr);
+    auto structField = std::make_unique<ReferenceSegment::StructField>();
+    structField->set_field(indexAttr.getInt());
+    structField->set_allocated_child(childReference.release());
+
+    referenceRoot->set_allocated_struct_field(structField.release());
+  }
+
+  // Build `FieldReference` message.
+  auto fieldReference = std::make_unique<FieldReference>();
+  fieldReference->set_allocated_direct_reference(referenceRoot.release());
+  // TODO: support other reference types.
+  auto rootReference = std::make_unique<FieldReference::RootReference>();
+  fieldReference->set_allocated_root_reference(rootReference.release());
+
+  // Build `Expression` message.
+  auto expression = std::make_unique<Expression>();
+  expression->set_allocated_selection(fieldReference.release());
+
+  return expression;
 }
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
@@ -334,7 +372,7 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<CrossOp, FilterOp, NamedTableOp>(
+      .Case<CrossOp, FieldReferenceOp, FilterOp, NamedTableOp>(
           [&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");
