@@ -161,13 +161,11 @@ substrait.plan version 0 : 42 : 1 {
 // CHECK-NEXT:      %[[V2:.*]] = filter %[[V1]] : {{.*}} {
 // CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
 // CHECK-NEXT:        %[[V3:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
-// CHECK-NEXT:        %[[V4:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
 // CHECK-NEXT:        %[[V5:.*]] = field_reference %[[ARG0]]{{\[}}[1, 0]] : [[TYPE]]
 // CHECK-NEXT:        %[[V6:.*]] = field_reference %[[ARG0]]{{\[}}[1]] : [[TYPE]]
 // CHECK-NEXT:        %[[V7:.*]] = field_reference %[[V6]]{{\[}}[1]] :
-// CHECK-NEXT:        %[[V8:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
 // CHECK-NEXT:        %[[V9:.*]] = field_reference %[[ARG0]]{{\[}}[2]] : [[TYPE]]
-// CHECK-NEXT:        %[[Va:.*]] = func.call @f(%[[V3]], %[[V4]], %[[V5]], %[[V7]], %[[V8]], %[[V9]])
+// CHECK-NEXT:        %[[Va:.*]] = func.call @f(%[[V3]], %[[V3]], %[[V5]], %[[V7]], %[[V3]], %[[V9]])
 // CHECK-NEXT:        yield %[[Va]] : si1
 // CHECK-NEXT:      }
 // CHECK-NEXT:      %[[Vb:.*]] = emit [0, 0, 1, 0, 2] from %[[V2]]
@@ -209,8 +207,7 @@ substrait.plan version 0 : 42 : 1 {
 // CHECK-NEXT:      %[[V2:.*]] = project %[[V1]] : tuple<si32> -> tuple<si32, si1> {
 // CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
 // CHECK-NEXT:        %[[V3:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
-// CHECK-NEXT:        %[[V4:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
-// CHECK-NEXT:        %[[V5:.*]] = func.call @f(%[[V3]], %[[V4]]) :
+// CHECK-NEXT:        %[[V5:.*]] = func.call @f(%[[V3]], %[[V3]]) :
 // CHECK-NEXT:        yield %[[V5]] : si1
 // CHECK-NEXT:      }
 // CHECK-NEXT:      %[[V6:.*]] = emit [0, 0, 1] from %[[V2]]
