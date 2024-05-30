@@ -72,6 +72,24 @@ CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
   return success();
 }
 
+OpFoldResult EmitOp::fold(FoldAdaptor adaptor) {
+  // Return if the mapping is not the identity mapping.
+  int64_t numFields = cast<TupleType>(getInput().getType()).size();
+  int64_t numIndices = getMapping().size();
+  if (numFields != numIndices)
+    return {};
+  for (int64_t i = 0; i < numIndices; ++i) {
+    auto attr = getMapping()[i];
+    int64_t index = cast<IntegerAttr>(attr).getInt();
+    if (index != i)
+      return {};
+  }
+
+  // The `emit` op *has* an identity mapping, so it does not have any effect.
+  // Return its input instead.
+  return getInput();
+}
+
 LogicalResult
 EmitOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
                          ValueRange operands, DictionaryAttr attributes,

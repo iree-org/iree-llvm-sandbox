@@ -283,6 +283,7 @@ def Substrait_EmitOp : Substrait_RelOp<"emit", [
   let assemblyFormat = [{
     $mapping `from` $input attr-dict `:` type($input) `->` type($result)
   }];
+  let hasFolder = 1;
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
     ::llvm::StringRef $cppClass::getDefaultDialect() {
