@@ -196,16 +196,15 @@ FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
   // Build linked list of `ReferenceSegment` messages.
   // TODO: support masked references.
   std::unique_ptr<Expression::ReferenceSegment> referenceRoot;
-  for (Attribute attr : llvm::reverse(op.getPosition().getValue())) {
+  for (int64_t pos : llvm::reverse(op.getPosition())) {
     // Remember child segment and create new `ReferenceSegment` message.
     auto childReference = std::move(referenceRoot);
     referenceRoot = std::make_unique<ReferenceSegment>();
 
     // Create `StructField` message.
     // TODO(ingomueller): support other segment types.
-    auto indexAttr = llvm::cast<IntegerAttr>(attr);
     auto structField = std::make_unique<ReferenceSegment::StructField>();
-    structField->set_field(indexAttr.getInt());
+    structField->set_field(pos);
     structField->set_allocated_child(childReference.release());
 
     referenceRoot->set_allocated_struct_field(structField.release());
