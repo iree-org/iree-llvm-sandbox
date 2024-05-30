@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "structured/Target/SubstraitPB/Export.h"
+#include "ProtobufUtils.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/LogicalResult.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
@@ -39,6 +40,7 @@ namespace {
   static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
 DECLARE_EXPORT_FUNC(CrossOp, Rel)
+DECLARE_EXPORT_FUNC(EmitOp, Rel)
 DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
 DECLARE_EXPORT_FUNC(FieldReferenceOp, Expression)
 DECLARE_EXPORT_FUNC(FilterOp, Rel)
@@ -139,6 +141,42 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
   rel->set_allocated_cross(crossRel.release());
 
   return rel;
+}
+
+FailureOr<std::unique_ptr<Rel>> exportOperation(EmitOp op) {
+  auto inputOp =
+      dyn_cast_if_present<RelOpInterface>(op.getInput().getDefiningOp());
+  if (!inputOp)
+    return op->emitOpError(
+        "has input that was not produced by Substrait relation op");
+
+  // Export input op.
+  FailureOr<std::unique_ptr<Rel>> inputRel = exportOperation(inputOp);
+  if (failed(inputRel))
+    return failure();
+
+  // Build the `emit` message.
+  auto emit = std::make_unique<RelCommon::Emit>();
+  for (auto intAttr : op.getMapping().getAsRange<IntegerAttr>())
+    emit->add_output_mapping(intAttr.getInt());
+
+  // Attach the `emit` message to the `RelCommon` message.
+  FailureOr<RelCommon *> relCommon =
+      protobuf_utils::getMutableCommon(inputRel->get(), op.getLoc());
+  if (failed(relCommon))
+    return failure();
+
+  if (relCommon.value()->has_emit()) {
+    InFlightDiagnostic diag =
+        op->emitOpError("has 'input' that already has 'emit' message "
+                        "(try running canonicalization?)");
+    diag.attachNote(inputOp.getLoc()) << "op exported to 'input' message";
+    return diag;
+  }
+
+  relCommon.value()->set_allocated_emit(emit.release());
+
+  return inputRel;
 }
 
 FailureOr<std::unique_ptr<Expression>>
@@ -392,7 +430,7 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
 
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<CrossOp, FieldReferenceOp, FilterOp, NamedTableOp>(
+      .Case<CrossOp, EmitOp, FieldReferenceOp, FilterOp, NamedTableOp>(
           [&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");

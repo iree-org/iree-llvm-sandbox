@@ -1,0 +1,137 @@
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN:   --split-input-file="# ""-----" \
+# RUN: | FileCheck %s
+
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN:   --split-input-file="# ""-----" --output-split-marker="// -----" \
+# RUN: | structured-translate -substrait-to-protobuf \
+# RUN:   --split-input-file --output-split-marker="# ""-----" \
+# RUN: | structured-translate -protobuf-to-substrait \
+# RUN:   --split-input-file="# ""-----" --output-split-marker="// -----" \
+# RUN: | FileCheck %s
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    relation
+# CHECK-NEXT:      %[[V0:.*]] = named_table
+# CHECK-NEXT:      %[[V1:.*]] = emit [1, 0] from %[[V0]]
+# CHECK-NEXT:      yield %[[V1]]
+
+relations {
+  rel {
+    read {
+      common {
+        emit {
+          output_mapping: 1
+          output_mapping: 0
+        }
+      }
+      base_schema {
+        names: "a"
+        names: "b"
+        struct {
+          types {
+            bool {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          types {
+            i32 {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      named_table {
+        names: "t1"
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
+
+# -----
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    relation
+# CHECK-NEXT:      %[[V0:.*]] = named_table
+# CHECK-NEXT:      %[[V1:.*]] = emit [0, 0] from %[[V0]]
+# CHECK-NEXT:      yield %[[V1]]
+
+relations {
+  rel {
+    read {
+      common {
+        emit {
+          output_mapping: 0
+          output_mapping: 0
+        }
+      }
+      base_schema {
+        names: "a"
+        struct {
+          types {
+            i32 {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      named_table {
+        names: "t1"
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
+
+# -----
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    relation
+# CHECK-NEXT:      %[[V0:.*]] = named_table
+# CHECK-NEXT:      %[[V1:.*]] = emit [1] from %[[V0]]
+# CHECK-NEXT:      yield %[[V1]]
+
+relations {
+  rel {
+    read {
+      common {
+        emit {
+          output_mapping: 1
+        }
+      }
+      base_schema {
+        names: "a"
+        names: "b"
+        struct {
+          types {
+            i32 {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          types {
+            bool {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      named_table {
+        names: "t1"
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
