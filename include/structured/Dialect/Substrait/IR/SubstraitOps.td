@@ -183,7 +183,7 @@ def Substrait_FieldReferenceOp : Substrait_ExpressionOp<"field_reference", [
   // TODO(ingomueller): extend to other types, map access, and masked references.
   let arguments = (ins
     Substrait_ContainerType:$container,
-    I64ArrayAttr:$position
+    DenseI64ArrayAttr:$position
   );
   let results = (outs Substrait_FieldType:$result);
   let assemblyFormat = [{

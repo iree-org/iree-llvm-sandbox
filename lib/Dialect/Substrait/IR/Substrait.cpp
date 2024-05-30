@@ -128,17 +128,13 @@ EmitOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
 /// recursively, where each recursion level extracts the type of the outer-most
 /// level identified by the first index in the `position` array.
 static FailureOr<Type> computeTypeAtPosition(Location loc, Type type,
-                                             ArrayRef<Attribute> position) {
+                                             ArrayRef<int64_t> position) {
   if (position.empty())
     return type;
 
   // Recurse into tuple field of first index in position array.
   if (auto tupleType = llvm::dyn_cast<TupleType>(type)) {
-    auto indexAttr = llvm::dyn_cast<IntegerAttr>(position[0]);
-    if (!indexAttr)
-      return emitError(loc) << position[0] << " is not a valid index";
-
-    int64_t index = indexAttr.getInt();
+    int64_t index = position[0];
     ArrayRef<Type> fieldTypes = tupleType.getTypes();
     if (index >= static_cast<int64_t>(fieldTypes.size()) || index < 0)
       return emitError(loc) << index << " is not a valid index for " << type;
@@ -158,10 +154,10 @@ LogicalResult FieldReferenceOp::inferReturnTypes(
     loc = UnknownLoc::get(context);
 
   // Extract field type at given position.
-  ArrayAttr position = typedProperties->getPosition();
+  DenseI64ArrayAttr position = typedProperties->getPosition();
   Type inputType = operands[0].getType();
   FailureOr<Type> fieldType =
-      computeTypeAtPosition(loc.value(), inputType, position.getValue());
+      computeTypeAtPosition(loc.value(), inputType, position);
   if (failed(fieldType))
     return ::emitError(loc.value())
            << "mismatching position and type (position: " << position

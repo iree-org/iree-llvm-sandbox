@@ -164,9 +164,6 @@ importFieldReference(ImplicitLocOpBuilder builder,
     currentSegment = &structField.child();
   }
 
-  // Build `position` attribute of indices.
-  ArrayAttr position = builder.getI64ArrayAttr(indices);
-
   // Get input value.
   Value container;
   if (message.has_root_reference()) {
@@ -191,7 +188,7 @@ importFieldReference(ImplicitLocOpBuilder builder,
   }
 
   // Build and return the op.
-  return builder.create<FieldReferenceOp>(container, position);
+  return builder.create<FieldReferenceOp>(container, indices);
 }
 
 static mlir::FailureOr<LiteralOp>
