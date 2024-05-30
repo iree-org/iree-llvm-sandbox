@@ -147,8 +147,8 @@ importFieldReference(ImplicitLocOpBuilder builder,
   if (!message.has_direct_reference())
     return emitError(loc) << "only direct reference supported";
 
-  // Traverse list to extract indexes.
-  llvm::SmallVector<int64_t> indexes;
+  // Traverse list to extract indices.
+  llvm::SmallVector<int64_t> indices;
   const ReferenceSegment *currentSegment = &message.direct_reference();
   while (true) {
     if (!currentSegment->has_struct_field())
@@ -156,7 +156,7 @@ importFieldReference(ImplicitLocOpBuilder builder,
 
     const ReferenceSegment::StructField &structField =
         currentSegment->struct_field();
-    indexes.push_back(structField.field());
+    indices.push_back(structField.field());
 
     // Continue in linked list or end traversal.
     if (!structField.has_child())
@@ -164,8 +164,8 @@ importFieldReference(ImplicitLocOpBuilder builder,
     currentSegment = &structField.child();
   }
 
-  // Build `position` attribute of indexes.
-  ArrayAttr position = builder.getI64ArrayAttr(indexes);
+  // Build `position` attribute of indices.
+  ArrayAttr position = builder.getI64ArrayAttr(indices);
 
   // Get input value.
   Value container;
