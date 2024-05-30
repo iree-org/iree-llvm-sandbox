@@ -8,6 +8,7 @@
 
 #include "structured/Target/SubstraitPB/Import.h"
 
+#include "ProtobufUtils.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/OwningOpRef.h"
@@ -50,41 +51,11 @@ DECLARE_IMPORT_FUNC(Expression, Expression, ExpressionOpInterface)
 DECLARE_IMPORT_FUNC(FieldReference, Expression::FieldReference,
                     FieldReferenceOp)
 DECLARE_IMPORT_FUNC(Literal, Expression::Literal, LiteralOp)
-DECLARE_IMPORT_FUNC(NamedTable, Rel, RelOpInterface)
+DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
 DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
-
-/// Imports the provided `RelCommon` message by producing an `EmitOp` that
-/// expresses the `Emit` message if it exists.
-///
-/// **This function must be called at the end of the import function of every
-/// `Rel` message with a `RelCommon` message.**
-///
-/// The provided `inputOp` is the op that was imported by the `Rel` message
-/// containing the provided `RelCommon` message. The function returns the
-/// `EmitOp` if one was created and the `inputOp` otherwise.
-static mlir::FailureOr<RelOpInterface>
-importMaybeEmit(ImplicitLocOpBuilder builder, const RelCommon &message,
-                RelOpInterface inputOp) {
-  // For the `direct`, we just forward the input op.
-  if (message.has_direct())
-    return inputOp;
-  assert(message.has_emit() && "expected either 'direct' or 'emit'");
-
-  // For the `emit` case, we need to insert an `EmitOp`.
-  const proto::RelCommon::Emit &emit = message.emit();
-  SmallVector<int64_t> mapping;
-  for (int64_t index : emit.output_mapping())
-    mapping.push_back(index);
-  ArrayAttr mappingAttr = builder.getI64ArrayAttr(mapping);
-
-  Value input = inputOp->getResult(0);
-  auto emitOp = builder.create<EmitOp>(input, mappingAttr);
-
-  return cast<RelOpInterface>(emitOp.getOperation());
-}
 
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
                                               const proto::Type &type) {
@@ -276,10 +247,10 @@ static mlir::FailureOr<FilterOp> importFilterRel(ImplicitLocOpBuilder builder,
     builder.create<YieldOp>(conditionOp.value()->getResult(0));
   }
 
-  return importMaybeEmit(builder, filterRel.common(), filterOp);
+  return filterOp;
 }
 
-static mlir::FailureOr<RelOpInterface>
+static mlir::FailureOr<NamedTableOp>
 importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   const ReadRel &readRel = message.read();
   const ReadRel::NamedTable &namedTable = readRel.named_table();
@@ -324,7 +295,7 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
   auto namedTableOp =
       builder.create<NamedTableOp>(resultType, tableName, fieldNamesAttr);
 
-  return importMaybeEmit(builder, readRel.common(), namedTableOp);
+  return namedTableOp;
 }
 
 static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
@@ -413,22 +384,50 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
   MLIRContext *context = builder.getContext();
   Location loc = UnknownLoc::get(context);
 
+  // Import rel depending on its type.
   Rel::RelTypeCase relType = message.rel_type_case();
+  FailureOr<RelOpInterface> maybeOp;
   switch (relType) {
-  case Rel::RelTypeCase::kCross: {
-    return importCrossRel(builder, message);
-  }
-  case Rel::RelTypeCase::kFilter: {
-    return importFilterRel(builder, message);
-  }
-  case Rel::RelTypeCase::kRead: {
-    return importReadRel(builder, message);
-  }
+  case Rel::RelTypeCase::kCross:
+    maybeOp = importCrossRel(builder, message);
+    break;
+  case Rel::RelTypeCase::kFilter:
+    maybeOp = importFilterRel(builder, message);
+    break;
+  case Rel::RelTypeCase::kRead:
+    maybeOp = importReadRel(builder, message);
+    break;
   default:
     const pb::FieldDescriptor *desc =
         Rel::GetDescriptor()->FindFieldByNumber(relType);
     return emitError(loc) << Twine("unsupported Rel type: ") + desc->name();
   }
+  if (failed(maybeOp))
+    return failure();
+  RelOpInterface op = maybeOp.value();
+
+  // Remainder: Import `emit` op if needed.
+
+  // Extract `RelCommon` message.
+  FailureOr<const RelCommon *> maybeRelCommon =
+      protobuf_utils::getCommon(message, loc);
+  if (failed(maybeRelCommon))
+    return failure();
+  const RelCommon *relCommon = maybeRelCommon.value();
+
+  // For the `direct` case, no further op needs to be created.
+  if (relCommon->has_direct())
+    return op;
+  assert(relCommon->has_emit() && "expected either 'direct' or 'emit'");
+
+  // For the `emit` case, we need to insert an `EmitOp`.
+  const proto::RelCommon::Emit &emit = relCommon->emit();
+  SmallVector<int64_t> mapping;
+  append_range(mapping, emit.output_mapping());
+  ArrayAttr mappingAttr = builder.getI64ArrayAttr(mapping);
+  auto emitOp = builder.create<EmitOp>(op->getResult(0), mappingAttr);
+
+  return {emitOp};
 }
 
 } // namespace
