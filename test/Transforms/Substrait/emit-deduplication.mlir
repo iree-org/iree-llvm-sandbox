@@ -201,6 +201,8 @@ substrait.plan version 0 : 42 : 1 {
 
 func.func private @f(si32, si32) -> si1
 
+// XXX(ingomueller): How can we test individual patterns here?
+
 // CHECK-LABEL: substrait.plan
 // CHECK-NEXT:    relation
 // CHECK-NEXT:      %[[V0:.*]] = named_table
@@ -255,5 +257,35 @@ substrait.plan version 0 : 42 : 1 {
       yield %3, %3 : si1, si1
     }
     yield %1 : tuple<si32, si1, si1>
+  }
+}
+
+// -----
+
+// `project` op (`EliminateIdentityYieldsInProjectPattern`).
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = project %[[V0]] : {{.*}} {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V2:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V3:.*]] = func.call @f(%[[V2]]) :
+// CHECK-NEXT:        yield %[[V3]] : si1
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[V4:.*]] = emit [0, 1, 0, 2] from %[[V1]]
+
+func.func private @f(si32) -> si1
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b"] : tuple<si32, si1>
+    %1 = project %0 : tuple<si32, si1> -> tuple<si32, si1, si32, si1> {
+    ^bb0(%arg0: tuple<si32, si1>):
+      %2 = field_reference %arg0[[0]] : tuple<si32, si1>
+      %3 = func.call @f(%2) : (si32) -> si1
+      yield %2, %3 : si32, si1
+    }
+    yield %1 : tuple<si32, si1, si32, si1>
   }
 }
