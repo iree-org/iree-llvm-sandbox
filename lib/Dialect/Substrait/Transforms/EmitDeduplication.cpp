@@ -58,8 +58,7 @@ createDeduplicatingEmit(Value input, SmallVector<int64_t> &reverseMapping,
   // `input` and the reverse mapping is just the identity.
   auto handleNoDuplicates = [&]() {
     int64_t numInputFields = cast<TupleType>(input.getType()).getTypes().size();
-    for (auto i : iota_range<int64_t>(0, numInputFields,
-                                      /*Inclusive=*/false))
+    for (auto i : seq(numInputFields))
       reverseMapping.push_back(i);
     return std::tuple<Value, int64_t, bool>{input, numInputFields, false};
   };
