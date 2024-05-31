@@ -20,6 +20,7 @@
 #include "structured/Dialect/Iterators/IR/Iterators.h"
 #include "structured/Dialect/Iterators/Transforms/Passes.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
+#include "structured/Dialect/Substrait/Transforms/Passes.h"
 #include "structured/Dialect/Tabular/IR/Tabular.h"
 #include "structured/Dialect/Tuple/IR/Tuple.h"
 #include "structured/Dialect/Tuple/Transforms/Passes.h"
@@ -31,6 +32,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 
 using namespace mlir;
+using namespace mlir::substrait;
 
 static void registerIteratorDialects(DialectRegistry &registry) {
   registry.insert<
@@ -56,6 +58,7 @@ int main(int argc, char **argv) {
   registerAllPasses();
   registerStructuredConversionPasses();
   registerIteratorsPasses();
+  registerSubstraitPasses();
   registerTuplePasses();
 
   DialectRegistry registry;
