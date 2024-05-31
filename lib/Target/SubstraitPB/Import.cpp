@@ -173,7 +173,7 @@ importFieldReference(ImplicitLocOpBuilder builder,
     assert(blockArgs.size() == 1 && "expected a single block argument");
     container = blockArgs.front();
   } else if (message.has_expression()) {
-    // For the `expression`case, recursively import the expression.
+    // For the `expression` case, recursively import the expression.
     FailureOr<ExpressionOpInterface> maybeContainer =
         importExpression(builder, message.expression());
     if (failed(maybeContainer))
