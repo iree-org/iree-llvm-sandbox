@@ -120,7 +120,7 @@ createDeduplicatingEmit(Value input, SmallVector<int64_t> &reverseMapping,
 /// inputs through the `cross` op. This works by introducing new emit ops
 /// without the duplicates, creating a new `cross` op that uses them, and
 /// finally a new `emit` op that maps back to the original order.
-struct PushDuplicateThroughCrossJoinPattern : public OpRewritePattern<CrossOp> {
+struct PushDuplicatesThroughCrossPattern : public OpRewritePattern<CrossOp> {
   using OpRewritePattern<CrossOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(CrossOp op,
@@ -173,7 +173,7 @@ namespace substrait {
 
 void populateEmitDeduplicationPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  patterns.add<PushDuplicateThroughCrossJoinPattern>(context);
+  patterns.add<PushDuplicatesThroughCrossPattern>(context);
 }
 
 std::unique_ptr<Pass> createEmitDeduplicationPass() {
