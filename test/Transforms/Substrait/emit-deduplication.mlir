@@ -149,3 +149,143 @@ substrait.plan version 0 : 42 : 1 {
     yield %3 : tuple<si32, si32, si32, si1>
   }
 }
+
+// -----
+
+// `filter` op.
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = emit [1, 2, 0] from %[[V0]] :
+// CHECK-NEXT:      %[[V2:.*]] = filter %[[V1]] : {{.*}} {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V3:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V4:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V5:.*]] = field_reference %[[ARG0]]{{\[}}[1, 0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V6:.*]] = field_reference %[[ARG0]]{{\[}}[1]] : [[TYPE]]
+// CHECK-NEXT:        %[[V7:.*]] = field_reference %[[V6]]{{\[}}[1]] :
+// CHECK-NEXT:        %[[V8:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V9:.*]] = field_reference %[[ARG0]]{{\[}}[2]] : [[TYPE]]
+// CHECK-NEXT:        %[[Va:.*]] = func.call @f(%[[V3]], %[[V4]], %[[V5]], %[[V7]], %[[V8]], %[[V9]])
+// CHECK-NEXT:        yield %[[Va]] : si1
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[Vb:.*]] = emit [0, 0, 1, 0, 2] from %[[V2]]
+
+func.func private @f(si1, si1, si1, si32, si1, si1) -> si1
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b", "c", "d", "e"] : tuple<si1, si1, tuple<si1, si32>>
+    %1 = emit [1, 1, 2, 1, 0] from %0
+        : tuple<si1, si1, tuple<si1, si32>> -> tuple<si1, si1, tuple<si1, si32>, si1, si1>
+    %2 = filter %1 : tuple<si1, si1, tuple<si1, si32>, si1, si1> {
+    ^bb0(%arg0: tuple<si1, si1, tuple<si1, si32>, si1, si1>):
+      %3 = field_reference %arg0[[0]] : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+      %4 = field_reference %arg0[[1]] : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+      %5 = field_reference %arg0[[2, 0]] : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+      %6 = field_reference %arg0[[2]] : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+      %7 = field_reference %6[[1]] : tuple<si1, si32>
+      %8 = field_reference %arg0[[3]] : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+      %9 = field_reference %arg0[[4]] : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+      %a = func.call @f(%3, %4, %5, %7, %8, %9) : (si1, si1, si1, si32, si1, si1) -> si1
+      yield %a : si1
+    }
+    yield %2 : tuple<si1, si1, tuple<si1, si32>, si1, si1>
+  }
+}
+
+// -----
+
+// `project` op (`PushDuplicatesThroughProjectPattern`).
+
+func.func private @f(si32, si32) -> si1
+
+// XXX(ingomueller): How can we test individual patterns here?
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = emit [1] from %[[V0]] :
+// CHECK-NEXT:      %[[V2:.*]] = project %[[V1]] : tuple<si32> -> tuple<si32, si1> {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V3:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V4:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V5:.*]] = func.call @f(%[[V3]], %[[V4]]) :
+// CHECK-NEXT:        yield %[[V5]] : si1
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[V6:.*]] = emit [0, 0, 1] from %[[V2]]
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b"] : tuple<si1, si32>
+    %1 = emit [1, 1] from %0 : tuple<si1, si32> -> tuple<si32, si32>
+    %2 = project %1 : tuple<si32, si32> -> tuple<si32, si32, si1> {
+    ^bb0(%arg : tuple<si32, si32>):
+      %3 = field_reference %arg[[0]] : tuple<si32, si32>
+      %4 = field_reference %arg[[1]] : tuple<si32, si32>
+      %5 = func.call @f(%3, %4) : (si32, si32) -> si1
+      yield %5 : si1
+    }
+    yield %2 : tuple<si32, si32, si1>
+  }
+}
+
+// -----
+
+// `project` op (`EliminateDuplicateYieldsInProjectPattern`).
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = project %[[V0]] : {{.*}} {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V2:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V3:.*]] = func.call @f(%[[V2]]) :
+// CHECK-NEXT:        yield %[[V3]] : si1
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[V4:.*]] = emit [0, 1, 1] from %[[V1]]
+
+func.func private @f(si32) -> si1
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a"] : tuple<si32>
+    %1 = project %0 : tuple<si32> -> tuple<si32, si1, si1> {
+    ^bb0(%arg : tuple<si32>):
+      %2 = field_reference %arg[[0]] : tuple<si32>
+      %3 = func.call @f(%2) : (si32) -> si1
+      yield %3, %3 : si1, si1
+    }
+    yield %1 : tuple<si32, si1, si1>
+  }
+}
+
+// -----
+
+// `project` op (`EliminateIdentityYieldsInProjectPattern`).
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = project %[[V0]] : {{.*}} {
+// CHECK-NEXT:      ^{{.*}}(%[[ARG0:.*]]: [[TYPE:.*]]):
+// CHECK-NEXT:        %[[V2:.*]] = field_reference %[[ARG0]]{{\[}}[0]] : [[TYPE]]
+// CHECK-NEXT:        %[[V3:.*]] = func.call @f(%[[V2]]) :
+// CHECK-NEXT:        yield %[[V3]] : si1
+// CHECK-NEXT:      }
+// CHECK-NEXT:      %[[V4:.*]] = emit [0, 1, 0, 2] from %[[V1]]
+
+func.func private @f(si32) -> si1
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b"] : tuple<si32, si1>
+    %1 = project %0 : tuple<si32, si1> -> tuple<si32, si1, si32, si1> {
+    ^bb0(%arg0: tuple<si32, si1>):
+      %2 = field_reference %arg0[[0]] : tuple<si32, si1>
+      %3 = func.call @f(%2) : (si32) -> si1
+      yield %2, %3 : si32, si1
+    }
+    yield %1 : tuple<si32, si1, si32, si1>
+  }
+}
