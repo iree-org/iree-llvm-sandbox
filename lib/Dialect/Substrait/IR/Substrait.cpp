@@ -339,6 +339,17 @@ LogicalResult PlanRelOp::verifyRegions() {
   return verifyNamedStruct(getOperation(), fieldNames, tupleType);
 }
 
+OpFoldResult ProjectOp::fold(FoldAdaptor adaptor) {
+  Operation *terminator = adaptor.getExpressions().front().getTerminator();
+
+  // If the region does not yield any values, the the `project` has no effect.
+  if (terminator->getNumOperands() == 0) {
+    return getInput();
+  }
+
+  return {};
+}
+
 LogicalResult ProjectOp::verifyRegions() {
   // Verify that the expression block has a matching argument type.
   auto inputTupleType = llvm::cast<TupleType>(getInput().getType());
