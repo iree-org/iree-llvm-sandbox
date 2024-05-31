@@ -242,6 +242,75 @@ struct EliminateDuplicateYieldsInProjectPattern
   }
 };
 
+struct EliminateIdentityYieldsInProjectPattern
+    : public OpRewritePattern<ProjectOp> {
+  using OpRewritePattern<ProjectOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ProjectOp op,
+                                PatternRewriter &rewriter) const override {
+    MLIRContext *context = op.getContext();
+    Operation *terminator = op.getExpressions().front().getTerminator();
+    auto inputTupleType = cast<TupleType>(op.getInput().getType());
+    auto resultTupleType = cast<TupleType>(op.getResult().getType());
+    int64_t numInputFields = inputTupleType.size();
+
+    // Look for yielded values that are just forwarding input fields.
+    SmallVector<Value> newYields;
+    SmallVector<int64_t> mapping;
+    mapping.reserve(resultTupleType.size());
+    append_range(mapping, seq(numInputFields));
+    for (auto [i, value] : enumerate(terminator->getOperands())) {
+      // Test if this is a `field_reference` op that refers a top-level field.
+      auto refOp = value.getDefiningOp<FieldReferenceOp>();
+      if (refOp && refOp.getPosition().size() == 1) {
+        // Test if it refers to the block argument of the `expression` region.
+        auto arg = dyn_cast<BlockArgument>(refOp.getContainer());
+        if (arg && arg.getOwner() == &op.getExpressions().front()) {
+          // This is a references forwarding a top-level field, so we'll express
+          // that with an `emit` op reordering the result of this op.
+          mapping.push_back(refOp.getPosition().front());
+          continue;
+        }
+      }
+
+      // This is not just a forwarding an input field, so we keep it.
+      mapping.push_back(numInputFields + newYields.size());
+      newYields.push_back(value);
+    }
+
+    if (newYields.size() == terminator->getNumOperands())
+      return rewriter.notifyMatchFailure(
+          op, "does not yield unmodified input fields");
+
+    // Change the `yield` op to yield only those values we want to keep.
+    {
+      PatternRewriter::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointAfter(terminator);
+      terminator = rewriter.replaceOpWithNewOp<YieldOp>(terminator, newYields);
+    }
+
+    // Compute deduplicated output field types.
+    SmallVector<Type> outputTypes;
+    int64_t numNewYields = terminator->getNumOperands();
+    outputTypes.reserve(inputTupleType.size() + numNewYields);
+    append_range(outputTypes, inputTupleType.getTypes());
+    append_range(outputTypes, terminator->getOperandTypes());
+    auto newOutputType = TupleType::get(context, outputTypes);
+
+    // Create new `project` op with updated region.
+    auto newOp =
+        rewriter.create<ProjectOp>(op.getLoc(), newOutputType, op.getInput());
+    rewriter.inlineRegionBefore(op.getExpressions(), newOp.getExpressions(),
+                                newOp.getExpressions().end());
+
+    // Create `emit` op with a mapping that recreates the fields we removed.
+    ArrayAttr reverseMappingAttr = rewriter.getI64ArrayAttr(mapping);
+    rewriter.replaceOpWithNewOp<EmitOp>(op, newOp, reverseMappingAttr);
+
+    return success();
+  }
+};
+
 /// Pushes duplicates in the mappings of `emit` ops producing either of the two
 /// inputs through the `cross` op. This works by introducing new emit ops
 /// without the duplicates, creating a new `cross` op that uses them, and
@@ -427,6 +496,7 @@ void populateEmitDeduplicationPatterns(RewritePatternSet &patterns) {
   patterns.add<
       // clang-format off
       EliminateDuplicateYieldsInProjectPattern,
+      EliminateIdentityYieldsInProjectPattern,
       PushDuplicatesThroughCrossPattern,
       PushDuplicatesThroughFilterPattern,
       PushDuplicatesThroughProjectPattern
