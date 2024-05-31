@@ -286,3 +286,27 @@ substrait.plan version 0 : 42 : 1 {
     yield %1 : tuple<si32, si1, si32, si1>
   }
 }
+
+// -----
+
+// End-to-end test of many patterns related to `project`.
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = emit [1, 1, 1, 1] from %[[V0]] :
+// CHECK-NEXT:      yield %[[V1]] : tuple<si32, si32, si32, si32>
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b"] : tuple<si1, si32>
+    %1 = emit [1, 1] from %0 : tuple<si1, si32> -> tuple<si32, si32>
+    %2 = project %1 : tuple<si32, si32> -> tuple<si32, si32, si32, si32> {
+    ^bb0(%arg : tuple<si32, si32>):
+      %3 = field_reference %arg[[0]] : tuple<si32, si32>
+      %4 = field_reference %arg[[1]] : tuple<si32, si32>
+      yield %3, %4 : si32, si32
+    }
+    yield %2 : tuple<si32, si32, si32, si32>
+  }
+}
