@@ -203,7 +203,7 @@ def Substrait_LiteralOp : Substrait_ExpressionOp<"literal", [
     Example:
 
     ```mlir
-    %0 = literal true
+    %0 = literal -1 : si1
     ```
   }];
   // TODO(ingomueller): extend to other types.
@@ -309,7 +309,7 @@ def Substrait_FilterOp : Substrait_RelOp<"filter", [
     %0 = ...
     %1 = filter %0 : tuple<si32> {
     ^bb0(%arg : tuple<si32>):
-      %true = literal true
+      %true = literal -1 : si1
       yield %true : si1
     }
     ```
