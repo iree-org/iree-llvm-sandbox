@@ -31,6 +31,8 @@ FailureOr<const RelCommon *> getCommon(const Rel &rel, Location loc) {
     return getCommon(rel.cross());
   case Rel::RelTypeCase::kFilter:
     return getCommon(rel.filter());
+  case Rel::RelTypeCase::kProject:
+    return getCommon(rel.project());
   case Rel::RelTypeCase::kRead:
     return getCommon(rel.read());
   default:
@@ -52,6 +54,8 @@ FailureOr<RelCommon *> getMutableCommon(Rel *rel, Location loc) {
     return getMutableCommon(rel->mutable_cross());
   case Rel::RelTypeCase::kFilter:
     return getMutableCommon(rel->mutable_filter());
+  case Rel::RelTypeCase::kProject:
+    return getMutableCommon(rel->mutable_project());
   case Rel::RelTypeCase::kRead:
     return getMutableCommon(rel->mutable_read());
   default:

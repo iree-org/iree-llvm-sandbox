@@ -9,5 +9,6 @@ add_mlir_dialect_library(MLIRSubstraitTransforms
   MLIRPass
   MLIRRewrite
   MLIRSubstraitDialect
+  MLIRTransforms
   MLIRTransformUtils
 )
