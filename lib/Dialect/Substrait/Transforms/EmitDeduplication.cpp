@@ -149,7 +149,7 @@ struct PushDuplicateThroughCrossJoinPattern : public OpRewritePattern<CrossOp> {
       idx += numLeftIndices;
 
     if (!leftHasDuplicates && !rightHasDuplicates)
-      // Note: if we end up failing here, then both invokations of
+      // Note: if we end up failing here, then both invocations of
       // `createDeduplicatingEmit` returned without creating a new (`emit`) op.
       return rewriter.notifyMatchFailure(
           op, "none of the 'emit' inputs have duplicates");
