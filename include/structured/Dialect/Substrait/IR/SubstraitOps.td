@@ -395,6 +395,7 @@ def Substrait_ProjectOp : Substrait_RelOp<"project", [
     $input attr-dict `:` type($input) `->` type($result) $expressions
   }];
   let hasRegionVerifier = 1;
+  let hasFolder = 1;
   let extraClassDefinition = [{
     /// Implement OpAsmOpInterface.
     ::llvm::StringRef $cppClass::getDefaultDialect() {

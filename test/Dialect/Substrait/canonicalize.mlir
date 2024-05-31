@@ -72,3 +72,22 @@ substrait.plan version 0 : 42 : 1 {
     yield %5 : tuple<si1, si32>
   }
 }
+
+// -----
+
+// Check that empty `project` folded.
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      yield %[[V0]]
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a"] : tuple<si32>
+    %1 = project %0 : tuple<si32> -> tuple<si32> {
+    ^bb0(%arg0: tuple<si32>):
+    }
+    yield %1 : tuple<si32>
+  }
+}
