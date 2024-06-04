@@ -189,7 +189,7 @@ def Substrait_FieldReferenceOp : Substrait_ExpressionOp<"field_reference", [
   );
   let results = (outs Substrait_FieldType:$result);
   let assemblyFormat = [{
-    $container `[` $position `]` attr-dict `:` type($container)
+    $container `` $position attr-dict `:` type($container)
   }];
 }
 
