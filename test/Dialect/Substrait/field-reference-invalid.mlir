@@ -7,7 +7,7 @@ substrait.plan version 0 : 42 : 1 {
     ^bb0(%arg : tuple<si32>):
       // expected-error@+2 {{can't extract element from type 'si32'}}
       // expected-error@+1 {{mismatching position and type (position: array<i64: 0, 0>, type: 'tuple<si32>')}}
-      %2 = field_reference %arg[[0, 0]] : tuple<si32>
+      %2 = field_reference %arg[0, 0] : tuple<si32>
       %3 = literal 0 : si1
       yield %3 : si1
     }
@@ -24,7 +24,7 @@ substrait.plan version 0 : 42 : 1 {
     ^bb0(%arg : tuple<si32>):
       // expected-error@+2 {{2 is not a valid index for 'tuple<si32>'}}
       // expected-error@+1 {{mismatching position and type (position: array<i64: 2>, type: 'tuple<si32>')}}
-      %2 = field_reference %arg[[2]] : tuple<si32>
+      %2 = field_reference %arg[2] : tuple<si32>
       %3 = literal 0 : si1
       yield %3 : si1
     }

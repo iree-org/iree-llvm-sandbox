@@ -50,7 +50,7 @@ substrait.plan version 0 : 42 : 1 {
     // expected-error@+1 {{'substrait.project' op has 'expressions' region with mismatching argument type (has: 'tuple<si1>', expected: 'tuple<si32>')}}
     %1 = project %0 : tuple<si32> -> tuple<si32, si1> {
     ^bb0(%arg : tuple<si1>):
-      %3 = field_reference %arg[[0]] : tuple<si1>
+      %3 = field_reference %arg[0] : tuple<si1>
       yield %3 : si1
     }
     yield %1 : tuple<si32, si1>
