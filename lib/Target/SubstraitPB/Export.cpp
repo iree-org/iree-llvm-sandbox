@@ -9,6 +9,7 @@
 #include "structured/Target/SubstraitPB/Export.h"
 #include "ProtobufUtils.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/Support/LogicalResult.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Target/SubstraitPB/Options.h"
