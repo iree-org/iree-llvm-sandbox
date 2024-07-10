@@ -183,8 +183,11 @@ FailureOr<std::unique_ptr<Expression>>
 exportOperation(ExpressionOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
              op)
-      .Case<FieldReferenceOp, LiteralOp>(
-          [&](auto op) { return exportOperation(op); })
+      .Case<FieldReferenceOp, LiteralOp>([&](auto op) {
+        llvm::errs() << __PRETTY_FUNCTION__ << "\n";
+        op.dump();
+        return exportOperation(op);
+      })
       .Default(
           [](auto op) { return op->emitOpError("not supported for export"); });
 }
