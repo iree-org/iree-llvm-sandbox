@@ -22,7 +22,11 @@ The repository currently houses the following projects:
 
 * The [Iterators](README-Iterators.md) dialect: database-style iterators for
   expressing computations on streams of data.
-* The [Tuple](include/structured/Dialect/Tuple/): ops for manipulation of built-in tuples (used by the Iterators dialect).
+* The [Substrait](README-Substrait.md) dialect: an input/output dialect for
+  [Substrait](https://substrait.io/), the cross-language serialization format
+  of database query plans.
+* The [Tuple](include/structured/Dialect/Tuple/): ops for manipulation of
+  built-in tuples (used by the Iterators dialect).
 
 ## Build Instructions
 
