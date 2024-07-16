@@ -6,44 +6,48 @@ cross-language serialization format of database query plans (akin to an
 intermediate representation/IR for database queries). The immediate goal is to
 create common infrastructure that can be used to implement consumers, producers,
 optimizers, and transpilers of Substrait; the more transcending goal is to study
-the viability of using MLIR to implement database query compilers.
+the viability of using modern, general-purpose compiler infrastructure to
+implement database query compilers.
 
 ## Motivation
 
 Substrait defines a serialization format for data-intensive compute operations
 similar to relational algebra as they typically occur in database query plans
-and similar systems, i.e., the "intermediate representation" (or IR) of database
-queries. This allows to separate the development of user frontends such as
-dataframe libraries or SQL dialects (aka "Substrait producers") from that of
-backends such as database engines (aka "Substrait consumers") and, thus, to
-interoperate more easily between different data processing systems.
+and similar systems, i.e., an exchange format for database queries. This allows
+to separate the development of user frontends such as dataframe libraries or SQL
+dialects (aka "Substrait producers") from that of backends such as database
+engines (aka "Substrait consumers") and, thus, to interoperate more easily
+between different data processing systems.
 
 While Substrait has significant momentum and finds increasing
 [adoption](https://substrait.io/community/powered_by/) in mature systems, it is
 only concerned with implementing the *serialization format* of query plans, and
-leaves the *handling* of that format and, hence, the *in-memory format* of plans
-up to the systems that adopt it. This will likely lead to repeated
-implementation effort for everything else required to deal with that
-intermediate representation, including serialization/desiralization to and from
-text and other formats, a host-language representation of the IR such as native
-classes, error and location tracking, rewrite engines, rewrite rules, and pass
-management, common optimizations such as common sub-expression elimination, and
-similar.
+leaves the *handling* of that format and, hence, the *in-memory format* or
+*intermediate representation* (IR) of plans up to the systems that adopt it.
+This will likely lead to repeated implementation effort for everything else
+required to deal with that intermediate representation, including
+serialization/desiralization to and from text and other formats, a host-language
+representation of the IR such as native classes, error and location tracking,
+rewrite engines, rewrite rules, and pass management, common optimizations such
+as common sub-expression elimination, and similar.
 
 This project aims to create a base for any system dealing with Substrait by
 building a "dialect" for Substrait in [MLIR](https://mlir.llvm.org/). In a way,
 it aims to build an *in-memory* format for the concepts defined by Substrait,
 for which the latter only describe their *serialization format*. MLIR is a
 generic compiler framework providing infrastructure for writing compilers from
-any domain and is part of the LLVM ecosystem. It makes it easy to add new IR
-consisting of domain-specific operations, types, attributes, etc., which are
-organized in dialects (either in-tree and out-of-tree), as well as rewrites,
-passes, conversions, translations, etc. on those dialects. Creating a Substrait
-dialect and a number of common related transformations in such a mature
-framework has the potential to eliminate some of the repeated effort described
-above and, thus, to ease and eventually increase adoption of Substrait. By
-extension, building out a dialect for Substrait can show that MLIR is a viable
-base for any database-style query compiler.
+any domain, is part of the LLVM ecosystem, and has an [active
+community](https://discourse.llvm.org/c/mlir/31) with
+[adoption](https://mlir.llvm.org/users/) from researchers and industry across
+many domains. It makes it easy to add new IR consisting of domain-specific
+operations, types, attributes, etc., which are organized in dialects (either
+in-tree and out-of-tree), as well as rewrites, passes, conversions,
+translations, etc. on those dialects. Creating a Substrait dialect and a number
+of common related transformations in such a mature framework has the potential
+to eliminate some of the repeated effort described above and, thus, to ease and
+eventually increase adoption of Substrait. By extension, building out a dialect
+for Substrait can show that MLIR is a viable base for any database-style query
+compiler.
 
 ## Target Use Cases
 
