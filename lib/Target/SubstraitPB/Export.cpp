@@ -17,6 +17,7 @@
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
 #include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/extensions/extensions.pb.h>
 #include <substrait/proto/plan.pb.h>
 #include <substrait/proto/type.pb.h>
 
@@ -29,33 +30,63 @@ namespace pb = google::protobuf;
 
 namespace {
 
-// Forward declaration for the export function of the given operation type.
+/// Main structure to drive export from the dialect to protobuf. This class
+/// holds the visitor functions for the various ops etc. from the dialect as
+/// well as state and utilities around the state that is built up during export.
+class SubstraitExporter {
+public:
+// Declaration for the export function of the given operation type.
 //
 // We need one such function for most op type that we want to export. The
-// forward declarations are necessary such all export functions are available
-// for the definitions indepedently of the order of these definitions. The
 // `MESSAGE_TYPE` argument corresponds to the protobuf message type returned
 // by the function.
 #define DECLARE_EXPORT_FUNC(OP_TYPE, MESSAGE_TYPE)                             \
-  static FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
+  FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
-DECLARE_EXPORT_FUNC(CrossOp, Rel)
-DECLARE_EXPORT_FUNC(EmitOp, Rel)
-DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
-DECLARE_EXPORT_FUNC(FieldReferenceOp, Expression)
-DECLARE_EXPORT_FUNC(FilterOp, Rel)
-DECLARE_EXPORT_FUNC(LiteralOp, Expression)
-DECLARE_EXPORT_FUNC(ModuleOp, Plan)
-DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
-DECLARE_EXPORT_FUNC(PlanOp, Plan)
-DECLARE_EXPORT_FUNC(ProjectOp, Rel)
-DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
+  DECLARE_EXPORT_FUNC(CrossOp, Rel)
+  DECLARE_EXPORT_FUNC(EmitOp, Rel)
+  DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
+  DECLARE_EXPORT_FUNC(FieldReferenceOp, Expression)
+  DECLARE_EXPORT_FUNC(FilterOp, Rel)
+  DECLARE_EXPORT_FUNC(LiteralOp, Expression)
+  DECLARE_EXPORT_FUNC(ModuleOp, Plan)
+  DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
+  DECLARE_EXPORT_FUNC(PlanOp, Plan)
+  DECLARE_EXPORT_FUNC(ProjectOp, Rel)
+  DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
-FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op);
-FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op);
+  FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op);
+  FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
+                                                     mlir::Type mlirType);
 
-FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
-                                                   mlir::Type mlirType) {
+private:
+  /// Returns the nearest symbol table to op. The symbol table is cached in
+  /// `this` such that repeated calls that request the same symbol do not
+  /// rebuild that table.
+  SymbolTable &getSymbolTableFor(Operation *op) {
+    Operation *nearestSymbolTableOp = SymbolTable::getNearestSymbolTable(op);
+    if (!symbolTable || symbolTable->getOp() != nearestSymbolTableOp) {
+      symbolTable = std::make_unique<SymbolTable>(nearestSymbolTableOp);
+    }
+    return *symbolTable;
+  }
+
+  /// Looks up the anchor value corresponding to the given symbol name in the
+  /// context of the given op. The op is used to determine which symbol table
+  /// was used to assign anchors.
+  template <typename SymNameType>
+  int32_t lookupAnchor(Operation *contextOp, const SymNameType &symName) {
+    SymbolTable &symbolTable = getSymbolTableFor(contextOp);
+    Operation *calleeOp = symbolTable.lookup(symName);
+    return anchorsByOp.at(calleeOp);
+  }
+
+  DenseMap<Operation *, int32_t> anchorsByOp{}; // Maps anchors to ops.
+  std::unique_ptr<SymbolTable> symbolTable;     // Symbol table cache.
+};
+
+FailureOr<std::unique_ptr<proto::Type>>
+SubstraitExporter::exportType(Location loc, mlir::Type mlirType) {
   MLIRContext *context = mlirType.getContext();
 
   // Handle SI1.
@@ -103,7 +134,7 @@ FailureOr<std::unique_ptr<proto::Type>> exportType(Location loc,
   return emitError(loc) << "could not export unsupported type " << mlirType;
 }
 
-FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
+FailureOr<std::unique_ptr<Rel>> SubstraitExporter::exportOperation(CrossOp op) {
   // Build `RelCommon` message.
   auto relCommon = std::make_unique<RelCommon>();
   auto direct = std::make_unique<RelCommon::Direct>();
@@ -144,7 +175,7 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(CrossOp op) {
   return rel;
 }
 
-FailureOr<std::unique_ptr<Rel>> exportOperation(EmitOp op) {
+FailureOr<std::unique_ptr<Rel>> SubstraitExporter::exportOperation(EmitOp op) {
   auto inputOp =
       dyn_cast_if_present<RelOpInterface>(op.getInput().getDefiningOp());
   if (!inputOp)
@@ -181,7 +212,7 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(EmitOp op) {
 }
 
 FailureOr<std::unique_ptr<Expression>>
-exportOperation(ExpressionOpInterface op) {
+SubstraitExporter::exportOperation(ExpressionOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
              op)
       .Case<FieldReferenceOp, LiteralOp>(
@@ -190,7 +221,8 @@ exportOperation(ExpressionOpInterface op) {
           [](auto op) { return op->emitOpError("not supported for export"); });
 }
 
-FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
+FailureOr<std::unique_ptr<Expression>>
+SubstraitExporter::exportOperation(FieldReferenceOp op) {
   using FieldReference = Expression::FieldReference;
   using ReferenceSegment = Expression::ReferenceSegment;
 
@@ -248,7 +280,8 @@ FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
   return expression;
 }
 
-FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
+FailureOr<std::unique_ptr<Rel>>
+SubstraitExporter::exportOperation(FilterOp op) {
   // Build `RelCommon` message.
   auto relCommon = std::make_unique<RelCommon>();
   auto direct = std::make_unique<RelCommon::Direct>();
@@ -293,7 +326,8 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
   return rel;
 }
 
-FailureOr<std::unique_ptr<Expression>> exportOperation(LiteralOp op) {
+FailureOr<std::unique_ptr<Expression>>
+SubstraitExporter::exportOperation(LiteralOp op) {
   // Build `Literal` message depending on type.
   auto value = llvm::cast<TypedAttr>(op.getValue());
   mlir::Type literalType = value.getType();
@@ -324,7 +358,8 @@ FailureOr<std::unique_ptr<Expression>> exportOperation(LiteralOp op) {
   return expression;
 }
 
-FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
+FailureOr<std::unique_ptr<Plan>>
+SubstraitExporter::exportOperation(ModuleOp op) {
   if (!op->getAttrs().empty()) {
     op->emitOpError("has attributes");
     return failure();
@@ -343,7 +378,8 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(ModuleOp op) {
   return failure();
 }
 
-FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
+FailureOr<std::unique_ptr<Rel>>
+SubstraitExporter::exportOperation(NamedTableOp op) {
   Location loc = op.getLoc();
 
   // Build `NamedTable` message.
@@ -390,7 +426,100 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(NamedTableOp op) {
   return rel;
 }
 
-FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
+/// Helper for creating unique anchors from symbol names. While in MLIR, symbol
+/// names and their references are strings, in Substrait they are integer
+/// numbers. In order to preserve the anchor values through an import/export
+/// process (without modifications), the symbol names generated during import
+/// have the form `<prefix>.<anchor>` such that the `anchor` value can be
+/// recovered. During assigning of anchors, the uniquer fills a map mapping the
+/// symbol ops to the assigned anchor values such that uses of the symbol can
+/// look them up.
+class AnchorUniquer {
+public:
+  AnchorUniquer(StringRef prefix, DenseMap<Operation *, int32_t> &anchorsByOp)
+      : prefix(prefix), anchorsByOp(anchorsByOp) {}
+
+  /// Assign a unique anchor to the given op and register the result in the
+  /// mapping.
+  template <typename OpTy>
+  int32_t assignAnchor(OpTy op) {
+    StringRef symName = op.getSymName();
+    int32_t anchor;
+    {
+      // Attempt to recover the anchor from the symbol name.
+      if (!symName.starts_with(prefix) ||
+          symName.drop_front(prefix.size()).getAsInteger(10, anchor)) {
+        // If that fails, find one that isn't used yet.
+        anchor = nextAnchor;
+      }
+      // Ensure uniqueness either way.
+      while (anchors.contains(anchor))
+        anchor = nextAnchor++;
+    }
+    anchors.insert(anchor);
+    auto [_, hasInserted] = anchorsByOp.try_emplace(op, anchor);
+    assert(hasInserted && "op had already been assigned an anchor");
+    return anchor;
+  }
+
+private:
+  StringRef prefix;
+  DenseMap<Operation *, int32_t> &anchorsByOp; // Maps ops to anchor values.
+  DenseSet<int32_t> anchors;                   // Already assigned anchors.
+  int32_t nextAnchor{0};                       // Next anchor candidate.
+};
+
+/// Traits for common handling of `ExtensionFunctionOp`, `ExtensionTypeOp`, and
+/// `ExtensionTypeVariationOp`. While their corresponding protobuf message types
+/// are structurally the same, they are (1) different classes and (2) have
+/// different field names. The Trait thus provides the message type class as
+/// well as accessors for that class for each of the op types.
+template <typename OpTy>
+struct ExtensionOpTraits;
+
+template <>
+struct ExtensionOpTraits<ExtensionFunctionOp> {
+  using ExtensionMessageType =
+      extensions::SimpleExtensionDeclaration::ExtensionFunction;
+  static void setAnchor(ExtensionMessageType &ext, int32_t anchor) {
+    ext.set_function_anchor(anchor);
+  }
+  static ExtensionMessageType *
+  getMutableExtension(extensions::SimpleExtensionDeclaration &decl) {
+    return decl.mutable_extension_function();
+  }
+};
+
+template <>
+struct ExtensionOpTraits<ExtensionTypeOp> {
+  using ExtensionMessageType =
+      extensions::SimpleExtensionDeclaration::ExtensionType;
+  static void setAnchor(ExtensionMessageType &ext, int32_t anchor) {
+    ext.set_type_anchor(anchor);
+  }
+  static ExtensionMessageType *
+  getMutableExtension(extensions::SimpleExtensionDeclaration &decl) {
+    return decl.mutable_extension_type();
+  }
+};
+
+template <>
+struct ExtensionOpTraits<ExtensionTypeVariationOp> {
+  using ExtensionMessageType =
+      extensions::SimpleExtensionDeclaration::ExtensionTypeVariation;
+  static void setAnchor(ExtensionMessageType &ext, int32_t anchor) {
+    ext.set_type_variation_anchor(anchor);
+  }
+  static ExtensionMessageType *
+  getMutableExtension(extensions::SimpleExtensionDeclaration &decl) {
+    return decl.mutable_extension_type_variation();
+  }
+};
+
+FailureOr<std::unique_ptr<Plan>> SubstraitExporter::exportOperation(PlanOp op) {
+  using extensions::SimpleExtensionDeclaration;
+  using extensions::SimpleExtensionURI;
+
   // Build `Version` message.
   auto version = std::make_unique<Version>();
   version->set_major_number(op.getMajorNumber());
@@ -402,6 +531,61 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   // Build `Plan` message.
   auto plan = std::make_unique<Plan>();
   plan->set_allocated_version(version.release());
+
+  // Add `extension_uris` to plan.
+  {
+    AnchorUniquer anchorUniquer("extension_uri.", anchorsByOp);
+    for (auto uriOp : op.getOps<ExtensionUriOp>()) {
+      int32_t anchor = anchorUniquer.assignAnchor(uriOp);
+
+      // Create `SimpleExtensionURI` message.
+      SimpleExtensionURI *uri = plan->add_extension_uris();
+      uri->set_uri(uriOp.getUri().str());
+      uri->set_extension_uri_anchor(anchor);
+    }
+  }
+
+  // Add `extensions` to plan. This requires the URIs to exist.
+  {
+    // Each extension type has its own anchor uniquer.
+    AnchorUniquer funcUniquer("extension_function.", anchorsByOp);
+    AnchorUniquer typeUniquer("extension_type.", anchorsByOp);
+    AnchorUniquer typeVarUniquer("extension_type_variation.", anchorsByOp);
+
+    // Export an op of a given type using the corresponding uniquer.
+    auto exportExtensionOperation = [&](AnchorUniquer *uniquer, auto extOp) {
+      using OpTy = decltype(extOp);
+      using OpTraits = ExtensionOpTraits<OpTy>;
+
+      // Compute URI reference and anchor value.
+      int32_t uriReference = lookupAnchor(op, extOp.getUri());
+      int32_t anchor = uniquer->assignAnchor(extOp);
+
+      // Create `SimpleExtensionDeclaration` and extension-specific messages.
+      typename OpTraits::ExtensionMessageType ext;
+      OpTraits::setAnchor(ext, anchor);
+      ext.set_extension_uri_reference(uriReference);
+      ext.set_name(extOp.getName().str());
+      SimpleExtensionDeclaration *decl = plan->add_extensions();
+      *OpTraits::getMutableExtension(*decl) = ext;
+    };
+
+    // Iterate over the different types of extension ops. This must be a single
+    // loop in order to preserve the order, which allows for interleaving of
+    // different types in both the protobuf and the MLIR form.
+    for (Operation &extOp : op.getOps()) {
+      TypeSwitch<Operation &>(extOp)
+          .Case<ExtensionFunctionOp>([&](auto extOp) {
+            exportExtensionOperation(&funcUniquer, extOp);
+          })
+          .Case<ExtensionTypeOp>([&](auto extOp) {
+            exportExtensionOperation(&typeUniquer, extOp);
+          })
+          .Case<ExtensionTypeVariationOp>([&](auto extOp) {
+            exportExtensionOperation(&typeVarUniquer, extOp);
+          });
+    }
+  }
 
   // Add `relation`s to plan.
   for (auto relOp : op.getOps<PlanRelOp>()) {
@@ -433,7 +617,8 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   return std::move(plan);
 }
 
-FailureOr<std::unique_ptr<Rel>> exportOperation(ProjectOp op) {
+FailureOr<std::unique_ptr<Rel>>
+SubstraitExporter::exportOperation(ProjectOp op) {
   // Build `RelCommon` message.
   auto relCommon = std::make_unique<RelCommon>();
   auto direct = std::make_unique<RelCommon::Direct>();
@@ -483,7 +668,8 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(ProjectOp op) {
   return rel;
 }
 
-FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
+FailureOr<std::unique_ptr<Rel>>
+SubstraitExporter::exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
       .Case<
           // clang-format off
@@ -501,7 +687,8 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
       });
 }
 
-FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op) {
+FailureOr<std::unique_ptr<pb::Message>>
+SubstraitExporter::exportOperation(Operation *op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<pb::Message>>>(
              op)
       .Case<ModuleOp, PlanOp>(
@@ -525,7 +712,8 @@ namespace substrait {
 LogicalResult
 translateSubstraitToProtobuf(Operation *op, llvm::raw_ostream &output,
                              substrait::ImportExportOptions options) {
-  FailureOr<std::unique_ptr<pb::Message>> result = exportOperation(op);
+  SubstraitExporter exporter;
+  FailureOr<std::unique_ptr<pb::Message>> result = exporter.exportOperation(op);
   if (failed(result))
     return failure();
 

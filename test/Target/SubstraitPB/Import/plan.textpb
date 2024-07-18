@@ -1,0 +1,149 @@
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN:   --split-input-file="# ""-----" \
+# RUN: | FileCheck %s
+
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN:   --split-input-file="# ""-----" --output-split-marker="// -----" \
+# RUN: | structured-translate -substrait-to-protobuf \
+# RUN:   --split-input-file --output-split-marker="# ""-----" \
+# RUN: | structured-translate -protobuf-to-substrait \
+# RUN:   --split-input-file="# ""-----" --output-split-marker="// -----" \
+# RUN: | FileCheck %s
+
+# CHECK-LABEL: substrait.plan version 0 : 42 : 1
+# CHECK-SAME:    git_hash "hash" producer "producer" {
+# CHECK-NEXT:  }
+version {
+  minor_number: 42
+  patch_number: 1
+  git_hash: "hash"
+  producer: "producer"
+}
+
+# -----
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    relation {
+# CHECK-NEXT:      %[[V0:.*]] = named_table @t1 as ["a", "b"] : tuple<si32, si32>
+# CHECK-NEXT:      yield %[[V0]] : tuple<si32, si32>
+relations {
+  rel {
+    read {
+      common {
+        direct {
+        }
+      }
+      base_schema {
+        names: "a"
+        names: "b"
+        struct {
+          types {
+            i32 {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          types {
+            i32 {
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          nullability: NULLABILITY_REQUIRED
+        }
+      }
+      named_table {
+        names: "t1"
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
+
+# -----
+
+# CHECK-LABEL: substrait.plan
+# CHECK-NEXT:    extension_uri @extension_uri.1 at "http://url.1/with/extensions.yml"
+# CHECK-NEXT:    extension_uri @extension_uri.2 at "http://url.2/with/extensions.yml"
+# CHECK-NEXT:    extension_uri @extension_uri.42 at "http://url.42/with/extensions.yml"
+# CHECK-NEXT:    extension_uri @extension_uri.0 at "http://some.url/with/extensions.yml"
+# CHECK-NEXT:    extension_uri @extension_uri.3 at "http://url.foo/with/extensions.yml"
+# CHECK-NEXT:    extension_uri @extension_uri.4 at "http://url.bar/with/extensions.yml"
+# CHECK-NEXT:    extension_function @extension_function.1 at @extension_uri.1["func1"]
+# CHECK-NEXT:    extension_function @extension_function.42 at @extension_uri.42["func42"]
+# CHECK-NEXT:    extension_type @extension_type.1 at @extension_uri.2["type1"]
+# CHECK-NEXT:    extension_type @extension_type.42 at @extension_uri.2["type42"]
+# CHECK-NEXT:    extension_type_variation @extension_type_variation.1 at @extension_uri.1["typevar1"]
+# CHECK-NEXT:    extension_type_variation @extension_type_variation.42 at @extension_uri.1["typevar2"]
+# CHECK-NEXT:  }
+
+extension_uris {
+  extension_uri_anchor: 1
+  uri: "http://url.1/with/extensions.yml"
+}
+extension_uris {
+  extension_uri_anchor: 2
+  uri: "http://url.2/with/extensions.yml"
+}
+extension_uris {
+  extension_uri_anchor: 42
+  uri: "http://url.42/with/extensions.yml"
+}
+extension_uris {
+  uri: "http://some.url/with/extensions.yml"
+}
+extension_uris {
+  extension_uri_anchor: 3
+  uri: "http://url.foo/with/extensions.yml"
+}
+extension_uris {
+  extension_uri_anchor: 4
+  uri: "http://url.bar/with/extensions.yml"
+}
+extensions {
+  extension_function {
+    extension_uri_reference: 1
+    function_anchor: 1
+    name: "func1"
+  }
+}
+extensions {
+  extension_function {
+    extension_uri_reference: 42
+    function_anchor: 42
+    name: "func42"
+  }
+}
+extensions {
+  extension_type {
+    extension_uri_reference: 2
+    type_anchor: 1
+    name: "type1"
+  }
+}
+extensions {
+  extension_type {
+    extension_uri_reference: 2
+    type_anchor: 42
+    name: "type42"
+  }
+}
+extensions {
+  extension_type_variation {
+    extension_uri_reference: 1
+    type_variation_anchor: 1
+    name: "typevar1"
+  }
+}
+extensions {
+  extension_type_variation {
+    extension_uri_reference: 1
+    type_variation_anchor: 42
+    name: "typevar2"
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}
