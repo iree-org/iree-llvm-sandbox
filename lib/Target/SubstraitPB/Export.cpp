@@ -43,6 +43,7 @@ public:
 #define DECLARE_EXPORT_FUNC(OP_TYPE, MESSAGE_TYPE)                             \
   FailureOr<std::unique_ptr<MESSAGE_TYPE>> exportOperation(OP_TYPE op);
 
+  DECLARE_EXPORT_FUNC(CallOp, Expression)
   DECLARE_EXPORT_FUNC(CrossOp, Rel)
   DECLARE_EXPORT_FUNC(EmitOp, Rel)
   DECLARE_EXPORT_FUNC(ExpressionOpInterface, Expression)
@@ -134,6 +135,53 @@ SubstraitExporter::exportType(Location loc, mlir::Type mlirType) {
   return emitError(loc) << "could not export unsupported type " << mlirType;
 }
 
+FailureOr<std::unique_ptr<Expression>>
+SubstraitExporter::exportOperation(CallOp op) {
+  using ScalarFunction = Expression::ScalarFunction;
+
+  Location loc = op.getLoc();
+
+  // Build `ScalarFunction` message.
+  // TODO(ingomueller): Support other `*Function` messages.
+  auto scalarFunction = std::make_unique<ScalarFunction>();
+  int32_t anchor = lookupAnchor(op, op.getCallee());
+  scalarFunction->set_function_reference(anchor);
+
+  // Build messages for arguments.
+  for (auto [i, operand] : llvm::enumerate(op->getOperands())) {
+    // Build `Expression` message for operand.
+    auto definingOp = llvm::dyn_cast_if_present<ExpressionOpInterface>(
+        operand.getDefiningOp());
+    if (!definingOp)
+      return op->emitOpError()
+             << "with operand " << i
+             << " that was not produced by Substrait relation op";
+
+    FailureOr<std::unique_ptr<Expression>> expression =
+        exportOperation(definingOp);
+    if (failed(expression))
+      return failure();
+
+    // Build `FunctionArgument` message and add to arguments.
+    FunctionArgument arg;
+    arg.set_allocated_value(expression->release());
+    *scalarFunction->add_arguments() = arg;
+  }
+
+  // Build message for `output_type`.
+  FailureOr<std::unique_ptr<proto::Type>> outputType =
+      exportType(loc, op.getResult().getType());
+  if (failed(outputType))
+    return failure();
+  scalarFunction->set_allocated_output_type(outputType->release());
+
+  // Build `Expression` message.
+  auto expression = std::make_unique<Expression>();
+  expression->set_allocated_scalar_function(scalarFunction.release());
+
+  return expression;
+}
+
 FailureOr<std::unique_ptr<Rel>> SubstraitExporter::exportOperation(CrossOp op) {
   // Build `RelCommon` message.
   auto relCommon = std::make_unique<RelCommon>();
@@ -215,7 +263,7 @@ FailureOr<std::unique_ptr<Expression>>
 SubstraitExporter::exportOperation(ExpressionOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
              op)
-      .Case<FieldReferenceOp, LiteralOp>(
+      .Case<CallOp, FieldReferenceOp, LiteralOp>(
           [&](auto op) { return exportOperation(op); })
       .Default(
           [](auto op) { return op->emitOpError("not supported for export"); });

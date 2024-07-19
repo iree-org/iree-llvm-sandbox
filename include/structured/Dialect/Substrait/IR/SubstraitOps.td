@@ -297,6 +297,43 @@ def Substrait_LiteralOp : Substrait_ExpressionOp<"literal", [
   let assemblyFormat = "$value attr-dict";
 }
 
+def Substrait_CallOp : Substrait_ExpressionOp<"call", [
+    DeclareOpInterfaceMethods<SymbolUserOpInterface>,
+  ]> {
+  let summary = "Function call expression";
+  let description = [{
+    Represents a `ScalarFunction` message (or, in the future, other `*Function`
+    messages) together with all messages it contains and the `Expression`
+    message it is contained in.
+
+    Currently, the specification of the function, which is in an external YAML
+    file, is not taken into account, for example, to verify whether a matching
+    overload exists or to verify/compute the result type.
+
+    Example:
+
+    ```mlir
+    extension_uri @extension at "http://some.url/with/extensions.yml"
+    extension_function @function at @extension["somefunc"]
+    relation {
+      // ...
+      %1 = call @function(%0) : (tuple<si32>) -> si1
+      // ...
+    }
+    ```
+  }];
+  // TODO(ingomueller): Add `FunctionOptions`.
+  // TODO(ingomueller): Add support for `enum` and `type` argument types.
+  let arguments = (ins
+    FlatSymbolRefAttr:$callee,
+    Variadic<Substrait_FieldType>:$args
+  );
+  let results = (outs Substrait_FieldType:$result);
+  let assemblyFormat = [{
+    $callee `(` $args `)` attr-dict `:` `(` type($args) `)` `->` type($result)
+  }];
+}
+
 //===----------------------------------------------------------------------===//
 // Relations
 //===----------------------------------------------------------------------===//

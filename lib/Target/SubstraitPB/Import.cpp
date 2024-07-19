@@ -58,6 +58,7 @@ DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
 DECLARE_IMPORT_FUNC(ProjectRel, Rel, ProjectOp)
 DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
+DECLARE_IMPORT_FUNC(ScalarFunction, Expression::ScalarFunction, CallOp)
 
 // Helpers to build symbol names from anchors deterministically. This allows
 // to reate symbol references from anchors without look-up structure. Also,
@@ -146,12 +147,12 @@ importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
 
   Expression::RexTypeCase rex_type = message.rex_type_case();
   switch (rex_type) {
-  case Expression::RexTypeCase::kLiteral: {
+  case Expression::kLiteral:
     return importLiteral(builder, message.literal());
-  }
-  case Expression::RexTypeCase::kSelection: {
+  case Expression::kSelection:
     return importFieldReference(builder, message.selection());
-  }
+  case Expression::kScalarFunction:
+    return importScalarFunction(builder, message.scalar_function());
   default: {
     const pb::FieldDescriptor *desc =
         Expression::GetDescriptor()->FindFieldByNumber(rex_type);
@@ -578,6 +579,50 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
   auto emitOp = builder.create<EmitOp>(op->getResult(0), mappingAttr);
 
   return {emitOp};
+}
+
+static mlir::FailureOr<CallOp>
+importScalarFunction(ImplicitLocOpBuilder builder,
+                     const Expression::ScalarFunction &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  // Import `output_type`.
+  proto::Type outputType = message.output_type();
+  FailureOr<mlir::Type> mlirOutputType = importType(context, outputType);
+  if (failed(mlirOutputType))
+    return failure();
+
+  // Import `arguments`.
+  SmallVector<Value> operands;
+  for (const FunctionArgument &arg : message.arguments()) {
+    // Error out on unsupported cases.
+    // TODO(ingomueller): Support other function argument types.
+    if (!arg.has_value()) {
+      const pb::FieldDescriptor *desc =
+          FunctionArgument::GetDescriptor()->FindFieldByNumber(
+              arg.arg_type_case());
+      return emitError(loc) << Twine("unsupported arg type: ") + desc->name();
+    }
+
+    // Handle `value` case.
+    const Expression &value = arg.value();
+    FailureOr<ExpressionOpInterface> expression =
+        importExpression(builder, value);
+    if (failed(expression))
+      return failure();
+    operands.push_back((*expression)->getResult(0));
+  }
+
+  // Import `function_refernece` field.
+  int32_t anchor = message.function_reference();
+  std::string calleeSymName = buildFuncSymName(anchor);
+
+  // Create op.
+  auto callOp =
+      builder.create<CallOp>(mlirOutputType.value(), calleeSymName, operands);
+
+  return {callOp};
 }
 
 } // namespace
