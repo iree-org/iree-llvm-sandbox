@@ -60,14 +60,12 @@ DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
                                               const proto::Type &type) {
 
-  proto::Type::KindCase kind_case = type.kind_case();
-  switch (kind_case) {
-  case proto::Type::kBool: {
+  proto::Type::KindCase kindCase = type.kind_case();
+  switch (kindCase) {
+  case proto::Type::kBool:
     return IntegerType::get(context, 1, IntegerType::Signed);
-  }
-  case proto::Type::kI32: {
+  case proto::Type::kI32:
     return IntegerType::get(context, 32, IntegerType::Signed);
-  }
   case proto::Type::kStruct: {
     const proto::Type::Struct &structType = type.struct_();
     llvm::SmallVector<mlir::Type> fieldTypes;
@@ -84,7 +82,8 @@ static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
   default: {
     auto loc = UnknownLoc::get(context);
     const pb::FieldDescriptor *desc =
-        proto::Type::GetDescriptor()->FindFieldByNumber(kind_case);
+        proto::Type::GetDescriptor()->FindFieldByNumber(kindCase);
+    assert(desc && "could not get field descriptor");
     return emitError(loc) << "could not import unsupported type "
                           << desc->name();
   }
