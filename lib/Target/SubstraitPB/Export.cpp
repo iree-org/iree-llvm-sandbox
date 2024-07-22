@@ -225,6 +225,9 @@ FailureOr<std::unique_ptr<Expression>> exportOperation(FieldReferenceOp op) {
                              "Substrait expression");
 
     FailureOr<std::unique_ptr<Expression>> expression = exportOperation(exprOp);
+    if (failed(expression))
+      return failure();
+
     fieldReference->set_allocated_expression(expression->release());
   } else {
     // Input must be a `BlockArgument`. Only support root references for now.
