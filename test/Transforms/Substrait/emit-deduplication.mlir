@@ -294,3 +294,35 @@ substrait.plan version 0 : 42 : 1 {
     yield %1 : tuple<si32, si1, si32, si1>
   }
 }
+
+// -----
+
+// End-to-end test of many patterns related to `project`.
+//
+// The example has duplicates in various places: (1) duplicate emit field in
+// `%1`, (2) those are forwarded in the unmofified fields of the `project` in
+// `%2`, (3) the two `field_references` ultimately refer to the same field,
+// so (4) the `yield` of the `project` op yields duplicates, which are (5)
+// both duplicates of the existing fields of the input to `project`. Through
+// repeated pattern application, each duplicate is removed, making the next one
+// obivous, until the `project` is empty and folded away.
+
+// CHECK-LABEL: substrait.plan
+// CHECK-NEXT:    relation
+// CHECK-NEXT:      %[[V0:.*]] = named_table
+// CHECK-NEXT:      %[[V1:.*]] = emit [1, 1, 1, 1] from %[[V0]] :
+// CHECK-NEXT:      yield %[[V1]] : tuple<si32, si32, si32, si32>
+
+substrait.plan version 0 : 42 : 1 {
+  relation {
+    %0 = named_table @t1 as ["a", "b"] : tuple<si1, si32>
+    %1 = emit [1, 1] from %0 : tuple<si1, si32> -> tuple<si32, si32>
+    %2 = project %1 : tuple<si32, si32> -> tuple<si32, si32, si32, si32> {
+    ^bb0(%arg : tuple<si32, si32>):
+      %3 = field_reference %arg[[0]] : tuple<si32, si32>
+      %4 = field_reference %arg[[1]] : tuple<si32, si32>
+      yield %3, %4 : si32, si32
+    }
+    yield %2 : tuple<si32, si32, si32, si32>
+  }
+}
