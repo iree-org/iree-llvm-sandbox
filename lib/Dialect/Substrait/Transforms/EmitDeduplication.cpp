@@ -277,7 +277,8 @@ struct PushDuplicatesThroughProjectPattern
 
   LogicalResult matchAndRewrite(ProjectOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!isa_and_present<EmitOp>(op.getInput().getDefiningOp()))
+    auto emitOp = op.getInput().getDefiningOp<EmitOp>();
+    if (!emitOp)
       return rewriter.notifyMatchFailure(
           op, "input operand is not produced by an 'emit' op");
 
@@ -314,7 +315,6 @@ struct PushDuplicatesThroughProjectPattern
                                 newOp.getExpressions().end());
 
     // Update the `condition` region.
-    auto emitOp = op.getInput().getDefiningOp<EmitOp>();
     deduplicateRegionArgs(newOp.getExpressions(), emitOp.getMapping(),
                           newInput.getType(), rewriter);
 
