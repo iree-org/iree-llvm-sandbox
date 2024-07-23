@@ -266,6 +266,71 @@ struct PushDuplicatesThroughFilterPattern : public OpRewritePattern<FilterOp> {
   }
 };
 
+/// Pushes duplicates in the mappings of `emit` ops producing the input through
+/// the `filter` op. This works by introducing a new `emit` op without the
+/// duplicates, creating a new `filter` op updated to work on the deduplicated
+/// element type, and finally a new `emit` op that maps back to the original
+/// order.
+struct PushDuplicatesThroughProjectPattern
+    : public OpRewritePattern<ProjectOp> {
+  using OpRewritePattern<ProjectOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(ProjectOp op,
+                                PatternRewriter &rewriter) const override {
+    auto emitOp = op.getInput().getDefiningOp<EmitOp>();
+    if (!emitOp)
+      return rewriter.notifyMatchFailure(
+          op, "input operand is not produced by an 'emit' op");
+
+    // Create input ops for the new `project` op. These may be the original
+    // inputs or `emit` ops that remove duplicates.
+    SmallVector<int64_t> reverseMapping;
+    auto [newInput, numDedupIndices, hasDuplicates] =
+        createDeduplicatingEmit(op.getInput(), reverseMapping, rewriter);
+
+    if (!hasDuplicates)
+      // Note: if we end up failing here, then the invokation of
+      // `createDeduplicatingEmit` returned without creating a new (`emit`) op.
+      return rewriter.notifyMatchFailure(
+          op, "the 'emit' input does not have duplicates");
+
+    MLIRContext *context = op.getContext();
+
+    // Compute deduplicated output field types.
+    Operation *terminator = op.getExpressions().front().getTerminator();
+    auto newInputTupleType = cast<TupleType>(newInput.getType());
+
+    SmallVector<Type> outputTypes;
+    outputTypes.reserve(newInputTupleType.size() +
+                        terminator->getNumOperands());
+    append_range(outputTypes, newInputTupleType.getTypes());
+    append_range(outputTypes, terminator->getOperandTypes());
+    auto newOutputType = TupleType::get(context, outputTypes);
+
+    // Create new `project` op. Move over the `expressions` region. This needs
+    // to happen now because replacing the op will destroy the region.
+    auto newOp =
+        rewriter.create<ProjectOp>(op.getLoc(), newOutputType, newInput);
+    rewriter.inlineRegionBefore(op.getExpressions(), newOp.getExpressions(),
+                                newOp.getExpressions().end());
+
+    // Update the `condition` region.
+    deduplicateRegionArgs(newOp.getExpressions(), emitOp.getMapping(),
+                          newInput.getType(), rewriter);
+
+    // Compute output indices for the expressions added by the region.
+    int64_t numTotalIndices = numDedupIndices + terminator->getNumOperands();
+    append_range(reverseMapping, seq(numDedupIndices, numTotalIndices));
+
+    // Replace the old `project` op with a new `emit` op that maps back to the
+    // original emit order.
+    ArrayAttr reverseMappingAttr = rewriter.getI64ArrayAttr(reverseMapping);
+    rewriter.replaceOpWithNewOp<EmitOp>(op, newOp, reverseMappingAttr);
+
+    return failure();
+  }
+};
+
 } // namespace
 
 namespace mlir {
@@ -273,8 +338,13 @@ namespace substrait {
 
 void populateEmitDeduplicationPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  patterns.add<PushDuplicatesThroughCrossPattern,
-               PushDuplicatesThroughFilterPattern>(context);
+  patterns.add<
+      // clang-format off
+      PushDuplicatesThroughCrossPattern,
+      PushDuplicatesThroughFilterPattern,
+      PushDuplicatesThroughProjectPattern
+      // clang-format on
+      >(context);
 }
 
 std::unique_ptr<Pass> createEmitDeduplicationPass() {
