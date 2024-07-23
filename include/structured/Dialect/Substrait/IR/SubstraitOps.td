@@ -163,7 +163,7 @@ def Substrait_YieldOp : Substrait_Op<"yield", [
 // TODO(ingomueller): Make this a proper base for expressions.
 class Substrait_ExpressionOp<string mnemonic, list<Trait> traits = []> :
   Substrait_Op<mnemonic, traits # [
-    Substrait_ExpressionOpInterface
+    Substrait_ExpressionOpInterface, Pure
   ]>;
 
 def Substrait_FieldReferenceOp : Substrait_ExpressionOp<"field_reference", [
