@@ -54,6 +54,7 @@ DECLARE_IMPORT_FUNC(Literal, Expression::Literal, LiteralOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
+DECLARE_IMPORT_FUNC(ProjectRel, Rel, ProjectOp)
 DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
 
@@ -202,6 +203,11 @@ importLiteral(ImplicitLocOpBuilder builder,
   case Expression::Literal::LiteralTypeCase::kBoolean: {
     auto attr = IntegerAttr::get(
         IntegerType::get(context, 1, IntegerType::Signed), message.boolean());
+    return builder.create<LiteralOp>(attr);
+  }
+  case Expression::Literal::LiteralTypeCase::kI32: {
+    auto attr = IntegerAttr::get(
+        IntegerType::get(context, 32, IntegerType::Signed), message.i32());
     return builder.create<LiteralOp>(attr);
   }
   default: {
@@ -357,6 +363,58 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   return planRelOp;
 }
 
+static mlir::FailureOr<ProjectOp> importProjectRel(ImplicitLocOpBuilder builder,
+                                                   const Rel &message) {
+  const ProjectRel &projectRel = message.project();
+
+  // Import input op.
+  const Rel &inputRel = projectRel.input();
+  mlir::FailureOr<RelOpInterface> inputOp = importRel(builder, inputRel);
+  if (failed(inputOp))
+    return failure();
+
+  // Create `expressions` block.
+  auto conditionBlock = std::make_unique<Block>();
+  auto inputTupleType =
+      cast<TupleType>(inputOp.value()->getResult(0).getType());
+  conditionBlock->addArgument(inputTupleType, inputOp->getLoc());
+
+  // Fill `expressions` block with expression trees.
+  YieldOp yieldOp;
+  {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(conditionBlock.get());
+
+    SmallVector<Value> values;
+    values.reserve(projectRel.expressions_size());
+    for (const Expression &expression : projectRel.expressions()) {
+      // Import expression tree recursively.
+      FailureOr<ExpressionOpInterface> rootExprOp =
+          importExpression(builder, expression);
+      if (failed(rootExprOp))
+        return failure();
+      values.push_back(rootExprOp.value()->getResult(0));
+    }
+
+    // Create final `yield` op with root expression values.
+    yieldOp = builder.create<YieldOp>(values);
+  }
+
+  // Compute output type.
+  SmallVector<mlir::Type> resultFieldTypes;
+  resultFieldTypes.reserve(inputTupleType.size() + yieldOp->getNumOperands());
+  append_range(resultFieldTypes, inputTupleType);
+  append_range(resultFieldTypes, yieldOp->getOperandTypes());
+  auto resultType = TupleType::get(builder.getContext(), resultFieldTypes);
+
+  // Create `project` op.
+  auto projectOp =
+      builder.create<ProjectOp>(resultType, inputOp.value()->getResult(0));
+  projectOp.getExpressions().push_back(conditionBlock.release());
+
+  return projectOp;
+}
+
 static mlir::FailureOr<RelOpInterface>
 importReadRel(ImplicitLocOpBuilder builder, const Rel &message) {
   MLIRContext *context = builder.getContext();
@@ -389,6 +447,9 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
     break;
   case Rel::RelTypeCase::kFilter:
     maybeOp = importFilterRel(builder, message);
+    break;
+  case Rel::RelTypeCase::kProject:
+    maybeOp = importProjectRel(builder, message);
     break;
   case Rel::RelTypeCase::kRead:
     maybeOp = importReadRel(builder, message);

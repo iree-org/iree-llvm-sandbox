@@ -48,6 +48,7 @@ DECLARE_EXPORT_FUNC(LiteralOp, Expression)
 DECLARE_EXPORT_FUNC(ModuleOp, Plan)
 DECLARE_EXPORT_FUNC(NamedTableOp, Rel)
 DECLARE_EXPORT_FUNC(PlanOp, Plan)
+DECLARE_EXPORT_FUNC(ProjectOp, Rel)
 DECLARE_EXPORT_FUNC(RelOpInterface, Rel)
 
 FailureOr<std::unique_ptr<pb::Message>> exportOperation(Operation *op);
@@ -267,8 +268,10 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(FilterOp op) {
   auto yieldOp = llvm::cast<YieldOp>(op.getCondition().front().getTerminator());
   // TODO(ingomueller): There can be cases where there isn't a defining op but
   //                    the region argument is returned directly. Support that.
+  assert(yieldOp.getValue().size() == 1 &&
+         "fitler op must yield exactly one value");
   auto conditionOp = llvm::dyn_cast_if_present<ExpressionOpInterface>(
-      yieldOp.getValue().getDefiningOp());
+      yieldOp.getValue().front().getDefiningOp());
   if (!conditionOp)
     return op->emitOpError("condition not supported for export: yielded op was "
                            "not produced by Substrait expression op");
@@ -430,10 +433,68 @@ FailureOr<std::unique_ptr<Plan>> exportOperation(PlanOp op) {
   return std::move(plan);
 }
 
+FailureOr<std::unique_ptr<Rel>> exportOperation(ProjectOp op) {
+  // Build `RelCommon` message.
+  auto relCommon = std::make_unique<RelCommon>();
+  auto direct = std::make_unique<RelCommon::Direct>();
+  relCommon->set_allocated_direct(direct.release());
+
+  // Build input `Rel` message.
+  auto inputOp =
+      llvm::dyn_cast_if_present<RelOpInterface>(op.getInput().getDefiningOp());
+  if (!inputOp)
+    return op->emitOpError("input was not produced by Substrait relation op");
+
+  FailureOr<std::unique_ptr<Rel>> inputRel = exportOperation(inputOp);
+  if (failed(inputRel))
+    return failure();
+
+  // Build `ProjectRel` message.
+  auto projectRel = std::make_unique<ProjectRel>();
+  projectRel->set_allocated_common(relCommon.release());
+  projectRel->set_allocated_input(inputRel->release());
+
+  // Build `Expression` messages.
+  auto yieldOp =
+      llvm::cast<YieldOp>(op.getExpressions().front().getTerminator());
+  for (Value val : yieldOp.getValue()) {
+    // Make sure the yielded value was produced by an expression op.
+    auto exprRootOp =
+        llvm::dyn_cast_if_present<ExpressionOpInterface>(val.getDefiningOp());
+    if (!exprRootOp)
+      return op->emitOpError(
+          "expression not supported for export: yielded op was "
+          "not produced by Substrait expression op");
+
+    // Export the expression recursively.
+    FailureOr<std::unique_ptr<Expression>> expression =
+        exportOperation(exprRootOp);
+    if (failed(expression))
+      return failure();
+
+    // Add the expression to the `ProjectRel` message.
+    *projectRel->add_expressions() = *expression.value();
+  }
+
+  // Build `Rel` message.
+  auto rel = std::make_unique<Rel>();
+  rel->set_allocated_project(projectRel.release());
+
+  return rel;
+}
+
 FailureOr<std::unique_ptr<Rel>> exportOperation(RelOpInterface op) {
   return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Rel>>>(op)
-      .Case<CrossOp, EmitOp, FieldReferenceOp, FilterOp, NamedTableOp>(
-          [&](auto op) { return exportOperation(op); })
+      .Case<
+          // clang-format off
+          CrossOp,
+          EmitOp,
+          FieldReferenceOp,
+          FilterOp,
+          NamedTableOp,
+          ProjectOp
+          // clang-format on
+          >([&](auto op) { return exportOperation(op); })
       .Default([](auto op) {
         op->emitOpError("not supported for export");
         return failure();
