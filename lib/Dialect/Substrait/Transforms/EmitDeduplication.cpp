@@ -116,6 +116,60 @@ createDeduplicatingEmit(Value input, SmallVector<int64_t> &reverseMapping,
   return {newEmitOp, newInputMapping.size(), true};
 }
 
+/// Deduplicates the fields of the region with a single `Tuple` argument using
+/// the provided (deduplicating) mapping. This involves changing the type of the
+/// region argument to the provided `newElementType`, which must be the type
+/// obtained by applying deduplication to the argument type of the provided
+/// `region`, as well as changing all `field_reference` ops using the region
+/// argument to work on the deduplicated type.
+// TODO(ingomueller): We could add an overload for this function that computes
+// `newElementType` from the type of the region argument and the mapping.
+void deduplicateRegionArgs(Region &region, ArrayAttr newMapping,
+                           Type newElementType, PatternRewriter &rewriter) {
+  assert(region.getNumArguments() == 1 &&
+         "only regions with 1 argument are supported");
+  auto oldElementType = cast<TupleType>(region.getArgument(0).getType());
+  int64_t numOldFields = oldElementType.getTypes().size();
+
+  // For each position in the original input type, compute which position it
+  // corresponds to in the deduplicated input. This is required for replacing
+  // field references to the original type with references to the deduplicated
+  // type.
+  SmallVector<int64_t> oldToNewPositions;
+  oldToNewPositions.reserve(numOldFields);
+  {
+    llvm::DenseMap<int64_t, int64_t> indexPositions;
+    for (auto attr : newMapping.getAsRange<IntegerAttr>()) {
+      int64_t index = attr.getInt();
+      int64_t pos = indexPositions.size();
+      auto [it, success] = indexPositions.try_emplace(index, pos);
+      oldToNewPositions.push_back(it->second);
+    }
+  }
+
+  // Update field references using the region argument.
+  for (Operation *user : region.getArgument(0).getUsers()) {
+    // We are only interested in `field_reference` ops.
+    if (!isa<FieldReferenceOp>(user))
+      continue;
+    auto refOp = cast<FieldReferenceOp>(user);
+
+    // Compute new position array from the old one.
+    ArrayRef<int64_t> oldPositions = refOp.getPosition();
+    SmallVector<int64_t> newPositions;
+    newPositions.reserve(oldPositions.size());
+    for (auto index : oldPositions)
+      newPositions.push_back(index);
+    newPositions[0] = oldToNewPositions[newPositions[0]];
+
+    // Update op in place.
+    refOp.setPosition(newPositions);
+  }
+
+  // Update argument type of the region.
+  region.getArgument(0).setType(newElementType);
+}
+
 /// Pushes duplicates in the mappings of `emit` ops producing either of the two
 /// inputs through the `cross` op. This works by introducing new emit ops
 /// without the duplicates, creating a new `cross` op that uses them, and
@@ -166,6 +220,52 @@ struct PushDuplicatesThroughCrossPattern : public OpRewritePattern<CrossOp> {
   }
 };
 
+/// Pushes duplicates in the mappings of `emit` ops producing the input through
+/// the `filter` op. This works by introducing a new `emit` op without the
+/// duplicates, creating a new `filter` op updated to work on the deduplicated
+/// element type, and finally a new `emit` op that maps back to the original
+/// order.
+struct PushDuplicatesThroughFilterPattern : public OpRewritePattern<FilterOp> {
+  using OpRewritePattern<FilterOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(FilterOp op,
+                                PatternRewriter &rewriter) const override {
+    auto emitOp = op.getInput().getDefiningOp<EmitOp>();
+    if (!emitOp)
+      return rewriter.notifyMatchFailure(
+          op, "input operand is not produced by an 'emit' op");
+
+    // Create input ops for the new `filter` op. These may be the original
+    // inputs or `emit` ops that remove duplicates.
+    SmallVector<int64_t> reverseMapping;
+    auto [newInput, numDedupIndices, hasDuplicates] =
+        createDeduplicatingEmit(op.getInput(), reverseMapping, rewriter);
+
+    if (!hasDuplicates)
+      // Note: if we end up failing here, then the invokation of
+      // `createDeduplicatingEmit` returned without creating a new (`emit`) op.
+      return rewriter.notifyMatchFailure(
+          op, "the 'emit' input does not have duplicates");
+
+    // Create new `filter` op. Move over the `condition` region. This needs to
+    // happen now because replacing the op will destroy the region.
+    auto newOp = rewriter.create<FilterOp>(op.getLoc(), newInput);
+    rewriter.inlineRegionBefore(op.getCondition(), newOp.getCondition(),
+                                newOp.getCondition().end());
+
+    // Update the `condition` region.
+    deduplicateRegionArgs(newOp.getCondition(), emitOp.getMapping(),
+                          newInput.getType(), rewriter);
+
+    // Replace the old `filter` op with a new `emit` op that maps back to the
+    // original emit order.
+    ArrayAttr reverseMappingAttr = rewriter.getI64ArrayAttr(reverseMapping);
+    rewriter.replaceOpWithNewOp<EmitOp>(op, newOp, reverseMappingAttr);
+
+    return failure();
+  }
+};
+
 } // namespace
 
 namespace mlir {
@@ -173,7 +273,8 @@ namespace substrait {
 
 void populateEmitDeduplicationPatterns(RewritePatternSet &patterns) {
   MLIRContext *context = patterns.getContext();
-  patterns.add<PushDuplicatesThroughCrossPattern>(context);
+  patterns.add<PushDuplicatesThroughCrossPattern,
+               PushDuplicatesThroughFilterPattern>(context);
 }
 
 std::unique_ptr<Pass> createEmitDeduplicationPass() {
