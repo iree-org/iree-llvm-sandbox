@@ -230,7 +230,8 @@ struct PushDuplicatesThroughFilterPattern : public OpRewritePattern<FilterOp> {
 
   LogicalResult matchAndRewrite(FilterOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!isa_and_present<EmitOp>(op.getInput().getDefiningOp()))
+    auto emitOp = op.getInput().getDefiningOp<EmitOp>();
+    if (!emitOp)
       return rewriter.notifyMatchFailure(
           op, "input operand is not produced by an 'emit' op");
 
@@ -253,7 +254,6 @@ struct PushDuplicatesThroughFilterPattern : public OpRewritePattern<FilterOp> {
                                 newOp.getCondition().end());
 
     // Update the `condition` region.
-    auto emitOp = op.getInput().getDefiningOp<EmitOp>();
     deduplicateRegionArgs(newOp.getCondition(), emitOp.getMapping(),
                           newInput.getType(), rewriter);
 

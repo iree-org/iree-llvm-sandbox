@@ -152,7 +152,7 @@ substrait.plan version 0 : 42 : 1 {
 
 // -----
 
-// `filter` op.
+// `filter` op (`PushDuplicatesThroughFilterPattern`).
 
 // CHECK-LABEL: substrait.plan
 // CHECK-NEXT:    relation
@@ -177,6 +177,9 @@ func.func private @f(si1, si1, si1, si32, si1, si1) -> si1
 substrait.plan version 0 : 42 : 1 {
   relation {
     %0 = named_table @t1 as ["a", "b", "c", "d", "e"] : tuple<si1, si1, tuple<si1, si32>>
+    // Fields in position 1 and 3 are duplicates of field in position 0, so we
+    // expect all references to the former to be replaced by the latter and an
+    // `emit` re-establishing the original fields after the `filter`.
     %1 = emit [1, 1, 2, 1, 0] from %0
         : tuple<si1, si1, tuple<si1, si32>> -> tuple<si1, si1, tuple<si1, si32>, si1, si1>
     %2 = filter %1 : tuple<si1, si1, tuple<si1, si32>, si1, si1> {
