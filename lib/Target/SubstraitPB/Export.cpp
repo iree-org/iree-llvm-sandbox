@@ -9,6 +9,7 @@
 #include "structured/Target/SubstraitPB/Export.h"
 #include "ProtobufUtils.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/OpDefinition.h"
 #include "mlir/Support/LogicalResult.h"
 #include "structured/Dialect/Substrait/IR/Substrait.h"
 #include "structured/Target/SubstraitPB/Options.h"
@@ -182,10 +183,13 @@ FailureOr<std::unique_ptr<Rel>> exportOperation(EmitOp op) {
 
 FailureOr<std::unique_ptr<Expression>>
 exportOperation(ExpressionOpInterface op) {
-  return llvm::TypeSwitch<Operation *, FailureOr<std::unique_ptr<Expression>>>(
-             op)
-      .Case<FieldReferenceOp, LiteralOp>(
-          [&](auto op) { return exportOperation(op); })
+  return llvm::TypeSwitch<ExpressionOpInterface,
+                          FailureOr<std::unique_ptr<Expression>>>(op)
+      .Case<FieldReferenceOp, LiteralOp>([&](auto op) {
+        llvm::errs() << __PRETTY_FUNCTION__ << "\n";
+        op.dump();
+        return exportOperation(op);
+      })
       .Default(
           [](auto op) { return op->emitOpError("not supported for export"); });
 }
