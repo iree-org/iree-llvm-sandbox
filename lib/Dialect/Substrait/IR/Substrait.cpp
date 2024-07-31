@@ -51,6 +51,16 @@ void SubstraitDialect::initialize() {
 namespace mlir {
 namespace substrait {
 
+/// Implement `SymbolOpInterface`.
+::mlir::LogicalResult
+CallOp::verifySymbolUses(SymbolTableCollection &symbolTables) {
+  if (!symbolTables.lookupNearestSymbolFrom<ExtensionFunctionOp>(
+          *this, getCalleeAttr()))
+    return emitOpError() << "refers to " << getCalleeAttr()
+                         << ", which is not a valid 'extension_function' op";
+  return success();
+}
+
 LogicalResult
 CrossOp::inferReturnTypes(MLIRContext *context, std::optional<Location> loc,
                           ValueRange operands, DictionaryAttr attributes,
