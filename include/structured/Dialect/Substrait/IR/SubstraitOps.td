@@ -17,6 +17,7 @@ include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/BuiltinAttributes.td"
 include "mlir/IR/CommonAttrConstraints.td"
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
 
 class Substrait_Op<string mnemonic, list<Trait> traits = []> :
   Op<Substrait_Dialect, mnemonic, traits> {
@@ -50,6 +51,86 @@ def StringArrayAttr :
 }
 
 //===----------------------------------------------------------------------===//
+// Extensions
+//===----------------------------------------------------------------------===//
+// The definitions in this section are related to the extension messages.
+// See https://substrait.io/serialization/binary_serialization/ and
+// https://github.com/substrait-io/substrait/blob/main/proto/substrait/extensions/extensions.proto.
+//===----------------------------------------------------------------------===//
+
+def Substrait_ExtensionUriOp : Substrait_Op<"extension_uri", [
+    Symbol
+  ]> {
+  let summary = "Declares a simple extension URI";
+  let description = [{
+    This op represents the `SimpleExtensionURI` message type of Substrait. It is
+    a `Symbol` op, so it can be looked up in the symbol table of the plan it is
+    contained in.
+
+    Example code:
+
+    ```mlir
+    substrait.plan version 0 : 42 : 1 {
+      extension_uri @uri at "http://some.url/with/extensions.yml"
+      extension_function @function at @uri["func1"]
+      // ...
+    }
+    ```
+  }];
+  let arguments = (ins
+    SymbolNameAttr:$sym_name, // corresponds to `anchor`
+    StrAttr:$uri
+  );
+  let assemblyFormat = "$sym_name `at` $uri attr-dict";
+}
+
+class Substrait_ExtensionOp<string mnemonic, list<Trait> traits = []> :
+  Substrait_Op<"extension_" # mnemonic, traits # [
+    DeclareOpInterfaceMethods<SymbolUserOpInterface>,
+    DeclareOpInterfaceMethods<Symbol>
+  ]> {
+  let description = [{
+      This op represents the `SimpleExtensionDeclaration` message type of
+      Substrait along with the `Extension}]
+      # snakeCaseToCamelCase<mnemonic>.ret #
+    [{` message type in the `mapping_type` case. It is both a `Symbol` op, so it
+      can be looked up in the symbol table of the plan it is contained in.
+      Conversely, its symbol reference `uri` must refer to an extension URI op
+      in the nearest symbol table.
+    }];
+  let arguments = (ins
+    SymbolNameAttr:$sym_name, // corresponds to `anchor`
+    FlatSymbolRefAttr:$uri,
+    StrAttr:$name
+  );
+  let assemblyFormat = "$sym_name `at` $uri `[` $name `]` attr-dict";
+  let extraClassDefinition = [{
+    /// Implement `SymbolOpInterface`.
+    ::mlir::LogicalResult $cppClass::verifySymbolUses(
+        mlir::SymbolTableCollection &symbolTables) {
+      if (!symbolTables.lookupNearestSymbolFrom<ExtensionUriOp>(*this,
+                                                                getUriAttr()))
+        return emitOpError() << "refers to " << getUriAttr()
+                            << ", which is not a valid 'uri' op";
+      return success();
+    }
+  }];
+}
+
+def Substrait_ExtensionFunctionOp : Substrait_ExtensionOp<"function"> {
+  let summary = "Declares a simple extension function";
+}
+
+def Substrait_ExtensionTypeOp : Substrait_ExtensionOp<"type"> {
+  let summary = "Declares a simple extension type";
+}
+
+def Substrait_ExtensionTypeVariationOp :
+    Substrait_ExtensionOp<"type_variation"> {
+  let summary = "Declares a simple extension type variation";
+}
+
+//===----------------------------------------------------------------------===//
 // Plan
 //===----------------------------------------------------------------------===//
 // The definitions in this section are related to the top-level `Plan` message.
@@ -58,20 +139,23 @@ def StringArrayAttr :
 //===----------------------------------------------------------------------===//
 
 def PlanBodyOp : AnyOf<[
-    IsOp<"::mlir::substrait::PlanRelOp">
+    IsOp<"::mlir::substrait::PlanRelOp">,
+    IsOp<"::mlir::substrait::ExtensionUriOp">,
+    IsOp<"::mlir::substrait::ExtensionFunctionOp">,
+    IsOp<"::mlir::substrait::ExtensionTypeOp">,
+    IsOp<"::mlir::substrait::ExtensionTypeVariationOp">,
   ]>;
 
 def Substrait_PlanOp : Substrait_Op<"plan", [
     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getDefaultDialect"]>,
-    NoTerminator, NoRegionArguments, SingleBlock
+    NoTerminator, NoRegionArguments, SingleBlock, SymbolTable
   ]> {
   let summary = "Represents a Substrait plan";
   let description = [{
     This op represents the `Plan` message type of Substrait. It carries the
     version information inline as attributes, so it also subsumes the `Version`
-    message type. The body of the op consists of the `relation`s and (once
-    implemented) the extensions and types as well as their URLs defined in the
-    plan.
+    message type. The body of the op consists of the `relation`s and the
+    function and type extensions defined in the plan.
   }];
   let arguments = (ins
     UI32Attr:$major_number,
