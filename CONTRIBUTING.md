@@ -1,32 +1,23 @@
 # How to Contribute
 
-We'd love to accept your patches and contributions to this project. There are
-just a few small guidelines you need to follow.
+We'd love to accept your patches and contributions to this project.
 
-## Contributor License Agreement
+To get started with contributing, please take a look at the
+[Contributing](https://iree.dev/developers/general/contributing/) guide.
 
-Contributions to this project must be accompanied by a Contributor License
-Agreement (CLA). You (or your employer) retain the copyright to your
-contribution; this simply gives us permission to use and redistribute your
-contributions as part of the project. Head over to
-<https://cla.developers.google.com/> to see your current agreements on file or
-to sign a new one.
+## Getting in touch
 
-You generally only need to submit a CLA once, so if you've already submitted one
-(even if it was for a different project), you probably don't need to do it
-again.
+*   [GitHub issues](https://github.com/iree-org/iree-llvm-sandbox/issues): Feature requests,
+    bugs, and other work tracking
+*   [IREE Discord server](https://discord.gg/wEWh6Z9nMU): Daily development
+    discussions with the core team and collaborators
+*   [iree-discuss email list](https://groups.google.com/forum/#!forum/iree-discuss):
+    Announcements, general and low-priority discussion
 
-## Code Reviews
+## Community guidelines
 
-All submissions, including submissions by project members, require review. We
-use GitHub pull requests for this purpose. Consult
-[GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
-information on using pull requests.
-
-## Community Guidelines
-
-This project follows
-[Google's Open Source Community Guidelines](https://opensource.google/conduct/).
+This project follows the
+[LF Projects code of conduct](https://lfprojects.org/policies/code-of-conduct/).
 
 ## General purpose and spirit of this repository
 
