@@ -1,0 +1,65 @@
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN: | FileCheck %s
+
+# RUN: structured-translate -protobuf-to-substrait %s \
+# RUN: | structured-translate -substrait-to-protobuf \
+# RUN: | structured-translate -protobuf-to-substrait \
+# RUN: | FileCheck %s
+
+# CHECK:      substrait.plan version 0 : 42 : 1 {
+# CHECK-NEXT:   relation
+# CHECK:         %[[V0:.*]] = named_table
+# CHECK-NEXT:    %[[V1:.*]] = project %[[V0]] : tuple<si32> -> tuple<si32, si1, si32> {
+# CHECK-NEXT:    ^[[BB0:.*]](%[[ARG0:.*]]: tuple<si32>):
+# CHECK-NEXT:      %[[V2:.*]] = literal -1 : si1
+# CHECK-NEXT:      %[[V3:.*]] = literal 42 : si32
+# CHECK-NEXT:      yield %[[V2]], %[[V3]] : si1, si32
+# CHECK-NEXT:    }
+# CHECK-NEXT:    yield %[[V1]] :
+
+relations {
+  rel {
+    project {
+      common {
+        direct {
+        }
+      }
+      input {
+        read {
+          common {
+            direct {
+            }
+          }
+          base_schema {
+            names: "a"
+            struct {
+              types {
+                i32 {
+                  nullability: NULLABILITY_REQUIRED
+                }
+              }
+              nullability: NULLABILITY_REQUIRED
+            }
+          }
+          named_table {
+            names: "t1"
+          }
+        }
+      }
+      expressions {
+        literal {
+          boolean: true
+        }
+      }
+      expressions {
+        literal {
+          i32: 42
+        }
+      }
+    }
+  }
+}
+version {
+  minor_number: 42
+  patch_number: 1
+}

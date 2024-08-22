@@ -19,6 +19,7 @@
 #include <google/protobuf/text_format.h>
 #include <google/protobuf/util/json_util.h>
 #include <substrait/proto/algebra.pb.h>
+#include <substrait/proto/extensions/extensions.pb.h>
 #include <substrait/proto/plan.pb.h>
 #include <substrait/proto/type.pb.h>
 
@@ -54,20 +55,46 @@ DECLARE_IMPORT_FUNC(Literal, Expression::Literal, LiteralOp)
 DECLARE_IMPORT_FUNC(NamedTable, Rel, NamedTableOp)
 DECLARE_IMPORT_FUNC(Plan, Plan, PlanOp)
 DECLARE_IMPORT_FUNC(PlanRel, PlanRel, PlanRelOp)
+DECLARE_IMPORT_FUNC(ProjectRel, Rel, ProjectOp)
 DECLARE_IMPORT_FUNC(ReadRel, Rel, RelOpInterface)
 DECLARE_IMPORT_FUNC(Rel, Rel, RelOpInterface)
+DECLARE_IMPORT_FUNC(ScalarFunction, Expression::ScalarFunction, CallOp)
+
+// Helpers to build symbol names from anchors deterministically. This allows
+// to reate symbol references from anchors without look-up structure. Also,
+// the format is exploited by the export logic to recover the original anchor
+// values of (unmodified) imported plans.
+
+/// Builds a deterministic symbol name for an URI with the given anchor.
+static std::string buildUriSymName(int32_t anchor) {
+  return ("extension_uri." + Twine(anchor)).str();
+}
+
+/// Builds a deterministic symbol name for a function with the given anchor.
+static std::string buildFuncSymName(int32_t anchor) {
+  return ("extension_function." + Twine(anchor)).str();
+}
+
+/// Builds a deterministic symbol name for a type with the given anchor.
+static std::string buildTypeSymName(int32_t anchor) {
+  return ("extension_type." + Twine(anchor)).str();
+}
+
+/// Builds a deterministic symbol name for a type variation with the given
+/// anchor.
+static std::string buildTypeVarSymName(int32_t anchor) {
+  return ("extension_type_variation." + Twine(anchor)).str();
+}
 
 static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
                                               const proto::Type &type) {
 
-  proto::Type::KindCase kind_case = type.kind_case();
-  switch (kind_case) {
-  case proto::Type::kBool: {
+  proto::Type::KindCase kindCase = type.kind_case();
+  switch (kindCase) {
+  case proto::Type::kBool:
     return IntegerType::get(context, 1, IntegerType::Signed);
-  }
-  case proto::Type::kI32: {
+  case proto::Type::kI32:
     return IntegerType::get(context, 32, IntegerType::Signed);
-  }
   case proto::Type::kStruct: {
     const proto::Type::Struct &structType = type.struct_();
     llvm::SmallVector<mlir::Type> fieldTypes;
@@ -84,7 +111,8 @@ static mlir::FailureOr<mlir::Type> importType(MLIRContext *context,
   default: {
     auto loc = UnknownLoc::get(context);
     const pb::FieldDescriptor *desc =
-        proto::Type::GetDescriptor()->FindFieldByNumber(kind_case);
+        proto::Type::GetDescriptor()->FindFieldByNumber(kindCase);
+    assert(desc && "could not get field descriptor");
     return emitError(loc) << "could not import unsupported type "
                           << desc->name();
   }
@@ -119,12 +147,12 @@ importExpression(ImplicitLocOpBuilder builder, const Expression &message) {
 
   Expression::RexTypeCase rex_type = message.rex_type_case();
   switch (rex_type) {
-  case Expression::RexTypeCase::kLiteral: {
+  case Expression::kLiteral:
     return importLiteral(builder, message.literal());
-  }
-  case Expression::RexTypeCase::kSelection: {
+  case Expression::kSelection:
     return importFieldReference(builder, message.selection());
-  }
+  case Expression::kScalarFunction:
+    return importScalarFunction(builder, message.scalar_function());
   default: {
     const pb::FieldDescriptor *desc =
         Expression::GetDescriptor()->FindFieldByNumber(rex_type);
@@ -203,6 +231,11 @@ importLiteral(ImplicitLocOpBuilder builder,
   case Expression::Literal::LiteralTypeCase::kBoolean: {
     auto attr = IntegerAttr::get(
         IntegerType::get(context, 1, IntegerType::Signed), message.boolean());
+    return builder.create<LiteralOp>(attr);
+  }
+  case Expression::Literal::LiteralTypeCase::kI32: {
+    auto attr = IntegerAttr::get(
+        IntegerType::get(context, 32, IntegerType::Signed), message.i32());
     return builder.create<LiteralOp>(attr);
   }
   default: {
@@ -297,15 +330,81 @@ importNamedTable(ImplicitLocOpBuilder builder, const Rel &message) {
 
 static FailureOr<PlanOp> importPlan(ImplicitLocOpBuilder builder,
                                     const Plan &message) {
+  using extensions::SimpleExtensionDeclaration;
+  using extensions::SimpleExtensionURI;
+  using ExtensionFunction = SimpleExtensionDeclaration::ExtensionFunction;
+  using ExtensionType = SimpleExtensionDeclaration::ExtensionType;
+  using ExtensionTypeVariation =
+      SimpleExtensionDeclaration::ExtensionTypeVariation;
+
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
   const Version &version = message.version();
   auto planOp = builder.create<PlanOp>(
       version.major_number(), version.minor_number(), version.patch_number(),
       version.git_hash(), version.producer());
   planOp.getBody().push_back(new Block());
 
-  for (const auto &relation : message.relations()) {
-    OpBuilder::InsertionGuard insertGuard(builder);
-    builder.setInsertionPointToEnd(&planOp.getBody().front());
+  OpBuilder::InsertionGuard insertGuard(builder);
+  builder.setInsertionPointToEnd(&planOp.getBody().front());
+
+  // Import `extension_uris` creating symbol names deterministically.
+  for (const SimpleExtensionURI &extUri : message.extension_uris()) {
+    int32_t anchor = extUri.extension_uri_anchor();
+    StringRef uri = extUri.uri();
+    std::string symName = buildUriSymName(anchor);
+    builder.create<ExtensionUriOp>(symName, uri);
+  }
+
+  // Import `extension`s reconstructing symbol references to URI ops from the
+  // corresponding anchors using the same method as above.
+  for (const SimpleExtensionDeclaration &ext : message.extensions()) {
+    SimpleExtensionDeclaration::MappingTypeCase mappingCase =
+        ext.mapping_type_case();
+    switch (mappingCase) {
+    case SimpleExtensionDeclaration::kExtensionFunction: {
+      const ExtensionFunction &func = ext.extension_function();
+      int32_t anchor = func.function_anchor();
+      int32_t uriRef = func.extension_uri_reference();
+      const std::string &funcName = func.name();
+      std::string symName = buildFuncSymName(anchor);
+      std::string uriSymName = buildUriSymName(uriRef);
+      builder.create<ExtensionFunctionOp>(symName, uriSymName, funcName);
+      break;
+    }
+    case SimpleExtensionDeclaration::kExtensionType: {
+      const ExtensionType &type = ext.extension_type();
+      int32_t anchor = type.type_anchor();
+      int32_t uriRef = type.extension_uri_reference();
+      const std::string &typeName = type.name();
+      std::string symName = buildTypeSymName(anchor);
+      std::string uriSymName = buildUriSymName(uriRef);
+      builder.create<ExtensionTypeOp>(symName, uriSymName, typeName);
+      break;
+    }
+    case SimpleExtensionDeclaration::kExtensionTypeVariation: {
+      const ExtensionTypeVariation &typeVar = ext.extension_type_variation();
+      int32_t anchor = typeVar.type_variation_anchor();
+      int32_t uriRef = typeVar.extension_uri_reference();
+      const std::string &typeVarName = typeVar.name();
+      std::string symName = buildTypeVarSymName(anchor);
+      std::string uriSymName = buildUriSymName(uriRef);
+      builder.create<ExtensionTypeVariationOp>(symName, uriSymName,
+                                               typeVarName);
+      break;
+    }
+    default:
+      const pb::FieldDescriptor *desc =
+          SimpleExtensionDeclaration::GetDescriptor()->FindFieldByNumber(
+              mappingCase);
+      return emitError(loc)
+             << Twine("unsupported SimpleExtensionDeclaration type: ") +
+                    desc->name();
+    }
+  }
+
+  for (const PlanRel &relation : message.relations()) {
     if (failed(importPlanRel(builder, relation)))
       return failure();
   }
@@ -358,6 +457,58 @@ static FailureOr<PlanRelOp> importPlanRel(ImplicitLocOpBuilder builder,
   return planRelOp;
 }
 
+static mlir::FailureOr<ProjectOp> importProjectRel(ImplicitLocOpBuilder builder,
+                                                   const Rel &message) {
+  const ProjectRel &projectRel = message.project();
+
+  // Import input op.
+  const Rel &inputRel = projectRel.input();
+  mlir::FailureOr<RelOpInterface> inputOp = importRel(builder, inputRel);
+  if (failed(inputOp))
+    return failure();
+
+  // Create `expressions` block.
+  auto conditionBlock = std::make_unique<Block>();
+  auto inputTupleType =
+      cast<TupleType>(inputOp.value()->getResult(0).getType());
+  conditionBlock->addArgument(inputTupleType, inputOp->getLoc());
+
+  // Fill `expressions` block with expression trees.
+  YieldOp yieldOp;
+  {
+    OpBuilder::InsertionGuard guard(builder);
+    builder.setInsertionPointToEnd(conditionBlock.get());
+
+    SmallVector<Value> values;
+    values.reserve(projectRel.expressions_size());
+    for (const Expression &expression : projectRel.expressions()) {
+      // Import expression tree recursively.
+      FailureOr<ExpressionOpInterface> rootExprOp =
+          importExpression(builder, expression);
+      if (failed(rootExprOp))
+        return failure();
+      values.push_back(rootExprOp.value()->getResult(0));
+    }
+
+    // Create final `yield` op with root expression values.
+    yieldOp = builder.create<YieldOp>(values);
+  }
+
+  // Compute output type.
+  SmallVector<mlir::Type> resultFieldTypes;
+  resultFieldTypes.reserve(inputTupleType.size() + yieldOp->getNumOperands());
+  append_range(resultFieldTypes, inputTupleType);
+  append_range(resultFieldTypes, yieldOp->getOperandTypes());
+  auto resultType = TupleType::get(builder.getContext(), resultFieldTypes);
+
+  // Create `project` op.
+  auto projectOp =
+      builder.create<ProjectOp>(resultType, inputOp.value()->getResult(0));
+  projectOp.getExpressions().push_back(conditionBlock.release());
+
+  return projectOp;
+}
+
 static mlir::FailureOr<RelOpInterface>
 importReadRel(ImplicitLocOpBuilder builder, const Rel &message) {
   MLIRContext *context = builder.getContext();
@@ -390,6 +541,9 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
     break;
   case Rel::RelTypeCase::kFilter:
     maybeOp = importFilterRel(builder, message);
+    break;
+  case Rel::RelTypeCase::kProject:
+    maybeOp = importProjectRel(builder, message);
     break;
   case Rel::RelTypeCase::kRead:
     maybeOp = importReadRel(builder, message);
@@ -425,6 +579,50 @@ static mlir::FailureOr<RelOpInterface> importRel(ImplicitLocOpBuilder builder,
   auto emitOp = builder.create<EmitOp>(op->getResult(0), mappingAttr);
 
   return {emitOp};
+}
+
+static mlir::FailureOr<CallOp>
+importScalarFunction(ImplicitLocOpBuilder builder,
+                     const Expression::ScalarFunction &message) {
+  MLIRContext *context = builder.getContext();
+  Location loc = UnknownLoc::get(context);
+
+  // Import `output_type`.
+  proto::Type outputType = message.output_type();
+  FailureOr<mlir::Type> mlirOutputType = importType(context, outputType);
+  if (failed(mlirOutputType))
+    return failure();
+
+  // Import `arguments`.
+  SmallVector<Value> operands;
+  for (const FunctionArgument &arg : message.arguments()) {
+    // Error out on unsupported cases.
+    // TODO(ingomueller): Support other function argument types.
+    if (!arg.has_value()) {
+      const pb::FieldDescriptor *desc =
+          FunctionArgument::GetDescriptor()->FindFieldByNumber(
+              arg.arg_type_case());
+      return emitError(loc) << Twine("unsupported arg type: ") + desc->name();
+    }
+
+    // Handle `value` case.
+    const Expression &value = arg.value();
+    FailureOr<ExpressionOpInterface> expression =
+        importExpression(builder, value);
+    if (failed(expression))
+      return failure();
+    operands.push_back((*expression)->getResult(0));
+  }
+
+  // Import `function_refernece` field.
+  int32_t anchor = message.function_reference();
+  std::string calleeSymName = buildFuncSymName(anchor);
+
+  // Create op.
+  auto callOp =
+      builder.create<CallOp>(mlirOutputType.value(), calleeSymName, operands);
+
+  return {callOp};
 }
 
 } // namespace
