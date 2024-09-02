@@ -588,7 +588,7 @@ importScalarFunction(ImplicitLocOpBuilder builder,
   Location loc = UnknownLoc::get(context);
 
   // Import `output_type`.
-  proto::Type outputType = message.output_type();
+  const proto::Type &outputType = message.output_type();
   FailureOr<mlir::Type> mlirOutputType = importType(context, outputType);
   if (failed(mlirOutputType))
     return failure();
@@ -614,7 +614,7 @@ importScalarFunction(ImplicitLocOpBuilder builder,
     operands.push_back((*expression)->getResult(0));
   }
 
-  // Import `function_refernece` field.
+  // Import `function_reference` field.
   int32_t anchor = message.function_reference();
   std::string calleeSymName = buildFuncSymName(anchor);
 
