@@ -262,7 +262,7 @@ def Substrait_FieldReferenceOp : Substrait_ExpressionOp<"field_reference", [
 
     ```mlir
     %0 = ...
-    %1 = field_reference %0[[0]] : tuple<si32>
+    %1 = field_reference %0[0] : tuple<si32>
     // %1 is of type `si32`
     ```
   }];
