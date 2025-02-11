@@ -35,13 +35,11 @@ jobs:
         path: sandbox/.git
         key: git-folder
 
-    - name: Install protobuf
-      run: |
-        sudo apt-get install -y protobuf-compiler libprotobuf-dev
-
-    - name: Install libcurl
-      run: |
-        sudo apt-get install -y libcurl4-gnutls-dev
+    - name: Install dependencies from apt
+      uses: awalsh128/cache-apt-pkgs-action@v1.4.2
+      with:
+        packages: protobuf-compiler libprotobuf-dev libcurl4-gnutls-dev
+        version: 1.0
 
     - name: Checkout project
       uses: actions/checkout@v3
