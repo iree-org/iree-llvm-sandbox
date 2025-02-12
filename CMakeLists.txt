@@ -6,15 +6,6 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif()
 
 ################################################################################
-# Set up dependencies
-################################################################################
-
-# Required for Substrait. v3.6.1 provided by Ubuntu 20.04 did not work due to
-# an incompatibility with `-fno-rtti`, which LLVM uses, while v3.12.4 provided
-# by Ubuntu 22.04 worked. Possibly some versions inbetween work as well.
-find_package(Protobuf 3.12.0 REQUIRED)
-
-################################################################################
 # Set some variables
 ################################################################################
 set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
@@ -58,11 +49,6 @@ mlir_configure_python_dev_packages()
 include(TableGen)
 include(AddLLVM)
 include(AddMLIR)
-
-################################################################################
-# Dependencies from git sub-modules
-################################################################################
-add_subdirectory(third_party)
 
 ################################################################################
 # Subdirs to recurse into

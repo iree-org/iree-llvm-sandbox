@@ -38,7 +38,7 @@ jobs:
     - name: Install dependencies from apt
       uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # v1.4.3
       with:
-        packages: protobuf-compiler libprotobuf-dev libcurl4-gnutls-dev
+        packages: libcurl4-gnutls-dev
         version: 1.0
 
     - name: Checkout project

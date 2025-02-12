@@ -8,10 +8,8 @@ add_mlir_public_c_api_library(StructuredCAPI
     MLIRIterators
     MLIRIteratorsToLLVM
     MLIRIteratorsTransforms
-    MLIRSubstraitDialect
     MLIRTabular
     MLIRTabularToLLVM
-    MLIRTargetSubstraitPB
     MLIRTupleDialect
     MLIRTupleTransforms
     MLIRPass
