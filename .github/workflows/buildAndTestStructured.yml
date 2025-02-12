@@ -36,7 +36,7 @@ jobs:
         key: git-folder
 
     - name: Install dependencies from apt
-      uses: awalsh128/cache-apt-pkgs-action@v1.4.2
+      uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # v1.4.3
       with:
         packages: protobuf-compiler libprotobuf-dev libcurl4-gnutls-dev
         version: 1.0
@@ -51,7 +51,7 @@ jobs:
       uses: llvm/actions/install-ninja@6a57890d0e3f9f35dfc72e7e48bc5e1e527cdd6c # Jan 17
 
     - name: Ccache for C++ compilation
-      uses: hendrikmuhs/ccache-action@621a41397ed83711c72862638d9ff6e63fca3041 # v1.2.3
+      uses: hendrikmuhs/ccache-action@53911442209d5c18de8a31615e0923161e435875 # v1.2.16
       with:
         key: ${{ runner.os }}-structured
         # LLVM needs serious cache size
@@ -105,7 +105,7 @@ jobs:
         ${GITHUB_WORKSPACE}/sandbox/benchmarks/inner_product/plot.sh -i /tmp/result.jsonl
 
     - name: Archive benchmark plots
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: structured-benchmark-plots
         path: |
