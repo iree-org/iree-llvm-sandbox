@@ -47,6 +47,12 @@ jobs:
         path: sandbox
         submodules: recursive
 
+    - name: Patch LLVM with WIP patch for testing
+      run: |
+        cd ${STRUCTURED_MAIN_SRC_DIR}/third_party/llvm-project
+        patch -p1 < ../../cast.patch
+        git diff
+
     - name: Install Ninja
       uses: llvm/actions/install-ninja@6a57890d0e3f9f35dfc72e7e48bc5e1e527cdd6c # Jan 17
 
